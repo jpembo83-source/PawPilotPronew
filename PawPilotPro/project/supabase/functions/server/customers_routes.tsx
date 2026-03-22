@@ -888,8 +888,6 @@ app.get('/households/:household_id/documents', async (c) => {
     
     const householdId = c.req.param('household_id');
     
-    console.log('[List Documents] Searching with tenant:', tenantId, 'household:', householdId);
-    
     // DEBUG: Check if documents exist with different tenant IDs
     const allDocs = await kv.getByPrefix(`customer:`);
     const householdDocs = allDocs.filter((d: any) => {
