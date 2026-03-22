@@ -880,7 +880,6 @@ app.get('/households/:household_id/documents', async (c) => {
       try {
         const user = await getUserFromToken(token);
         tenantId = getTenantId(user);
-        console.log('[List Documents] Authenticated tenant:', tenantId, 'user:', user.email);
       } catch (e) {
         console.log('[List Documents] Using demo tenant (auth failed)');
       }
