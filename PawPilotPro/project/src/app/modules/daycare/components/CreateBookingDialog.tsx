@@ -7,7 +7,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Badge } from '../../../components/ui/badge';
-import { Search, Dog, AlertTriangle, Clock, Truck } from 'lucide-react';
+import { Search, Dog, AlertTriangle, Clock, Truck, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { SERVICE_TYPES } from '../types';
 import { Checkbox } from '../../../components/ui/checkbox';
@@ -57,6 +57,13 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
   const [transportPickupAddress, setTransportPickupAddress] = useState('');
   const [transportDropoffAddress, setTransportDropoffAddress] = useState('');
   const [searching, setSearching] = useState(false);
+
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurFrequency, setRecurFrequency] = useState<'daily' | 'weekly'>('weekly');
+  const [recurDays, setRecurDays] = useState<number[]>([]);
+  const [recurEndType, setRecurEndType] = useState<'date' | 'count'>('date');
+  const [recurEndDate, setRecurEndDate] = useState('');
+  const [recurCount, setRecurCount] = useState(4);
   
   useEffect(() => {
     if (!open) {
@@ -74,8 +81,71 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
       setRequiresTransport(false);
       setTransportPickupAddress('');
       setTransportDropoffAddress('');
+      setIsRecurring(false);
+      setRecurFrequency('weekly');
+      setRecurDays([]);
+      setRecurEndType('date');
+      setRecurEndDate('');
+      setRecurCount(4);
     }
   }, [open]);
+
+  const generateRecurDates = (baseDate: string): string[] => {
+    if (!isRecurring) return [baseDate];
+    const dates: string[] = [];
+    const start = new Date(baseDate + 'T00:00:00');
+    const effectiveDays = recurDays.length > 0 ? recurDays : [start.getDay()];
+    const addDate = (d: Date) => dates.push(d.toISOString().split('T')[0]);
+
+    if (recurFrequency === 'daily') {
+      if (recurEndType === 'count') {
+        const cur = new Date(start);
+        for (let i = 0; i < Math.min(recurCount, 365); i++) {
+          addDate(cur);
+          cur.setDate(cur.getDate() + 1);
+        }
+      } else if (recurEndDate) {
+        const end = new Date(recurEndDate + 'T00:00:00');
+        const cur = new Date(start);
+        while (cur <= end && dates.length < 365) {
+          addDate(cur);
+          cur.setDate(cur.getDate() + 1);
+        }
+      } else {
+        addDate(start);
+      }
+    } else {
+      if (recurEndType === 'count') {
+        let count = 0;
+        const maxWeeks = Math.ceil(recurCount / effectiveDays.length) + 2;
+        const cur = new Date(start);
+        cur.setDate(cur.getDate() - cur.getDay());
+        for (let w = 0; w <= maxWeeks && count < recurCount; w++) {
+          for (const day of effectiveDays.slice().sort()) {
+            const d = new Date(cur);
+            d.setDate(cur.getDate() + day);
+            if (d >= start && count < recurCount) { addDate(d); count++; }
+          }
+          cur.setDate(cur.getDate() + 7);
+        }
+      } else if (recurEndDate) {
+        const end = new Date(recurEndDate + 'T00:00:00');
+        const cur = new Date(start);
+        cur.setDate(cur.getDate() - cur.getDay());
+        while (cur <= end && dates.length < 365) {
+          for (const day of effectiveDays.slice().sort()) {
+            const d = new Date(cur);
+            d.setDate(cur.getDate() + day);
+            if (d >= start && d <= end) addDate(d);
+          }
+          cur.setDate(cur.getDate() + 7);
+        }
+      } else {
+        addDate(start);
+      }
+    }
+    return dates;
+  };
   
   useEffect(() => {
     if (serviceType === 'half_day') {
@@ -153,63 +223,85 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
       return;
     }
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
+    const checkDateConflict = async (date: string): Promise<boolean> => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) return false;
         const headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${publicAnonKey}`,
           'X-User-Token': `Bearer ${session.access_token}`,
         };
-        const params = new URLSearchParams({
-          pet_id: selectedPet.id,
-          date: bookingDate,
-          location_id: selectedLocationId,
-        });
+        const params = new URLSearchParams({ pet_id: selectedPet.id, date, location_id: selectedLocationId });
         const res = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/bookings?${params}`,
           { headers },
         );
         if (res.ok) {
           const existing: any[] = await res.json();
-          const conflict = existing.find(b => b.booking_status !== 'cancelled');
-          if (conflict) {
-            toast.error(`${selectedPet.name} already has a daycare booking on this date`);
-            return;
-          }
+          return existing.some(b => b.booking_status !== 'cancelled');
         }
-      }
-    } catch {
-    }
+      } catch { }
+      return false;
+    };
+
+    const dates = generateRecurDates(bookingDate);
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
 
     try {
-      const bookingData: any = {
-        household_id: selectedHousehold.household_id,
-        pet_id: selectedPet.id,
-        location_id: selectedLocationId,
-        location_name: getLocationName(),
-        service_id: getServiceId(serviceType),
-        service_name: getServiceName(serviceType),
-        service_type: serviceType,
-        booking_date: bookingDate,
-        planned_start_time: startTime,
-        planned_end_time: endTime,
-        customer_notes: notes,
-        requires_transport: requiresTransport,
-      };
-      
-      if (requiresTransport) {
-        bookingData.transport_pickup_address = transportPickupAddress;
-        bookingData.transport_dropoff_address = transportDropoffAddress;
-        bookingData.location_address = getLocationName();
+      for (const date of dates) {
+        const hasConflict = await checkDateConflict(date);
+        if (hasConflict) { skipped++; continue; }
+        try {
+          const bookingData: any = {
+            household_id: selectedHousehold.household_id,
+            pet_id: selectedPet.id,
+            location_id: selectedLocationId,
+            location_name: getLocationName(),
+            service_id: getServiceId(serviceType),
+            service_name: getServiceName(serviceType),
+            service_type: serviceType,
+            booking_date: date,
+            planned_start_time: startTime,
+            planned_end_time: endTime,
+            customer_notes: notes,
+            requires_transport: requiresTransport,
+          };
+          if (requiresTransport) {
+            bookingData.transport_pickup_address = transportPickupAddress;
+            bookingData.transport_dropoff_address = transportDropoffAddress;
+            bookingData.location_address = getLocationName();
+          }
+          await createBooking(bookingData);
+          created++;
+        } catch {
+          failed++;
+        }
       }
-      
-      await createBooking(bookingData);
-      
-      toast.success(`${getServiceName(serviceType)} booking created for ${selectedPet.name}`);
+
+      if (dates.length === 1) {
+        if (created === 1) {
+          toast.success(`${getServiceName(serviceType)} booking created for ${selectedPet.name}`);
+        } else {
+          toast.error(`Failed to create booking for ${selectedPet.name}`);
+          return;
+        }
+      } else {
+        const parts: string[] = [`Created ${created} booking${created !== 1 ? 's' : ''} for ${selectedPet.name}`];
+        if (skipped) parts.push(`${skipped} skipped (already booked)`);
+        if (failed) parts.push(`${failed} failed`);
+        if (created > 0) {
+          toast.success(parts.join(' · '));
+        } else {
+          toast.error(`No bookings created — all ${skipped} dates already booked`);
+          return;
+        }
+      }
       onSuccess();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create booking');
+      toast.error(error.message || 'Failed to create bookings');
     }
   };
   
@@ -460,6 +552,132 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
               </div>
             </div>
             
+            {/* Recurring options */}
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="cbd-recurring"
+                  checked={isRecurring}
+                  onCheckedChange={v => {
+                    setIsRecurring(v === true);
+                    if (v) {
+                      const baseDay = new Date(bookingDate + 'T00:00:00').getDay();
+                      setRecurDays([baseDay]);
+                      const endD = new Date(bookingDate + 'T00:00:00');
+                      endD.setDate(endD.getDate() + 28);
+                      setRecurEndDate(endD.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+                <Label htmlFor="cbd-recurring" className="font-normal flex items-center gap-1.5 cursor-pointer">
+                  <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                  Make this a recurring booking
+                </Label>
+              </div>
+
+              {isRecurring && (
+                <div className="pl-6 space-y-3 text-sm">
+                  <div>
+                    <Label className="text-xs text-slate-500 uppercase tracking-wide">Frequency</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      {(['daily', 'weekly'] as const).map(f => (
+                        <button
+                          key={f}
+                          onClick={() => setRecurFrequency(f)}
+                          className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                            recurFrequency === f
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          {f === 'daily' ? 'Daily' : 'Weekly'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {recurFrequency === 'weekly' && (
+                    <div>
+                      <Label className="text-xs text-slate-500 uppercase tracking-wide">Repeat on</Label>
+                      <div className="flex gap-1 mt-1.5 flex-wrap">
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
+                          <button
+                            key={d}
+                            onClick={() => setRecurDays(prev =>
+                              prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                            )}
+                            className={`w-8 h-8 rounded-full text-xs font-semibold border transition-colors ${
+                              recurDays.includes(i)
+                                ? 'bg-primary text-white border-primary'
+                                : 'border-slate-300 text-slate-600 hover:border-slate-400'
+                            }`}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-xs text-slate-500 uppercase tracking-wide">End</Label>
+                    <div className="flex gap-2 mt-1.5">
+                      {(['date', 'count'] as const).map(t => (
+                        <button
+                          key={t}
+                          onClick={() => setRecurEndType(t)}
+                          className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                            recurEndType === t
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          {t === 'date' ? 'On date' : 'After N bookings'}
+                        </button>
+                      ))}
+                    </div>
+                    {recurEndType === 'date' && (
+                      <Input
+                        type="date"
+                        value={recurEndDate}
+                        onChange={e => setRecurEndDate(e.target.value)}
+                        className="mt-2 max-w-[180px]"
+                      />
+                    )}
+                    {recurEndType === 'count' && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          max={52}
+                          value={recurCount}
+                          onChange={e => setRecurCount(Number(e.target.value))}
+                          className="w-20"
+                        />
+                        <span className="text-slate-500 text-sm">bookings</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {(() => {
+                    const dates = generateRecurDates(bookingDate);
+                    if (dates.length === 0) return (
+                      <p className="text-slate-500 text-sm">Configure the options above to preview your schedule.</p>
+                    );
+                    return (
+                      <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-blue-800 text-sm">
+                        Will create <strong>{dates.length}</strong> booking{dates.length !== 1 ? 's' : ''}
+                        {dates.length <= 5
+                          ? ': ' + dates.map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })).join(', ')
+                          : ` from ${new Date(dates[0] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} to ${new Date(dates[dates.length - 1] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                        }
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="notes">Notes (Optional)</Label>
               <Input
@@ -521,11 +739,21 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          {step === 'details' && (
-            <Button onClick={handleCreateBooking} disabled={isLoading}>
-              Create Booking
-            </Button>
-          )}
+          {step === 'details' && (() => {
+            const dates = isRecurring ? generateRecurDates(bookingDate) : [bookingDate];
+            return (
+              <Button onClick={handleCreateBooking} disabled={isLoading || (isRecurring && dates.length === 0)}>
+                {isRecurring && dates.length > 1 ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Create {dates.length} Bookings
+                  </>
+                ) : (
+                  'Create Booking'
+                )}
+              </Button>
+            );
+          })()}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -5,7 +5,8 @@ import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Badge } from '../../../../components/ui/badge';
-import { Search, Calendar as CalendarIcon, Clock, Scissors, Moon, Dog } from 'lucide-react';
+import { Checkbox } from '../../../../components/ui/checkbox';
+import { Search, Calendar as CalendarIcon, Clock, Scissors, Moon, Dog, RefreshCw } from 'lucide-react';
 import { useDaycareStore } from '../../../daycare/store';
 import { useGroomingStore } from '../../../grooming/store';
 import { useOvernightsStore } from '../../../overnights/store';
@@ -110,6 +111,13 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
 
   const [notes, setNotes] = useState('');
 
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurFrequency, setRecurFrequency] = useState<'daily' | 'weekly'>('weekly');
+  const [recurDays, setRecurDays] = useState<number[]>([]);
+  const [recurEndType, setRecurEndType] = useState<'date' | 'count'>('date');
+  const [recurEndDate, setRecurEndDate] = useState('');
+  const [recurCount, setRecurCount] = useState(4);
+
   const { searchCustomers: searchDaycare, createBooking } = useDaycareStore();
   const { createAppointment, searchCustomers: searchGrooming } = useGroomingStore();
   const { createReservation, reservations: overnightReservations } = useOvernightsStore();
@@ -149,7 +157,79 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
     setAppointmentTime('09:00');
     setStartDate(today());
     setEndDate(tomorrow());
+    setIsRecurring(false);
+    setRecurFrequency('weekly');
+    setRecurDays([]);
+    setRecurEndType('date');
+    setRecurEndDate('');
+    setRecurCount(4);
   };
+
+  const generateRecurDates = (baseDate: string): string[] => {
+    if (!isRecurring) return [baseDate];
+    const dates: string[] = [];
+    const start = new Date(baseDate + 'T00:00:00');
+    const effectiveDays = recurDays.length > 0 ? recurDays : [start.getDay()];
+    const addDate = (d: Date) => dates.push(d.toISOString().split('T')[0]);
+
+    if (recurFrequency === 'daily') {
+      if (recurEndType === 'count') {
+        const cur = new Date(start);
+        for (let i = 0; i < Math.min(recurCount, 365); i++) {
+          addDate(cur);
+          cur.setDate(cur.getDate() + 1);
+        }
+      } else if (recurEndDate) {
+        const end = new Date(recurEndDate + 'T00:00:00');
+        const cur = new Date(start);
+        while (cur <= end && dates.length < 365) {
+          addDate(cur);
+          cur.setDate(cur.getDate() + 1);
+        }
+      } else {
+        addDate(start);
+      }
+    } else {
+      if (recurEndType === 'count') {
+        let count = 0;
+        const maxWeeks = Math.ceil(recurCount / effectiveDays.length) + 2;
+        const cur = new Date(start);
+        cur.setDate(cur.getDate() - cur.getDay());
+        for (let w = 0; w <= maxWeeks && count < recurCount; w++) {
+          for (const day of effectiveDays.slice().sort()) {
+            const d = new Date(cur);
+            d.setDate(cur.getDate() + day);
+            if (d >= start && count < recurCount) {
+              addDate(d);
+              count++;
+            }
+          }
+          cur.setDate(cur.getDate() + 7);
+        }
+      } else if (recurEndDate) {
+        const end = new Date(recurEndDate + 'T00:00:00');
+        const cur = new Date(start);
+        cur.setDate(cur.getDate() - cur.getDay());
+        while (cur <= end && dates.length < 365) {
+          for (const day of effectiveDays.slice().sort()) {
+            const d = new Date(cur);
+            d.setDate(cur.getDate() + day);
+            if (d >= start && d <= end) addDate(d);
+          }
+          cur.setDate(cur.getDate() + 7);
+        }
+      } else {
+        addDate(start);
+      }
+    }
+    return dates;
+  };
+
+  const recurDates = useMemo(() => {
+    if (!isRecurring) return [];
+    const base = selectedService === 'grooming' ? appointmentDate : bookingDate;
+    return generateRecurDates(base);
+  }, [isRecurring, recurFrequency, recurDays, recurEndType, recurEndDate, recurCount, bookingDate, appointmentDate, selectedService]);
 
   useEffect(() => {
     if (!open) return;
@@ -198,47 +278,46 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
     }
   };
 
-  const checkForConflict = async (): Promise<string | null> => {
-    if (!selectedPet || !selectedService) return null;
+  const checkForConflict = async (dateOverride?: string): Promise<boolean> => {
+    if (!selectedPet || !selectedService) return false;
     try {
       const headers = await buildAuthHeaders();
 
       if (selectedService === 'daycare') {
-        const params = new URLSearchParams({ pet_id: selectedPet.id, date: bookingDate });
+        const date = dateOverride ?? bookingDate;
+        const params = new URLSearchParams({ pet_id: selectedPet.id, date });
         if (selectedLocationId !== 'ALL') params.set('location_id', selectedLocationId);
         const res = await fetch(`${API_BASE}/daycare/bookings?${params}`, { headers });
         if (res.ok) {
           const existing: any[] = await res.json();
-          const conflict = existing.find(b => b.booking_status !== 'cancelled');
-          if (conflict) return `${selectedPet.name} already has a daycare booking on this date`;
+          return existing.some(b => b.booking_status !== 'cancelled');
         }
       }
 
       if (selectedService === 'grooming') {
-        const params = new URLSearchParams({ pet_id: selectedPet.id, date: appointmentDate });
+        const date = dateOverride ?? appointmentDate;
+        const params = new URLSearchParams({ pet_id: selectedPet.id, date });
         const res = await fetch(`${API_BASE}/grooming/appointments?${params}`, { headers });
         if (res.ok) {
           const existing: any[] = await res.json();
-          const conflict = existing.find(a => a.status !== 'cancelled');
-          if (conflict) return `${selectedPet.name} already has a grooming appointment on this date`;
+          return existing.some(a => a.status !== 'cancelled');
         }
       }
 
       if (selectedService === 'overnights') {
         const start = new Date(startDate);
         const end = new Date(endDate);
-        const conflict = overnightReservations.find(r =>
+        return overnightReservations.some(r =>
           r.petId === selectedPet.id &&
           r.status !== 'cancelled' &&
           new Date(r.startDate) < end &&
           new Date(r.endDate) > start
         );
-        if (conflict) return `${selectedPet.name} already has an overnight reservation overlapping these dates`;
       }
 
-      return null;
+      return false;
     } catch {
-      return null;
+      return false;
     }
   };
 
@@ -250,48 +329,12 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
     }
     setIsCreating(true);
     try {
-      const conflict = await checkForConflict();
-      if (conflict) {
-        toast.error(conflict);
-        return;
-      }
-      if (selectedService === 'daycare') {
-        const variant = DAYCARE_VARIANTS.find(v => v.label === daycareVariantLabel) ?? DAYCARE_VARIANTS[0];
-        await createBooking({
-          household_id: selectedHousehold.household_id,
-          pet_id: selectedPet.id,
-          location_id: selectedLocationId,
-          location_name: selectedLocation?.name ?? '',
-          service_id: `service-daycare-${variant.serviceType}`,
-          service_name: `Daycare (${variant.label})`,
-          service_type: variant.serviceType,
-          booking_date: bookingDate,
-          planned_start_time: startTime,
-          planned_end_time: endTime,
-          customer_notes: notes || undefined,
-        });
-        toast.success(`Daycare booking created for ${selectedPet.name}`);
-      } else if (selectedService === 'grooming') {
-        const serviceInfo = GROOMING_SERVICE_TYPES[groomingServiceType];
-        await createAppointment({
-          household_id: selectedHousehold.household_id,
-          household_name: selectedHousehold.household_name,
-          pet_id: selectedPet.id,
-          pet_name: selectedPet.name,
-          pet_breed: selectedPet.breed,
-          pet_size: selectedPet.size,
-          location_id: selectedLocationId,
-          location_name: selectedLocation?.name ?? '',
-          service_type: groomingServiceType,
-          service_name: serviceInfo.label,
-          estimated_duration_minutes: serviceInfo.defaultDuration,
-          appointment_date: appointmentDate,
-          appointment_time: appointmentTime,
-          status: 'confirmed',
-          customer_notes: notes || undefined,
-        });
-        toast.success(`Grooming appointment created for ${selectedPet.name}`);
-      } else if (selectedService === 'overnights') {
+      if (selectedService === 'overnights') {
+        const hasConflict = await checkForConflict();
+        if (hasConflict) {
+          toast.error(`${selectedPet.name} already has an overnight reservation overlapping these dates`);
+          return;
+        }
         await createReservation({
           customerId: selectedHousehold.household_id,
           petId: selectedPet.id,
@@ -317,6 +360,76 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
           customerName: selectedHousehold.household_name,
         } as any);
         toast.success(`Overnight reservation created for ${selectedPet.name}`);
+      } else {
+        const baseDate = selectedService === 'grooming' ? appointmentDate : bookingDate;
+        const dates = generateRecurDates(baseDate);
+        let created = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        for (const date of dates) {
+          const hasConflict = await checkForConflict(date);
+          if (hasConflict) { skipped++; continue; }
+          try {
+            if (selectedService === 'daycare') {
+              const variant = DAYCARE_VARIANTS.find(v => v.label === daycareVariantLabel) ?? DAYCARE_VARIANTS[0];
+              await createBooking({
+                household_id: selectedHousehold.household_id,
+                pet_id: selectedPet.id,
+                location_id: selectedLocationId,
+                location_name: selectedLocation?.name ?? '',
+                service_id: `service-daycare-${variant.serviceType}`,
+                service_name: `Daycare (${variant.label})`,
+                service_type: variant.serviceType,
+                booking_date: date,
+                planned_start_time: startTime,
+                planned_end_time: endTime,
+                customer_notes: notes || undefined,
+              });
+            } else if (selectedService === 'grooming') {
+              const serviceInfo = GROOMING_SERVICE_TYPES[groomingServiceType];
+              await createAppointment({
+                household_id: selectedHousehold.household_id,
+                household_name: selectedHousehold.household_name,
+                pet_id: selectedPet.id,
+                pet_name: selectedPet.name,
+                pet_breed: selectedPet.breed,
+                pet_size: selectedPet.size,
+                location_id: selectedLocationId,
+                location_name: selectedLocation?.name ?? '',
+                service_type: groomingServiceType,
+                service_name: serviceInfo.label,
+                estimated_duration_minutes: serviceInfo.defaultDuration,
+                appointment_date: date,
+                appointment_time: appointmentTime,
+                status: 'confirmed',
+                customer_notes: notes || undefined,
+              });
+            }
+            created++;
+          } catch {
+            failed++;
+          }
+        }
+
+        if (dates.length === 1) {
+          if (created === 1) {
+            toast.success(`Booking created for ${selectedPet.name}`);
+          } else {
+            toast.error(`Failed to create booking for ${selectedPet.name}`);
+            return;
+          }
+        } else {
+          const parts: string[] = [`Created ${created} booking${created !== 1 ? 's' : ''} for ${selectedPet.name}`];
+          if (skipped) parts.push(`${skipped} skipped (already booked)`);
+          if (failed) parts.push(`${failed} failed`);
+          if (created > 0) {
+            toast.success(parts.join(' · '));
+          } else {
+            toast.error(`No bookings created — all ${skipped} dates already booked`);
+            return;
+          }
+        }
       }
 
       refreshAllWidgets?.();
@@ -329,7 +442,8 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
   };
 
   const svc = selectedService ? SERVICE_CONFIG[selectedService] : null;
-  const canSubmit = step === 'details' && !isCreating && (selectedService !== 'overnights' || nights > 0);
+  const canSubmit = step === 'details' && !isCreating && (selectedService !== 'overnights' || nights > 0) &&
+    (!isRecurring || recurDates.length > 0);
 
   const stepTitle = () => {
     if (step === 'service') return 'New Booking — Select Service';
@@ -581,6 +695,132 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
                 </>
               )}
 
+              {/* Recurring options (daycare + grooming only) */}
+              {selectedService !== 'overnights' && (
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="qb-recurring"
+                      checked={isRecurring}
+                      onCheckedChange={v => {
+                        setIsRecurring(v === true);
+                        if (v) {
+                          const base = selectedService === 'grooming' ? appointmentDate : bookingDate;
+                          const baseDay = new Date(base + 'T00:00:00').getDay();
+                          setRecurDays([baseDay]);
+                          const endD = new Date(base + 'T00:00:00');
+                          endD.setDate(endD.getDate() + 28);
+                          setRecurEndDate(endD.toISOString().split('T')[0]);
+                        }
+                      }}
+                    />
+                    <Label htmlFor="qb-recurring" className="font-normal flex items-center gap-1.5 cursor-pointer">
+                      <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                      Make this a recurring booking
+                    </Label>
+                  </div>
+
+                  {isRecurring && (
+                    <div className="pl-6 space-y-3 text-sm">
+                      <div>
+                        <Label className="text-xs text-slate-500 uppercase tracking-wide">Frequency</Label>
+                        <div className="flex gap-2 mt-1.5">
+                          {(['daily', 'weekly'] as const).map(f => (
+                            <button
+                              key={f}
+                              onClick={() => setRecurFrequency(f)}
+                              className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                                recurFrequency === f
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              }`}
+                            >
+                              {f === 'daily' ? 'Daily' : 'Weekly'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {recurFrequency === 'weekly' && (
+                        <div>
+                          <Label className="text-xs text-slate-500 uppercase tracking-wide">Repeat on</Label>
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
+                              <button
+                                key={d}
+                                onClick={() => setRecurDays(prev =>
+                                  prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                                )}
+                                className={`w-8 h-8 rounded-full text-xs font-semibold border transition-colors ${
+                                  recurDays.includes(i)
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'border-slate-300 text-slate-600 hover:border-slate-400'
+                                }`}
+                              >
+                                {d}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <Label className="text-xs text-slate-500 uppercase tracking-wide">End</Label>
+                        <div className="flex gap-2 mt-1.5">
+                          {(['date', 'count'] as const).map(t => (
+                            <button
+                              key={t}
+                              onClick={() => setRecurEndType(t)}
+                              className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+                                recurEndType === t
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              }`}
+                            >
+                              {t === 'date' ? 'On date' : 'After N bookings'}
+                            </button>
+                          ))}
+                        </div>
+                        {recurEndType === 'date' && (
+                          <Input
+                            type="date"
+                            value={recurEndDate}
+                            onChange={e => setRecurEndDate(e.target.value)}
+                            className="mt-2 max-w-[180px]"
+                          />
+                        )}
+                        {recurEndType === 'count' && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Input
+                              type="number"
+                              min={1}
+                              max={52}
+                              value={recurCount}
+                              onChange={e => setRecurCount(Number(e.target.value))}
+                              className="w-20"
+                            />
+                            <span className="text-slate-500 text-sm">bookings</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {recurDates.length > 0 && (
+                        <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-blue-800 text-sm">
+                          Will create <strong>{recurDates.length}</strong> booking{recurDates.length !== 1 ? 's' : ''}
+                          {recurDates.length <= 5
+                            ? ': ' + recurDates.map(d => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })).join(', ')
+                            : ` from ${new Date(recurDates[0] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} to ${new Date(recurDates[recurDates.length - 1] + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                          }
+                        </div>
+                      )}
+                      {isRecurring && recurDates.length === 0 && (
+                        <p className="text-slate-500 text-sm">Configure the options above to preview your schedule.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <Label htmlFor="notes">Notes (Optional)</Label>
                 <Textarea
@@ -601,11 +841,16 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
             Cancel
           </Button>
           {step === 'details' && (
-            <Button onClick={handleCreate} disabled={!canSubmit} className="min-w-32">
+            <Button onClick={handleCreate} disabled={!canSubmit} className="min-w-36">
               {isCreating ? (
                 <>
                   <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
                   Creating…
+                </>
+              ) : isRecurring && recurDates.length > 1 ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Create {recurDates.length} Bookings
                 </>
               ) : (
                 <>
