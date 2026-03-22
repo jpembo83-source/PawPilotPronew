@@ -35,13 +35,6 @@ async function getAuthHeaders() {
   const token = session?.access_token;
   const tenantId = session?.user?.user_metadata?.tenant_id || session?.user?.user_metadata?.tenantId;
   
-  console.log('[Staff Store] Auth headers:', {
-    hasSession: !!session,
-    hasToken: !!token,
-    hasTenantId: !!tenantId,
-    tokenLength: token?.length,
-  });
-  
   if (!token) {
     console.warn('[Staff Store] No access token found in session - user may not be logged in');
     return null; // Return null instead of headers with undefined token
