@@ -10,13 +10,6 @@ const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc00
 const getAuthHeaders = async () => {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
-  console.log('Auth session check:', {
-    hasSession: !!session,
-    hasAccessToken: !!session?.access_token,
-    sessionError,
-    expiresAt: session?.expires_at
-  });
-  
   if (sessionError) {
     console.error('Session error:', sessionError);
     throw new Error('Authentication error. Please log in again.');
