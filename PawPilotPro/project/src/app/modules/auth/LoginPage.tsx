@@ -78,9 +78,6 @@ export function LoginPage() {
         </div>
         
         <div className="p-8">
-          {/* Development credentials info */}
-          {/* ... remove this code ... */}
-          
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
@@ -130,12 +127,6 @@ export function LoginPage() {
               </div>
             )}
 
-            {seedMessage && (
-              <div className="text-success text-sm bg-success/10 p-3 rounded-md border border-success/20">
-                {seedMessage}
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={isLoading}
@@ -144,6 +135,21 @@ export function LoginPage() {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <div className="mt-6 pt-6 border-t border-slate-100">
+            <p className="text-xs text-slate-400 text-center mb-3">First time setup</p>
+            <button
+              type="button"
+              onClick={handleSeedAdmin}
+              disabled={isSeeding}
+              className="w-full text-sm text-slate-500 hover:text-primary border border-slate-200 hover:border-primary/40 py-2 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isSeeding ? 'Creating admin account…' : 'Create default admin account'}
+            </button>
+            {seedMessage && (
+              <p className="mt-2 text-xs text-center text-emerald-600">{seedMessage}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
