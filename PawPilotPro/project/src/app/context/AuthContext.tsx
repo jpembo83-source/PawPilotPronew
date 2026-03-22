@@ -106,7 +106,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) {
       setIsLoading(false);
-      throw error;
+      // Supabase AuthError properties are non-enumerable — normalise to a plain Error
+      throw new Error(error.message || error.name || 'Authentication failed');
     }
   };
 
