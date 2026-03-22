@@ -140,7 +140,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       
       await get().fetchJobs({ service_date: data.service_date, location_id: data.location_id });
       
-      broadcastMutation('transport', 'job', 'created', result.job?.id);
+      broadcastMutation('transport', 'job', 'created', result.job?.id, undefined, data.location_id);
       set({ isLoading: false });
     } catch (error: any) {
       console.error('Error creating transport job:', error);
@@ -170,7 +170,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
-      broadcastMutation('transport', 'job', 'updated', jobId);
+      broadcastMutation('transport', 'job', 'updated', jobId, undefined, result.job?.location_id);
     } catch (error: any) {
       console.error('Error updating transport job:', error);
       set({ error: error.message, isLoading: false });
@@ -225,7 +225,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
-      broadcastMutation('transport', 'job', 'updated', jobId, { action: 'driver-assigned' });
+      broadcastMutation('transport', 'job', 'updated', jobId, { action: 'driver-assigned' }, result.job?.location_id);
     } catch (error: any) {
       console.error('Error assigning driver:', error);
       set({ error: error.message, isLoading: false });
@@ -254,7 +254,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
-      broadcastMutation('transport', 'job', 'updated', jobId, { action: 'status-change', eventType });
+      broadcastMutation('transport', 'job', 'updated', jobId, { action: 'status-change', eventType }, result.job?.location_id);
     } catch (error: any) {
       console.error('Error updating job status:', error);
       set({ error: error.message, isLoading: false });

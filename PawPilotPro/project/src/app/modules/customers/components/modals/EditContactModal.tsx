@@ -10,6 +10,7 @@ import { AlertCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';
+import { registerActiveEdit } from '../../../../components/ConflictNotification';
 import type { ContactMethod, HouseholdContact } from '../../types';
 import {
   AlertDialog,
@@ -98,6 +99,12 @@ export function EditContactModal({ open, onClose, contact, householdId, onContac
     setFormData(newFormData);
     setInitialFormData(newFormData);
   }, [contact]);
+
+  useEffect(() => {
+    if (open) {
+      return registerActiveEdit('customers', 'contact', contact.id);
+    }
+  }, [open, contact.id]);
 
   // Check if form has been modified
   const hasUnsavedChanges = (): boolean => {

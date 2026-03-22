@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useGroomingStore } from '../store';
+import { registerActiveEdit } from '../../../components/ConflictNotification';
 import { useAuth } from '../../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -81,6 +82,13 @@ export function GroomingAppointmentDetail() {
       fetchGroomers();
     }
   }, [id]);
+
+  const anyDialogOpen = showStartDialog || showCompleteDialog || showCheckoutDialog || showCancelDialog || showChargeDialog;
+  useEffect(() => {
+    if (id && anyDialogOpen) {
+      return registerActiveEdit('grooming', 'appointment', id);
+    }
+  }, [id, anyDialogOpen]);
 
   const handleStartGrooming = async () => {
     if (!id || !selectedGroomerId) {

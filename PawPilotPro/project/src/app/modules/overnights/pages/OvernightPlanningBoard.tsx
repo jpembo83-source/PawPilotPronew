@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { LayoutGrid, AlertTriangle, Moon, Pill, Dog, Heart, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -236,6 +237,8 @@ function PlanningBoardContent() {
       fetchTonightsBoarders(locationId);
     }
   }, [locationId]);
+
+  useModuleRealtimeSync('overnights', handleRefresh);
 
   const handleDrop = useCallback(async (reservationId: string, carerId: string | null) => {
     if (!carerId) return;

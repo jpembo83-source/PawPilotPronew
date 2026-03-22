@@ -6,14 +6,24 @@ import type { RealtimeModule, RealtimeEvent } from '../lib/realtime';
 export function useModuleRealtimeSync(
   module: RealtimeModule,
   refetchFn: () => void | Promise<void>,
-  enabled = true
+  enabled = true,
+  allowedLocationIds?: string[]
 ) {
   const handleEvent = useCallback(
     (event: RealtimeEvent) => {
+      if (
+        allowedLocationIds &&
+        allowedLocationIds.length > 0 &&
+        event.locationId &&
+        !allowedLocationIds.includes(event.locationId)
+      ) {
+        return;
+      }
+
       notifyRealtimeUpdate(event);
       refetchFn();
     },
-    [refetchFn]
+    [refetchFn, allowedLocationIds]
   );
 
   useRealtimeSync(module, handleEvent, enabled);

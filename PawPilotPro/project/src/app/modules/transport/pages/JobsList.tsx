@@ -3,10 +3,11 @@
  * British English throughout, production-grade, no mock data
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
+import { useModuleRealtimeSync } from '@/app/hooks/useModuleRealtimeSync';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
@@ -42,6 +43,13 @@ export function JobsList() {
       location_id: locationFilter || undefined
     });
   }, [fetchJobs]);
+
+  const refetchJobs = useCallback(() => {
+    fetchJobs({ location_id: locationFilter || undefined });
+  }, [fetchJobs, locationFilter]);
+
+  const syncLocationFilter = locationFilter ? [locationFilter] : undefined;
+  useModuleRealtimeSync('transport', refetchJobs, true, syncLocationFilter);
   
   // Filter jobs client-side
   const filteredJobs = jobs.filter(job => {

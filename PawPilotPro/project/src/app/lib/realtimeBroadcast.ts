@@ -6,7 +6,8 @@ export async function broadcastMutation(
   entity: string,
   action: 'created' | 'updated' | 'deleted',
   recordId?: string,
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown>,
+  locationId?: string
 ) {
   let userId = 'unknown';
   try {
@@ -21,6 +22,7 @@ export async function broadcastMutation(
     entity,
     action,
     recordId,
+    locationId,
     userId,
     meta,
   });

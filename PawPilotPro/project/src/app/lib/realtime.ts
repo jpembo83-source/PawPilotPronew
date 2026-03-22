@@ -17,6 +17,7 @@ export interface RealtimeEvent {
   entity: string;
   action: 'created' | 'updated' | 'deleted';
   recordId?: string;
+  locationId?: string;
   userId: string;
   clientId: string;
   timestamp: number;

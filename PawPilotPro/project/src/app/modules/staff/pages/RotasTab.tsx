@@ -1,8 +1,9 @@
 // Rotas Tab
 // Shift planning and staff rotas management
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
@@ -26,6 +27,12 @@ export function RotasTab() {
   useEffect(() => {
     fetchRotas();
   }, []);
+
+  const refetchRotas = useCallback(() => {
+    fetchRotas();
+  }, [fetchRotas]);
+
+  useModuleRealtimeSync('staff', refetchRotas);
   
   // Set default dates (current week)
   useEffect(() => {

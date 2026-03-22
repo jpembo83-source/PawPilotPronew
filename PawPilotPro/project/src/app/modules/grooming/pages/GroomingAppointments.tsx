@@ -1,11 +1,12 @@
 // Grooming Appointments - MDC Operations Centre
 // List and manage grooming appointments
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useGroomingStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useAuth } from '../../../context/AuthContext';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -87,7 +88,7 @@ export function GroomingAppointments() {
     }
   }, [error]);
   
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     const filters: any = {
       date: selectedDate,
     };
@@ -105,7 +106,10 @@ export function GroomingAppointments() {
     }
     
     await fetchAppointments(filters);
-  };
+  }, [selectedDate, selectedLocationId, statusFilter, serviceFilter]);
+
+  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
+  useModuleRealtimeSync('grooming', loadAppointments, true, locationFilter);
   
   const filteredAppointments = appointments.filter(apt => {
     if (!searchQuery) return true;

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ClipboardList, Moon, ArrowLeft, CheckCircle, XCircle, Search, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { useOvernightsStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { useDashboardStore } from '../../dashboard/store';
@@ -40,6 +41,16 @@ export function OvernightCareLogsPage() {
       fetchCareLogs(undefined, today);
     }
   }, [locationId]);
+
+  const refetchCareLogs = useCallback(() => {
+    if (locationId) {
+      fetchTonightsBoarders(locationId);
+      fetchCareLogs(undefined, today);
+    }
+  }, [fetchTonightsBoarders, fetchCareLogs, locationId, today]);
+
+  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
+  useModuleRealtimeSync('overnights', refetchCareLogs, true, locationFilter);
 
   const boarders = tonightsBoarders?.boarders || [];
 

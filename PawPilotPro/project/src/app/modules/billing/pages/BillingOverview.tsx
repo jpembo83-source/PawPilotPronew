@@ -1,7 +1,8 @@
 // Billing Overview - MDC Operations Centre
 // Dashboard for billing and financial overview
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
@@ -22,6 +23,12 @@ export function BillingOverview() {
   useEffect(() => {
     fetchOverview(selectedLocationId);
   }, [selectedLocationId, fetchOverview]);
+
+  const refetchOverview = useCallback(() => {
+    fetchOverview(selectedLocationId);
+  }, [fetchOverview, selectedLocationId]);
+
+  useModuleRealtimeSync('billing', refetchOverview);
 
   const handleRefresh = () => {
     fetchOverview(selectedLocationId);

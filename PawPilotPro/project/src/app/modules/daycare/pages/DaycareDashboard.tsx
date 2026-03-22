@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useDaycareStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useAuth } from '../../../context/AuthContext';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
@@ -45,7 +46,7 @@ export function DaycareDashboard() {
     }
   }, [error]);
   
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const locId = selectedLocationId === 'ALL' ? undefined : selectedLocationId;
       await Promise.all([
@@ -54,7 +55,9 @@ export function DaycareDashboard() {
       ]);
     } catch (err) {
     }
-  };
+  }, [selectedLocationId, today]);
+
+  useModuleRealtimeSync('daycare', loadData);
   
   const canCreate = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'assistant_manager' || user?.role === 'staff';
   

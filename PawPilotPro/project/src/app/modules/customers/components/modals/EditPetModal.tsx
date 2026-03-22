@@ -11,6 +11,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';
+import { registerActiveEdit } from '../../../../components/ConflictNotification';
 import type { Pet, PetSex } from '../../types';
 import {
   AlertDialog,
@@ -117,6 +118,12 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
     setFormData(newFormData);
     setInitialFormData(newFormData);
   }, [pet]);
+
+  useEffect(() => {
+    if (open) {
+      return registerActiveEdit('customers', 'pet', pet.id);
+    }
+  }, [open, pet.id]);
 
   // Check if form has been modified
   const hasUnsavedChanges = (): boolean => {

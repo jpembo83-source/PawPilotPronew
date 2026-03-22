@@ -1,7 +1,8 @@
 // Invoices Page - MDC Operations Centre
 // Invoice list and detail management with RBAC enforcement
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
@@ -44,6 +45,19 @@ export function Invoices() {
     
     fetchInvoices(filters);
   }, [selectedLocationId, statusFilter, fetchInvoices]);
+
+  const refetchInvoices = useCallback(() => {
+    const filters: Record<string, any> = {};
+    if (selectedLocationId && selectedLocationId !== 'all') {
+      filters.location_id = selectedLocationId;
+    }
+    if (statusFilter !== 'all') {
+      filters.status = statusFilter;
+    }
+    fetchInvoices(filters);
+  }, [fetchInvoices, selectedLocationId, statusFilter]);
+
+  useModuleRealtimeSync('billing', refetchInvoices);
 
   const getStatusBadge = (status: InvoiceStatus) => {
     const config = {

@@ -4,11 +4,12 @@
  * British English throughout, production-grade, no mock data
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { useAuth } from '@/app/context/AuthContext';
+import { useModuleRealtimeSync } from '@/app/hooks/useModuleRealtimeSync';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
@@ -57,6 +58,15 @@ export function TransportDashboard() {
       });
     }
   }, [selectedLocation, dateStr, fetchJobs]);
+
+  const refetchJobs = useCallback(() => {
+    if (selectedLocation) {
+      fetchJobs({ location_id: selectedLocation, service_date: dateStr });
+    }
+  }, [fetchJobs, selectedLocation, dateStr]);
+
+  const locationFilter = selectedLocation ? [selectedLocation] : undefined;
+  useModuleRealtimeSync('transport', refetchJobs, true, locationFilter);
   
   // Calculate KPIs
   const todaysJobs = jobs;

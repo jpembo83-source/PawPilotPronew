@@ -1,7 +1,8 @@
 // Customer Management System
 // Modern Customer Master Database with comprehensive household management
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { useNavigate } from 'react-router';
 import { Search, Plus, Download, Upload, AlertTriangle, Star, DollarSign, FileWarning, MapPin, RefreshCw } from 'lucide-react';
 import { useCustomerStore } from '../store';
@@ -36,6 +37,12 @@ export function CustomersPage() {
     });
     fetchLocations(); // Fetch locations for display
   }, []);
+
+  const refetchCustomers = useCallback(() => {
+    fetchHouseholds(filters).catch(() => {});
+  }, [fetchHouseholds, filters]);
+
+  useModuleRealtimeSync('customers', refetchCustomers);
   
   const handleSearch = () => {
     setFilters({ ...filters, search: searchInput });

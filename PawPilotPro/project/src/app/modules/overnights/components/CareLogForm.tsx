@@ -8,6 +8,7 @@ import { Checkbox } from '../../../components/ui/checkbox';
 import { Badge } from '../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { NightlyCareLog } from '../types';
+import { registerActiveEdit } from '../../../components/ConflictNotification';
 
 interface CareLogFormProps {
   reservationId: string;
@@ -49,6 +50,12 @@ export function CareLogForm({
   const [healthObservations, setHealthObservations] = useState(existingLog?.healthObservations ?? '');
 
   const [hasIncident, setHasIncident] = useState(existingLog?.hasIncident ?? false);
+
+  useEffect(() => {
+    if (existingLog?.id) {
+      return registerActiveEdit('overnights', 'care_log', existingLog.id);
+    }
+  }, [existingLog?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

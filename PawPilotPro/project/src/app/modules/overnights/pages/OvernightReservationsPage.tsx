@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Moon, Plus, Search, Filter, Calendar, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { useOvernightsStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
@@ -47,6 +48,13 @@ export function OvernightReservationsPage() {
   useEffect(() => {
     fetchReservations(locationId, dateFrom || undefined, dateTo || undefined);
   }, [locationId, dateFrom, dateTo]);
+
+  const refetchReservations = useCallback(() => {
+    fetchReservations(locationId, dateFrom || undefined, dateTo || undefined);
+  }, [fetchReservations, locationId, dateFrom, dateTo]);
+
+  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
+  useModuleRealtimeSync('overnights', refetchReservations, true, locationFilter);
 
   const filteredReservations = useMemo(() => {
     let result = [...reservations];

@@ -1,10 +1,11 @@
 // Team Directory Tab
 // Comprehensive staff roster with inline editing and filtering
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../../context/AuthContext';
 import { useStaffStore } from '../store';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
@@ -19,6 +20,12 @@ export function TeamDirectoryTab() {
   useEffect(() => {
     fetchStaff();
   }, []);
+
+  const refetchStaff = useCallback(() => {
+    fetchStaff();
+  }, [fetchStaff]);
+
+  useModuleRealtimeSync('staff', refetchStaff);
   
   const handleSearch = () => {
     setStaffFilters({ ...staffFilters, search: searchInput });

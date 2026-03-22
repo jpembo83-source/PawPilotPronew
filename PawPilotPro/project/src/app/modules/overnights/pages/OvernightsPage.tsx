@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Moon, Calendar, BedDouble, ClipboardList, Users, Plus, LogIn, LogOut, LayoutGrid } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
@@ -34,6 +35,17 @@ export function OvernightsPage() {
       fetchCapacity(selectedLocation.id);
     }
   }, [selectedLocation?.id]);
+
+  const loadOvernightData = useCallback(() => {
+    if (selectedLocation) {
+      fetchReservations(selectedLocation.id);
+      fetchTonightsBoarders(selectedLocation.id);
+      fetchCapacity(selectedLocation.id);
+    }
+  }, [selectedLocation, fetchReservations, fetchTonightsBoarders, fetchCapacity]);
+
+  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
+  useModuleRealtimeSync('overnights', loadOvernightData, true, locationFilter);
 
   if (!selectedLocation) {
     return (

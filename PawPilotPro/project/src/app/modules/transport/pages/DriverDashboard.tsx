@@ -4,9 +4,10 @@
  * British English throughout with strict permission enforcement
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTransportStore } from '../store';
 import { useAuth } from '@/app/context/AuthContext';
+import { useModuleRealtimeSync } from '@/app/hooks/useModuleRealtimeSync';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { MapPin, Navigation, AlertTriangle, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
@@ -39,6 +40,14 @@ export function DriverDashboard() {
       });
     }
   }, [session, user, today]);
+
+  const refetchDriverJobs = useCallback(() => {
+    if (session && user) {
+      fetchJobs({ driver_user_id: user.id, service_date: today });
+    }
+  }, [fetchJobs, session, user, today]);
+
+  useModuleRealtimeSync('transport', refetchDriverJobs);
   
   // Get my route (jobs assigned to me for today)
   const myJobs = jobs.filter(j => j.assigned_driver_user_id === user?.id);

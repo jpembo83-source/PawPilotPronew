@@ -1,11 +1,12 @@
 // Grooming Dashboard - MDC Operations Centre
 // Operational home for grooming salon with today's overview and quick actions
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useGroomingStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useAuth } from '../../../context/AuthContext';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
@@ -58,14 +59,17 @@ export function GroomingDashboard() {
     }
   }, [error]);
   
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const locationId = selectedLocationId === 'ALL' ? undefined : selectedLocationId;
     await Promise.all([
       fetchStats(locationId, today),
       fetchQueue(locationId),
       fetchGroomers(locationId),
     ]);
-  };
+  }, [selectedLocationId, today]);
+
+  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
+  useModuleRealtimeSync('grooming', loadData, true, locationFilter);
   
   const canCreate = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'assistant_manager' || user?.role === 'staff';
   
