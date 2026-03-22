@@ -11,6 +11,8 @@ import { Search, Dog, AlertTriangle, Clock, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { SERVICE_TYPES } from '../types';
 import { Checkbox } from '../../../components/ui/checkbox';
+import { supabase } from '../../../../utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
 
 interface CreateBookingDialogProps {
   open: boolean;
@@ -150,7 +152,36 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
       toast.error('Please select a specific location to create a booking');
       return;
     }
-    
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': `Bearer ${session.access_token}`,
+        };
+        const params = new URLSearchParams({
+          pet_id: selectedPet.id,
+          date: bookingDate,
+          location_id: selectedLocationId,
+        });
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/bookings?${params}`,
+          { headers },
+        );
+        if (res.ok) {
+          const existing: any[] = await res.json();
+          const conflict = existing.find(b => b.booking_status !== 'cancelled');
+          if (conflict) {
+            toast.error(`${selectedPet.name} already has a daycare booking on this date`);
+            return;
+          }
+        }
+      }
+    } catch {
+    }
+
     try {
       const bookingData: any = {
         household_id: selectedHousehold.household_id,

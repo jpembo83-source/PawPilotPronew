@@ -13,7 +13,21 @@ import { useDashboardStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { SERVICE_TYPES as GROOMING_SERVICE_TYPES } from '../../../grooming/types';
 import type { GroomingServiceType } from '../../../grooming/types';
+import { supabase } from '../../../../../utils/supabase/client';
+import { projectId, publicAnonKey } from '../../../../../../utils/supabase/info';
 import { toast } from 'sonner';
+
+const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
+
+async function buildAuthHeaders(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Not authenticated');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${publicAnonKey}`,
+    'X-User-Token': `Bearer ${session.access_token}`,
+  };
+}
 
 type BookableService = 'daycare' | 'grooming' | 'overnights';
 type Step = 'service' | 'search' | 'select-pet' | 'details';
@@ -98,7 +112,7 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
 
   const { searchCustomers: searchDaycare, createBooking } = useDaycareStore();
   const { createAppointment, searchCustomers: searchGrooming } = useGroomingStore();
-  const { createReservation } = useOvernightsStore();
+  const { createReservation, reservations: overnightReservations } = useOvernightsStore();
   const { selectedLocationId, refreshAllWidgets } = useDashboardStore();
   const { locations } = useSettingsStore();
 
@@ -184,6 +198,50 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
     }
   };
 
+  const checkForConflict = async (): Promise<string | null> => {
+    if (!selectedPet || !selectedService) return null;
+    try {
+      const headers = await buildAuthHeaders();
+
+      if (selectedService === 'daycare') {
+        const params = new URLSearchParams({ pet_id: selectedPet.id, date: bookingDate });
+        if (selectedLocationId !== 'ALL') params.set('location_id', selectedLocationId);
+        const res = await fetch(`${API_BASE}/daycare/bookings?${params}`, { headers });
+        if (res.ok) {
+          const existing: any[] = await res.json();
+          const conflict = existing.find(b => b.booking_status !== 'cancelled');
+          if (conflict) return `${selectedPet.name} already has a daycare booking on this date`;
+        }
+      }
+
+      if (selectedService === 'grooming') {
+        const params = new URLSearchParams({ pet_id: selectedPet.id, date: appointmentDate });
+        const res = await fetch(`${API_BASE}/grooming/appointments?${params}`, { headers });
+        if (res.ok) {
+          const existing: any[] = await res.json();
+          const conflict = existing.find(a => a.status !== 'cancelled');
+          if (conflict) return `${selectedPet.name} already has a grooming appointment on this date`;
+        }
+      }
+
+      if (selectedService === 'overnights') {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const conflict = overnightReservations.find(r =>
+          r.petId === selectedPet.id &&
+          r.status !== 'cancelled' &&
+          new Date(r.startDate) < end &&
+          new Date(r.endDate) > start
+        );
+        if (conflict) return `${selectedPet.name} already has an overnight reservation overlapping these dates`;
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleCreate = async () => {
     if (!selectedHousehold || !selectedPet || !selectedService) return;
     if (selectedLocationId === 'ALL') {
@@ -192,6 +250,11 @@ export function QuickBookModal({ open, onClose }: QuickBookModalProps) {
     }
     setIsCreating(true);
     try {
+      const conflict = await checkForConflict();
+      if (conflict) {
+        toast.error(conflict);
+        return;
+      }
       if (selectedService === 'daycare') {
         const variant = DAYCARE_VARIANTS.find(v => v.label === daycareVariantLabel) ?? DAYCARE_VARIANTS[0];
         await createBooking({

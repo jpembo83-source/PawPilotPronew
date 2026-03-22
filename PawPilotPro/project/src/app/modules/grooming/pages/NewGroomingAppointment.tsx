@@ -195,6 +195,31 @@ export function NewGroomingAppointment() {
     const serviceInfo = SERVICE_TYPES[serviceType];
     const effectiveGroomerId = groomerId && groomerId !== 'unassigned' ? groomerId : undefined;
 
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': `Bearer ${session.access_token}`,
+        };
+        const params = new URLSearchParams({ pet_id: selectedPetId, date: appointmentDate });
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/grooming/appointments?${params}`,
+          { headers },
+        );
+        if (res.ok) {
+          const existing: any[] = await res.json();
+          const conflict = existing.find(a => a.status !== 'cancelled');
+          if (conflict) {
+            toast.error(`${selectedPet?.name || 'This pet'} already has a grooming appointment on this date`);
+            return;
+          }
+        }
+      }
+    } catch {
+    }
+
     setIsSubmitting(true);
     try {
       await createAppointment({

@@ -37,7 +37,7 @@ interface CreateReservationModalProps {
 export function CreateReservationModal({ open, onOpenChange, onSuccess }: CreateReservationModalProps) {
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
-  const { createReservation, calculateBilling, isLoading } = useOvernightsStore();
+  const { createReservation, calculateBilling, isLoading, reservations: existingReservations } = useOvernightsStore();
   const { searchCustomers } = useDaycareStore();
 
   const [step, setStep] = useState<'search' | 'select-pet' | 'details' | 'review'>('search');
@@ -173,6 +173,21 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
     if (selectedLocationId === 'ALL') {
       toast.error('Please select a specific location to create a reservation');
       return;
+    }
+
+    if (startDate && endDate && selectedPet) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const conflict = existingReservations.find(r =>
+        r.petId === selectedPet.id &&
+        r.status !== 'cancelled' &&
+        new Date(r.startDate) < end &&
+        new Date(r.endDate) > start
+      );
+      if (conflict) {
+        toast.error(`${selectedPet.name} already has an overnight reservation overlapping these dates`);
+        return;
+      }
     }
 
     try {
