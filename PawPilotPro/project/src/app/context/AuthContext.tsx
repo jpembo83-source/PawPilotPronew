@@ -35,55 +35,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if this is a temporary session that should be cleared
-    const checkTemporarySession = () => {
+    let cancelled = false;
+
+    const init = async () => {
+      // If the user previously logged in without "Stay logged in", sign them out
+      // on a new browsing session. Must be awaited before checking the session
+      // to avoid a race where getSession() returns a stale token that signOut()
+      // then immediately invalidates.
       const isTempSession = sessionStorage.getItem('mdc-temp-session');
-      const hasLocalStorage = localStorage.getItem('mdc-operations-auth');
-      
-      // If temp session flag exists OR no remember-me was set, logout on new window
-      if (!isTempSession && hasLocalStorage) {
-        // This is a new window/tab and user didn't check "remember me"
-        // Check if session was created within this browsing session
-        const sessionStart = sessionStorage.getItem('mdc-session-start');
-        if (!sessionStart) {
-          // New browsing session, logout if it was a temp login
-          const tempLoginFlag = localStorage.getItem('mdc-temp-login-flag');
-          if (tempLoginFlag === 'true') {
-            supabase.auth.signOut();
-            localStorage.removeItem('mdc-temp-login-flag');
-            return;
-          }
-        }
+      const hasStoredSession = localStorage.getItem('mdc-operations-auth');
+      const sessionStart = sessionStorage.getItem('mdc-session-start');
+      const tempLoginFlag = localStorage.getItem('mdc-temp-login-flag');
+
+      if (!isTempSession && hasStoredSession && !sessionStart && tempLoginFlag === 'true') {
+        localStorage.removeItem('mdc-temp-login-flag');
+        await supabase.auth.signOut();
       }
-      
-      // Mark that this session has started
+
       if (!sessionStorage.getItem('mdc-session-start')) {
         sessionStorage.setItem('mdc-session-start', new Date().toISOString());
       }
-    };
-    
-    checkTemporarySession();
-    
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(mapSupabaseUser(session.user));
-      } else {
-        setUser(null);
+
+      if (cancelled) return;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!cancelled) {
+        setUser(session?.user ? mapSupabaseUser(session.user) : null);
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    });
+    };
+
+    init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(mapSupabaseUser(session.user));
-      } else {
-        setUser(null);
-      }
+      setUser(session?.user ? mapSupabaseUser(session.user) : null);
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string, rememberMe?: boolean) => {
