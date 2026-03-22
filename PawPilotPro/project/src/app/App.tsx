@@ -1,0 +1,170 @@
+import React, { useState, useEffect } from 'react';
+import '../styles/theme.css';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { ViewAsProvider } from './context/ViewAsContext';
+import { RealtimeProvider } from './context/RealtimeContext';
+import { Layout } from './components/layout/Layout';
+import { MobileLayout } from './components/layout/MobileLayout';
+import { LoginPage } from './modules/auth/LoginPage';
+import { Daycare } from './modules/daycare/Daycare';
+import { Grooming } from './modules/grooming';
+import { Dashboard } from './modules/dashboard/Dashboard';
+import { SettingsLayout } from './modules/settings/SettingsLayout';
+import { SettingsOverview } from './modules/settings/pages/SettingsOverview';
+import { OrganisationSettings } from './modules/settings/pages/OrganisationSettings';
+import { LocationSettings } from './modules/settings/pages/LocationSettings';
+import { ModuleSettings } from './modules/settings/pages/ModuleSettings';
+import { DashboardSettings } from './modules/settings/pages/DashboardSettings';
+import { Transportation } from './modules/transport/Transportation';
+import { UserManagement } from './modules/settings/pages/UserManagement';
+import { ServicesPricingPage } from './modules/services-pricing/pages/ServicesPricingPage';
+import { ThemeManager } from './components/ThemeManager';
+import { Toaster } from 'sonner';
+import ErrorBoundary from './components/ErrorBoundary';
+import { Overnights } from './modules/overnights/pages/Overnights';
+import { CustomersPage, CreateHouseholdPage, HouseholdDetailPage, PetProfilePage, BulkImportPage, ExportPage, ClearDataPage } from './modules/customers';
+import { MessagingPage } from './modules/messaging/MessagingPage';
+import { OperationalRulesPage } from './modules/operational-rules/OperationalRulesPage';
+import { CommunicationsSettingsPage } from './modules/communications-settings';
+import { BillingFinanceSettingsPage } from './modules/billing-finance-settings';
+import { DataCompliancePage } from './modules/data-compliance';
+import { IntegrationsSettingsPage } from './modules/integrations-settings';
+import { SystemPage } from './modules/system';
+import { Billing } from './modules/billing/Billing';
+import { IncidentsListPage, IncidentDetailPage } from './modules/incidents';
+import { RBACDocumentationPage } from './modules/settings/pages/RBACDocumentationPage';
+import { StaffMemberDetailPage } from './modules/staff';
+import { ReportsPage } from './modules/reports';
+import { CalendarPage } from './modules/calendar';
+import { BetaRoute } from './components/BetaRoute';
+
+// Placeholder components for unimplemented modules
+const PlaceholderModule = ({ title }: { title: string }) => (
+  <div className="flex flex-col items-center justify-center h-[50vh] text-center">
+    <h2 className="text-2xl font-bold text-slate-300 mb-2">{title}</h2>
+    <p className="text-slate-400">Module under construction.</p>
+  </div>
+);
+
+// Component to redirect /app/* paths to remove the /app prefix
+function AppPrefixRedirect() {
+  const location = window.location.pathname;
+  const newPath = location.replace('/app/', '/');
+  return <Navigate to={newPath} replace />;
+}
+
+// Detect mobile device
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768 || 
+        /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      setIsMobile(mobile);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  return isMobile;
+}
+
+// Responsive layout that switches between mobile and desktop
+function ResponsiveLayout() {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileLayout /> : <Layout />;
+}
+
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) return <div className="h-screen flex items-center justify-center bg-slate-50">Loading...</div>;
+  
+  return user ? <>{children}</> : <Navigate to="/login" />;
+}
+
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) return null;
+  
+  return !user ? <>{children}</> : <Navigate to="/" />;
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Toaster position="top-right" />
+        <AuthProvider>
+          <RealtimeProvider>
+          <ViewAsProvider>
+            <ThemeManager />
+            <Routes>
+              {/* Redirect /app/* to remove the /app prefix */}
+              <Route path="/app/*" element={<AppPrefixRedirect />} />
+              
+              <Route path="/login" element={
+                <PublicOnlyRoute>
+                  <LoginPage />
+                </PublicOnlyRoute>
+              } />
+              
+              <Route path="/" element={
+                <PrivateRoute>
+                  <ResponsiveLayout />
+                </PrivateRoute>
+              }>
+                <Route index element={<Dashboard />} />
+                <Route path="daycare/*" element={<Daycare />} />
+                <Route path="grooming/*" element={<Grooming />} />
+                <Route path="overnights/*" element={<Overnights />} />
+                <Route path="transport/*" element={<Transportation />} />
+                {/* Boutique module placeholder hidden for production readiness */}
+                <Route path="customers" element={<CustomersPage />} />
+                <Route path="customers/new" element={<CreateHouseholdPage />} />
+                <Route path="customers/:householdId" element={<HouseholdDetailPage />} />
+                <Route path="customers/pets/:petId" element={<PetProfilePage />} />
+                <Route path="customers/bulk-import" element={<BulkImportPage />} />
+                <Route path="customers/export" element={<ExportPage />} />
+                <Route path="customers/clear-data" element={<ClearDataPage />} />
+                {/* Beta-only routes - only visible to beta testers */}
+                <Route path="messages" element={<BetaRoute><MessagingPage /></BetaRoute>} />
+                <Route path="calendar" element={<CalendarPage />} />
+                <Route path="billing" element={<Billing />} />
+                <Route path="staff/member/:id" element={<StaffMemberDetailPage />} />
+                
+                {/* Production routes */}
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="incidents" element={<IncidentsListPage />} />
+                <Route path="incidents/:id" element={<IncidentDetailPage />} />
+                
+                <Route path="settings" element={<SettingsLayout />}>
+                  <Route index element={<SettingsOverview />} />
+                  <Route path="organisation" element={<OrganisationSettings />} />
+                  <Route path="modules" element={<ModuleSettings />} />
+                  <Route path="locations" element={<LocationSettings />} />
+                  <Route path="users" element={<UserManagement />} />
+                  <Route path="services" element={<ServicesPricingPage />} />
+                  <Route path="operations" element={<OperationalRulesPage />} />
+                  <Route path="communications" element={<CommunicationsSettingsPage />} />
+                  <Route path="billing" element={<BillingFinanceSettingsPage />} />
+                  <Route path="compliance" element={<DataCompliancePage />} />
+                  <Route path="integrations" element={<IntegrationsSettingsPage />} />
+                  <Route path="dashboard" element={<DashboardSettings />} />
+                  <Route path="system" element={<SystemPage />} />
+                  <Route path="rbac-docs" element={<RBACDocumentationPage />} />
+                </Route>
+              </Route>
+            </Routes>
+          </ViewAsProvider>
+          </RealtimeProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
+  );
+}

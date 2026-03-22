@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "txRmxI3WiGSODrjo0IVq3"
+uri = "file://PawPilotPro/REALTIME_SYNC_AUDIT.md"
+type = "text"
+title = "Realtime Synchronisation Audit — Paw Pilot Pro"

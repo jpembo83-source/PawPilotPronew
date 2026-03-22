@@ -1,0 +1,297 @@
+Design and implement **cross-feature operational workflows** in Paw Pilot Pro so the platform behaves as one seamless system rather than a set of disconnected areas.
+
+Objective:
+- Make workflows between features work smoothly end-to-end
+- Ensure actions in one feature automatically and correctly affect the relevant records in other features
+- Remove or hide any workflow steps, buttons, routes, and data dependencies when the relevant feature is switched off at tenant or location level
+- Ensure all feature interactions are permission-aware, location-aware, and live-updating across all authorised user sessions
+
+British English throughout. Production-grade. No mock/seed data. Server-side enforced.
+
+---
+
+## 1) CORE PRINCIPLE
+
+Paw Pilot Pro must operate as a **single operational system**.
+
+A booking, dog, customer, attendance record, transport job, overnight stay, invoice, note, or message must not feel isolated inside a feature.
+Instead, features must behave as connected operational steps in one journey.
+
+Examples:
+- Daycare booking with transport required → creates transport workflow
+- Dog checked in from transport arrival → updates transport and daycare state
+- Daycare transitioning to overnight → closes daycare attendance and opens overnight stay
+- Customer flag added in Customers → visible in Daycare, Grooming, Transport, Overnights
+- Billing reflects real attendance and service usage without manual re-entry
+
+---
+
+## 2) FEATURE ENABLEMENT RULES (NON-NEGOTIABLE)
+
+Every workflow must respect feature enablement at two levels:
+1. Tenant-level entitlement
+2. Location-level enablement
+
+Rules:
+- If a feature is disabled at tenant level, it must not appear anywhere in any workflow
+- If a feature is disabled at location level, it must not appear in that location’s workflows
+- No dead references:
+  - no buttons
+  - no empty tabs
+  - no “coming soon”
+  - no hidden broken dependencies
+
+Examples:
+- If Transport is disabled for a location:
+  - no transport checkbox in booking flow
+  - no transport column in relevant views
+  - no transport widget
+  - no transport-related quick links
+- If Overnights is disabled:
+  - no “transition to overnight” option
+- If Grooming is disabled:
+  - no grooming-related service chain logic
+
+This must be enforced:
+- in UI
+- in route access
+- in API / Edge Functions
+- in database writes
+
+---
+
+## 3) WORKFLOW ENGINE / ORCHESTRATION MODEL
+
+Introduce a structured workflow orchestration layer so cross-feature actions are handled consistently.
+
+Do not rely on ad-hoc UI logic.
+
+Use one of these patterns:
+- workflow service / orchestration layer in backend
+- Edge Functions that own cross-feature mutations
+- event-driven hooks where appropriate
+
+The system should think in terms of:
+- trigger
+- validation
+- downstream actions
+- audit trail
+- realtime updates
+
+---
+
+## 4) REQUIRED CROSS-FEATURE WORKFLOWS
+
+### A) Customers → Daycare
+When creating a daycare booking:
+- user must select a household and pet from live customer data
+- customer flags and pet notes must surface during booking
+- if customer/payment/doc holds exist, enforce rules
+
+After save:
+- booking visible in Daycare
+- booking visible in household timeline
+- relevant dashboard widgets update
+
+---
+
+### B) Daycare ↔ Transport
+This is a critical workflow and must feel seamless.
+
+If a daycare booking includes transport:
+- create linked transport job(s) automatically
+- pickup and/or drop-off jobs inherit:
+  - household
+  - pet
+  - location
+  - date
+  - notes relevant to transport
+- no manual re-entry
+
+Operational flow:
+1. Driver sees transport task
+2. Driver marks status (started / arrived / picked up / dropped off)
+3. Daycare reflects transport progress where relevant
+4. On arrival, dog is ready for check-in
+5. On pickup completion at end of day, attendance/check-out reflects the service chain correctly
+
+If Transport is off:
+- none of this logic appears
+
+---
+
+### C) Daycare ↔ Overnights
+When a dog moves from daycare into an overnight stay:
+- staff can trigger a “transition to overnight”
+- system closes daycare attendance
+- system opens overnight stay
+- dog must not appear as simultaneously checked into both
+
+When a dog moves from overnight into next-day daycare:
+- staff can trigger “transition to daycare”
+- system closes overnight stay appropriately
+- system opens daycare attendance / booking
+- billing remains accurate
+
+If Overnights is off:
+- remove all transition options
+
+---
+
+### D) Grooming ↔ Customers / Billing / Messaging
+When grooming appointment is created:
+- use live household + pet
+- reflect in household timeline
+- send approved communications if enabled
+- create billable line items where required
+
+If Grooming is off:
+- remove all grooming references from quick booking and calendar views
+
+---
+
+### E) Notes & Flags → All Operational Features
+Flags and internal notes must surface across all relevant workflows.
+
+Examples:
+- transport-specific note visible in transport jobs
+- behaviour flag visible in daycare check-in
+- medical warning visible in overnights and grooming
+- payment hold visible wherever booking or attendance actions happen
+
+This should be centralised, not reimplemented feature by feature.
+
+---
+
+### F) Billing ↔ Operational Features
+Billing must consume real operational usage, not manual re-entry.
+
+Examples:
+- daycare attendance drives daycare billing
+- overnight stays drive overnight billing
+- grooming appointment completion drives grooming billing
+- transport jobs drive transport billing if chargeable
+- late pickup generates fee line item if configured
+
+No feature should calculate pricing independently outside the billing / services & pricing model.
+
+---
+
+### G) Messaging ↔ Operational Events
+Messages should be triggered contextually where enabled.
+
+Examples:
+- daycare confirmation
+- grooming reminder
+- transport on-the-way or completed
+- policy reminder
+- overdue operational notices
+
+If Messaging is disabled:
+- hide message actions and automation hooks cleanly
+
+---
+
+## 5) UI / UX REQUIREMENTS FOR WORKFLOWS
+
+Workflows must feel seamless to staff.
+
+Requirements:
+- minimise duplicate data entry
+- pre-fill context wherever possible
+- surface next logical action
+- show linked records clearly
+- avoid bouncing users across disconnected screens unnecessarily
+
+Examples:
+- after creating a daycare booking with transport, show the linked transport task
+- from household profile, “Book Daycare” should route into correct pre-filled workflow
+- from dashboard widget, checking in a dog should update all dependent views immediately
+
+---
+
+## 6) REMOVE OR HIDE DISCONNECTED FUNCTIONALITY
+
+Audit and remove any feature interactions that are currently visible but not truly connected.
+
+Examples:
+- a transport button that doesn’t create transport records
+- overnight options visible when feature disabled
+- quick links that open unrelated or empty pages
+- widgets referencing data from disabled features
+
+If a workflow dependency is missing:
+- hide the UI
+- do not leave “coming soon” placeholders in production-facing areas
+
+---
+
+## 7) LIVE UPDATES ACROSS LOGINS
+
+All authorised users must see updates live.
+
+If one user:
+- creates a booking
+- checks in a dog
+- updates transport status
+- allocates overnight carer
+- adds a flag
+- changes booking status
+
+Then all other users with access to that location / feature must see it without manual refresh.
+
+Use realtime subscriptions or equivalent event-driven updates.
+Manual refresh dependency must be treated as a workflow defect.
+
+---
+
+## 8) PERMISSIONS & SAFETY
+
+Cross-feature workflows must respect:
+- user role
+- location access
+- feature enablement
+- permission keys
+- record ownership where relevant
+
+No workflow may bypass:
+- RLS
+- Edge Function validation
+- billing rules
+- operational blockers
+
+---
+
+## 9) TEST CASES TO IMPLEMENT
+
+Validate at minimum:
+
+1. Create daycare booking with transport on
+- transport job created automatically
+- dashboard updates
+- household timeline updates
+
+2. Disable transport at location
+- transport-related options disappear everywhere for that location
+
+3. Transition daycare → overnight
+- daycare closes, overnight opens, no duplicate presence
+
+4. Transition overnight → daycare
+- overnight closes, daycare opens, dashboard updates
+
+5. Add flag in customer profile
+- visible in daycare, transport, overnights, grooming as relevant
+
+6. Complete service flow
+- billing line items reflect actual attendance/service usage
+
+---
+
+## 10) ACCEPTANCE CRITERIA
+
+- Paw Pilot Pro feels like one connected operational platform, not separate tools.
+- Feature-to-feature workflows are live, consistent, and low-friction.
+- Disabled features disappear cleanly from workflows at tenant and location level.
+- No dead buttons, broken references, or partial cross-feature links remain.
+- All major service journeys (customer → booking → attendance → billing → communication) work end-to-end.

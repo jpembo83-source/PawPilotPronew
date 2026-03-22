@@ -1,0 +1,67 @@
+## REAL-TIME OPERATIONAL SYNCHRONISATION (CRITICAL TEST AREA)
+
+In addition to all functional testing above, validate that the platform behaves as a true live operational system.
+
+Requirement:
+If something changes on one user’s screen, it must update automatically for all other users who have permission to see that data.
+
+This applies across:
+- Daycare attendance
+- Grooming appointments
+- Transport jobs
+- Overnight allocations
+- Customer updates
+- Notes and flags
+- Dashboard widgets
+- Staff allocation
+- Booking status changes
+- Billing state where visible
+
+Test scenarios must include:
+
+1. Multi-user live attendance test
+- User A checks in a dog
+- User B (same location access) must see the change immediately without refresh
+
+2. Cross-feature live update test
+- User A creates transport job
+- Driver view must update in real time
+- Dashboard widget must update in real time
+
+3. Dashboard synchronisation test
+- Any booking / attendance / allocation change must update all dashboards that rely on that data
+
+4. Location-scoped live updates
+- Changes should only appear to users who have access to that location
+- No cross-location leakage
+
+5. Role-scoped live updates
+- Staff see only permitted updates
+- Managers/Admins see full operational updates
+
+6. Conflict handling
+- If two users edit the same record, the system must:
+  - prevent silent overwrite
+  - surface latest state clearly
+  - maintain data integrity
+
+7. Realtime infrastructure validation
+Validate that:
+- subscriptions or realtime listeners are correctly configured
+- updates are event-driven, not polling-only
+- no stale UI states remain after mutation
+
+Any area where users must manually refresh to see operational changes must be flagged as:
+
+Severity: HIGH (Operational risk)
+
+Output requirement:
+Include a dedicated section in the audit:
+
+“Realtime Synchronisation Status”
+- Fully live
+- Partially live
+- Not live / refresh required
+- Broken or inconsistent
+
+Realtime behaviour is a core requirement for Paw Pilot Pro to function as a true operational control system.
