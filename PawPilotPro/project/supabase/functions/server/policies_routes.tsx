@@ -705,7 +705,6 @@ app.get('/compliance/stats', async (c) => {
     console.log('📊 [BACKEND-POLICIES] Request method:', c.req.method);
     
     const authHeader = c.req.header('X-User-Token');
-    console.log('📊 [BACKEND-POLICIES] Auth header value:', authHeader ? `Bearer ${authHeader.substring(7, 20)}...` : 'MISSING');
     
     console.log('📊 [BACKEND-POLICIES] Step 1: Getting user from token...');
     const user = await getUserFromToken(authHeader);
