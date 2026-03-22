@@ -38,3 +38,4 @@ externalPort = 80
 
 [userenv.shared]
 VITE_SUPABASE_PROJECT_ID = "ruahrxkfgfyshuxykiay"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1YWhyeGtmZ2Z5c2h1eHlraWF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NDUxMTcsImV4cCI6MjA4MjQyMTExN30.gG65FbgAYdrjbLAgKJRscIGwbcHwyuEAGa5M_o_fYeU"
