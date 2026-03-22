@@ -307,7 +307,7 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {step === 'search' && 'Search Household'}
@@ -320,6 +320,8 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
             {step === 'details' && `Create booking for ${selectedPet?.name}`}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto min-h-0 px-1">
         
         {step === 'search' && (
           <div className="space-y-4">
@@ -735,7 +737,9 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
           </div>
         )}
         
-        <DialogFooter>
+        </div>
+
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

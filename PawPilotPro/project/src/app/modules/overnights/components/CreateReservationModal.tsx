@@ -317,7 +317,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {step === 'search' && 'Search Household'}
@@ -332,6 +332,8 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
             {step === 'review' && 'Confirm the reservation details below'}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="flex-1 overflow-y-auto min-h-0 px-1">
 
         {step === 'search' && (
           <div className="space-y-4">
@@ -678,17 +680,6 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
               )}
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleProceedToReview}>
-                {isRecurring && generateRecurStays().length > 1
-                  ? `Review ${generateRecurStays().length} Stays`
-                  : 'Review Reservation'
-                }
-              </Button>
-            </DialogFooter>
           </div>
         )}
 
@@ -797,28 +788,41 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
               </div>
             </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateReservation} disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Creating...
-                  </>
-                ) : isRecurring && generateRecurStays().length > 1 ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Confirm {generateRecurStays().length} Stays
-                  </>
-                ) : (
-                  'Confirm Reservation'
-                )}
-              </Button>
-            </DialogFooter>
           </div>
         )}
+
+        </div>
+
+        <DialogFooter className="border-t pt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          {step === 'details' && (
+            <Button onClick={handleProceedToReview}>
+              {isRecurring && generateRecurStays().length > 1
+                ? `Review ${generateRecurStays().length} Stays`
+                : 'Review Reservation'
+              }
+            </Button>
+          )}
+          {step === 'review' && (
+            <Button onClick={handleCreateReservation} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : isRecurring && generateRecurStays().length > 1 ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Confirm {generateRecurStays().length} Stays
+                </>
+              ) : (
+                'Confirm Reservation'
+              )}
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
