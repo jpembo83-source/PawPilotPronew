@@ -1,7 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useDaycareStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
+import { useSettingsStore } from '../../settings/store';
+import { useTransportStore } from '../../transport/store';
 import { useAuth } from '../../../context/AuthContext';
 import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -24,14 +26,30 @@ import { toast } from 'sonner';
 import { SERVICE_TYPES, RAG_STATUS_CONFIG } from '../types';
 import type { DaycareBooking, RAGStatus } from '../types';
 
+const TRANSPORT_JOB_STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  scheduled:          { label: 'Scheduled',  className: 'bg-slate-100 text-slate-700' },
+  pending_assignment: { label: 'Unassigned', className: 'bg-amber-100 text-amber-700' },
+  in_progress:        { label: 'En Route',   className: 'bg-blue-100 text-blue-700' },
+  completed:          { label: 'Delivered',  className: 'bg-green-100 text-green-700' },
+  cancelled:          { label: 'Cancelled',  className: 'bg-red-100 text-red-700' },
+};
+
 export function DaycareDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
+  const { locations } = useSettingsStore();
   const { stats, bookings, isLoading, error, fetchStats, fetchBookings, clearError } = useDaycareStore();
+  const { jobs: transportJobs, fetchJobs: fetchTransportJobs } = useTransportStore();
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const today = new Date().toISOString().split('T')[0];
+
+  const selectedLocation = useMemo(
+    () => locations.find(l => l.id === selectedLocationId) ?? null,
+    [locations, selectedLocationId],
+  );
+  const isTransportEnabled = selectedLocation?.enabledModules?.includes('transport') ?? false;
   
   useEffect(() => {
     loadData();
@@ -49,13 +67,25 @@ export function DaycareDashboard() {
   const loadData = useCallback(async () => {
     try {
       const locId = selectedLocationId === 'ALL' ? undefined : selectedLocationId;
-      await Promise.all([
+      const promises: Promise<any>[] = [
         fetchStats(locId, today),
         fetchBookings({ location_id: locId, date: today }),
-      ]);
+      ];
+      if (isTransportEnabled && locId) {
+        promises.push(fetchTransportJobs({ service_date: today, location_id: locId }));
+      }
+      await Promise.all(promises);
     } catch (err) {
     }
-  }, [selectedLocationId, today]);
+  }, [selectedLocationId, today, isTransportEnabled]);
+
+  const transportJobMap = useMemo(() => {
+    const map: Record<string, { status: string; id: string }> = {};
+    for (const job of transportJobs) {
+      map[job.id] = { status: job.status, id: job.id };
+    }
+    return map;
+  }, [transportJobs]);
 
   useModuleRealtimeSync('daycare', loadData);
   
@@ -375,10 +405,33 @@ export function DaycareDashboard() {
                       </td>
                       <td className="py-3 pr-4">
                         {booking.requires_transport ? (
-                          <Badge className="bg-violet-100 text-violet-700 border-0 text-xs">
-                            <Truck className="h-3 w-3 mr-1" />
-                            Transport
-                          </Badge>
+                          (() => {
+                            const pickupJob = booking.transport_pickup_id ? transportJobMap[booking.transport_pickup_id] : null;
+                            const dropoffJob = booking.transport_dropoff_id ? transportJobMap[booking.transport_dropoff_id] : null;
+                            const primaryJob = pickupJob || dropoffJob;
+                            const jobId = booking.transport_pickup_id || booking.transport_dropoff_id;
+                            if (primaryJob) {
+                              const config = TRANSPORT_JOB_STATUS_CONFIG[primaryJob.status] ?? { label: primaryJob.status, className: 'bg-slate-100 text-slate-700' };
+                              return (
+                                <button
+                                  onClick={() => navigate(`/transport/jobs/${jobId}`)}
+                                  className="focus:outline-none"
+                                  title="View transport job"
+                                >
+                                  <Badge className={`${config.className} border-0 text-xs cursor-pointer hover:opacity-80 transition-opacity`}>
+                                    <Truck className="h-3 w-3 mr-1" />
+                                    {config.label}
+                                  </Badge>
+                                </button>
+                              );
+                            }
+                            return (
+                              <Badge className="bg-violet-100 text-violet-700 border-0 text-xs">
+                                <Truck className="h-3 w-3 mr-1" />
+                                Transport
+                              </Badge>
+                            );
+                          })()
                         ) : (
                           <span className="text-xs text-slate-400">Drop-off</span>
                         )}

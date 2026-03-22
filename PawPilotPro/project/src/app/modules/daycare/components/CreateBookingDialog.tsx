@@ -36,6 +36,9 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
   const { searchCustomers, createBooking, isLoading } = useDaycareStore();
+
+  const selectedLocation = locations.find(l => l.id === selectedLocationId);
+  const isTransportEnabled = selectedLocation?.enabledModules?.includes('transport') ?? false;
   
   const [step, setStep] = useState<'search' | 'select-pet' | 'details'>('search');
   const [searchQuery, setSearchQuery] = useState('');
@@ -437,47 +440,49 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
               />
             </div>
             
-            <div className="space-y-3 border-t pt-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="requires-transport"
-                  checked={requiresTransport}
-                  onCheckedChange={(checked) => setRequiresTransport(checked === true)}
-                />
-                <Label htmlFor="requires-transport" className="font-normal flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-slate-500" />
-                  Requires Transport
-                </Label>
-              </div>
-              
-              {requiresTransport && (
-                <div className="space-y-3 pl-6">
-                  <div>
-                    <Label htmlFor="pickup-address">Pickup Address</Label>
-                    <Input
-                      id="pickup-address"
-                      placeholder="Address for pickup..."
-                      value={transportPickupAddress}
-                      onChange={(e) => setTransportPickupAddress(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="dropoff-address">Drop-off Address</Label>
-                    <Input
-                      id="dropoff-address"
-                      placeholder="Address for drop-off (leave empty if same as pickup)"
-                      value={transportDropoffAddress}
-                      onChange={(e) => setTransportDropoffAddress(e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Transport jobs will be automatically created and assigned to available drivers.
-                  </p>
+            {isTransportEnabled && (
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="requires-transport"
+                    checked={requiresTransport}
+                    onCheckedChange={(checked) => setRequiresTransport(checked === true)}
+                  />
+                  <Label htmlFor="requires-transport" className="font-normal flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-slate-500" />
+                    Requires Transport
+                  </Label>
                 </div>
-              )}
-            </div>
+                
+                {requiresTransport && (
+                  <div className="space-y-3 pl-6">
+                    <div>
+                      <Label htmlFor="pickup-address">Pickup Address</Label>
+                      <Input
+                        id="pickup-address"
+                        placeholder="Address for pickup..."
+                        value={transportPickupAddress}
+                        onChange={(e) => setTransportPickupAddress(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="dropoff-address">Drop-off Address</Label>
+                      <Input
+                        id="dropoff-address"
+                        placeholder="Address for drop-off (leave empty if same as pickup)"
+                        value={transportDropoffAddress}
+                        onChange={(e) => setTransportDropoffAddress(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Transport jobs will be automatically created and assigned to available drivers.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
         

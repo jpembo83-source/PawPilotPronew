@@ -2,7 +2,7 @@
 // Side panel for viewing booking details and performing check-in/out actions
 
 import React, { useState, useEffect } from 'react';
-import { X, Dog, AlertTriangle, FileWarning, Ban, Activity, Clock, CheckCircle, LogOut, MessageSquare, FileText } from 'lucide-react';
+import { X, Dog, AlertTriangle, FileWarning, Ban, Activity, Clock, CheckCircle, LogOut } from 'lucide-react';
 import { useDaycareStore } from '../../daycare/store';
 import { useAuth } from '../../../context/AuthContext';
 import { cn } from '../../../components/ui/utils';
@@ -383,26 +383,6 @@ export function DogDetailsPanel({ booking, isOpen, onClose, onActionComplete }: 
               </div>
             )}
 
-            {/* Secondary Actions */}
-            {hasPermission('messaging', 'create') && (
-              <button
-                onClick={() => toast.info('Messaging feature coming soon')}
-                className="px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
-                title="Message Customer"
-              >
-                <MessageSquare className="h-5 w-5" />
-              </button>
-            )}
-
-            {hasPermission('incidents', 'create') && (
-              <button
-                onClick={() => toast.info('Incident reporting coming soon')}
-                className="px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
-                title="Create Incident"
-              >
-                <FileText className="h-5 w-5" />
-              </button>
-            )}
           </div>
 
           {/* Permission notice */}

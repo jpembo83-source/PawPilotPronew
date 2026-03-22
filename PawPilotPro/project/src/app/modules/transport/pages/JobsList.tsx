@@ -18,7 +18,8 @@ import {
   AlertCircle,
   Plus,
   ChevronDown,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { format, subDays, addDays } from 'date-fns';
 import type { TransportJobWithDetails } from '../types';
@@ -341,6 +342,12 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       <div className="col-span-2">
         <div className="font-medium text-slate-900">{job.pet_name}</div>
         <div className="text-sm text-slate-500">{job.household_name}</div>
+        {job.notes && (
+          <div className="flex items-center gap-1 mt-1">
+            <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+            <span className="text-xs text-amber-700 line-clamp-1">{job.notes}</span>
+          </div>
+        )}
       </div>
       
       <div className="col-span-1">

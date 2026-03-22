@@ -3,23 +3,34 @@
 import React, { useEffect, useState } from 'react';
 import { useDaycareStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
+import { useSettingsStore } from '../../settings/store';
+import { useOvernightsStore } from '../../overnights/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
+import { Switch } from '../../../components/ui/switch';
+import { Label } from '../../../components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
-import { Search, LogOut } from 'lucide-react';
+import { Search, LogOut, ArrowRightLeft, Moon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DaycareBooking } from '../types';
 
 export function DaycareCheckOut() {
   const { selectedLocationId } = useDashboardStore();
+  const { locations } = useSettingsStore();
   const { bookings, isLoading, fetchBookings, checkOut } = useDaycareStore();
+  const { transitionFromDaycare } = useOvernightsStore();
+
+  const selectedLocation = locations.find(l => l.id === selectedLocationId);
+  const isOvernightsEnabled = selectedLocation?.enabledModules?.includes('overnights') ?? false;
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBooking, setSelectedBooking] = useState<DaycareBooking | null>(null);
   const [checkoutNotes, setCheckoutNotes] = useState('');
   const [showDialog, setShowDialog] = useState(false);
+  const [transitionToOvernightMode, setTransitionToOvernightMode] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   
   const today = new Date().toISOString().split('T')[0];
   
@@ -48,11 +59,37 @@ export function DaycareCheckOut() {
   const handleSelectBooking = (booking: DaycareBooking) => {
     setSelectedBooking(booking);
     setCheckoutNotes('');
+    setTransitionToOvernightMode(false);
     setShowDialog(true);
   };
   
   const handleCheckOut = async () => {
     if (!selectedBooking) return;
+
+    if (transitionToOvernightMode) {
+      if (!selectedBooking.pet_id || !selectedBooking.location_id) {
+        toast.error('Unable to transition: missing pet or location information');
+        return;
+      }
+      setIsTransitioning(true);
+      try {
+        await transitionFromDaycare({
+          type: 'daycare_to_overnight',
+          petId: selectedBooking.pet_id,
+          locationId: selectedBooking.location_id,
+          sourceBookingId: selectedBooking.id,
+        });
+        toast.success(`${selectedBooking.pet_name} transitioned to overnight stay`);
+        setShowDialog(false);
+        setSelectedBooking(null);
+        await loadBookings();
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to transition to overnight');
+      } finally {
+        setIsTransitioning(false);
+      }
+      return;
+    }
     
     try {
       await checkOut(selectedBooking.id, checkoutNotes);
@@ -60,10 +97,8 @@ export function DaycareCheckOut() {
       setShowDialog(false);
       setSelectedBooking(null);
       
-      // Refresh bookings list
       await loadBookings();
       
-      // Refresh dashboard stats if available
       const { fetchStats } = useDaycareStore.getState();
       const today = new Date().toISOString().split('T')[0];
       await fetchStats(selectedLocationId === 'ALL' ? undefined : selectedLocationId, today);
@@ -151,7 +186,7 @@ export function DaycareCheckOut() {
         </CardContent>
       </Card>
       
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) setTransitionToOvernightMode(false); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Check Out: {selectedBooking?.pet_name}</DialogTitle>
@@ -159,27 +194,63 @@ export function DaycareCheckOut() {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-slate-700">
-                Check-Out Notes (Optional)
-              </label>
-              <Textarea
-                placeholder="How was their day? Any incidents or notes..."
-                value={checkoutNotes}
-                onChange={(e) => setCheckoutNotes(e.target.value)}
-                rows={3}
-                className="mt-2"
-              />
-            </div>
+            {isOvernightsEnabled && (
+              <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="transition-overnight" className="flex items-center gap-2 font-medium text-indigo-900 cursor-pointer">
+                    <ArrowRightLeft className="h-4 w-4" />
+                    Transition to Overnight?
+                  </Label>
+                  <Switch
+                    id="transition-overnight"
+                    checked={transitionToOvernightMode}
+                    onCheckedChange={setTransitionToOvernightMode}
+                  />
+                </div>
+                {transitionToOvernightMode && (
+                  <p className="text-xs text-indigo-600 ml-6">
+                    This will close the daycare attendance and open an overnight stay for {selectedBooking?.pet_name}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {!transitionToOvernightMode && (
+              <div>
+                <label className="text-sm font-medium text-slate-700">
+                  Check-Out Notes (Optional)
+                </label>
+                <Textarea
+                  placeholder="How was their day? Any incidents or notes..."
+                  value={checkoutNotes}
+                  onChange={(e) => setCheckoutNotes(e.target.value)}
+                  rows={3}
+                  className="mt-2"
+                />
+              </div>
+            )}
           </div>
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCheckOut} disabled={isLoading}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Confirm Check-Out
+            <Button
+              onClick={handleCheckOut}
+              disabled={isLoading || isTransitioning}
+              className={transitionToOvernightMode ? 'bg-indigo-600 hover:bg-indigo-700' : undefined}
+            >
+              {transitionToOvernightMode ? (
+                <>
+                  <Moon className="h-4 w-4 mr-2" />
+                  {isTransitioning ? 'Transitioning...' : 'Transition to Overnight'}
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Confirm Check-Out
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
