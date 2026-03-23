@@ -27,7 +27,6 @@ import vaccinationsRoutes from "./vaccinations_routes.tsx";
 import transportRoutes from "./transport_routes.tsx";
 import groomingRoutes from "./grooming_routes.tsx";
 import reportsRoutes from "./reports_routes.tsx";
-import calendarRoutes from "./calendar_routes.tsx";
 import { requireAuth, requirePermission, UserContext } from "./settings_rbac.ts";
 
 const app = new Hono();
@@ -66,8 +65,9 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 const getSupabase = () => {
-  const url = supabaseUrl || "";
-  const key = supabaseServiceKey || Deno.env.get("SUPABASE_ANON_KEY") || "";
+  // Fallback to ANON key only as last resort (will not work for JWT validation)
+  const url = supabaseUrl || "https://ruahrxkfgfyshuxykiay.supabase.co";
+  const key = supabaseServiceKey || Deno.env.get("SUPABASE_ANON_KEY") || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1YWhyeGtmZ2Z5c2h1eHlraWF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NDUxMTcsImV4cCI6MjA4MjQyMTExN30.gG65FbgAYdrjbLAgKJRscIGwbcHwyuEAGa5M_o_fYeU";
   
   if (!supabaseServiceKey) {
     console.warn("[getSupabase] ⚠️ WARNING: Using ANON key fallback - JWT validation will FAIL");
@@ -554,58 +554,6 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
   }
 });
 
-// Promote user to admin by email (one-time setup endpoint)
-app.post("/make-server-fc003b23/promote-to-admin", async (c) => {
-  try {
-    const supabase = getSupabase();
-    const body = await c.req.json();
-    const { email } = body;
-    
-    if (!email) {
-      return c.json({ error: "Email is required" }, 400);
-    }
-    
-    // Find user by email
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) {
-      return c.json({ error: listError.message }, 500);
-    }
-    
-    const user = users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
-    if (!user) {
-      return c.json({ error: `User not found: ${email}` }, 404);
-    }
-    
-    // Update user to admin role
-    const { data, error } = await supabase.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        ...user.user_metadata,
-        role: 'admin',
-        locationIds: ['all'] // Admins have access to all locations
-      }
-    });
-    
-    if (error) {
-      return c.json({ error: error.message }, 400);
-    }
-    
-    console.log(`[Promote Admin] User ${email} promoted to admin`);
-    
-    return c.json({ 
-      message: `User ${email} promoted to admin successfully`,
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        role: data.user.user_metadata?.role,
-        locationIds: data.user.user_metadata?.locationIds
-      }
-    });
-  } catch (err: any) {
-    console.error("Server error:", err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
 // --- User Management Routes ---
 
 // Create User
@@ -808,6 +756,5 @@ app.route("/", vaccinationsRoutes);
 app.route("/make-server-fc003b23/transport", transportRoutes);
 app.route("/make-server-fc003b23/grooming", groomingRoutes);
 app.route("/make-server-fc003b23/reports", reportsRoutes);
-app.route("/make-server-fc003b23/calendar", calendarRoutes);
 
 export default app;

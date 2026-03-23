@@ -1,549 +1,553 @@
+// Reports Routes - PawPilot Pro
+// Aggregated reporting across all modules
+
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
 
 const app = new Hono();
 
-app.use('/*', async (c, next) => {
-  const user = await getUserFromToken(c.req.raw);
-  if (!user) {
-    return c.json({ error: 'Unauthorised' }, 401);
-  }
-  c.set('user', user);
-  await next();
-});
+// ============================================================================
+// UTILITIES
+// ============================================================================
 
-async function getUserFromToken(request: Request) {
+const getUserFromToken = async (token: string) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  if (!supabaseUrl || !supabaseAnonKey) return null;
+  if (!supabaseUrl || !supabaseAnonKey) throw new Error('Missing Supabase configuration');
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const accessToken = request.headers.get('X-User-Token')?.replace('Bearer ', '');
-  if (!accessToken) return null;
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data?.user) return null;
-  return data.user;
-}
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) throw new Error('Invalid or expired token');
+  return user;
+};
 
-function getTenantId(user: any): string {
-  return user?.user_metadata?.tenant_id || user?.tenant_id || user?.id || 'default';
-}
+const getTenantId = (user: any): string => user.user_metadata?.tenant_id || user.id;
 
-async function getAllByPrefix(prefix: string): Promise<any[]> {
-  return kv.getByPrefix(prefix);
-}
+const auth = async (c: any) => {
+  const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
+  if (!token) return null;
+  try { return await getUserFromToken(token); } catch { return null; }
+};
+
+// ============================================================================
+// PETS REPORT
+// ============================================================================
 
 app.get('/pets', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
-    const locationId = c.req.query('location_id');
 
-    const households = await getAllByPrefix(`customer:${tenantId}:household:`);
-    const allPets = await getAllByPrefix(`customer:${tenantId}:pet:`);
+    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
+    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    const householdMap = new Map(allHouseholds.map((h: any) => [h.id, h.name]));
 
-    const hhMap: Record<string, any> = {};
-    for (const hh of households) {
-      const hhId = hh.id || hh.household_id;
-      if (hhId) hhMap[hhId] = hh;
-    }
-
-    const pets: any[] = [];
-    for (const pet of allPets) {
-      const hhId = pet.household_id || pet.householdId;
-      const hh = hhId ? hhMap[hhId] : null;
-      const hhLocationId = hh?.primary_location_id || hh?.location_id;
-      if (locationId && hhLocationId !== locationId) continue;
-      pets.push({
-        id: pet.id,
-        name: pet.name,
-        breed: pet.breed || 'Unknown',
-        species: pet.species || 'Dog',
-        sex: pet.sex || '',
-        weight: pet.weight || pet.weight_kg || '',
-        dateOfBirth: pet.dateOfBirth || pet.date_of_birth || '',
-        neutered: pet.neutered || pet.neutered_status || false,
-        householdName: hh?.household_name || hh?.name || '',
-        householdId: hhId || '',
-        status: pet.status || pet.active === false ? 'inactive' : 'active',
-        locationId: hhLocationId || '',
-      });
-    }
+    const pets = allPets
+      .filter((p: any) => p && p.id && p.name)
+      .map((p: any) => ({
+        name: p.name,
+        breed: p.breed || '',
+        species: p.species || '',
+        sex: p.sex || '',
+        weight: p.weight || '',
+        dateOfBirth: p.dateOfBirth || p.date_of_birth || '',
+        neutered: p.neutered ?? p.isNeutered ?? false,
+        householdName: householdMap.get(p.household_id) || '',
+        status: p.status || 'active',
+      }));
 
     return c.json({ pets });
-  } catch (error) {
-    console.error('Error fetching pets report:', error);
-    return c.json({ error: 'Failed to fetch pets report' }, 500);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
+
+// ============================================================================
+// BREEDS REPORT
+// ============================================================================
 
 app.get('/breeds', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
 
-    const allPets = await getAllByPrefix(`customer:${tenantId}:pet:`);
-    const breedMap: Record<string, { count: number; names: string[] }> = {};
+    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
+    const breedMap = new Map<string, string[]>();
 
-    for (const pet of allPets) {
-      const breed = pet.breed || 'Unknown';
-      if (!breedMap[breed]) breedMap[breed] = { count: 0, names: [] };
-      breedMap[breed].count++;
-      breedMap[breed].names.push(pet.name);
-    }
+    allPets.filter((p: any) => p && p.name).forEach((p: any) => {
+      const breed = p.breed || 'Unknown';
+      if (!breedMap.has(breed)) breedMap.set(breed, []);
+      breedMap.get(breed)!.push(p.name);
+    });
 
-    const breeds = Object.entries(breedMap)
-      .map(([breed, data]) => ({ breed, count: data.count, petNames: data.names.join(', ') }))
+    const breeds = Array.from(breedMap.entries())
+      .map(([breed, names]) => ({ breed, count: names.length, petNames: names.join(', ') }))
       .sort((a, b) => b.count - a.count);
 
     return c.json({ breeds });
-  } catch (error) {
-    console.error('Error fetching breeds report:', error);
-    return c.json({ error: 'Failed to fetch breeds report' }, 500);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
 
+// ============================================================================
+// CUSTOMERS REPORT
+// ============================================================================
+
 app.get('/customers', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
-    const locationId = c.req.query('location_id');
 
-    const households = await getAllByPrefix(`customer:${tenantId}:household:`);
-    const allPets = await getAllByPrefix(`customer:${tenantId}:pet:`);
-    const allContacts = await getAllByPrefix(`customer:${tenantId}:contact:`);
+    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`);
+    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
 
-    const petsByHh: Record<string, any[]> = {};
-    for (const pet of allPets) {
-      const hhId = pet.household_id || pet.householdId;
-      if (hhId) {
-        if (!petsByHh[hhId]) petsByHh[hhId] = [];
-        petsByHh[hhId].push(pet);
-      }
-    }
+    const contactsByHousehold = new Map<string, any[]>();
+    allContacts.forEach((c: any) => {
+      if (!contactsByHousehold.has(c.household_id)) contactsByHousehold.set(c.household_id, []);
+      contactsByHousehold.get(c.household_id)!.push(c);
+    });
 
-    const contactsByHh: Record<string, any[]> = {};
-    for (const contact of allContacts) {
-      const hhId = contact.household_id || contact.householdId;
-      if (hhId) {
-        if (!contactsByHh[hhId]) contactsByHh[hhId] = [];
-        contactsByHh[hhId].push(contact);
-      }
-    }
+    const petsByHousehold = new Map<string, any[]>();
+    allPets.filter((p: any) => p && p.id).forEach((p: any) => {
+      if (!petsByHousehold.has(p.household_id)) petsByHousehold.set(p.household_id, []);
+      petsByHousehold.get(p.household_id)!.push(p);
+    });
 
-    const customers = households
-      .filter(hh => !locationId || (hh.primary_location_id || hh.location_id) === locationId)
-      .map(hh => {
-        const hhId = hh.id || hh.household_id;
-        const hhPets = petsByHh[hhId] || [];
-        const hhContacts = contactsByHh[hhId] || [];
-        const primary = hhContacts[0];
+    const customers = allHouseholds
+      .filter((h: any) => h && h.id)
+      .map((h: any) => {
+        const contacts = contactsByHousehold.get(h.id) || [];
+        const primary = contacts.find((c: any) => c.isPrimary) || contacts[0];
+        const pets = petsByHousehold.get(h.id) || [];
         return {
-          id: hhId,
-          householdName: hh.household_name || hh.name || '',
-          primaryContact: primary?.name || [primary?.first_name, primary?.last_name].filter(Boolean).join(' ') || '',
+          householdName: h.name,
+          primaryContact: primary ? `${primary.firstName} ${primary.lastName}`.trim() : '',
           email: primary?.email || '',
           phone: primary?.phone || '',
-          petCount: hhPets.length,
-          petNames: hhPets.map((p: any) => p.name).join(', '),
-          status: hh.status || 'active',
-          locationId: hh.primary_location_id || hh.location_id || '',
-          createdAt: hh.created_at || '',
+          petCount: pets.length,
+          petNames: pets.map((p: any) => p.name).join(', '),
+          status: h.status || 'active',
+          createdAt: h.createdAt ? h.createdAt.split('T')[0] : '',
         };
       });
 
     return c.json({ customers });
-  } catch (error) {
-    console.error('Error fetching customers report:', error);
-    return c.json({ error: 'Failed to fetch customers report' }, 500);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
+
+// ============================================================================
+// ATTENDANCE REPORT
+// ============================================================================
 
 app.get('/attendance', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
-    const locationId = c.req.query('location_id');
-    const fromDate = c.req.query('from_date');
-    const toDate = c.req.query('to_date');
 
-    const allBookings = await getAllByPrefix(`daycare:booking:`);
-    const bookings = allBookings.filter(b => typeof b === 'object' && b !== null && b.id && b.booking_date);
-    const attendance = bookings
-      .filter(b => {
-        if (b.tenant_id && b.tenant_id !== tenantId) return false;
-        if (locationId && b.location_id !== locationId) return false;
-        if (fromDate && b.booking_date < fromDate) return false;
-        if (toDate && b.booking_date > toDate) return false;
-        return true;
-      })
-      .map(b => ({
-        id: b.id,
-        petName: b.pet_name || '',
-        householdName: b.household_name || '',
-        bookingDate: b.booking_date || '',
-        serviceType: b.service_type || '',
-        status: b.booking_status || b.status || '',
-        checkedInAt: b.actual_check_in_time || b.checked_in_at || '',
-        checkedOutAt: b.actual_check_out_time || b.checked_out_at || '',
-        locationId: b.location_id || '',
-        locationName: b.location_name || '',
-      }));
+    const fromDate = c.req.query('from_date') || '';
+    const toDate = c.req.query('to_date') || '';
+    const locationId = c.req.query('location_id') || '';
 
+    const attendance: any[] = [];
+
+    // Daycare bookings
+    const daycareBookings = await kv.getByPrefix('daycare:booking:');
+    daycareBookings
+      .filter((b: any) => b && b.id && b.pet_name)
+      .filter((b: any) => !fromDate || b.booking_date >= fromDate)
+      .filter((b: any) => !toDate || b.booking_date <= toDate)
+      .filter((b: any) => !locationId || b.location_id === locationId)
+      .forEach((b: any) => {
+        attendance.push({
+          bookingDate: b.booking_date,
+          petName: b.pet_name,
+          householdName: b.household_name,
+          serviceType: 'Daycare',
+          status: b.booking_status,
+          checkedInAt: b.checked_in_at || '',
+          checkedOutAt: b.checked_out_at || '',
+          locationName: b.location_name || '',
+        });
+      });
+
+    // Grooming appointments
+    const groomingApts = await kv.getByPrefix(`grooming-apt:${tenantId}:`);
+    groomingApts
+      .filter((a: any) => a && a.id)
+      .filter((a: any) => !fromDate || a.appointment_date >= fromDate)
+      .filter((a: any) => !toDate || a.appointment_date <= toDate)
+      .filter((a: any) => !locationId || a.location_id === locationId)
+      .forEach((a: any) => {
+        attendance.push({
+          bookingDate: a.appointment_date,
+          petName: a.pet_name || '',
+          householdName: a.household_name || '',
+          serviceType: 'Grooming',
+          status: a.status,
+          checkedInAt: a.checked_in_at || '',
+          checkedOutAt: a.checked_out_at || '',
+          locationName: a.location_name || '',
+        });
+      });
+
+    // Transport jobs
+    const transportJobs = await kv.getByPrefix(`transport_job:${tenantId}:`);
+    transportJobs
+      .filter((j: any) => j && j.id)
+      .filter((j: any) => !fromDate || j.service_date >= fromDate)
+      .filter((j: any) => !toDate || j.service_date <= toDate)
+      .filter((j: any) => !locationId || j.location_id === locationId)
+      .forEach((j: any) => {
+        attendance.push({
+          bookingDate: j.service_date,
+          petName: j.pet_name || '',
+          householdName: j.household_name || '',
+          serviceType: 'Transport',
+          status: j.status,
+          checkedInAt: '',
+          checkedOutAt: '',
+          locationName: j.location_name || '',
+        });
+      });
+
+    // Overnight reservations
+    const overnightRes = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
+    overnightRes
+      .filter((r: any) => r && r.id)
+      .filter((r: any) => !fromDate || r.startDate >= fromDate)
+      .filter((r: any) => !toDate || r.startDate <= toDate)
+      .forEach((r: any) => {
+        attendance.push({
+          bookingDate: r.startDate,
+          petName: r.petName || '',
+          householdName: r.householdName || '',
+          serviceType: 'Overnight',
+          status: r.status,
+          checkedInAt: r.checkInTime || '',
+          checkedOutAt: r.checkOutTime || '',
+          locationName: r.locationName || '',
+        });
+      });
+
+    attendance.sort((a, b) => b.bookingDate.localeCompare(a.bookingDate));
     return c.json({ attendance });
-  } catch (error) {
-    console.error('Error fetching attendance report:', error);
-    return c.json({ error: 'Failed to fetch attendance report' }, 500);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
+
+// ============================================================================
+// SERVICE USAGE REPORT
+// ============================================================================
 
 app.get('/service-usage', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
-    const fromDate = c.req.query('from_date');
-    const toDate = c.req.query('to_date');
-    const locationId = c.req.query('location_id');
 
-    const dateFilter = (date: string) => {
-      if (fromDate && date < fromDate) return false;
-      if (toDate && date > toDate) return false;
-      return true;
-    };
-
-    const allDaycare = await getAllByPrefix(`daycare:booking:`);
-    const daycareBookings = allDaycare.filter(b => typeof b === 'object' && b !== null && b.id && b.booking_date && (!b.tenant_id || b.tenant_id === tenantId));
-    const groomingAppts = await getAllByPrefix(`grooming-apt:${tenantId}:`);
-    const overnightRes = await getAllByPrefix(`overnight:${tenantId}:reservation:`);
-    const transportJobs = await getAllByPrefix(`transport_job:${tenantId}:`);
+    const fromDate = c.req.query('from_date') || '';
+    const toDate = c.req.query('to_date') || '';
+    const locationId = c.req.query('location_id') || '';
 
     const usage: any[] = [];
 
-    for (const b of daycareBookings) {
-      if (locationId && b.location_id !== locationId) continue;
-      if (!dateFilter(b.booking_date || '')) continue;
-      usage.push({
+    const daycareBookings = await kv.getByPrefix('daycare:booking:');
+    daycareBookings
+      .filter((b: any) => b && b.id && b.pet_name)
+      .filter((b: any) => !fromDate || b.booking_date >= fromDate)
+      .filter((b: any) => !toDate || b.booking_date <= toDate)
+      .filter((b: any) => !locationId || b.location_id === locationId)
+      .forEach((b: any) => usage.push({
         date: b.booking_date,
         module: 'Daycare',
-        serviceType: b.service_type || 'full_day',
-        petName: b.pet_name || '',
-        householdName: b.household_name || '',
-        status: b.booking_status || b.status || '',
-        locationId: b.location_id || '',
-      });
-    }
+        serviceType: b.service_type || 'Full Day',
+        petName: b.pet_name,
+        householdName: b.household_name,
+        status: b.booking_status,
+      }));
 
-    for (const a of groomingAppts) {
-      if (locationId && a.location_id !== locationId) continue;
-      const date = a.date || a.appointment_date || '';
-      if (!dateFilter(date)) continue;
-      usage.push({
-        date,
+    const groomingApts = await kv.getByPrefix(`grooming-apt:${tenantId}:`);
+    groomingApts
+      .filter((a: any) => a && a.id)
+      .filter((a: any) => !fromDate || a.appointment_date >= fromDate)
+      .filter((a: any) => !toDate || a.appointment_date <= toDate)
+      .filter((a: any) => !locationId || a.location_id === locationId)
+      .forEach((a: any) => usage.push({
+        date: a.appointment_date,
         module: 'Grooming',
-        serviceType: a.service_name || a.service_type || '',
+        serviceType: a.service_type || 'Grooming',
         petName: a.pet_name || '',
-        householdName: a.customer_name || a.household_name || '',
-        status: a.status || '',
-        locationId: a.location_id || '',
-      });
-    }
+        householdName: a.household_name || '',
+        status: a.status,
+      }));
 
-    for (const r of overnightRes) {
-      if (locationId && (r.locationId || r.location_id) !== locationId) continue;
-      const rDate = r.startDate || r.start_date || r.check_in_date || '';
-      if (!dateFilter(rDate)) continue;
-      usage.push({
-        date: rDate,
-        module: 'Overnights',
-        serviceType: 'overnight_stay',
-        petName: r.petName || r.pet_name || '',
-        householdName: r.customerName || r.customer_name || r.household_name || '',
-        status: r.status || '',
-        locationId: r.locationId || r.location_id || '',
-      });
-    }
-
-    for (const j of transportJobs) {
-      if (locationId && j.location_id !== locationId) continue;
-      if (!dateFilter(j.service_date || '')) continue;
-      usage.push({
+    const transportJobs = await kv.getByPrefix(`transport_job:${tenantId}:`);
+    transportJobs
+      .filter((j: any) => j && j.id)
+      .filter((j: any) => !fromDate || j.service_date >= fromDate)
+      .filter((j: any) => !toDate || j.service_date <= toDate)
+      .filter((j: any) => !locationId || j.location_id === locationId)
+      .forEach((j: any) => usage.push({
         date: j.service_date,
         module: 'Transport',
-        serviceType: j.direction || '',
+        serviceType: j.service_type || 'Transport',
         petName: j.pet_name || '',
         householdName: j.household_name || '',
-        status: j.status || '',
-        locationId: j.location_id || '',
-      });
-    }
+        status: j.status,
+      }));
 
-    usage.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const overnightRes = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
+    overnightRes
+      .filter((r: any) => r && r.id)
+      .filter((r: any) => !fromDate || r.startDate >= fromDate)
+      .filter((r: any) => !toDate || r.startDate <= toDate)
+      .forEach((r: any) => usage.push({
+        date: r.startDate,
+        module: 'Overnights',
+        serviceType: `${r.totalNights || 1} night(s)`,
+        petName: r.petName || '',
+        householdName: r.householdName || '',
+        status: r.status,
+      }));
 
+    usage.sort((a, b) => b.date.localeCompare(a.date));
     return c.json({ usage });
-  } catch (error) {
-    console.error('Error fetching service usage report:', error);
-    return c.json({ error: 'Failed to fetch service usage report' }, 500);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
+
+// ============================================================================
+// REVENUE REPORT
+// ============================================================================
 
 app.get('/revenue', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
-    const fromDate = c.req.query('from_date');
-    const toDate = c.req.query('to_date');
-    const locationId = c.req.query('location_id');
 
-    const allInvoices = await getAllByPrefix(`invoice:`);
-    const invoices = allInvoices.filter(inv => !inv.tenant_id || inv.tenant_id === tenantId);
+    const fromDate = c.req.query('from_date') || '';
+    const toDate = c.req.query('to_date') || '';
 
-    const filteredInvoices = invoices.filter(inv => {
-      if (locationId && inv.location_id !== locationId) return false;
-      const date = inv.issue_date || inv.created_at || '';
-      if (fromDate && date < fromDate) return false;
-      if (toDate && date > toDate) return false;
-      return true;
-    });
+    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    const householdMap = new Map(allHouseholds.map((h: any) => [h.id, h.name]));
 
-    const totalInvoiced = filteredInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const totalPaid = filteredInvoices
-      .filter(inv => inv.status === 'paid')
-      .reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const totalOutstanding = filteredInvoices
-      .filter(inv => ['issued', 'overdue', 'part_paid'].includes(inv.status))
-      .reduce((sum, inv) => sum + ((inv.total || 0) - (inv.paid_amount || inv.amount_paid || 0)), 0);
+    const allInvoices: any[] = await kv.getByPrefix('invoice:');
+    let invoices = allInvoices
+      .filter((inv: any) => inv && inv.id && inv.household_id)
+      .filter((inv: any) => !fromDate || (inv.issue_date || inv.created_at || '') >= fromDate)
+      .filter((inv: any) => !toDate || (inv.issue_date || inv.created_at || '') <= toDate)
+      .map((inv: any) => ({
+        invoiceNumber: inv.invoice_number || inv.id.slice(0, 8).toUpperCase(),
+        householdName: householdMap.get(inv.household_id) || inv.household_name || '',
+        issueDate: inv.issue_date ? inv.issue_date.split('T')[0] : '',
+        dueDate: inv.due_date ? inv.due_date.split('T')[0] : '',
+        status: inv.status,
+        subtotal: inv.subtotal || 0,
+        tax: inv.tax_amount || 0,
+        total: inv.total || 0,
+        amountPaid: inv.amount_paid || 0,
+        balance: (inv.total || 0) - (inv.amount_paid || 0),
+      }));
 
-    const revenueByModule: Record<string, number> = {};
-    for (const inv of filteredInvoices) {
-      if (inv.line_items) {
-        for (const li of inv.line_items) {
-          const mod = li.module || 'Other';
-          revenueByModule[mod] = (revenueByModule[mod] || 0) + (li.total || 0);
-        }
-      }
-    }
+    invoices.sort((a: any, b: any) => b.issueDate.localeCompare(a.issueDate));
 
-    const invoiceRows = filteredInvoices.map(inv => ({
-      invoiceNumber: inv.invoice_number || '',
-      householdName: inv.household_name || '',
-      issueDate: inv.issue_date || '',
-      dueDate: inv.due_date || '',
-      status: inv.status || '',
-      subtotal: inv.subtotal || 0,
-      tax: inv.tax_total || 0,
-      total: inv.total || 0,
-      amountPaid: inv.paid_amount || inv.amount_paid || 0,
-      balance: (inv.total || 0) - (inv.paid_amount || inv.amount_paid || 0),
-      locationId: inv.location_id || '',
-    }));
+    const summary = {
+      totalInvoiced: invoices.reduce((s: number, i: any) => s + i.total, 0),
+      totalPaid: invoices.reduce((s: number, i: any) => s + i.amountPaid, 0),
+      totalOutstanding: invoices.reduce((s: number, i: any) => s + Math.max(0, i.balance), 0),
+    };
 
-    return c.json({
-      summary: { totalInvoiced, totalPaid, totalOutstanding, revenueByModule },
-      invoices: invoiceRows,
-    });
-  } catch (error) {
-    console.error('Error fetching revenue report:', error);
-    return c.json({ error: 'Failed to fetch revenue report' }, 500);
+    return c.json({ summary, invoices });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
+
+// ============================================================================
+// CANCELLATIONS & NO-SHOWS REPORT
+// ============================================================================
 
 app.get('/cancellations', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
-    const fromDate = c.req.query('from_date');
-    const toDate = c.req.query('to_date');
-    const locationId = c.req.query('location_id');
 
-    const allDaycareBookings = await getAllByPrefix(`daycare:booking:`);
-    const daycareBookings = allDaycareBookings.filter(b => typeof b === 'object' && b !== null && b.id && b.booking_date && (!b.tenant_id || b.tenant_id === tenantId));
-    const cancelled = daycareBookings.filter(b => {
-      const bStatus = b.booking_status || b.status;
-      if (bStatus !== 'cancelled' && bStatus !== 'no_show') return false;
-      if (locationId && b.location_id !== locationId) return false;
-      if (fromDate && b.booking_date < fromDate) return false;
-      if (toDate && b.booking_date > toDate) return false;
-      return true;
-    });
+    const fromDate = c.req.query('from_date') || '';
+    const toDate = c.req.query('to_date') || '';
+    const locationId = c.req.query('location_id') || '';
 
-    const groomingAppts = await getAllByPrefix(`grooming-apt:${tenantId}:`);
-    const cancelledGrooming = groomingAppts.filter(a => {
-      if (a.status !== 'cancelled' && a.status !== 'no_show') return false;
-      if (locationId && a.location_id !== locationId) return false;
-      const date = a.date || a.appointment_date || '';
-      if (fromDate && date < fromDate) return false;
-      if (toDate && date > toDate) return false;
-      return true;
-    });
+    const cancellations: any[] = [];
 
-    const rows = [
-      ...cancelled.map(b => ({
-        date: b.booking_date || '',
+    const daycareBookings = await kv.getByPrefix('daycare:booking:');
+    daycareBookings
+      .filter((b: any) => b && b.id && b.pet_name)
+      .filter((b: any) => b.booking_status === 'cancelled' || b.booking_status === 'no_show')
+      .filter((b: any) => !fromDate || b.booking_date >= fromDate)
+      .filter((b: any) => !toDate || b.booking_date <= toDate)
+      .filter((b: any) => !locationId || b.location_id === locationId)
+      .forEach((b: any) => cancellations.push({
+        date: b.booking_date,
         module: 'Daycare',
-        petName: b.pet_name || '',
-        householdName: b.household_name || '',
-        status: b.booking_status || b.status || '',
-        reason: b.cancellation_reason || b.cancel_reason || '',
-        cancelledAt: b.cancelled_at || b.updated_at || '',
-        locationId: b.location_id || '',
-      })),
-      ...cancelledGrooming.map(a => ({
-        date: a.date || a.appointment_date || '',
+        petName: b.pet_name,
+        householdName: b.household_name,
+        status: b.booking_status,
+        reason: b.cancellation_reason || '',
+        cancelledAt: b.cancelled_at ? b.cancelled_at.split('T')[0] : '',
+      }));
+
+    const groomingApts = await kv.getByPrefix(`grooming-apt:${tenantId}:`);
+    groomingApts
+      .filter((a: any) => a && a.id)
+      .filter((a: any) => a.status === 'cancelled' || a.status === 'no_show')
+      .filter((a: any) => !fromDate || a.appointment_date >= fromDate)
+      .filter((a: any) => !toDate || a.appointment_date <= toDate)
+      .forEach((a: any) => cancellations.push({
+        date: a.appointment_date,
         module: 'Grooming',
         petName: a.pet_name || '',
-        householdName: a.customer_name || a.household_name || '',
-        status: a.status || '',
+        householdName: a.household_name || '',
+        status: a.status,
         reason: a.cancellation_reason || '',
-        cancelledAt: a.cancelled_at || a.updated_at || '',
-        locationId: a.location_id || '',
-      })),
-    ].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        cancelledAt: a.cancelled_at ? a.cancelled_at.split('T')[0] : '',
+      }));
 
-    return c.json({ cancellations: rows });
-  } catch (error) {
-    console.error('Error fetching cancellations report:', error);
-    return c.json({ error: 'Failed to fetch cancellations report' }, 500);
+    const transportJobs = await kv.getByPrefix(`transport_job:${tenantId}:`);
+    transportJobs
+      .filter((j: any) => j && j.id)
+      .filter((j: any) => j.status === 'cancelled')
+      .filter((j: any) => !fromDate || j.service_date >= fromDate)
+      .filter((j: any) => !toDate || j.service_date <= toDate)
+      .forEach((j: any) => cancellations.push({
+        date: j.service_date,
+        module: 'Transport',
+        petName: j.pet_name || '',
+        householdName: j.household_name || '',
+        status: j.status,
+        reason: j.cancellation_reason || '',
+        cancelledAt: j.cancelled_at ? j.cancelled_at.split('T')[0] : '',
+      }));
+
+    const overnightRes = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
+    overnightRes
+      .filter((r: any) => r && r.id)
+      .filter((r: any) => r.status === 'cancelled')
+      .filter((r: any) => !fromDate || r.startDate >= fromDate)
+      .filter((r: any) => !toDate || r.startDate <= toDate)
+      .forEach((r: any) => cancellations.push({
+        date: r.startDate,
+        module: 'Overnights',
+        petName: r.petName || '',
+        householdName: r.householdName || '',
+        status: r.status,
+        reason: r.cancellationReason || '',
+        cancelledAt: r.cancelledAt ? r.cancelledAt.split('T')[0] : '',
+      }));
+
+    cancellations.sort((a, b) => b.date.localeCompare(a.date));
+    return c.json({ cancellations });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
+
+// ============================================================================
+// MONTHLY SUMMARY REPORT
+// ============================================================================
 
 app.get('/monthly-summary', async (c) => {
   try {
-    const user = c.get('user');
+    const user = await auth(c);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
     const tenantId = getTenantId(user);
-    const month = c.req.query('month');
-    const locationId = c.req.query('location_id');
 
-    if (!month) return c.json({ error: 'month parameter required (YYYY-MM)' }, 400);
+    const month = c.req.query('month') || new Date().toISOString().slice(0, 7); // YYYY-MM
+    const locationId = c.req.query('location_id') || '';
 
-    const monthStart = `${month}-01`;
-    const [y, m] = month.split('-').map(Number);
-    const nextMonth = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
-    const monthEnd = `${nextMonth}-01`;
+    const fromDate = `${month}-01`;
+    const toDate = `${month}-31`;
 
-    const households = await getAllByPrefix(`customer:${tenantId}:household:`);
-    const allPets = await getAllByPrefix(`customer:${tenantId}:pet:`);
-    const allDaycare = await getAllByPrefix(`daycare:booking:`);
-    const daycareBookings = allDaycare.filter(b => typeof b === 'object' && b !== null && b.id && b.booking_date && (!b.tenant_id || b.tenant_id === tenantId));
-    const groomingAppts = await getAllByPrefix(`grooming-apt:${tenantId}:`);
-    const overnightRes = await getAllByPrefix(`overnight:${tenantId}:reservation:`);
-    const transportJobs = await getAllByPrefix(`transport_job:${tenantId}:`);
+    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
+    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    const householdMap = new Map(allHouseholds.map((h: any) => [h.id, h.name]));
 
-    const hhMap: Record<string, any> = {};
-    for (const hh of households) {
-      const hhId = hh.id || hh.household_id;
-      if (hhId) hhMap[hhId] = hh;
-    }
+    // Build per-pet activity maps
+    const petDaycare = new Map<string, number>();
+    const petGrooming = new Map<string, number>();
+    const petTransport = new Map<string, number>();
+    const petOvernights = new Map<string, number>();
 
-    const petMap: Record<string, any> = {};
-    for (const pet of allPets) {
-      const hhId = pet.household_id || pet.householdId;
-      const hh = hhId ? hhMap[hhId] : null;
-      if (locationId && (hh?.primary_location_id || hh?.location_id) !== locationId) continue;
-      petMap[pet.id] = {
-        petId: pet.id,
-        petName: pet.name,
-        breed: pet.breed || '',
-        householdId: hhId || '',
-        householdName: hh?.household_name || hh?.name || '',
-        daycareDays: 0,
-        groomingCount: 0,
-        transportCount: 0,
-        overnightNights: 0,
-        totalEstimated: 0,
+    const daycareBookings = await kv.getByPrefix('daycare:booking:');
+    daycareBookings
+      .filter((b: any) => b && b.id && b.pet_id)
+      .filter((b: any) => b.booking_date >= fromDate && b.booking_date <= toDate)
+      .filter((b: any) => b.booking_status !== 'cancelled')
+      .filter((b: any) => !locationId || b.location_id === locationId)
+      .forEach((b: any) => petDaycare.set(b.pet_id, (petDaycare.get(b.pet_id) || 0) + 1));
+
+    const groomingApts = await kv.getByPrefix(`grooming-apt:${tenantId}:`);
+    groomingApts
+      .filter((a: any) => a && a.id && a.pet_id)
+      .filter((a: any) => a.appointment_date >= fromDate && a.appointment_date <= toDate)
+      .filter((a: any) => a.status !== 'cancelled')
+      .forEach((a: any) => petGrooming.set(a.pet_id, (petGrooming.get(a.pet_id) || 0) + 1));
+
+    const transportJobs = await kv.getByPrefix(`transport_job:${tenantId}:`);
+    transportJobs
+      .filter((j: any) => j && j.id && j.pet_id)
+      .filter((j: any) => j.service_date >= fromDate && j.service_date <= toDate)
+      .filter((j: any) => j.status !== 'cancelled')
+      .forEach((j: any) => petTransport.set(j.pet_id, (petTransport.get(j.pet_id) || 0) + 1));
+
+    const overnightRes = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
+    overnightRes
+      .filter((r: any) => r && r.id && r.petId)
+      .filter((r: any) => r.startDate >= fromDate && r.startDate <= toDate)
+      .filter((r: any) => r.status !== 'cancelled')
+      .forEach((r: any) => petOvernights.set(r.petId, (petOvernights.get(r.petId) || 0) + (r.totalNights || 1)));
+
+    // Only include pets with activity
+    const activePetIds = new Set([
+      ...petDaycare.keys(),
+      ...petGrooming.keys(),
+      ...petTransport.keys(),
+      ...petOvernights.keys(),
+    ]);
+
+    const petMap = new Map(allPets.filter((p: any) => p && p.id).map((p: any) => [p.id, p]));
+
+    const summaries = Array.from(activePetIds).map(petId => {
+      const pet = petMap.get(petId) as any;
+      const daycareDays = petDaycare.get(petId) || 0;
+      const groomingCount = petGrooming.get(petId) || 0;
+      const transportCount = petTransport.get(petId) || 0;
+      const overnightNights = petOvernights.get(petId) || 0;
+      return {
+        petName: pet?.name || 'Unknown',
+        breed: pet?.breed || '',
+        householdName: householdMap.get(pet?.household_id) || '',
+        daycareDays,
+        groomingCount,
+        transportCount,
+        overnightNights,
+        totalEstimated: daycareDays + groomingCount + transportCount + overnightNights,
       };
-    }
+    }).sort((a, b) => a.petName.localeCompare(b.petName));
 
-    for (const b of daycareBookings) {
-      if (b.booking_date >= monthStart && b.booking_date < monthEnd && (b.booking_status || b.status) !== 'cancelled') {
-        if (locationId && b.location_id !== locationId) continue;
-        const petId = b.pet_id;
-        if (petMap[petId]) {
-          petMap[petId].daycareDays++;
-          petMap[petId].totalEstimated += b.price || 0;
-        }
-      }
-    }
-
-    for (const a of groomingAppts) {
-      const date = a.date || a.appointment_date || '';
-      if (date >= monthStart && date < monthEnd && a.status !== 'cancelled') {
-        if (locationId && a.location_id !== locationId) continue;
-        const petId = a.pet_id;
-        if (petMap[petId]) {
-          petMap[petId].groomingCount++;
-          petMap[petId].totalEstimated += a.price || 0;
-        }
-      }
-    }
-
-    for (const r of overnightRes) {
-      const rDate = r.startDate || r.start_date || r.check_in_date || '';
-      if (rDate >= monthStart && rDate < monthEnd && r.status !== 'cancelled') {
-        if (locationId && (r.locationId || r.location_id) !== locationId) continue;
-        const petId = r.petId || r.pet_id;
-        if (petMap[petId]) {
-          petMap[petId].overnightNights += r.totalNights || r.total_nights || 1;
-          petMap[petId].totalEstimated += r.totalPrice || r.total_price || 0;
-        }
-      }
-    }
-
-    for (const j of transportJobs) {
-      if (j.service_date >= monthStart && j.service_date < monthEnd && j.status !== 'cancelled') {
-        if (locationId && j.location_id !== locationId) continue;
-        const petId = j.pet_id;
-        if (petMap[petId]) {
-          petMap[petId].transportCount++;
-        }
-      }
-    }
-
-    const summaries = Object.values(petMap)
-      .filter((s: any) => s.daycareDays > 0 || s.groomingCount > 0 || s.overnightNights > 0 || s.transportCount > 0)
-      .sort((a: any, b: any) => a.petName.localeCompare(b.petName));
-
-    return c.json({ month, summaries });
-  } catch (error) {
-    console.error('Error fetching monthly summary:', error);
-    return c.json({ error: 'Failed to fetch monthly summary' }, 500);
-  }
-});
-
-app.get('/bexio-export', async (c) => {
-  try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
-    const fromDate = c.req.query('from_date');
-    const toDate = c.req.query('to_date');
-
-    const allInvoices = await getAllByPrefix(`invoice:`);
-    const invoices = allInvoices.filter(inv => !inv.tenant_id || inv.tenant_id === tenantId);
-    const filtered = invoices.filter(inv => {
-      if (inv.status === 'void' || inv.status === 'draft') return false;
-      const date = inv.issue_date || inv.created_at || '';
-      if (fromDate && date < fromDate) return false;
-      if (toDate && date > toDate) return false;
-      return true;
-    });
-
-    const rows = filtered.map(inv => ({
-      invoiceNumber: inv.invoice_number || '',
-      contactName: inv.household_name || '',
-      issueDate: inv.issue_date || '',
-      dueDate: inv.due_date || '',
-      currency: inv.currency || 'CHF',
-      subtotal: inv.subtotal || 0,
-      taxRate: inv.tax_rate || 0,
-      taxAmount: inv.tax_total || 0,
-      total: inv.total || 0,
-      status: inv.status || '',
-      reference: inv.reference || inv.id || '',
-    }));
-
-    return c.json({ rows });
-  } catch (error) {
-    console.error('Error fetching Bexio export:', error);
-    return c.json({ error: 'Failed to fetch Bexio export' }, 500);
+    return c.json({ summaries });
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
   }
 });
 
