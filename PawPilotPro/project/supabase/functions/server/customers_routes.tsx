@@ -388,29 +388,61 @@ app.delete('/households/:id', async (c) => {
     for (const pet of pets) {
       await kv.del(`customer:${tenantId}:pet:${householdId}:${pet.id}`);
     }
-    
-    // 3. Delete all documents
+
+    // 3. Delete all daycare bookings
+    const daycareBookings = await kv.getByPrefix(`daycare:booking:`);
+    for (const booking of daycareBookings) {
+      if (booking.household_id === householdId) {
+        await kv.del(`daycare:booking:${booking.id}`);
+      }
+    }
+
+    // 4. Delete all grooming appointments
+    const groomingApts = await kv.getByPrefix(`grooming-apt:${tenantId}:`);
+    for (const apt of groomingApts) {
+      if (apt.household_id === householdId) {
+        await kv.del(`grooming-apt:${tenantId}:${apt.id}`);
+      }
+    }
+
+    // 5. Delete all transport jobs
+    const transportJobs = await kv.getByPrefix(`transport_job:${tenantId}:`);
+    for (const job of transportJobs) {
+      if (job.household_id === householdId) {
+        await kv.del(`transport_job:${tenantId}:${job.id}`);
+      }
+    }
+
+    // 6. Delete all overnight reservations
+    const overnightReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
+    for (const reservation of overnightReservations) {
+      if (reservation.householdId === householdId) {
+        await kv.del(`overnight:${tenantId}:reservation:${reservation.id}`);
+      }
+    }
+
+    // 7. Delete all documents
     const documents = await kv.getByPrefix(`customer:${tenantId}:document:${householdId}:`);
     // KV store returns already-parsed objects, not JSON strings
     for (const doc of documents) {
       await kv.del(`customer:${tenantId}:document:${householdId}:${doc.id}`);
     }
     
-    // 4. Delete all notes
+    // 8. Delete all notes
     const notes = await kv.getByPrefix(`customer:${tenantId}:household:${householdId}:note:`);
     // KV store returns already-parsed objects, not JSON strings
     for (const note of notes) {
       await kv.del(`customer:${tenantId}:household:${householdId}:note:${note.id}`);
     }
     
-    // 5. Delete all flags
+    // 9. Delete all flags
     const flags = await kv.getByPrefix(`customer:${tenantId}:household:${householdId}:flag:`);
     // KV store returns already-parsed objects, not JSON strings
     for (const flag of flags) {
       await kv.del(`customer:${tenantId}:household:${householdId}:flag:${flag.id}`);
     }
     
-    // 6. Delete all activity events (optional - you may want to keep these for audit)
+    // 10. Delete all activity events
     const activities = await kv.getByPrefix(`customer:${tenantId}:activity:`);
     // KV store returns already-parsed objects, not JSON strings
     for (const activity of activities) {
@@ -419,7 +451,7 @@ app.delete('/households/:id', async (c) => {
       }
     }
     
-    // 7. Finally, delete the household itself
+    // 11. Finally, delete the household itself
     await kv.del(`customer:${tenantId}:household:${householdId}`);
     
     return c.json({ message: `Household "${householdData.name}" deleted successfully` });
