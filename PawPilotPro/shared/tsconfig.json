@@ -11,5 +11,5 @@
     "declaration": true,
     "outDir": "./dist"
   },
-  "include": ["types", "schemas", "api"]
+  "include": ["types", "schemas", "api", "tests"]
 }
