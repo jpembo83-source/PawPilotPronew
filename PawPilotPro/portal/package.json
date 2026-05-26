@@ -14,9 +14,11 @@
     "@pawpilot/shared": "file:../shared",
     "@supabase/supabase-js": "^2.89.0",
     "@tanstack/react-query": "^5.40.0",
+    "lucide-react": "^1.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.12.0",
+    "sonner": "^2.0.7",
     "zod": "^3.23.0",
     "zustand": "^5.0.9"
   },

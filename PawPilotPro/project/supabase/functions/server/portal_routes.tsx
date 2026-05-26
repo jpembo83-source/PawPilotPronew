@@ -73,4 +73,92 @@ portal.post("/auth/accept-invite", async (c) => {
   });
 });
 
+// Batched home payload — greeting + upcoming bookings + alerts
+portal.get("/home", requirePortalUser, async (c) => {
+  const u = c.get("portalUser");
+  const customer = (await kv.get(`customers:${u.tenantId}:${u.customerId}`)) as any;
+  const tenant = (await kv.get(`tenants:${u.tenantId}`)) as any;
+
+  const allBookings = (await kv.getAllByPrefix(`bookings:${u.tenantId}:`)) as any[];
+  const now = Date.now();
+  const upcoming = allBookings
+    .filter(
+      (b) =>
+        b.customerId === u.customerId &&
+        new Date(b.startAt).getTime() >= now &&
+        b.status !== "cancelled",
+    )
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+    .slice(0, 3);
+
+  const pets = ((await kv.getAllByPrefix(`pets:${u.tenantId}:`)) as any[]).filter(
+    (p) => p.customerId === u.customerId,
+  );
+  const petIds = new Set(pets.map((p) => p.id));
+  const vax = ((await kv.getAllByPrefix(`vaccinations:${u.tenantId}:`)) as any[]).filter((v) =>
+    petIds.has(v.petId),
+  );
+  const expiringSoon = vax.filter((v) => {
+    const dt = new Date(v.expiresAt).getTime();
+    return dt > now && dt - now < 30 * 24 * 60 * 60 * 1000;
+  });
+
+  return c.json({
+    greeting: {
+      firstName: customer?.primaryContactName?.split(" ")[0] ?? "there",
+      tenantName: tenant?.name ?? "PawPilotPro",
+    },
+    upcoming,
+    alerts: {
+      vaxExpiring: expiringSoon.map((v) => ({
+        petId: v.petId,
+        vaxType: v.vaxType,
+        expiresAt: v.expiresAt,
+      })),
+      pendingRequests: upcoming.filter((b) => b.status === "pending").length,
+    },
+  });
+});
+
+// Pet list — owner sees only their household's pets
+portal.get("/pets", requirePortalUser, async (c) => {
+  const u = c.get("portalUser");
+  const list = ((await kv.getAllByPrefix(`pets:${u.tenantId}:`)) as any[]).filter(
+    (p) => p.customerId === u.customerId,
+  );
+  return c.json({ pets: list });
+});
+
+// Pet detail + vaccinations
+portal.get("/pets/:id", requirePortalUser, async (c) => {
+  const u = c.get("portalUser");
+  const id = c.req.param("id");
+  const pet = (await kv.get(`pets:${u.tenantId}:${id}`)) as any;
+  if (!pet || pet.customerId !== u.customerId) return c.json({ error: "Not found" }, 404);
+  const vax = ((await kv.getAllByPrefix(`vaccinations:${u.tenantId}:`)) as any[]).filter(
+    (v) => v.petId === id,
+  );
+  return c.json({ pet, vaccinations: vax });
+});
+
+// Request edit — emails staff in Phase 6; for now just persists the request
+portal.post("/pets/:id/edit-request", requirePortalUser, async (c) => {
+  const u = c.get("portalUser");
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => null);
+  if (!body?.note || typeof body.note !== "string") return c.json({ error: "note required" }, 400);
+  const pet = (await kv.get(`pets:${u.tenantId}:${id}`)) as any;
+  if (!pet || pet.customerId !== u.customerId) return c.json({ error: "Not found" }, 404);
+  const reqId = crypto.randomUUID();
+  await kv.set(`portal_edit_requests:${u.tenantId}:${reqId}`, {
+    id: reqId,
+    petId: id,
+    customerId: u.customerId,
+    note: body.note,
+    submittedAt: new Date().toISOString(),
+    status: "open",
+  });
+  return c.json({ ok: true, id: reqId });
+});
+
 export default portal;
