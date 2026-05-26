@@ -51,6 +51,8 @@ import { MessagesTab } from '../components/household-detail/MessagesTab';
 import { BookingsTab } from '../components/household-detail/BookingsTab';
 import { BillingTab } from '../components/household-detail/BillingTab';
 import { NotesTab } from '../components/household-detail/NotesTab';
+import { PortalActivityTab } from '../components/household-detail/PortalActivityTab';
+import { SendPortalInviteButton } from '../components/household-detail/SendPortalInviteButton';
 import { DocumentManager } from '../components/DocumentManager';
 
 export function HouseholdDetailPage() {
@@ -399,6 +401,11 @@ export function HouseholdDetailPage() {
         
         {/* Quick Actions */}
         <div className="flex gap-2">
+          <SendPortalInviteButton
+            customerId={household.id}
+            hasPortalAccess={false}
+            onSent={() => setActiveTab('portal')}
+          />
           <Button variant="outline" size="sm">
             <MessageSquare className="h-4 w-4 mr-2" />
             Send Message
@@ -501,6 +508,7 @@ export function HouseholdDetailPage() {
             <TabsTrigger value="billing">Billing</TabsTrigger>
           )}
           <TabsTrigger value="notes">Notes & Flags</TabsTrigger>
+          <TabsTrigger value="portal">Portal Activity</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview">
@@ -535,6 +543,10 @@ export function HouseholdDetailPage() {
         
         <TabsContent value="notes">
           <NotesTab household={currentHouseholdDetail} />
+        </TabsContent>
+
+        <TabsContent value="portal">
+          <PortalActivityTab customerId={household.id} />
         </TabsContent>
       </Tabs>
       
