@@ -1,0 +1,23 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@theme {
+  --color-bg: rgb(var(--bg));
+  --color-surface: rgb(var(--surface));
+  --color-text: rgb(var(--text));
+  --color-text-muted: rgb(var(--text-muted));
+  --color-border: rgb(var(--border));
+  --color-accent: rgb(var(--accent));
+  --color-accent-fg: rgb(var(--accent-fg));
+  --color-danger: rgb(var(--danger));
+  --color-success: rgb(var(--success));
+  --color-warning: rgb(var(--warning));
+}
+
+html, body { background: rgb(var(--bg)); color: rgb(var(--text)); }
+body { font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
