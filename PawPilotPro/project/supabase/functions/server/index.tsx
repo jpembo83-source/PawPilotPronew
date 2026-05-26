@@ -28,6 +28,7 @@ import transportRoutes from "./transport_routes.tsx";
 import groomingRoutes from "./grooming_routes.tsx";
 import reportsRoutes from "./reports_routes.tsx";
 import portalRoutes from "./portal_routes.tsx";
+import portalInvites from "./portal_invites.ts";
 import { requireAuth, requirePermission, UserContext } from "./settings_rbac.ts";
 
 const app = new Hono();
@@ -758,5 +759,6 @@ app.route("/make-server-fc003b23/transport", transportRoutes);
 app.route("/make-server-fc003b23/grooming", groomingRoutes);
 app.route("/make-server-fc003b23/reports", reportsRoutes);
 app.route("/make-server-fc003b23/portal", portalRoutes);
+app.route("/make-server-fc003b23/portal-admin", portalInvites);
 
 export default app;
