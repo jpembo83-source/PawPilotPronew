@@ -757,6 +757,6 @@ app.route("/", vaccinationsRoutes);
 app.route("/make-server-fc003b23/transport", transportRoutes);
 app.route("/make-server-fc003b23/grooming", groomingRoutes);
 app.route("/make-server-fc003b23/reports", reportsRoutes);
-app.route("/portal", portalRoutes);
+app.route("/make-server-fc003b23/portal", portalRoutes);
 
 export default app;
