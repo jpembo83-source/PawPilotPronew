@@ -4,7 +4,7 @@
 **Audience:** Claude Code (each prompt is copy-paste ready), reviewed by a human before merge.
 **Golden rule:** Never change runtime behaviour without first having a way to detect a regression.
 
-> **Assumptions** (correct me before starting if wrong): monorepo with `portal/`, `project/`, `shared/` packages; `project/` is the Staff Dashboard (Vite/React) + Supabase Edge Functions (Hono on Deno); `portal/` is the customer app (Capacitor); package manager is **npm** for `project/` (it has `package-lock.json`). Adjust commands if a workspace tool (pnpm/turbo) is actually in use.
+> **Reconciled against the repo on 2026-06-04.** The original review described an earlier/different snapshot. Actual layout: a **single app package** at `PawPilotPro/project/` (the root `package.json` is a near-empty stub). The server lives at `PawPilotPro/project/supabase/functions/server/` — **27 modules, ~22,590 lines**; `make-server-fc003b23/index.ts` is just a 4-line re-export shim. There is **no `portal/` or `shared/` package and no `shared/schemas/`**. All paths below are relative to `PawPilotPro/project/`. **Every cited line number drifts 1–20 lines from the real code — re-derive line numbers before any surgical edit; never trust the cites.** Items below are tagged where the reconciliation changed them.
 
 ---
 
@@ -37,7 +37,9 @@ Goal: make every later phase safe and detectable. Nothing here changes what the 
 
 > **Invoxia: rebase-forward (read before starting).** The Invoxia integration is a working-but-unfinished feature on `wip/invoxia-integration`. It is a **feature branch that rides on top of this remediation and rebases forward — it is never merged back into `main` until it is finished and clean.** Sequence: (1) do Phase 0 on `main`; (2) rebase `wip/invoxia-integration` onto post-Phase-0 `main` *before writing any more Invoxia code*, so all remaining Invoxia work is written under lint/typecheck and the `repo-auth` / `safe-delete` skills; (3) pull the auth middleware (1B.1) forward right after Phase 0, since it is the one piece the Invoxia stream depends on; (4) rebase Invoxia onto post-1B `main` in a single controlled pass — that is where you absorb the `index.tsx` / `customers_routes.tsx` conflict and move the existing Invoxia routes onto `requireAuth`; (5) keep building on the remediated baseline, rebasing forward as later phases land. Discipline: **rebase forward, never merge backward.** Note `index.tsx` is pulled three ways (Invoxia, 1B auth, 2.2 split) — cluster those changes and rebase Invoxia onto the result once. The Invoxia migrations are additive and stack cleanly.
 
-### 0.1 — Stabilise the build: align Zod (Finding #13)
+### 0.1 — Stabilise the build: align Zod (Finding #13) — ✅ RECONCILED: no-op
+
+> **Audited:** single package, only `PawPilotPro/project/` has Zod (`^4.2.1`). No cross-package conflict is possible, so the "compiling by luck" risk doesn't apply. **`zod` and `@hookform/resolvers` are declared but unused** — do not remove them yet; that decision is tied to 3.4 (see note there). Skip the edit below; proceed to 0.2.
 
 ```
 Branch: chore/align-zod
@@ -108,18 +110,33 @@ Maps to review priority items 1–6 plus CORS/default-password/fake-hash. Split 
 
 ## 1A — Immediate, near-zero-regression removals
 
-### 1A.1 — Remove debug/seed routes from production (Findings #8, #34)
+### 1A.1 — Remove debug/seed routes from production (Findings #8, #34) — ⚠️ RECONCILED: scope changed
 
 ```
 Branch: security/remove-debug-routes
-Debug routes ship to production with no admin guard: /test-post, /check-env, /debug-users, /debug-auth-users, /sync-users (Edge Function), and App.tsx routes "debug-kv", "debug-customer" (behind PrivateRoute only — any staff user reaches them).
+RECONCILED against repo. The unguarded surface is LARGER than the original list:
+- server/index.tsx debug routes (no admin guard): /test-post (~131), /check-env (~139),
+  /debug-users (~164), /debug-auth-users (~200), /sync-users (~250).
+- EXTRA unguarded debug routes the review missed: customers_routes.tsx /debug/kv-keys (~2488)
+  and /debug/all-customers (~2554, dumps every customer).
+- EXTRA unguarded /seed routes: system.ts (~554) and data_compliance.ts (~516).
+- App.tsx does NOT register live debug routes. src/app/debug/CustomerDebug.tsx and KVDebug.tsx
+  are ORPHANED dead components — nothing imports them (CustomerDebug even calls a backend path
+  that no longer exists). So this is dead-code deletion, NOT route-unwiring.
+- Also unguarded and destructive (treat as part of this removal's urgency, even though the auth
+  fix is 1B): system.ts /actions/force-logout (~495) and /actions/emergency-disable (~473).
 
 Do this:
-1. grep the entire repo for each route path and list every definition + reference.
-2. Delete the routes outright. If the smoke suite (0.4) needs a seed path, replace /sync-users with a seed script run via CLI in non-prod only (guarded by an explicit SEED_ENABLED env that is unset in prod), NOT an HTTP route.
-3. Remove the App.tsx debug routes and their now-unused components (grep-confirm the components aren't imported elsewhere before deleting).
+1. Re-derive every line number — the cites above drift. grep each route path and list all defs.
+2. Delete the debug routes (server/index.tsx + the two in customers_routes.tsx) outright.
+3. Delete the orphaned debug components (grep-confirm zero imports first via /safe-delete).
+4. For /seed and /sync: do NOT expose over HTTP in prod. Replace with a CLI seed script guarded
+   by SEED_ENABLED (unset in prod). The smoke suite (0.4) may use it in non-prod only.
+5. /actions/force-logout and /actions/emergency-disable must NOT be reachable unauthenticated —
+   if you can't fully wire 1B's requireAuth here yet, at minimum gate them behind an admin check
+   now; they delete sessions / disable the platform.
 
-Constraints: paste grep output proving zero remaining references. Smoke suite must stay green. Show the diff.
+Constraints: paste /safe-delete grep proof for every deletion. Smoke suite stays green. Show the diff.
 ```
 
 ### 1A.2 — Tighten CORS (Findings #7)
@@ -169,16 +186,16 @@ Constraints: tell me which path (encrypt vs hash) you chose per secret type and 
 
 ## 1B — Auth rewrite (Phase 0 must be green)
 
-The canonical correct pattern already exists in `settings_rbac.ts` line 257 (`SERVICE_ROLE_KEY`). Everything below replicates it.
+> **RECONCILED.** `settings_rbac.ts` (~line 257) has the correct *validation core* — `SERVICE_ROLE_KEY` + `auth.getUser(token)` — and that is the part to reuse. But it is **not** a clean exemplar: it reads role from `user_metadata` (~274) and has **two** decode-without-validation fallbacks (a dev-mode decode ~209-244 and a network-retry Base64 decode ~297-326), with a twin of the dev-mode decode in `index.tsx` (`/test-auth`, ~377-379). So **do not "replicate `settings_rbac`."** Build `requireAuth` clean from the validation core only (app_metadata role, zero fallbacks), then retrofit `settings_rbac.ts` itself onto it. Re-derive all line numbers before editing.
 
 ### 1B.1 — Centralised auth middleware (Findings #1, #11 — fixes missing auth AND the 14× DRY violation at once)
 
 ```
 Branch: security/requireauth-middleware
-messaging.ts (12+ routes), system.ts (25+ routes), data_compliance.ts (22 routes) have ZERO auth. getUserFromToken() is defined in messaging.ts line 15 but never called. Separately, getAuthHeaders() is copy-pasted into 14 module stores.
+RECONCILED counts: messaging.ts (12 routes), system.ts (28 routes), data_compliance.ts (22 routes) have ZERO auth. getUserFromToken() is defined in messaging.ts:15 but never called. getAuthHeaders() is copy-pasted into 17 module stores (not 14), and billing/store.ts:12 hardcodes the ANON key as the Authorization bearer.
 
 Do this:
-1. Read settings_rbac.ts (esp. line 257) as the reference for correct token validation with SERVICE_ROLE_KEY.
+1. Take ONLY the validation core from settings_rbac.ts (~257): SERVICE_ROLE_KEY client + auth.getUser(token). Do NOT copy its user_metadata role read or either fallback — those are bugs we remove.
 2. Create ONE shared Hono middleware, e.g. shared server util requireAuth(c, next):
    - extract the Bearer token
    - validate it server-side via a SERVICE_ROLE_KEY Supabase client (supabase.auth.getUser(token)) — never decode-only
@@ -186,8 +203,9 @@ Do this:
    - attach the validated user to context
    - read role from app_metadata ONLY (see 1B.3)
 3. Apply requireAuth to EVERY route in messaging.ts, system.ts, data_compliance.ts, AND invoxia_routes.tsx (the working Invoxia feature — its routes are new code written in the same style and almost certainly unguarded), plus any other unauthenticated route (grep for route registrations without a guard; the review counts 60+ unauthenticated endpoints — enumerate them all). Also guard the invoxia-sync Edge Function: if it is invoked over HTTP it needs auth; if it is a scheduled/cron function it needs its own service-to-service auth, not public access.
-4. Create ONE shared client-side getAuthHeaders() utility and replace all 14 copies (billing, capacity, customers, daycare, grooming, incidents, overnights, packages, policies, reporting, services-pricing, settings, staff, transport) AND any Invoxia client calls. The header must NOT send SUPABASE_ANON_KEY as the Authorization bearer — send the user's access token.
+4. Create ONE shared client-side getAuthHeaders() utility and replace all 17 copies (RECONCILED list: customers, settings, settings/userStore, transport, overnights, daycare, policies, capacity, grooming + grooming/NewGroomingAppointment, system/UATSeedPanel, staff + staff/PoliciesTab, services-pricing + services-pricing/approvals-store, incidents, packages) AND any Invoxia client calls. The header must NOT send the ANON key as the Authorization bearer — billing/store.ts:12 does exactly this, fix it — send the user's access token.
 5. Delete the dead getUserFromToken() in messaging.ts.
+6. Retrofit settings_rbac.ts onto the new requireAuth: remove its user_metadata role read (~274) and BOTH fallbacks (the dev-mode decode ~209-244 and the network-retry Base64 decode ~297-326). It was the old reference; it is now just another module to fix.
 
 Constraints: enumerate every route you added the guard to, grouped by module, with a count. Smoke suite must still pass for LEGITIMATE authenticated flows — if a smoke test breaks, the fix is to authenticate the test correctly, not to weaken the guard. Show me the full list of now-protected routes. **Invoxia timing:** rebase `wip/invoxia-integration` onto the branch that lands this middleware so the existing Invoxia routes are guarded here and all subsequent Invoxia routes consume `requireAuth` from the start (the `repo-auth` skill enforces this). If invoxia_routes.tsx is not yet on `main` when you run this, still build the middleware now and apply it to the Invoxia routes during the rebase pass.
 ```
@@ -197,9 +215,9 @@ Constraints: enumerate every route you added the guard to, grouped by module, wi
 ```
 Branch: security/jwt-service-role
 Two linked problems:
-- 7 modules create their Supabase client with SUPABASE_ANON_KEY and "validate" JWTs with it. ANON_KEY cannot verify signatures — any forged token is accepted. Files: customers_routes.tsx:33, daycare_routes.tsx:126, overnights_routes.tsx:24, transport_routes.tsx:28, grooming_routes.tsx:84, incidents_routes.tsx:180, policies_routes.tsx:~125. ALSO check invoxia_routes.tsx and the invoxia-sync function — new code in the same style, so grep them for SUPABASE_ANON_KEY and the same validation pattern and fix any hit the same way.
-- settings_rbac.ts:297-329 falls back to local Base64 JWT decoding after 3 failed auth calls — an attacker who disrupts the connection can impersonate anyone.
-- index.tsx:71-72 silently degrades to ANON_KEY when SERVICE_ROLE_KEY is missing.
+- 7 modules create their Supabase client with SUPABASE_ANON_KEY and "validate" JWTs with it. ANON_KEY cannot verify signatures — any forged token is accepted. RECONCILED line refs (re-derive, they drift): customers_routes.tsx:~33, daycare_routes.tsx:~136, overnights_routes.tsx:~24, transport_routes.tsx:~36, grooming_routes.tsx:~84, incidents_routes.tsx:~180, policies_routes.tsx:~131. ALSO check invoxia_routes.tsx and the invoxia-sync function — new code in the same style, so grep them for the ANON_KEY validation pattern and fix any hit the same way.
+- settings_rbac.ts has TWO decode-without-validation fallbacks, not one: the network-retry Base64 decode (~297-326) AND a dev-mode decode when SERVICE_ROLE_KEY is missing (~209-244). Remove both (also done in 1B.1 step 6).
+- index.tsx has the same problems: a silent ANON_KEY degradation when SERVICE_ROLE_KEY is missing (~70), AND a dev-mode decode-without-validation twin at /test-auth (~377-379). Remove both.
 
 Do this:
 1. Route all server-side auth through the requireAuth middleware from 1B.1 (which uses SERVICE_ROLE_KEY validation). Remove the ad-hoc ANON_KEY validation in all 7 modules and in invoxia_routes.tsx if present.
@@ -213,12 +231,12 @@ Constraints: after this, a forged/expired token must be rejected. Add a smoke te
 
 ```
 Branch: security/role-from-app-metadata
-AuthContext.tsx:139 reads role from user_metadata, which is CLIENT-WRITABLE — a user can set their own role to admin.
+RECONCILED: role is read from user_metadata in at least TWO places — AuthContext.tsx (~116 and ~121, NOT 139 as originally cited) and settings_rbac.ts (~274, plus its fallback path ~313). Both are client-writable, so a user can self-promote to admin.
 
 Do this:
-1. Change the role source to app_metadata (server-controlled) everywhere role is read — grep for 'user_metadata' and 'metadata.role' across portal/ and project/.
+1. Change the role source to app_metadata (server-controlled) everywhere role is read — grep for 'user_metadata' and 'metadata.role' across the whole PawPilotPro/project/ tree (single package; there is no portal/ or shared/).
 2. Ensure roles are SET only server-side (admin SDK / SERVICE_ROLE_KEY), never from the client.
-3. The server-side requireAuth (1B.1) already reads app_metadata — make the client trust the server's role response, not its own decoded token.
+3. The server-side requireAuth (1B.1) reads app_metadata — make the client trust the server's role response, not its own decoded token.
 
 Constraints: add a smoke test asserting a user who sets user_metadata.role=admin does NOT gain admin access. Enumerate every read site you changed.
 ```
@@ -243,18 +261,26 @@ Do this:
 Constraints: this is read-only against prod — capture, don't mutate. Verify a fresh local supabase db reset reproduces a working schema.
 ```
 
-### 2.2 — Split the monolithic Edge Function (Findings #12)
+### 2.2 — Slim the fat composition root (Findings #12) — ⚠️ RECONCILED: not a monolith split
 
 ```
-Branch: refactor/split-server
-make-server-fc003b23 is one 25,145-line Hono server; index.tsx alone is 834 lines mixing debug, seed, sync, and user management.
+Branch: refactor/slim-index
+RECONCILED: the server is NOT one 25k-line file. It is already 27 modules under
+supabase/functions/server/ (~22,590 lines total); index.tsx is ~812 lines acting as a fat
+composition root that mixes debug, seed, sync, and user management in with the mounting.
+So this is "slim index.tsx + extract shared concerns," not "split a monolith."
 
-Do this INCREMENTALLY, one module at a time, behaviour-preserving:
-1. Map the 27+ route modules and their registration in index.tsx.
-2. Extract route groups into their own files mounted via app.route('/prefix', subRouter). Move shared concerns (the requireAuth middleware, the single getAuthHeaders server util, error handling) into a shared/ server module.
-3. index.tsx becomes a thin composition root: env validation, middleware, mounting.
+Do this INCREMENTALLY, behaviour-preserving:
+1. Map what index.tsx does beyond mounting: debug routes (removed in 1A.1), seed/sync, user
+   management. Move the non-mounting logic into appropriate modules (or delete, per 1A.1).
+2. Extract shared concerns into a server util module: the requireAuth middleware (1B.1), the
+   single getAuthHeaders, error handling. There is no shared/ package — create the shared
+   server util inside supabase/functions/server/ (e.g. server/_shared/).
+3. index.tsx becomes a thin composition root: env validation, middleware, app.route() mounting.
 
-Constraints: ONE module per commit. Smoke suite green after each. No logic changes — pure mechanical extraction. If you find logic that needs changing, leave a TODO and a separate issue; do not fix it here.
+Constraints: ONE concern per commit. Smoke suite green after each. No logic changes — pure
+mechanical extraction. Re-derive line numbers. Coordinate with the Invoxia rebase — index.tsx
+is pulled three ways (see the Phase 0 rebase-forward note).
 ```
 
 ### 2.3 — KV Store → relational, via strangler-fig (Findings #10) — PLAN FIRST, DO NOT REWRITE IN ONE PASS
@@ -308,7 +334,7 @@ Branch: quality/types-<module>   (one branch PER module — do not do all 567 at
 567 any in the backend, 88+ in frontend. Now that tsconfig + typecheck exist (Phase 0), tighten incrementally.
 
 For the module named in the branch:
-1. Replace request-body any with the existing shared/ Zod schemas — parse at the boundary with c.req.json() then schema.parse(). The schemas already exist and are well-built; use them server-side.
+1. Replace request-body any with Zod schemas parsed at the boundary (c.req.json() then schema.parse()). RECONCILED: there is NO shared/schemas/ in this repo and zod is currently unused — so you are WRITING these schemas, not reusing them. Co-locate them (e.g. server/_shared/schemas/ or per-module) and re-derive the real `any` counts; the review's 567/88 figures are from a different snapshot.
 2. Type the obvious cases: (h: any) filter chains, (b as any).petNames (add the field to the Booking type instead of casting), data?: any in interfaces, error: any in catch (use unknown + narrowing).
 3. Enable @typescript-eslint/no-explicit-any as warn for this module, error once clean.
 
@@ -318,12 +344,12 @@ Constraints: ONE module per PR so reviews stay sane. Smoke suite green each time
 ### 3.4 — Wire Portal form validation + ErrorBoundary (Findings #22, #23)
 
 ```
-Branch: quality/portal-forms-and-errorboundary
-react-hook-form and zod are dependencies but no Portal form uses them — validation is manual useState + toast.error. The shared/schemas/booking.ts schemas exist but are only used server-side. The Portal (Capacitor app) has NO ErrorBoundary, so any render error crashes the whole app.
+Branch: quality/forms-and-errorboundary
+RECONCILED: the original premise is stale. zod and @hookform/resolvers are declared but UNUSED, and there is NO shared/schemas/ to reuse — validation is manual useState + toast.error. There is also no separate portal/ package; this is the single PawPilotPro/project/ app. So this item has a predecessor: you must WRITE the Zod schemas first (ideally the same ones introduced in 3.3), then wire forms to them. Decide up front whether form validation is worth doing at all — if not, zod + @hookform/resolvers become removable bloat (Phase 4) instead.
 
-Do this:
-1. Add a top-level ErrorBoundary in the Portal with a recovery UI. Add per-route boundaries for the heaviest screens.
-2. Convert Portal forms to react-hook-form + zodResolver using the EXISTING shared schemas. Remove the manual useState validation.
+Do this (if proceeding):
+1. Add a top-level ErrorBoundary with a recovery UI, plus per-route boundaries for the heaviest screens. (This part stands regardless of the schema decision.)
+2. Write Zod schemas for the forms being converted (none exist to reuse), then convert those forms to react-hook-form + zodResolver. Remove the manual useState validation.
 
 Constraints: reuse shared schemas verbatim — do not duplicate validation logic. Verify each converted form still submits correctly (smoke/E2E).
 ```

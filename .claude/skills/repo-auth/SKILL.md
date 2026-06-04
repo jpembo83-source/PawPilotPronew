@@ -11,8 +11,13 @@ description: >
 
 # repo-auth — how authentication works in this codebase
 
-The source of truth is **`settings_rbac.ts`** (the `SERVICE_ROLE_KEY` validation around
-line 257). When in doubt, read it and replicate it. Do not invent a new pattern.
+`settings_rbac.ts` has the **correct validation core** (`SERVICE_ROLE_KEY` + `auth.getUser(token)`,
+around line 257) — copy *that part only*. It is NOT a clean exemplar: it also reads role from
+`user_metadata` (line 274) and carries two decode-without-validation fallbacks (a dev-mode
+decode at ~209-244 and a network-retry Base64 decode at ~297-326). Do not replicate those.
+Build `requireAuth` clean from the validation core, then retrofit `settings_rbac.ts` itself
+onto it (strip its role-source and both fallbacks) as one of the first modules fixed.
+Line numbers in this repo drift from any cited values — re-derive them before editing.
 
 ## The five rules (non-negotiable)
 
