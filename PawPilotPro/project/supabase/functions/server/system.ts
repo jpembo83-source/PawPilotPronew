@@ -2,9 +2,41 @@
 // Highest-privilege area for global system control, safety, and governance
 
 import { Hono } from 'npm:hono';
+import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
 
 const app = new Hono();
+
+// --- Auth Gate (interim, until 1B.1 ships the shared requireAuth middleware) ---
+// Validates the user's access token server-side with SERVICE_ROLE_KEY and confirms
+// app_metadata.role === 'admin'. No fallbacks, no ANON_KEY validation, no user_metadata
+// role reads. Returns a Response on failure; the caller short-circuits with it.
+async function requireAdmin(c: any): Promise<Response | null> {
+  const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
+  if (!token) {
+    return c.json({ error: 'unauthorized' }, 401);
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceKey) {
+    console.error('[system requireAdmin] SUPABASE_SERVICE_ROLE_KEY missing — refusing to validate');
+    return c.json({ error: 'auth_unavailable' }, 503);
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey);
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) {
+    return c.json({ error: 'unauthorized' }, 401);
+  }
+
+  const role = data.user.app_metadata?.role;
+  if (role !== 'admin') {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
+  return null;
+}
 
 // --- Utility Functions ---
 
@@ -471,6 +503,9 @@ app.get('/audit-logs', async (c) => {
 // --- System Actions ---
 
 app.post('/actions/emergency-disable', async (c) => {
+  const denied = await requireAdmin(c);
+  if (denied) return denied;
+
   const data = await c.req.json();
   const actionId = generateId();
 
@@ -493,6 +528,9 @@ app.post('/actions/emergency-disable', async (c) => {
 });
 
 app.post('/actions/force-logout', async (c) => {
+  const denied = await requireAdmin(c);
+  if (denied) return denied;
+
   const data = await c.req.json();
   const actionId = generateId();
 
