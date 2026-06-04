@@ -12,8 +12,9 @@
 
 1. Work **one phase at a time**, one branch per item or tight group of items. Small, reviewable PRs only.
 2. Drop the `CLAUDE.md` from **Appendix A** into the repo root *first*. It encodes the invariants so Claude Code inherits them on every prompt.
-3. Run the **verification gate** (Appendix B) before opening a PR. A PR that doesn't pass the gate doesn't merge.
-4. Do the **secret rotation runbook** (Appendix C) *today*, independent of everything else.
+3. Install the **skill layer** (Appendix D) so the safety contract is enforced automatically instead of re-pasted into every prompt.
+4. Run the **verification gate** (Appendix B) before opening a PR. A PR that doesn't pass the gate doesn't merge.
+5. Do the **secret rotation runbook** (Appendix C) *today*, independent of everything else.
 
 ---
 
@@ -33,6 +34,8 @@ Every prompt assumes these. They are also written into `CLAUDE.md`.
 # Phase 0 — Guardrails (zero behaviour change)
 
 Goal: make every later phase safe and detectable. Nothing here changes what the app does at runtime. This phase should take ~1 day and is a hard prerequisite for Phase 1's auth rewrites.
+
+> **Invoxia: rebase-forward (read before starting).** The Invoxia integration is a working-but-unfinished feature on `wip/invoxia-integration`. It is a **feature branch that rides on top of this remediation and rebases forward — it is never merged back into `main` until it is finished and clean.** Sequence: (1) do Phase 0 on `main`; (2) rebase `wip/invoxia-integration` onto post-Phase-0 `main` *before writing any more Invoxia code*, so all remaining Invoxia work is written under lint/typecheck and the `repo-auth` / `safe-delete` skills; (3) pull the auth middleware (1B.1) forward right after Phase 0, since it is the one piece the Invoxia stream depends on; (4) rebase Invoxia onto post-1B `main` in a single controlled pass — that is where you absorb the `index.tsx` / `customers_routes.tsx` conflict and move the existing Invoxia routes onto `requireAuth`; (5) keep building on the remediated baseline, rebasing forward as later phases land. Discipline: **rebase forward, never merge backward.** Note `index.tsx` is pulled three ways (Invoxia, 1B auth, 2.2 split) — cluster those changes and rebase Invoxia onto the result once. The Invoxia migrations are additive and stack cleanly.
 
 ### 0.1 — Stabilise the build: align Zod (Finding #13)
 
@@ -161,7 +164,7 @@ Do this:
 2. Migrate existing stored values: read the current reversed strings, recover the plaintext, re-store under the correct scheme, in a one-off migration guarded by SEED_ENABLED.
 3. Remove hashSecret().
 
-Constraints: tell me which path (encrypt vs hash) you chose per secret type and why. Do not leave plaintext or reversed values anywhere after migration.
+Constraints: tell me which path (encrypt vs hash) you chose per secret type and why. Do not leave plaintext or reversed values anywhere after migration. **Invoxia:** the invoxia-sync function calls an external API, so there is a new credential (Invoxia API key) — make sure it lives in env / Supabase Vault, never hardcoded and never through hashSecret(). Apply the same rule here.
 ```
 
 ## 1B — Auth rewrite (Phase 0 must be green)
@@ -182,11 +185,11 @@ Do this:
    - on failure, return 401 immediately (no fallback — see 1B.2)
    - attach the validated user to context
    - read role from app_metadata ONLY (see 1B.3)
-3. Apply requireAuth to EVERY route in messaging.ts, system.ts, data_compliance.ts and any other unauthenticated route (grep for route registrations without a guard; the review counts 60+ unauthenticated endpoints — enumerate them all).
-4. Create ONE shared client-side getAuthHeaders() utility and replace all 14 copies (billing, capacity, customers, daycare, grooming, incidents, overnights, packages, policies, reporting, services-pricing, settings, staff, transport). The header must NOT send SUPABASE_ANON_KEY as the Authorization bearer — send the user's access token.
+3. Apply requireAuth to EVERY route in messaging.ts, system.ts, data_compliance.ts, AND invoxia_routes.tsx (the working Invoxia feature — its routes are new code written in the same style and almost certainly unguarded), plus any other unauthenticated route (grep for route registrations without a guard; the review counts 60+ unauthenticated endpoints — enumerate them all). Also guard the invoxia-sync Edge Function: if it is invoked over HTTP it needs auth; if it is a scheduled/cron function it needs its own service-to-service auth, not public access.
+4. Create ONE shared client-side getAuthHeaders() utility and replace all 14 copies (billing, capacity, customers, daycare, grooming, incidents, overnights, packages, policies, reporting, services-pricing, settings, staff, transport) AND any Invoxia client calls. The header must NOT send SUPABASE_ANON_KEY as the Authorization bearer — send the user's access token.
 5. Delete the dead getUserFromToken() in messaging.ts.
 
-Constraints: enumerate every route you added the guard to, grouped by module, with a count. Smoke suite must still pass for LEGITIMATE authenticated flows — if a smoke test breaks, the fix is to authenticate the test correctly, not to weaken the guard. Show me the full list of now-protected routes.
+Constraints: enumerate every route you added the guard to, grouped by module, with a count. Smoke suite must still pass for LEGITIMATE authenticated flows — if a smoke test breaks, the fix is to authenticate the test correctly, not to weaken the guard. Show me the full list of now-protected routes. **Invoxia timing:** rebase `wip/invoxia-integration` onto the branch that lands this middleware so the existing Invoxia routes are guarded here and all subsequent Invoxia routes consume `requireAuth` from the start (the `repo-auth` skill enforces this). If invoxia_routes.tsx is not yet on `main` when you run this, still build the middleware now and apply it to the Invoxia routes during the rebase pass.
 ```
 
 ### 1B.2 — Replace ANON_KEY JWT validation + remove fallback (Findings #2, #3, #5)
@@ -194,12 +197,12 @@ Constraints: enumerate every route you added the guard to, grouped by module, wi
 ```
 Branch: security/jwt-service-role
 Two linked problems:
-- 7 modules create their Supabase client with SUPABASE_ANON_KEY and "validate" JWTs with it. ANON_KEY cannot verify signatures — any forged token is accepted. Files: customers_routes.tsx:33, daycare_routes.tsx:126, overnights_routes.tsx:24, transport_routes.tsx:28, grooming_routes.tsx:84, incidents_routes.tsx:180, policies_routes.tsx:~125.
+- 7 modules create their Supabase client with SUPABASE_ANON_KEY and "validate" JWTs with it. ANON_KEY cannot verify signatures — any forged token is accepted. Files: customers_routes.tsx:33, daycare_routes.tsx:126, overnights_routes.tsx:24, transport_routes.tsx:28, grooming_routes.tsx:84, incidents_routes.tsx:180, policies_routes.tsx:~125. ALSO check invoxia_routes.tsx and the invoxia-sync function — new code in the same style, so grep them for SUPABASE_ANON_KEY and the same validation pattern and fix any hit the same way.
 - settings_rbac.ts:297-329 falls back to local Base64 JWT decoding after 3 failed auth calls — an attacker who disrupts the connection can impersonate anyone.
 - index.tsx:71-72 silently degrades to ANON_KEY when SERVICE_ROLE_KEY is missing.
 
 Do this:
-1. Route all server-side auth through the requireAuth middleware from 1B.1 (which uses SERVICE_ROLE_KEY validation). Remove the ad-hoc ANON_KEY validation in all 7 modules.
+1. Route all server-side auth through the requireAuth middleware from 1B.1 (which uses SERVICE_ROLE_KEY validation). Remove the ad-hoc ANON_KEY validation in all 7 modules and in invoxia_routes.tsx if present.
 2. Delete the Base64 fallback in settings_rbac.ts entirely. On repeated auth failure: return 503/401 and log it — FAIL FAST.
 3. In index.tsx: if SERVICE_ROLE_KEY is missing, throw on startup. Never fall back to ANON_KEY for privileged operations.
 
@@ -385,13 +388,19 @@ Constraints: one logical fix per commit within the branch. Build + smoke green. 
 - No `error.message` returned to clients. Generic message + correlation ID; full detail server-side only.
 - No debug/seed routes in code paths reachable in production. Seed only via CLI guarded by SEED_ENABLED.
 
-## Before any change
+## Before any change (think before coding)
 - Branch per concern. Small diffs. No mixing security fixes with refactors.
+- Make the **smallest surgical change** that fixes the issue. Prefer the simplest abstraction; do not refactor beyond the stated task.
 - If touching auth/check-in/billing, the smoke suite must cover it first.
-- Never delete a dep/file/route without grep-proving zero references (paste proof in the PR).
+- Never delete a dep/file/route without grep-proving zero references — run `/safe-delete` and paste proof in the PR.
 
 ## Gate (must pass before merge)
 - `lint`, `typecheck`, `build`, smoke suite — all green. No new `any`. No `eslint-disable` to get green.
+- The gate is enforced sequentially by the Spartan gate skill (Appendix D): a failing step blocks the next.
+
+## Skills active in this repo (see Appendix D)
+- `repo-auth` — auto-loads when touching auth/routes; the canonical auth pattern.
+- `safe-delete` — run before removing any dep/file/route.
 
 ## Patterns to copy (the parts already done right)
 - Auth: settings_rbac.ts (SERVICE_ROLE_KEY validation)
@@ -404,7 +413,7 @@ Constraints: one logical fix per commit within the branch. Build + smoke green. 
 
 # Appendix B — Verification gate checklist
 
-Run before every PR. CI (0.3) enforces the automated ones.
+Run before every PR. CI (0.3) enforces the automated ones; the **Spartan gate skill** (Appendix D) enforces them sequentially in-session so a failing check blocks the next step.
 
 - [ ] `lint` passes (no new errors above baseline)
 - [ ] `typecheck` passes (no new `any`, no new errors)
@@ -428,6 +437,36 @@ These are exposed in source and git history; removing from `HEAD` is insufficien
 5. **Add a secret scanner** (e.g. gitleaks) to CI so this can't recur.
 
 > Order of operations overall: **Appendix C now** → **Phase 0** → **Phase 1A in parallel with 0** → **Phase 1B** → Phases 2–4.
+
+---
+
+# Appendix D — Skill layer
+
+Skills carry the repeated parts of this book so prompts stay short and the safety contract is enforced automatically. Skills live in `.claude/skills/<name>/SKILL.md` (project-level, committed to the repo); the directory name becomes the `/command`, and the `description` decides when Claude Code auto-loads it. Keep `SKILL.md` lean and push deterministic work into bundled scripts.
+
+## Which skill runs when
+
+| Skill | Source | When | Maps to |
+|---|---|---|---|
+| **GSD** | off-the-shelf, install repo-wide | always-on for any multi-file phase — spawns fresh subagents per task to stop context rot | the "one module per PR" rule in 2.2, 3.3, 3.5 |
+| **Spartan gate** | off-the-shelf | every PR — sequential typecheck → lint → test → review, can't proceed on failure | Appendix B; replaces the hand-rolled `verify` |
+| **Karpathy guidelines** | off-the-shelf *or* folded into `CLAUDE.md` | always-on — think before coding, simplest abstraction, surgical changes | the operating principles |
+| **`repo-auth`** | **scaffolded below** | auto-loads on auth/route work | 1B.1–1B.3 |
+| **`safe-delete`** | **scaffolded below** | before any deletion | 1A.1 and all of Phase 4 |
+| **Superpowers** | off-the-shelf | **Phase 2 only** — clarify→spec→plan→execute→review for the irreversible architectural work | 2.2, 2.3 |
+| **Grill Me** | off-the-shelf | **decision points only** — npm vs pnpm (4.2), KV pilot entity (2.3), encrypt-vs-hash (1A.4) | the three open decisions |
+
+**Do not stack everything.** Running all of these at once is governance soup — competing loops and redundant gates. Baseline = GSD + Spartan + Karpathy + the two repo skills. Pull Superpowers and Grill Me off the shelf only when you reach Phase 2 and the decisions. Skip Frontend Design (no new UI here), Firecrawl (no scraping), and PlanetScale (wrong DB — this is Supabase/Postgres).
+
+> Spartan and the Phase 0 scripts depend on `lint`/`typecheck`/`test` existing, so the Spartan gate becomes active **after 0.2–0.4**, not before.
+
+## Scaffolded skill 1 — `repo-auth`
+
+Create `.claude/skills/repo-auth/SKILL.md`. Reference skill: Claude auto-loads it whenever it edits a route, middleware, or anything auth-related. Contents are in the file delivered alongside this book.
+
+## Scaffolded skill 2 — `safe-delete`
+
+Create `.claude/skills/safe-delete/SKILL.md` plus `.claude/skills/safe-delete/scripts/dep-usage.sh`. Task skill: invoke `/safe-delete <target>` before removing a dependency, file, or route. The script does the deterministic reference-counting and exits non-zero if anything still references the target, so a deletion can't pass the gate without proof. Both files are delivered alongside this book.
 
 ---
 
