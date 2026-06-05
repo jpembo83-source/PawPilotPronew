@@ -1,0 +1,12 @@
+.superpowers/
+.DS_Store
+.local/
+.config/
+.agents/
+.planning/
+.netlify/
+**/.local/
+**/.config/
+**/.netlify/
+**/supabase/.temp/
+*.bin
