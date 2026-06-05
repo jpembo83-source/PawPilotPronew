@@ -24,7 +24,6 @@ test.describe('Daycare Module', () => {
     
     if (await bookingsLink.isVisible()) {
       await bookingsLink.click();
-      await page.waitForTimeout(500);
       // Should navigate or show bookings content
       await expect(page.locator('text=/booking/i').first()).toBeVisible();
     }
@@ -38,7 +37,6 @@ test.describe('Daycare Module', () => {
     
     if (await attendanceLink.isVisible()) {
       await attendanceLink.click();
-      await page.waitForTimeout(500);
     }
     
     // Page should still be functional
@@ -75,8 +73,10 @@ test.describe('Daycare Check-in Flow', () => {
     await checkInBtn.click();
     
     // Wait for modal
-    await page.waitForTimeout(500);
-    
+    await expect(
+      page.locator('[role="dialog"], [data-state="open"]').first()
+    ).toBeVisible();
+
     // Should have some input or content
     const hasInput = await page.locator('input').first().isVisible();
     const hasContent = await page.locator('[role="dialog"] *, [data-state="open"] *').first().isVisible();
@@ -92,8 +92,9 @@ test.describe('Daycare Check-in Flow', () => {
     await checkInBtn.click();
     
     // Wait for modal
-    await page.waitForTimeout(500);
-    
+    const modal = page.locator('[role="dialog"], [data-state="open"]').first();
+    await expect(modal).toBeVisible();
+
     // Try to close - look for X button, cancel, or close button
     const closeBtn = page.locator('button').filter({ hasText: /close|cancel|×/i }).first();
     const xBtn = page.locator('[role="dialog"] button:has(svg), [data-state="open"] button:has(svg)').first();
@@ -108,7 +109,7 @@ test.describe('Daycare Check-in Flow', () => {
     }
     
     // Modal should close
-    await page.waitForTimeout(500);
+    await expect(modal).toBeHidden();
   });
 
   test('batch check-in tab may exist', async ({ page }) => {
@@ -117,9 +118,6 @@ test.describe('Daycare Check-in Flow', () => {
     // Open modal
     const checkInBtn = page.locator('button').filter({ hasText: /check.?in/i }).first();
     await checkInBtn.click();
-    
-    // Wait for modal
-    await page.waitForTimeout(500);
     
     // Look for batch tab (optional feature)
     const batchTab = page.locator('button, [role="tab"]').filter({ hasText: /batch/i }).first();

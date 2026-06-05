@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Strictness: start permissive enough that the baseline is tractable.
+    // Tighten incrementally per the prompt book (Phase 3.3 burns down `any`).
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitAny": false,
+
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src", "utils", "tests", "scripts", "playwright.config.ts", "vite.config.ts"],
+  // The Supabase Edge Functions are Deno code (`npm:` specifiers) and cannot
+  // be checked by tsc. They are checked with `npm run typecheck:server`
+  // (deno check) instead — see package.json.
+  "exclude": ["node_modules", "dist", "supabase", "test-results", "playwright-report"]
+}

@@ -1,0 +1,1092 @@
+{
+ "totals": {
+  "errors": 4908,
+  "warnings": 557
+ },
+ "files": {
+  "eslint.config.js": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "postcss.config.mjs": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "scripts/backfill-app-metadata-role.ts": {
+   "errors": 24,
+   "warnings": 2
+  },
+  "scripts/lint-baseline.mjs": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "scripts/seed-test-data.ts": {
+   "errors": 34,
+   "warnings": 0
+  },
+  "scripts/typecheck-baseline.mjs": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/App.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/components/BackendStatus.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/components/ConflictNotification.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/components/PermissionGate.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/components/layout/Layout.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/components/layout/MobileLayout.tsx": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "src/app/components/layout/Sidebar.tsx": {
+   "errors": 33,
+   "warnings": 3
+  },
+  "src/app/components/reordering/ReorderMenuItems.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/components/reordering/useReorder.ts": {
+   "errors": 5,
+   "warnings": 2
+  },
+  "src/app/components/shared/ContactSelector.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/components/ui/chart.tsx": {
+   "errors": 11,
+   "warnings": 0
+  },
+  "src/app/components/view-as/ViewAsBanner.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/context/AuthContext.tsx": {
+   "errors": 5,
+   "warnings": 0
+  },
+  "src/app/context/RealtimeContext.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/context/ViewAsContext-new.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/context/ViewAsContext.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/debug/CustomerDebug.tsx": {
+   "errors": 38,
+   "warnings": 5
+  },
+  "src/app/debug/KVDebug.tsx": {
+   "errors": 30,
+   "warnings": 3
+  },
+  "src/app/hooks/useModuleRealtimeSync.ts": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/hooks/usePermissions.ts": {
+   "errors": 3,
+   "warnings": 1
+  },
+  "src/app/lib/realtime.ts": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/lib/store.ts": {
+   "errors": 11,
+   "warnings": 1
+  },
+  "src/app/modules/auth/LoginPage.tsx": {
+   "errors": 5,
+   "warnings": 1
+  },
+  "src/app/modules/billing-finance-settings/BillingFinanceSettingsPage.tsx": {
+   "errors": 7,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/api.ts": {
+   "errors": 33,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/AuditControlsSection.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/FeesPenaltiesSection.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/FinancialPermissionsSection.tsx": {
+   "errors": 8,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/InvoiceConfigSection.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/MembershipBillingSection.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/PaymentProvidersSection.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/RefundsCreditsSection.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/TaxesVATSection.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/billing-finance-settings/components/modals/FeeDialog.tsx": {
+   "errors": 3,
+   "warnings": 2
+  },
+  "src/app/modules/billing-finance-settings/components/modals/TaxRuleDialog.tsx": {
+   "errors": 6,
+   "warnings": 4
+  },
+  "src/app/modules/billing/Billing.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/billing/pages/BillingExports.tsx": {
+   "errors": 12,
+   "warnings": 1
+  },
+  "src/app/modules/billing/pages/BillingOverview.tsx": {
+   "errors": 7,
+   "warnings": 0
+  },
+  "src/app/modules/billing/pages/Invoices.tsx": {
+   "errors": 13,
+   "warnings": 2
+  },
+  "src/app/modules/billing/store.ts": {
+   "errors": 73,
+   "warnings": 16
+  },
+  "src/app/modules/calendar/CalendarPage.tsx": {
+   "errors": 8,
+   "warnings": 1
+  },
+  "src/app/modules/calendar/api.ts": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/calendar/components/AgendaView.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/calendar/components/DayView.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/modules/calendar/components/WeekView.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/capacity/CapacityDashboard.tsx": {
+   "errors": 8,
+   "warnings": 0
+  },
+  "src/app/modules/capacity/store.ts": {
+   "errors": 10,
+   "warnings": 2
+  },
+  "src/app/modules/communications-settings/CommunicationsSettingsPage.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/communications-settings/api.ts": {
+   "errors": 23,
+   "warnings": 0
+  },
+  "src/app/modules/communications-settings/components/AuditLogsSection.tsx": {
+   "errors": 9,
+   "warnings": 4
+  },
+  "src/app/modules/communications-settings/components/AutomationSection.tsx": {
+   "errors": 4,
+   "warnings": 2
+  },
+  "src/app/modules/communications-settings/components/ChannelsSection.tsx": {
+   "errors": 3,
+   "warnings": 1
+  },
+  "src/app/modules/communications-settings/components/ConsentSection.tsx": {
+   "errors": 9,
+   "warnings": 2
+  },
+  "src/app/modules/communications-settings/components/PermissionsSection.tsx": {
+   "errors": 5,
+   "warnings": 2
+  },
+  "src/app/modules/communications-settings/components/SLASection.tsx": {
+   "errors": 2,
+   "warnings": 1
+  },
+  "src/app/modules/communications-settings/components/SenderIdentitySection.tsx": {
+   "errors": 3,
+   "warnings": 1
+  },
+  "src/app/modules/communications-settings/components/TemplatesSection.tsx": {
+   "errors": 5,
+   "warnings": 3
+  },
+  "src/app/modules/communications-settings/components/modals/SenderIdentityDialog.tsx": {
+   "errors": 4,
+   "warnings": 2
+  },
+  "src/app/modules/communications-settings/components/modals/TemplateBuilderDialog.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/communications-settings/store.ts": {
+   "errors": 52,
+   "warnings": 26
+  },
+  "src/app/modules/communications-settings/types.ts": {
+   "errors": 0,
+   "warnings": 5
+  },
+  "src/app/modules/customers/components/DocumentManager.tsx": {
+   "errors": 30,
+   "warnings": 3
+  },
+  "src/app/modules/customers/components/household-detail/BillingTab.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/customers/components/household-detail/BookingsTab.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/customers/components/household-detail/ContactsTab.tsx": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "src/app/modules/customers/components/household-detail/MessagesTab.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/customers/components/household-detail/NotesTab.tsx": {
+   "errors": 21,
+   "warnings": 1
+  },
+  "src/app/modules/customers/components/household-detail/OverviewTab.tsx": {
+   "errors": 10,
+   "warnings": 0
+  },
+  "src/app/modules/customers/components/household-detail/PetsTab.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/customers/components/modals/AddContactModal.tsx": {
+   "errors": 5,
+   "warnings": 2
+  },
+  "src/app/modules/customers/components/modals/EditContactModal.tsx": {
+   "errors": 5,
+   "warnings": 2
+  },
+  "src/app/modules/customers/components/modals/EditPetModal.tsx": {
+   "errors": 5,
+   "warnings": 3
+  },
+  "src/app/modules/customers/components/pet-profile/PetCareProfileTab.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/modules/customers/components/pet-profile/PetDocumentsTab.tsx": {
+   "errors": 42,
+   "warnings": 1
+  },
+  "src/app/modules/customers/components/pet-profile/PetOverviewTab.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/customers/components/pet-profile/PetProfilePicture.tsx": {
+   "errors": 12,
+   "warnings": 1
+  },
+  "src/app/modules/customers/components/pet-profile/PetTimelineTab.tsx": {
+   "errors": 22,
+   "warnings": 1
+  },
+  "src/app/modules/customers/components/pet-profile/VaccinationManager.tsx": {
+   "errors": 2,
+   "warnings": 1
+  },
+  "src/app/modules/customers/components/pets/CreatePetModal.tsx": {
+   "errors": 8,
+   "warnings": 2
+  },
+  "src/app/modules/customers/pages/BulkImportPage.tsx": {
+   "errors": 18,
+   "warnings": 2
+  },
+  "src/app/modules/customers/pages/ClearDataPage.tsx": {
+   "errors": 12,
+   "warnings": 2
+  },
+  "src/app/modules/customers/pages/CreateHouseholdPage.tsx": {
+   "errors": 8,
+   "warnings": 1
+  },
+  "src/app/modules/customers/pages/CustomersPage.tsx": {
+   "errors": 14,
+   "warnings": 2
+  },
+  "src/app/modules/customers/pages/ExportPage.tsx": {
+   "errors": 18,
+   "warnings": 2
+  },
+  "src/app/modules/customers/pages/HouseholdDetailPage.tsx": {
+   "errors": 14,
+   "warnings": 1
+  },
+  "src/app/modules/customers/pages/PetDetailPage.tsx": {
+   "errors": 88,
+   "warnings": 1
+  },
+  "src/app/modules/customers/pages/PetProfilePage.tsx": {
+   "errors": 24,
+   "warnings": 3
+  },
+  "src/app/modules/customers/store.ts": {
+   "errors": 249,
+   "warnings": 30
+  },
+  "src/app/modules/customers/types.ts": {
+   "errors": 0,
+   "warnings": 3
+  },
+  "src/app/modules/dashboard/components/DashboardHeader.tsx": {
+   "errors": 7,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/components/PoliciesAlertBanner.tsx": {
+   "errors": 14,
+   "warnings": 4
+  },
+  "src/app/modules/dashboard/components/QuickActionsBar.tsx": {
+   "errors": 7,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/components/WidgetGrid.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/components/modals/PhotoUploadModal.tsx": {
+   "errors": 18,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/components/modals/QuickBookModal.tsx": {
+   "errors": 93,
+   "warnings": 11
+  },
+  "src/app/modules/dashboard/components/modals/QuickCheckInModal.tsx": {
+   "errors": 9,
+   "warnings": 2
+  },
+  "src/app/modules/dashboard/components/modals/QuickCheckOutModal.tsx": {
+   "errors": 4,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/components/modals/QuickMessageModal.tsx": {
+   "errors": 18,
+   "warnings": 2
+  },
+  "src/app/modules/dashboard/components/modals/QuickNoteModal.tsx": {
+   "errors": 21,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/components/modals/QuickTransportModal.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/components/widgets/QuickLinksWidget.tsx": {
+   "errors": 3,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/constants.ts": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/store.ts": {
+   "errors": 3,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/widgets/AlertsFlagsWidget.tsx": {
+   "errors": 11,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/CapacityWidget.tsx": {
+   "errors": 7,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/DogDetailsPanel.tsx": {
+   "errors": 10,
+   "warnings": 3
+  },
+  "src/app/modules/dashboard/widgets/DriverStatus.tsx": {
+   "errors": 8,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/GroomingTodayWidget.tsx": {
+   "errors": 11,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/LiveOccupancy.tsx": {
+   "errors": 6,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/MessagingWidget.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/OvernightsTodayWidget.tsx": {
+   "errors": 6,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/PlaceholderWidget.tsx": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/widgets/ReportingWidget.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/RevenueSnapshot.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/TodaysDaycareDogs.tsx": {
+   "errors": 5,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/TodaysDogsWidget.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/modules/dashboard/widgets/VaccinationExpiryWidget.tsx": {
+   "errors": 17,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/widgets/WeeklyActivityWidget.tsx": {
+   "errors": 4,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/widgets/WidgetCard.tsx": {
+   "errors": 0,
+   "warnings": 2
+  },
+  "src/app/modules/data-compliance/DataCompliancePage.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/data-compliance/api.ts": {
+   "errors": 21,
+   "warnings": 0
+  },
+  "src/app/modules/data-compliance/components/CreateBreachDialog.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/data-compliance/components/CreateExportDialog.tsx": {
+   "errors": 4,
+   "warnings": 2
+  },
+  "src/app/modules/data-compliance/components/CreateRequestDialog.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/data-compliance/components/RequestDetailsDialog.tsx": {
+   "errors": 8,
+   "warnings": 2
+  },
+  "src/app/modules/data-compliance/pages/DataExportsPage.tsx": {
+   "errors": 6,
+   "warnings": 1
+  },
+  "src/app/modules/data-compliance/pages/IncidentsBreachesPage.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/data-compliance/pages/RetentionJobsPage.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/data-compliance/store.ts": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/daycare/components/BookingTable.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/daycare/components/CreateBookingDialog.tsx": {
+   "errors": 60,
+   "warnings": 11
+  },
+  "src/app/modules/daycare/components/LiveOccupancy.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/daycare/pages/DaycareAttendance.tsx": {
+   "errors": 6,
+   "warnings": 0
+  },
+  "src/app/modules/daycare/pages/DaycareBookings.tsx": {
+   "errors": 14,
+   "warnings": 2
+  },
+  "src/app/modules/daycare/pages/DaycareCheckIn.tsx": {
+   "errors": 10,
+   "warnings": 2
+  },
+  "src/app/modules/daycare/pages/DaycareCheckOut.tsx": {
+   "errors": 7,
+   "warnings": 2
+  },
+  "src/app/modules/daycare/pages/DaycareDashboard.tsx": {
+   "errors": 19,
+   "warnings": 1
+  },
+  "src/app/modules/daycare/store.ts": {
+   "errors": 97,
+   "warnings": 12
+  },
+  "src/app/modules/daycare/types.ts": {
+   "errors": 0,
+   "warnings": 2
+  },
+  "src/app/modules/grooming/pages/GroomingAppointmentDetail.tsx": {
+   "errors": 26,
+   "warnings": 5
+  },
+  "src/app/modules/grooming/pages/GroomingAppointments.tsx": {
+   "errors": 19,
+   "warnings": 2
+  },
+  "src/app/modules/grooming/pages/GroomingCheckIn.tsx": {
+   "errors": 13,
+   "warnings": 3
+  },
+  "src/app/modules/grooming/pages/GroomingDashboard.tsx": {
+   "errors": 16,
+   "warnings": 0
+  },
+  "src/app/modules/grooming/pages/NewGroomingAppointment.tsx": {
+   "errors": 45,
+   "warnings": 7
+  },
+  "src/app/modules/grooming/store.ts": {
+   "errors": 120,
+   "warnings": 15
+  },
+  "src/app/modules/grooming/types.ts": {
+   "errors": 0,
+   "warnings": 1
+  },
+  "src/app/modules/incidents/components/AssignIncidentDialog.tsx": {
+   "errors": 29,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/components/CloseIncidentDialog.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/components/CreateIncidentModal.tsx": {
+   "errors": 3,
+   "warnings": 1
+  },
+  "src/app/modules/incidents/components/IncidentActionsTab.tsx": {
+   "errors": 5,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/components/IncidentAuditTab.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/components/IncidentDetailsTab.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/components/IncidentNotesTab.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/components/ReopenIncidentDialog.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/pages/IncidentDetailPage.tsx": {
+   "errors": 35,
+   "warnings": 0
+  },
+  "src/app/modules/incidents/pages/IncidentsListPage.tsx": {
+   "errors": 12,
+   "warnings": 1
+  },
+  "src/app/modules/incidents/store.ts": {
+   "errors": 113,
+   "warnings": 13
+  },
+  "src/app/modules/integrations-settings/IntegrationsSettingsPage.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/integrations-settings/api.ts": {
+   "errors": 21,
+   "warnings": 0
+  },
+  "src/app/modules/integrations-settings/store.ts": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/messaging/MessagingPage.tsx": {
+   "errors": 11,
+   "warnings": 3
+  },
+  "src/app/modules/messaging/api.ts": {
+   "errors": 54,
+   "warnings": 4
+  },
+  "src/app/modules/messaging/components/ComposeMessageModal.tsx": {
+   "errors": 6,
+   "warnings": 2
+  },
+  "src/app/modules/messaging/components/ContextPanel.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/messaging/components/ConversationView.tsx": {
+   "errors": 7,
+   "warnings": 1
+  },
+  "src/app/modules/messaging/components/InboxFilters.tsx": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "src/app/modules/messaging/store.ts": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/messaging/types.ts": {
+   "errors": 0,
+   "warnings": 2
+  },
+  "src/app/modules/operational-rules/OperationalRulesPage.tsx": {
+   "errors": 9,
+   "warnings": 2
+  },
+  "src/app/modules/operational-rules/api.ts": {
+   "errors": 35,
+   "warnings": 2
+  },
+  "src/app/modules/operational-rules/components/AuditLogModal.tsx": {
+   "errors": 2,
+   "warnings": 1
+  },
+  "src/app/modules/operational-rules/components/RuleBuilderModal.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/operational-rules/components/RuleDetailsModal.tsx": {
+   "errors": 14,
+   "warnings": 2
+  },
+  "src/app/modules/operational-rules/store.ts": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/operational-rules/types.ts": {
+   "errors": 0,
+   "warnings": 7
+  },
+  "src/app/modules/overnights/components/CapacityCalendar.tsx": {
+   "errors": 6,
+   "warnings": 0
+  },
+  "src/app/modules/overnights/components/CareLogForm.tsx": {
+   "errors": 8,
+   "warnings": 0
+  },
+  "src/app/modules/overnights/components/CreateReservationModal.tsx": {
+   "errors": 73,
+   "warnings": 10
+  },
+  "src/app/modules/overnights/components/EventTimeline.tsx": {
+   "errors": 4,
+   "warnings": 1
+  },
+  "src/app/modules/overnights/pages/OvernightCapacityPage.tsx": {
+   "errors": 8,
+   "warnings": 1
+  },
+  "src/app/modules/overnights/pages/OvernightCareLogsPage.tsx": {
+   "errors": 8,
+   "warnings": 0
+  },
+  "src/app/modules/overnights/pages/OvernightCheckIn.tsx": {
+   "errors": 12,
+   "warnings": 2
+  },
+  "src/app/modules/overnights/pages/OvernightCheckOut.tsx": {
+   "errors": 9,
+   "warnings": 2
+  },
+  "src/app/modules/overnights/pages/OvernightPlanningBoard.tsx": {
+   "errors": 12,
+   "warnings": 0
+  },
+  "src/app/modules/overnights/pages/OvernightReservationsPage.tsx": {
+   "errors": 5,
+   "warnings": 0
+  },
+  "src/app/modules/overnights/pages/OvernightsPage.tsx": {
+   "errors": 34,
+   "warnings": 2
+  },
+  "src/app/modules/overnights/store.ts": {
+   "errors": 181,
+   "warnings": 24
+  },
+  "src/app/modules/overnights/types.ts": {
+   "errors": 0,
+   "warnings": 2
+  },
+  "src/app/modules/packages/pages/PackagesDashboard.tsx": {
+   "errors": 8,
+   "warnings": 0
+  },
+  "src/app/modules/packages/store.ts": {
+   "errors": 37,
+   "warnings": 10
+  },
+  "src/app/modules/policies/components/BlockingPolicyWarning.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/modules/policies/components/PolicyModals.tsx": {
+   "errors": 46,
+   "warnings": 4
+  },
+  "src/app/modules/policies/hooks/usePolicyCompliance.ts": {
+   "errors": 28,
+   "warnings": 2
+  },
+  "src/app/modules/policies/pages/MyPoliciesPage.tsx": {
+   "errors": 20,
+   "warnings": 4
+  },
+  "src/app/modules/policies/pages/PoliciesManagementPage.tsx": {
+   "errors": 120,
+   "warnings": 13
+  },
+  "src/app/modules/policies/store.ts": {
+   "errors": 127,
+   "warnings": 19
+  },
+  "src/app/modules/policies/utils/exportCompliance.ts": {
+   "errors": 43,
+   "warnings": 8
+  },
+  "src/app/modules/pricing/store.ts": {
+   "errors": 226,
+   "warnings": 1
+  },
+  "src/app/modules/reports/pages/ReportsPage.tsx": {
+   "errors": 213,
+   "warnings": 19
+  },
+  "src/app/modules/reports/utils/exportXlsx.ts": {
+   "errors": 2,
+   "warnings": 2
+  },
+  "src/app/modules/services-pricing/pages/ApprovalsPage.tsx": {
+   "errors": 59,
+   "warnings": 7
+  },
+  "src/app/modules/services-pricing/pages/ServicesPricingPage.tsx": {
+   "errors": 7,
+   "warnings": 0
+  },
+  "src/app/modules/services-pricing/pages/tabs/LocationPricingTab.tsx": {
+   "errors": 4,
+   "warnings": 2
+  },
+  "src/app/modules/services-pricing/pages/tabs/MembershipsTab.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/services-pricing/pages/tabs/PriceBooksTab.tsx": {
+   "errors": 3,
+   "warnings": 2
+  },
+  "src/app/modules/services-pricing/pages/tabs/ServicesTab.tsx": {
+   "errors": 5,
+   "warnings": 2
+  },
+  "src/app/modules/services-pricing/store.ts": {
+   "errors": 51,
+   "warnings": 0
+  },
+  "src/app/modules/services-pricing/stores/approvals-store.ts": {
+   "errors": 40,
+   "warnings": 12
+  },
+  "src/app/modules/services-pricing/types/approvals.ts": {
+   "errors": 0,
+   "warnings": 5
+  },
+  "src/app/modules/settings/SettingsLayout.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/settings/components/AuditLogViewer.tsx": {
+   "errors": 5,
+   "warnings": 3
+  },
+  "src/app/modules/settings/components/PermissionGuard.tsx": {
+   "errors": 13,
+   "warnings": 0
+  },
+  "src/app/modules/settings/components/pricing/LocationPricingOverrides.tsx": {
+   "errors": 72,
+   "warnings": 1
+  },
+  "src/app/modules/settings/components/pricing/MembershipsAndPackages.tsx": {
+   "errors": 66,
+   "warnings": 2
+  },
+  "src/app/modules/settings/components/pricing/PriceBooks.tsx": {
+   "errors": 77,
+   "warnings": 2
+  },
+  "src/app/modules/settings/components/pricing/PricingAuditLog.tsx": {
+   "errors": 26,
+   "warnings": 0
+  },
+  "src/app/modules/settings/components/pricing/ServiceCatalogue.tsx": {
+   "errors": 52,
+   "warnings": 1
+  },
+  "src/app/modules/settings/components/users/TemplateDialog.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/settings/components/users/TemplateManager.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/settings/components/users/UserList.tsx": {
+   "errors": 5,
+   "warnings": 0
+  },
+  "src/app/modules/settings/constants/modules.ts": {
+   "errors": 0,
+   "warnings": 2
+  },
+  "src/app/modules/settings/pages/DashboardSettings.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "src/app/modules/settings/pages/LocationSettings.tsx": {
+   "errors": 18,
+   "warnings": 0
+  },
+  "src/app/modules/settings/pages/ModuleSettings.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/settings/pages/OrganisationSettings.tsx": {
+   "errors": 4,
+   "warnings": 1
+  },
+  "src/app/modules/settings/pages/RBACDocumentationPage.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/modules/settings/pages/ServicesAndPricing.tsx": {
+   "errors": 12,
+   "warnings": 0
+  },
+  "src/app/modules/settings/pages/SettingsOverview.tsx": {
+   "errors": 7,
+   "warnings": 0
+  },
+  "src/app/modules/settings/pages/UserManagement.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/settings/store.ts": {
+   "errors": 42,
+   "warnings": 5
+  },
+  "src/app/modules/settings/stores/userStore.ts": {
+   "errors": 40,
+   "warnings": 5
+  },
+  "src/app/modules/settings/utils/rbac.ts": {
+   "errors": 26,
+   "warnings": 3
+  },
+  "src/app/modules/staff/pages/PoliciesTab.tsx": {
+   "errors": 30,
+   "warnings": 4
+  },
+  "src/app/modules/staff/pages/RotasTab.tsx": {
+   "errors": 7,
+   "warnings": 1
+  },
+  "src/app/modules/staff/pages/StaffMemberDetailPage.tsx": {
+   "errors": 9,
+   "warnings": 1
+  },
+  "src/app/modules/staff/pages/StaffPage.tsx": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "src/app/modules/staff/pages/TeamDirectoryTab.tsx": {
+   "errors": 24,
+   "warnings": 3
+  },
+  "src/app/modules/staff/store.ts": {
+   "errors": 212,
+   "warnings": 31
+  },
+  "src/app/modules/staff/types.ts": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "src/app/modules/system/SystemPage.tsx": {
+   "errors": 14,
+   "warnings": 0
+  },
+  "src/app/modules/system/api.ts": {
+   "errors": 24,
+   "warnings": 1
+  },
+  "src/app/modules/system/components/SupabaseConnectivityCheck.tsx": {
+   "errors": 5,
+   "warnings": 0
+  },
+  "src/app/modules/system/components/UATSeedPanel.tsx": {
+   "errors": 17,
+   "warnings": 1
+  },
+  "src/app/modules/transport/Transportation.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/modules/transport/components/CreateTransportJobDialog.tsx": {
+   "errors": 63,
+   "warnings": 3
+  },
+  "src/app/modules/transport/components/CreateTransportRequestModal.tsx": {
+   "errors": 12,
+   "warnings": 2
+  },
+  "src/app/modules/transport/pages/CreateJob.tsx": {
+   "errors": 6,
+   "warnings": 0
+  },
+  "src/app/modules/transport/pages/DriverDashboard.tsx": {
+   "errors": 9,
+   "warnings": 2
+  },
+  "src/app/modules/transport/pages/DriverMobileView.tsx": {
+   "errors": 8,
+   "warnings": 0
+  },
+  "src/app/modules/transport/pages/JobDetail.tsx": {
+   "errors": 20,
+   "warnings": 0
+  },
+  "src/app/modules/transport/pages/JobsList.tsx": {
+   "errors": 6,
+   "warnings": 0
+  },
+  "src/app/modules/transport/pages/RoutePlanner.tsx": {
+   "errors": 30,
+   "warnings": 1
+  },
+  "src/app/modules/transport/pages/TransportDashboard.tsx": {
+   "errors": 6,
+   "warnings": 0
+  },
+  "src/app/modules/transport/pages/VehicleManager.tsx": {
+   "errors": 10,
+   "warnings": 1
+  },
+  "src/app/modules/transport/store.ts": {
+   "errors": 104,
+   "warnings": 13
+  },
+  "src/app/modules/transport/types.ts": {
+   "errors": 0,
+   "warnings": 1
+  },
+  "src/app/modules/view-as/ViewAsButton.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "src/app/modules/view-as/ViewAsManagement.tsx": {
+   "errors": 4,
+   "warnings": 0
+  },
+  "src/app/modules/view-as/api.ts": {
+   "errors": 16,
+   "warnings": 0
+  },
+  "src/app/modules/view-as/useViewAsProtection.ts": {
+   "errors": 1,
+   "warnings": 2
+  },
+  "src/app/utils/api.ts": {
+   "errors": 7,
+   "warnings": 1
+  },
+  "src/app/utils/seedAdmin.ts": {
+   "errors": 7,
+   "warnings": 0
+  },
+  "tests/e2e/auth-self-promote.spec.ts": {
+   "errors": 2,
+   "warnings": 0
+  },
+  "tests/e2e/daycare.spec.ts": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "utils/supabase/info.tsx": {
+   "errors": 1,
+   "warnings": 0
+  }
+ }
+}

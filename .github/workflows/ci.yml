@@ -1,0 +1,64 @@
+# Phase 0.3 CI gate (PawPilotPro remediation prompt book).
+# Gate semantics (Appendix B): build + smoke are hard-required; lint and
+# typecheck are baseline-gated — NEW errors fail, pre-existing debt passes
+# while Phase 3.3 burns it down.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: PawPilotPro/project
+
+jobs:
+  checks:
+    name: Lint, typecheck, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: PawPilotPro/project/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - name: Lint (baseline-gated)
+        run: npm run lint:check
+      - name: Typecheck frontend (baseline-gated)
+        run: npm run typecheck:check
+      - name: Typecheck server (Deno edge functions)
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: npm run typecheck:server
+        continue-on-error: true # informational until the server passes clean
+      - name: Build
+        run: npm run build
+
+  smoke:
+    name: Smoke suite (Playwright)
+    runs-on: ubuntu-latest
+    env:
+      TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+      TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+      BASE_URL: ${{ vars.SMOKE_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: PawPilotPro/project/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npx playwright install --with-deps chromium
+      - name: Run smoke tests
+        run: npx playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: PawPilotPro/project/playwright-report
+          retention-days: 7

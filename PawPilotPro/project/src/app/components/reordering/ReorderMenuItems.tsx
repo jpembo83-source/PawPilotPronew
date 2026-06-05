@@ -41,7 +41,7 @@ interface ReorderMenuItemsProps {
  *       canReorder={hasPermission('reorder')}
  *     />
  *     <DropdownMenuSeparator />
- *     {/* Other menu items */}
+ *     ...other menu items
  *   </DropdownMenuContent>
  * </DropdownMenu>
  * ```
