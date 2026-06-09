@@ -35,7 +35,14 @@ export function SendPortalInviteButton({ customerId, hasPortalAccess, onSent }: 
       if (!res.ok) {
         throw new Error(body?.error ?? `HTTP ${res.status}`);
       }
-      if (body.emailWarning) {
+      if (body.emailWarning && body.acceptUrl) {
+        try { await navigator.clipboard.writeText(body.acceptUrl); } catch {}
+        console.log('Portal invite accept URL:', body.acceptUrl);
+        toast.warning(body.emailWarning + ' Accept link copied to clipboard.', {
+          duration: 12000,
+          description: body.acceptUrl,
+        });
+      } else if (body.emailWarning) {
         toast.warning(body.emailWarning);
       } else {
         toast.success('Invite sent');

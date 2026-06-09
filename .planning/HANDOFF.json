@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-26T00:00:00.000Z",
+  "source": "manual-pause",
+  "partial": false,
+  "phase": "4",
+  "phase_name": "Vax upload + Vax Review queue",
+  "phase_dir": "docs/superpowers/plans/2026-05-25-client-portal-app.md",
+  "plan": "docs/superpowers/plans/2026-05-25-client-portal-app.md",
+  "task": "4.1",
+  "total_tasks": 3,
+  "status": "ready-to-resume",
+  "completed_tasks": [
+    "Phase 1 (12 tasks, 1.5 deferred) — Foundation: shared/, portal/ scaffold, base tokens, /portal/health backend, Netlify config",
+    "Phase 2 (8 tasks) — Auth: Resend email, staff invite UI, accept-invite endpoint, AuthContext, login + accept-invite screens",
+    "Phase 3 (7 tasks) — Home + Pets read-only: TanStack Query, bottom tab nav, HomeScreen, PetsScreen + PetDetailScreen, RequestEditSheet, AccountScreen, /portal/home + /portal/pets endpoints"
+  ],
+  "remaining_tasks": [
+    "Phase 4 — Vax upload + Vax Review queue (3 tasks)",
+    "Phase 5 — Booking flow + Pending Requests inbox (8 tasks)",
+    "Phase 6 — Notifications + email (5 tasks)",
+    "Phase 7 — Visual polish pass (5 tasks)",
+    "Phase 8 — Test hardening (6 tasks)"
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    "Optionally open draft PR: https://github.com/jpembo83-source/PawPilotPronew/pull/new/feat/client-portal-app",
+    "Before Phase 4 production use: create a private Supabase Storage bucket named 'vax-uploads' (RLS: service role only). Task 4.1 references it.",
+    "Before Phase 2 production use: set RESEND_API_KEY + PORTAL_BASE_URL + PORTAL_EMAIL_FROM as Supabase Edge Function secrets."
+  ],
+  "decisions": [
+    "Worktree at /Users/jasonpemberton/Downloads/PawPilotPronew-portal on branch feat/client-portal-app. PR target: claude/frosty-panini.",
+    "Plan: docs/superpowers/plans/2026-05-25-client-portal-app.md. Spec: docs/superpowers/specs/2026-05-25-client-portal-app-design.md.",
+    "Hono route mount convention: all portal routes need /make-server-fc003b23/<prefix> in PawPilotPro/project/supabase/functions/server/index.tsx (plan said /portal — wrong). Phases 4-6 server tasks need this same correction.",
+    "Permission gating: existing requirePermission() doesn't have a 'customers' section. Used requireAuth only on portal-admin endpoints. Same applies to Phase 4-6 staff-side endpoints.",
+    "Task 1.5 deferred: staff app has no tsconfig.json; @shared/* alias work happens just-in-time when first @shared import lands in staff code. Phase 4 vax review module is the first — add a minimal tsconfig.json with paths + add @shared alias to PawPilotPro/project/vite.config.ts.",
+    "Phase 6 Task 6.1's notify() refactor needs notification helpers in Phase 4 + 5 to write `id` field inside the value (not just in the KV key) so /portal/notifications/:id/read can look up by id. Apply when implementing notifications storage.",
+    "Visual polish skills installed under .agents/skills/: emil-design-eng, impeccable, design-taste-frontend, high-end-visual-design, redesign-existing-projects, stitch-design-taste — invoke during Phase 7.",
+    "Inline edits + targeted subagents preferred over full subagent-driven-development cycle: mechanical task implementation done inline, subagents reserved for tasks needing exploration or wiring into existing UI."
+  ],
+  "uncommitted_files": [],
+  "next_action": "Open a fresh session in /Users/jasonpemberton/Downloads/PawPilotPronew-portal, run /gsd:resume-work to load this handoff, then execute Phase 4 Task 4.1 of docs/superpowers/plans/2026-05-25-client-portal-app.md. Note the route-mount and permission-gate corrections from prior phases.",
+  "context_notes": "27 commits on feat/client-portal-app, pushed to origin with all 3 phase tags. Build clean (332kB JS / 20kB CSS). 2/2 portal tests + 9/9 shared tests green. Staff app builds clean. PR open URL: https://github.com/jpembo83-source/PawPilotPronew/pull/new/feat/client-portal-app\n\nRecent commits (newest first):\nd797dad feat(portal): phase 3 — home, pets, account, bottom tabs\n8bf5f9b feat(portal): router + RequirePortalAuth + login + accept-invite screens\n7235423 feat(portal): AuthContext with session lifecycle\n61e52b3 feat(staff): send portal invite button + portal activity tab on household detail\n1c8fb59 feat(server): /portal/auth/accept-invite endpoint\n7b15d66 feat(server): portal invite create / activity / revoke endpoints\na644016 feat(server): resend email wrapper + invite template\nfc45c10 feat(portal): netlify config + vite env types for clean build"
+}
