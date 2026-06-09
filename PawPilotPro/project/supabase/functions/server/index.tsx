@@ -35,11 +35,20 @@ const app = new Hono();
 // Enable logger
 app.use('*', logger(console.log));
 
-// Enable CORS
+// Enable CORS — explicit origin allowlist, never "*".
+// Extend via ALLOWED_ORIGINS (comma-separated) in Edge Function secrets.
+const ALLOWED_ORIGINS = new Set(
+  [
+    "https://mdc.pawpilotpro.com",
+    "http://localhost:5173",
+    ...(Deno.env.get("ALLOWED_ORIGINS")?.split(",").map((o) => o.trim()) ?? []),
+  ].filter(Boolean),
+);
+
 app.use(
   "/*",
   cors({
-    origin: "*",
+    origin: (origin) => (ALLOWED_ORIGINS.has(origin) ? origin : null),
     allowHeaders: ["Content-Type", "Authorization", "X-User-Token", "X-Tenant-Id"],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
@@ -265,13 +274,18 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
     const supabase = getSupabase();
     const body = await c.req.json();
     const { email, password, role, name, locationIds, permissions, templateId, tenant_id, tenantId } = body;
-    
+
+    // Never fall back to a guessable default password — require an explicit one.
+    if (!password || typeof password !== "string" || password.length < 8) {
+      return c.json({ error: "A password of at least 8 characters is required" }, 400);
+    }
+
     // Get tenant ID from body or token
     const finalTenantId = tenant_id || tenantId;
 
     const { data, error } = await supabase.auth.admin.createUser({
       email,
-      password: password || 'tempPass123!', // Require password or default
+      password,
       email_confirm: true,
       // Role lives in app_metadata (server-set, untamperable). Non-role
       // profile fields stay in user_metadata.
