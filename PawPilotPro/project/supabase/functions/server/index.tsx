@@ -28,6 +28,9 @@ import transportRoutes from "./transport_routes.tsx";
 import groomingRoutes from "./grooming_routes.tsx";
 import reportsRoutes from "./reports_routes.tsx";
 import calendarRoutes from "./calendar_routes.tsx";
+import portalRoutes from "./portal_routes.tsx";
+import portalInvites from "./portal_invites.ts";
+import portalBookings from "./portal_bookings.ts";
 import { requireAuth, requirePermission, UserContext } from "./settings_rbac.ts";
 
 const app = new Hono();
@@ -486,5 +489,12 @@ app.route("/make-server-fc003b23/transport", transportRoutes);
 app.route("/make-server-fc003b23/grooming", groomingRoutes);
 app.route("/make-server-fc003b23/reports", reportsRoutes);
 app.route("/make-server-fc003b23/calendar", calendarRoutes);
+// Portal (owner app). These sub-apps carry their own auth: requirePortalUser
+// for owner endpoints, staff-role checks for /portal-admin, and a
+// SERVICE_ROLE_KEY bearer comparison for /portal/internal/tracker-event.
+app.route("/make-server-fc003b23/portal", portalRoutes);
+app.route("/make-server-fc003b23/portal-admin", portalInvites);
+// portal_bookings contains BOTH /portal/* and /portal-admin/* endpoints, mount at root.
+app.route("/make-server-fc003b23", portalBookings);
 
 export default app;

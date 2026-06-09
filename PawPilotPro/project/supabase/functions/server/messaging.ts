@@ -4,12 +4,15 @@ import { requireAuth } from './_shared/auth.ts';
 
 const app = new Hono();
 
-// Every route in this module requires a validated user. requireAuth runs
-// before the per-route handlers and short-circuits with 401 on auth failure.
-app.use('*', requireAuth);
-
 // Prefix for all routes
 const PREFIX = '/make-server-fc003b23/messaging';
+
+// Every route in this module requires a validated user. Scoped to this
+// module's prefix — this app is mounted at "/", so a bare '*' here would
+// also intercept portal/* and service-to-service routes that use their
+// own auth (requirePortalUser / service-key checks).
+app.use(`${PREFIX}/*`, requireAuth);
+app.use(PREFIX, requireAuth);
 
 // Helper: Generate ID
 function generateId(prefix: string): string {

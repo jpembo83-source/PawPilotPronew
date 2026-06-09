@@ -4,8 +4,10 @@ import { requireAuth } from "./_shared/auth.ts";
 
 const app = new Hono();
 
-// Every communications-settings route requires a validated user.
-app.use("*", requireAuth);
+// Every communications-settings route requires a validated user. Scoped to
+// this module's route prefix — mounted at "/", so "*" would intercept
+// portal routes that use their own auth.
+app.use("/make-server-fc003b23/communications/*", requireAuth);
 
 // Prefix for all communications settings keys
 const PREFIX = "communications_settings";

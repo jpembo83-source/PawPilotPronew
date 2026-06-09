@@ -4,11 +4,13 @@ import { requireAuth } from './_shared/auth.ts';
 
 const app = new Hono();
 
-// Every operational-rules route requires a validated user.
-app.use('*', requireAuth);
-
 // Prefix for all routes
 const PREFIX = '/make-server-fc003b23/operational-rules';
+
+// Every operational-rules route requires a validated user. Scoped to this
+// module's prefix — mounted at "/", so '*' would intercept portal routes.
+app.use(`${PREFIX}/*`, requireAuth);
+app.use(PREFIX, requireAuth);
 
 // Helper: Generate ID
 function generateId(prefix: string): string {

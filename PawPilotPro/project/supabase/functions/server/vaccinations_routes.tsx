@@ -8,7 +8,9 @@ const app = new Hono();
 // validation server-side with SERVICE_ROLE_KEY. The local getUserFromAuth
 // helper that used to live here decoded the JWT with `atob` WITHOUT signature
 // verification — accepting any forged token — and has been removed.
-app.use('*', requireAuth);
+// Scoped to this module's prefix — mounted at "/", so '*' would intercept
+// portal routes that use their own auth.
+app.use('/make-server-fc003b23/pets/*', requireAuth);
 
 // Type definitions
 type VaccinationType = 
