@@ -1,33 +1,14 @@
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
 
-app.use('/*', async (c, next) => {
-  const user = await getUserFromToken(c.req.raw);
-  if (!user) {
-    return c.json({ error: 'Unauthorised' }, 401);
-  }
-  c.set('user', user);
-  await next();
-});
-
-async function getUserFromToken(request: Request) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const accessToken = request.headers.get('X-User-Token')?.replace('Bearer ', '');
-  if (!accessToken) return null;
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data?.user) return null;
-  return data.user;
-}
-
-function getTenantId(user: any): string {
-  return user?.user_metadata?.tenant_id || user?.tenant_id || user?.id || 'default';
-}
+// Every reports route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY. The local middleware that
+// used to live here read X-User-Token via getUserFromToken validated with
+// the ANON_KEY (which cannot verify JWT signatures) — both have been removed.
+app.use('*', requireAuth);
 
 async function getAllByPrefix(prefix: string): Promise<any[]> {
   return kv.getByPrefix(prefix);
@@ -35,8 +16,8 @@ async function getAllByPrefix(prefix: string): Promise<any[]> {
 
 app.get('/pets', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query('location_id');
 
     const households = await getAllByPrefix(`customer:${tenantId}:household:`);
@@ -79,8 +60,8 @@ app.get('/pets', async (c) => {
 
 app.get('/breeds', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
 
     const allPets = await getAllByPrefix(`customer:${tenantId}:pet:`);
     const breedMap: Record<string, { count: number; names: string[] }> = {};
@@ -105,8 +86,8 @@ app.get('/breeds', async (c) => {
 
 app.get('/customers', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query('location_id');
 
     const households = await getAllByPrefix(`customer:${tenantId}:household:`);
@@ -161,8 +142,8 @@ app.get('/customers', async (c) => {
 
 app.get('/attendance', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query('location_id');
     const fromDate = c.req.query('from_date');
     const toDate = c.req.query('to_date');
@@ -199,8 +180,8 @@ app.get('/attendance', async (c) => {
 
 app.get('/service-usage', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const fromDate = c.req.query('from_date');
     const toDate = c.req.query('to_date');
     const locationId = c.req.query('location_id');
@@ -288,8 +269,8 @@ app.get('/service-usage', async (c) => {
 
 app.get('/revenue', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const fromDate = c.req.query('from_date');
     const toDate = c.req.query('to_date');
     const locationId = c.req.query('location_id');
@@ -349,8 +330,8 @@ app.get('/revenue', async (c) => {
 
 app.get('/cancellations', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const fromDate = c.req.query('from_date');
     const toDate = c.req.query('to_date');
     const locationId = c.req.query('location_id');
@@ -408,8 +389,8 @@ app.get('/cancellations', async (c) => {
 
 app.get('/monthly-summary', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const month = c.req.query('month');
     const locationId = c.req.query('location_id');
 
@@ -511,8 +492,8 @@ app.get('/monthly-summary', async (c) => {
 
 app.get('/bexio-export', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const fromDate = c.req.query('from_date');
     const toDate = c.req.query('to_date');
 

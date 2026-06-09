@@ -3,8 +3,13 @@
 
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
+import { requireAuth } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every data & compliance route requires a validated user. GDPR / breach /
+// audit-log surfaces must never be reachable unauthenticated.
+app.use('*', requireAuth);
 
 // --- Utility Functions ---
 

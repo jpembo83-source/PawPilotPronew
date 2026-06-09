@@ -4,8 +4,14 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every policies route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
+// getUserFromToken helper that used to live here has been removed.
+app.use('*', requireAuth);
 
 // ============================================================================
 // TYPES
@@ -111,41 +117,6 @@ const getSupabase = () => {
   return createClient(supabaseUrl, supabaseServiceKey);
 };
 
-// Extract user from Authorization header
-const getUserFromToken = async (authHeader: string | null) => {
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid X-User-Token header');
-  }
-  
-  const token = authHeader.substring(7);
-  
-  // Create a Supabase client with the user's token (not service role key)
-  // This allows proper JWT validation
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase credentials');
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  
-  if (error || !user) {
-    console.error('Token validation error:', error);
-    throw new Error('Unauthorized: Invalid token');
-  }
-  
-  return {
-    id: user.id,
-    email: user.email!,
-    name: user.user_metadata?.name || user.email!,
-    role: user.user_metadata?.role || 'staff',
-    locationIds: user.user_metadata?.locationIds || [],
-  };
-};
-
 // Check permissions
 const hasPermission = (userRole: string, action: 'upload' | 'assign' | 'view_all' | 'export' | 'delete'): boolean => {
   const permissions: Record<string, string[]> = {
@@ -182,7 +153,7 @@ const logAudit = async (log: Omit<AuditLog, 'id' | 'timestamp'>) => {
 // Get all policies (filtered by permissions)
 app.get('/', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     const allPolicies = await kv.getByPrefix('policy:doc:');
     const policies = allPolicies as PolicyDocument[];
@@ -214,7 +185,7 @@ app.get('/', async (c) => {
 // Get assignments for current user (staff view) - MUST come before /:id route
 app.get('/my-assignments', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     const assignments = await kv.getByPrefix(`policy:assignment:user:${user.id}:`) as PolicyAssignment[];
     
@@ -240,7 +211,7 @@ app.get('/my-assignments', async (c) => {
 // Get single policy by ID
 app.get('/:id', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const policyId = c.req.param('id');
     
     const policy = await kv.get(`policy:doc:${policyId}`) as PolicyDocument | null;
@@ -289,7 +260,7 @@ app.get('/:id', async (c) => {
 // Create policy (upload metadata - file upload handled separately via Supabase Storage)
 app.post('/', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'upload')) {
       return c.json({ error: 'Access denied: insufficient permissions to upload policies' }, 403);
@@ -346,7 +317,7 @@ app.post('/', async (c) => {
 // Publish policy
 app.post('/:id/publish', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const policyId = c.req.param('id');
     
     if (!hasPermission(user.role, 'upload')) {
@@ -389,7 +360,7 @@ app.post('/:id/publish', async (c) => {
 // Archive policy
 app.post('/:id/archive', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const policyId = c.req.param('id');
     
     if (user.role !== 'admin') {
@@ -432,7 +403,7 @@ app.post('/:id/archive', async (c) => {
 // Get all assignments (manager/admin view)
 app.get('/assignments', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view_all')) {
       return c.json({ error: 'Access denied: insufficient permissions' }, 403);
@@ -459,7 +430,7 @@ app.get('/assignments', async (c) => {
 // Get assignments for a specific policy
 app.get('/:policyId/assignments', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const policyId = c.req.param('policyId');
     
     if (!hasPermission(user.role, 'view_all')) {
@@ -478,7 +449,7 @@ app.get('/:policyId/assignments', async (c) => {
 // Create assignment(s)
 app.post('/assignments', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'assign')) {
       return c.json({ error: 'Access denied: insufficient permissions to assign policies' }, 403);
@@ -569,7 +540,7 @@ app.post('/assignments', async (c) => {
 // Get acknowledgements for a policy
 app.get('/:policyId/acknowledgements', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const policyId = c.req.param('policyId');
     
     if (!hasPermission(user.role, 'view_all')) {
@@ -588,7 +559,7 @@ app.get('/:policyId/acknowledgements', async (c) => {
 // Create acknowledgement
 app.post('/assignments/:assignmentId/acknowledge', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const assignmentId = c.req.param('assignmentId');
     
     const body = await c.req.json();
@@ -666,7 +637,7 @@ app.post('/assignments/:assignmentId/acknowledge', async (c) => {
 // Mark policy as viewed (tracking signal before acknowledgement)
 app.post('/assignments/:assignmentId/view', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const assignmentId = c.req.param('assignmentId');
     
     const assignment = await kv.get(`policy:assignment:${assignmentId}`) as PolicyAssignment | null;
@@ -704,10 +675,8 @@ app.get('/compliance/stats', async (c) => {
     console.log('📊 [BACKEND-POLICIES] Request URL:', c.req.url);
     console.log('📊 [BACKEND-POLICIES] Request method:', c.req.method);
     
-    const authHeader = c.req.header('X-User-Token');
-    
-    console.log('📊 [BACKEND-POLICIES] Step 1: Getting user from token...');
-    const user = await getUserFromToken(authHeader);
+    console.log('📊 [BACKEND-POLICIES] Step 1: Reading authenticated user...');
+    const user = c.get('user') as AuthenticatedUser;
     console.log('📊 [BACKEND-POLICIES] Step 2: User authenticated:', { 
       id: user.id, 
       role: user.role, 
@@ -787,7 +756,7 @@ app.get('/compliance/stats', async (c) => {
 // Get compliance by policy
 app.get('/compliance/by-policy', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view_all')) {
       return c.json({ error: 'Access denied: insufficient permissions' }, 403);
@@ -830,7 +799,7 @@ app.get('/compliance/by-policy', async (c) => {
 // Get audit logs
 app.get('/audit', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (user.role !== 'admin') {
       return c.json({ error: 'Access denied: only admins can view audit logs' }, 403);
@@ -858,7 +827,7 @@ app.get('/audit', async (c) => {
 // Export acknowledgements (CSV data)
 app.get('/export/acknowledgements', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'export')) {
       return c.json({ error: 'Access denied: insufficient permissions to export data' }, 403);
@@ -892,7 +861,7 @@ app.get('/export/acknowledgements', async (c) => {
 // Export assignments (CSV data)
 app.get('/export/assignments', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'export')) {
       return c.json({ error: 'Access denied: insufficient permissions to export data' }, 403);
@@ -937,7 +906,7 @@ app.get('/export/assignments', async (c) => {
 // Get signed URL for policy document
 app.get('/:policyId/download-url', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const policyId = c.req.param('policyId');
     
     const policy = await kv.get(`policy:doc:${policyId}`) as PolicyDocument | null;

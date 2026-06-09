@@ -11,8 +11,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useStaffStore } from '../store';
 import type { Policy, PolicyCategory, POLICY_CATEGORY_LABELS } from '../types';
-import { supabase } from '@/utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -220,24 +218,6 @@ export function PoliciesTab() {
       toast.error(error.message || 'Failed to upload new version');
     }
   };
-  
-  // Helper to get auth headers (same as staff store)
-  async function getAuthHeaders() {
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
-    const tenantId = session?.user?.user_metadata?.tenant_id || session?.user?.user_metadata?.tenantId;
-    
-    if (!token) {
-      return null;
-    }
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${publicAnonKey}`,
-      'X-User-Token': `Bearer ${token}`,
-      'X-Tenant-Id': tenantId || '',
-    };
-  }
   
   const getAssignmentStats = (policyId: string) => {
     const policyAssignments = assignments.filter(a => a.policy_id === policyId);

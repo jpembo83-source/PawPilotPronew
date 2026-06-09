@@ -4,10 +4,15 @@
  */
 
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every grooming route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
+// getUserFromToken helper that used to live here has been removed.
+app.use('*', requireAuth);
 
 // ============================================================================
 // TYPES
@@ -73,38 +78,11 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-async function getUserFromToken(request: Request) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const accessToken = request.headers.get('X-User-Token')?.replace('Bearer ', '');
-  if (!accessToken) {
-    return null;
-  }
-  
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data?.user) {
-    return null;
-  }
-  
-  return data.user;
-}
-
-function getTenantId(user: any): string {
-  return user.user_metadata?.tenant_id || user.id;
-}
-
-function getUserInfo(user: any) {
+function getUserInfo(user: AuthenticatedUser) {
   return {
     id: user.id,
-    name: user.user_metadata?.name || user.email,
-    role: user.user_metadata?.role || 'staff',
+    name: user.name,
+    role: user.role,
   };
 }
 
@@ -128,12 +106,8 @@ const SERVICE_DEFAULTS: Record<string, { name: string; duration: number; price: 
 // GET /grooming/appointments - List appointments
 app.get('/appointments', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const date = c.req.query('date');
     const status = c.req.query('status');
     const serviceType = c.req.query('service_type');
@@ -178,12 +152,8 @@ app.get('/appointments', async (c) => {
 // GET /grooming/appointments/:id - Get single appointment
 app.get('/appointments/:id', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const id = c.req.param('id');
     
     const appointment = await kv.get(`grooming-apt:${tenantId}:${id}`);
@@ -200,12 +170,8 @@ app.get('/appointments/:id', async (c) => {
 // POST /grooming/appointments - Create appointment
 app.post('/appointments', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     
@@ -260,12 +226,8 @@ app.post('/appointments', async (c) => {
 // PATCH /grooming/appointments/:id - Update appointment
 app.patch('/appointments/:id', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const id = c.req.param('id');
     const body = await c.req.json();
     
@@ -291,12 +253,8 @@ app.patch('/appointments/:id', async (c) => {
 // POST /grooming/appointments/:id/cancel - Cancel appointment
 app.post('/appointments/:id/cancel', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param('id');
     const body = await c.req.json();
@@ -327,12 +285,8 @@ app.post('/appointments/:id/cancel', async (c) => {
 // POST /grooming/appointments/:id/check-in - Check in
 app.post('/appointments/:id/check-in', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param('id');
     const body = await c.req.json();
@@ -366,12 +320,8 @@ app.post('/appointments/:id/check-in', async (c) => {
 // POST /grooming/appointments/:id/start - Start grooming
 app.post('/appointments/:id/start', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const id = c.req.param('id');
     const body = await c.req.json();
     
@@ -418,12 +368,8 @@ app.post('/appointments/:id/start', async (c) => {
 // POST /grooming/appointments/:id/complete - Complete grooming
 app.post('/appointments/:id/complete', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const id = c.req.param('id');
     const body = await c.req.json();
     
@@ -461,12 +407,8 @@ app.post('/appointments/:id/complete', async (c) => {
 // POST /grooming/appointments/:id/check-out - Check out
 app.post('/appointments/:id/check-out', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param('id');
     const body = await c.req.json();
@@ -499,12 +441,8 @@ app.post('/appointments/:id/check-out', async (c) => {
 // GET /grooming/appointments/:id/validate-checkin - Validate check-in
 app.get('/appointments/:id/validate-checkin', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const id = c.req.param('id');
     
     const appointment = await kv.get(`grooming-apt:${tenantId}:${id}`);
@@ -574,12 +512,8 @@ app.get('/appointments/:id/validate-checkin', async (c) => {
 // GET /grooming/queue - Get current queue
 app.get('/queue', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query('location_id');
     const today = new Date().toISOString().split('T')[0];
     
@@ -634,12 +568,8 @@ app.get('/queue', async (c) => {
 // GET /grooming/groomers - List groomers
 app.get('/groomers', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query('location_id');
     
     let groomers = await kv.getByPrefix(`groomer:${tenantId}:`);
@@ -661,12 +591,8 @@ app.get('/groomers', async (c) => {
 // POST /grooming/groomers/seed - Seed sample groomers
 app.post('/groomers/seed', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     const sampleGroomers = [
       {
@@ -742,12 +668,8 @@ app.post('/groomers/seed', async (c) => {
 // GET /grooming/stats - Get dashboard stats
 app.get('/stats', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query('location_id');
     const date = c.req.query('date') || new Date().toISOString().split('T')[0];
     

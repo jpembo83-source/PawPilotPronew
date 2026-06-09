@@ -4,8 +4,14 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every incidents route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
+// getUserFromToken helper that used to live here has been removed.
+app.use('*', requireAuth);
 
 // ============================================================================
 // TYPES
@@ -162,39 +168,6 @@ const getSupabase = () => {
   return createClient(supabaseUrl, supabaseServiceKey);
 };
 
-// Extract user from Authorization header
-const getUserFromToken = async (authHeader: string | null) => {
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid X-User-Token header');
-  }
-  
-  const token = authHeader.substring(7);
-  
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase credentials');
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  
-  if (error || !user) {
-    console.error('Token validation error:', error);
-    throw new Error('Unauthorized: Invalid token');
-  }
-  
-  return {
-    id: user.id,
-    email: user.email!,
-    name: user.user_metadata?.name || user.email!,
-    role: user.user_metadata?.role || 'staff',
-    locationIds: user.user_metadata?.locationIds || [],
-  };
-};
-
 // Check permissions for incident operations
 const hasPermission = (
   userRole: string, 
@@ -305,7 +278,7 @@ const filterIncidentsByPermission = (incidents: Incident[], user: any): Incident
 // Get all incidents (with filters)
 app.get('/', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied: insufficient permissions' }, 403);
@@ -373,7 +346,7 @@ app.get('/', async (c) => {
 // Get incident statistics - MUST come before /:id route
 app.get('/stats', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied' }, 403);
@@ -436,7 +409,7 @@ app.get('/stats', async (c) => {
 // Export incidents - MUST come before /:id route
 app.get('/export', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'export')) {
       return c.json({ error: 'Access denied: insufficient permissions to export' }, 403);
@@ -470,7 +443,7 @@ app.get('/export', async (c) => {
 // Get single incident by ID
 app.get('/:id', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     
     if (!hasPermission(user.role, 'view')) {
@@ -528,7 +501,7 @@ app.get('/:id', async (c) => {
 // Create incident
 app.post('/', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'create')) {
       return c.json({ error: 'Access denied: insufficient permissions to create incidents' }, 403);
@@ -659,7 +632,7 @@ app.post('/', async (c) => {
 // Update incident
 app.put('/:id', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     
     const incident = await kv.get(`incident:main:${incidentId}`) as Incident | null;
@@ -766,7 +739,7 @@ app.put('/:id', async (c) => {
 // Assign incident
 app.post('/:id/assign', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     
     if (!hasPermission(user.role, 'assign')) {
@@ -818,7 +791,7 @@ app.post('/:id/assign', async (c) => {
 // Close incident
 app.post('/:id/close', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     
     const incident = await kv.get(`incident:main:${incidentId}`) as Incident | null;
@@ -877,7 +850,7 @@ app.post('/:id/close', async (c) => {
 // Reopen incident
 app.post('/:id/reopen', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     
     if (!hasPermission(user.role, 'reopen')) {
@@ -932,7 +905,7 @@ app.post('/:id/reopen', async (c) => {
 // Add note to incident
 app.post('/:id/notes', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     
     const incident = await kv.get(`incident:main:${incidentId}`) as Incident | null;
@@ -991,7 +964,7 @@ app.post('/:id/notes', async (c) => {
 // Add action to incident
 app.post('/:id/actions', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     
     if (!hasPermission(user.role, 'assign')) {
@@ -1048,7 +1021,7 @@ app.post('/:id/actions', async (c) => {
 // Update action status
 app.put('/:id/actions/:actionId', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const incidentId = c.req.param('id');
     const actionId = c.req.param('actionId');
     

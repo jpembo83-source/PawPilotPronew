@@ -1,20 +1,35 @@
 // ============================================================================
 // SETTINGS RBAC - SERVER-SIDE ENFORCEMENT
 // ============================================================================
-// This module provides server-side RBAC enforcement for Settings API routes
+// Permission rules + audit logging for the Settings surface. Authentication
+// itself lives in _shared/auth.ts (the shared requireAuth middleware). This
+// module re-exports the auth primitives for back-compat with existing imports.
 // CRITICAL: UI hiding is insufficient - all access must be enforced server-side
 
 import { Context } from "npm:hono";
-import { createClient } from "npm:@supabase/supabase-js";
 import * as kv from "./kv_store.tsx";
+import {
+  requireAuth as sharedRequireAuth,
+  validateUserToken,
+  type AuthenticatedUser,
+  type Role,
+} from "./_shared/auth.ts";
+
+// Re-export the auth primitives so consumers that import from settings_rbac.ts
+// continue to work. The actual implementation now lives in _shared/auth.ts
+// (SERVICE_ROLE_KEY validation, app_metadata role, zero fallbacks).
+export type { Role };
+export const requireAuth = sharedRequireAuth;
+
+// UserContext is the legacy alias. AuthenticatedUser has the same shape, so any
+// `c.get('user') as UserContext` access stays type-safe.
+export type UserContext = AuthenticatedUser;
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type Role = 'admin' | 'manager' | 'assistant_manager' | 'staff';
-
-export type SettingsSection = 
+export type SettingsSection =
   | 'organisation'
   | 'modules'
   | 'locations'
@@ -28,21 +43,13 @@ export type SettingsSection =
   | 'dashboard'
   | 'system';
 
-export type SettingsAction = 
+export type SettingsAction =
   | 'view'
   | 'view_all'
   | 'create'
   | 'update'
   | 'delete'
   | 'configure';
-
-export interface UserContext {
-  id: string;
-  role: Role;
-  locationIds: string[];
-  email: string;
-  name: string;
-}
 
 export interface PermissionContext {
   locationId?: string;
@@ -176,198 +183,20 @@ export function hasPermission(
 // ============================================================================
 // AUTHENTICATION & AUTHORIZATION MIDDLEWARE
 // ============================================================================
+//
+// The auth primitives (`requireAuth`, `getUserFromRequest`) are thin wrappers
+// over the shared implementation in _shared/auth.ts. That implementation:
+//   - validates tokens server-side with SERVICE_ROLE_KEY + supabase.auth.getUser
+//   - reads role exclusively from app_metadata (server-set, not client-writable)
+//   - has zero fallbacks — no local Base64 decode, no dev-mode bypass, no retry
+//     loop that ends in a decode-only path, no ANON_KEY degradation.
+// `requireAuth` is re-exported at the top of this file.
 
 /**
- * Extract and validate user from request
+ * Validate the request's user and return their profile, or null on failure.
+ * Delegates to the shared validator (no fallbacks, no user_metadata role read).
  */
-export async function getUserFromRequest(c: Context): Promise<UserContext | null> {
-  try {
-    // Extract JWT token from X-User-Token header (user JWT) or Authorization header (fallback)
-    const userTokenHeader = c.req.header('X-User-Token');
-    const authHeader = c.req.header('Authorization');
-    
-    // Prefer X-User-Token, fallback to Authorization
-    const tokenSource = userTokenHeader || authHeader;
-    
-    if (!tokenSource) {
-      console.log('[Auth] No token found in X-User-Token or Authorization headers');
-      return null;
-    }
-    
-    const token = tokenSource.replace('Bearer ', '').trim();
-    
-    if (!token) {
-      console.log('[Auth] Empty token after Bearer extraction');
-      return null;
-    }
-    
-    // Verify token with Supabase
-    // CRITICAL: JWT validation requires SERVICE_ROLE_KEY, not ANON key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    // DEVELOPMENT MODE: If SERVICE_ROLE_KEY is not available, decode JWT payload without validation
-    if (!supabaseServiceKey) {
-      console.warn('[Auth] ⚠️ DEV MODE: No SERVICE_ROLE_KEY - decoding JWT without validation');
-      
-      try {
-        // Decode JWT payload (without signature verification)
-        const parts = token.split('.');
-        
-        if (parts.length !== 3) {
-          console.error('[Auth] Invalid JWT format');
-          return null;
-        }
-        
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        
-        // Extract user info from JWT payload
-        const userId = payload.sub;
-        const email = payload.email;
-        const userMetadata = payload.user_metadata || {};
-        
-        if (!userId || !email) {
-          console.error('[Auth] JWT missing required fields');
-          return null;
-        }
-        
-        console.log('[Auth] ✓ Dev mode auth:', email);
-        
-        return {
-          id: userId,
-          role: (userMetadata.role as Role) || 'staff',
-          locationIds: userMetadata.locationIds || [],
-          email: email,
-          name: userMetadata.name || email || 'Unknown',
-        };
-      } catch (decodeError) {
-        console.error('[Auth] Failed to decode JWT:', decodeError instanceof Error ? decodeError.message : String(decodeError));
-        return null;
-      }
-    }
-    
-    // PRODUCTION MODE: Validate JWT with Supabase with retry logic
-    const url = supabaseUrl || 'https://ruahrxkfgfyshuxykiay.supabase.co';
-    const key = supabaseServiceKey;
-    
-    // Retry logic for transient network errors
-    let lastError: any = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const supabase = createClient(url, key);
-        const { data: { user }, error } = await supabase.auth.getUser(token);
-        
-        if (error) {
-          console.log('[Auth] Supabase auth error:', error.message);
-          return null;
-        }
-        
-        if (!user) {
-          console.log('[Auth] No user returned');
-          return null;
-        }
-        
-        console.log('[Auth] ✓ Verified:', user.email);
-        
-        const metadata = user.user_metadata || {};
-        
-        return {
-          id: user.id,
-          role: (metadata.role as Role) || 'staff',
-          locationIds: metadata.locationIds || [],
-          email: user.email || '',
-          name: metadata.name || user.email || 'Unknown',
-        };
-      } catch (networkError: any) {
-        lastError = networkError;
-        console.warn(`[Auth] Network error on attempt ${attempt + 1}/3:`, networkError.message);
-        
-        // If this is the last attempt, fall back to JWT decode
-        if (attempt === 2) {
-          console.warn('[Auth] All retry attempts failed, falling back to JWT decode');
-          break;
-        }
-        
-        // Wait before retry (exponential backoff: 100ms, 200ms)
-        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
-      }
-    }
-    
-    // Fallback: Decode JWT locally if network requests fail
-    console.warn('[Auth] Falling back to local JWT decode due to network errors');
-    try {
-      const parts = token.split('.');
-      
-      if (parts.length !== 3) {
-        console.error('[Auth] Invalid JWT format');
-        return null;
-      }
-      
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      
-      const userId = payload.sub;
-      const email = payload.email;
-      const userMetadata = payload.user_metadata || {};
-      
-      if (!userId || !email) {
-        console.error('[Auth] JWT missing required fields');
-        return null;
-      }
-      
-      console.log('[Auth] ✓ Fallback auth:', email);
-      
-      return {
-        id: userId,
-        role: (userMetadata.role as Role) || 'staff',
-        locationIds: userMetadata.locationIds || [],
-        email: email,
-        name: userMetadata.name || email || 'Unknown',
-      };
-    } catch (decodeError) {
-      console.error('[Auth] Failed to decode JWT in fallback:', decodeError instanceof Error ? decodeError.message : String(decodeError));
-      throw lastError; // Re-throw original network error
-    }
-  } catch (error) {
-    console.error('[Auth] Unexpected error:', error instanceof Error ? error.message : String(error));
-    return null;
-  }
-}
-
-/**
- * Middleware to require authentication
- */
-export async function requireAuth(c: Context, next: () => Promise<void>) {
-  console.log('[requireAuth] ==========================================');
-  console.log('[requireAuth] Checking authentication...');
-  console.log('[requireAuth] Request path:', c.req.path);
-  console.log('[requireAuth] Request method:', c.req.method);
-  console.log('[requireAuth] Headers:', {
-    'X-User-Token': c.req.header('X-User-Token') ? 'present' : 'missing',
-    'Authorization': c.req.header('Authorization') ? 'present' : 'missing'
-  });
-  
-  const user = await getUserFromRequest(c);
-  
-  console.log('[requireAuth] getUserFromRequest returned:', user ? `User ${user.email} (${user.role})` : 'null');
-  
-  if (!user) {
-    // Use debug instead of error - authentication failures are expected for unauthenticated requests
-    console.debug('[requireAuth] Authentication failed - no user found');
-    console.debug('[requireAuth] Returning 401 Unauthorized');
-    return c.json({ 
-      code: 401, 
-      message: 'Invalid JWT',
-      details: 'Authentication token is missing or invalid'
-    }, 401);
-  }
-  
-  console.log('[requireAuth] ✅ Auth successful for:', user.email, 'role:', user.role);
-  
-  // Store user in context for later use
-  c.set('user', user);
-  
-  await next();
-}
+export const getUserFromRequest = validateUserToken;
 
 /**
  * Middleware to require specific permission

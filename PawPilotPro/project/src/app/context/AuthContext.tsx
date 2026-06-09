@@ -114,11 +114,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const mapSupabaseUser = (sbUser: SupabaseUser): User => {
     const metadata = sbUser.user_metadata || {};
+    // Role MUST come from app_metadata. user_metadata is client-writable, so
+    // a malicious user could call supabase.auth.updateUser({ data: { role: 'admin' } })
+    // and self-promote if we trusted user_metadata.role here. The server-side
+    // requireAuth middleware also reads from app_metadata for the same reason.
+    const role = (sbUser.app_metadata?.role as Role) || 'staff';
     return {
       id: sbUser.id,
       name: metadata.name || sbUser.email || 'Unknown',
       email: sbUser.email || '',
-      role: (metadata.role as Role) || 'staff', 
+      role,
       locationIds: metadata.locationIds || ['loc-1'],
       templateId: metadata.templateId, // Permission template assignment
       permissions: metadata.permissions || [] // Per-user overrides

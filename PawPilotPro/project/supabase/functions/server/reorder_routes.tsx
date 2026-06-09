@@ -3,10 +3,15 @@
 // British English throughout
 
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every reorder route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
+// getUserFromToken helper that used to live here has been removed (1B.2 ext).
+app.use('*', requireAuth);
 
 // ============================================================================
 // TYPES
@@ -42,50 +47,6 @@ interface ReorderConfig {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-const getSupabase = () => {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase credentials');
-  }
-  
-  return createClient(supabaseUrl, supabaseServiceKey);
-};
-
-const getUserFromToken = async (authHeader: string | null) => {
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid Authorization header');
-  }
-  
-  const token = authHeader.substring(7);
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase credentials');
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    console.error('Token validation error:', error);
-    throw new Error('Unauthorised: Invalid token');
-  }
-  
-  return {
-    id: user.id,
-    email: user.email!,
-    name: user.user_metadata?.name || user.email!,
-    role: user.user_metadata?.role || 'staff',
-    locationIds: user.user_metadata?.locationIds || [],
-  };
-};
 
 const hasPermission = (userRole: string, action: string): boolean => {
   const permissions: Record<string, string[]> = {
@@ -202,7 +163,7 @@ const createAuditLog = async (
 const createReorderEndpoint = (config: ReorderConfig) => {
   return async (c: any) => {
     try {
-      const user = await getUserFromToken(c.req.header('Authorization'));
+      const user = c.get('user') as AuthenticatedUser;
 
       // Permission check
       if (!hasPermission(user.role, config.requiredPermission)) {
@@ -318,7 +279,7 @@ app.post('/operational-rules', createReorderEndpoint({
 
 app.get('/audit', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('Authorization'));
+    const user = c.get('user') as AuthenticatedUser;
 
     // Only admins and managers can view audit logs
     if (user.role !== 'admin' && user.role !== 'manager') {

@@ -1,19 +1,10 @@
 // Capacity Store - Zustand state management
 import { create } from 'zustand';
-import { supabase } from '../../../utils/supabase/client';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../utils/supabase/info';
 import type { DailyCapacitySummary, ServiceCapacity, WeeklyCapacityView, CapacityFilters } from './types';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
-
-async function getAuthHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    'Authorization': `Bearer ${session?.access_token}`,
-    'X-User-Token': session?.access_token || '',
-    'Content-Type': 'application/json'
-  };
-}
 
 interface CapacityState {
   // Current view data

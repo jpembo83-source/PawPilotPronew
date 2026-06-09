@@ -2,52 +2,21 @@
 // Complete CRUD for households, contacts, pets, documents, activity timeline
 
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every route in this module requires a validated user. requireAuth runs
+// before each handler and short-circuits with 401 on auth failure. The ad-hoc
+// ANON_KEY-validated getUserFromToken helper that used to live here has been
+// removed — auth is the shared middleware's job, route handlers just read the
+// already-validated user from context.
+app.use('*', requireAuth);
 
 // ============================================================================
 // UTILITIES
 // ============================================================================
-
-const getServiceClient = () => {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase configuration');
-  }
-  
-  return createClient(supabaseUrl, supabaseServiceKey);
-};
-
-const getUserFromToken = async (token: string) => {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase configuration');
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  
-  if (error || !user) {
-    throw new Error('Invalid or expired token');
-  }
-  
-  return user;
-};
-
-const getTenantId = (user: any): string => {
-  return user.user_metadata?.tenant_id || user.id;
-};
-
-const getUserId = (user: any): string => {
-  return user.id;
-};
 
 const generateId = (prefix: string) => {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -60,13 +29,8 @@ const generateId = (prefix: string) => {
 // List households
 app.get('/households', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     console.log('[List Households] Starting fetch for tenantId:', tenantId);
     
@@ -208,13 +172,8 @@ app.get('/households', async (c) => {
 // Get single household
 app.get('/households/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('id');
     
     const household = await kv.get(`customer:${tenantId}:household:${householdId}`);
@@ -247,14 +206,9 @@ app.get('/households/:id', async (c) => {
 // Create household
 app.post('/households', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     const body = await c.req.json();
     
@@ -304,14 +258,9 @@ app.post('/households', async (c) => {
 // Update household
 app.put('/households/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const householdId = c.req.param('id');
     
     const existing = await kv.get(`customer:${tenantId}:household:${householdId}`);
@@ -357,13 +306,8 @@ app.put('/households/:id', async (c) => {
 // Delete household
 app.delete('/households/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('id');
     
     const existing = await kv.get(`customer:${tenantId}:household:${householdId}`);
@@ -436,13 +380,8 @@ app.delete('/households/:id', async (c) => {
 // List contacts for a household
 app.get('/households/:household_id/contacts', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
     
     const contacts = await kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`);
@@ -458,14 +397,9 @@ app.get('/households/:household_id/contacts', async (c) => {
 // Create contact
 app.post('/households/:household_id/contacts', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const householdId = c.req.param('household_id');
     
     const body = await c.req.json();
@@ -529,13 +463,8 @@ app.post('/households/:household_id/contacts', async (c) => {
 // Update contact
 app.put('/contacts/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const contactId = c.req.param('id');
     
     const body = await c.req.json();
@@ -603,13 +532,8 @@ app.put('/contacts/:id', async (c) => {
 // Delete contact
 app.delete('/contacts/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const contactId = c.req.param('id');
     
     // Find the contact
@@ -648,13 +572,8 @@ app.delete('/contacts/:id', async (c) => {
 // List pets for a household
 app.get('/households/:household_id/pets', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
     
     const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`);
@@ -670,13 +589,8 @@ app.get('/households/:household_id/pets', async (c) => {
 // Get single pet
 app.get('/pets/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const petId = c.req.param('id');
     
     // Find the pet
@@ -699,14 +613,9 @@ app.get('/pets/:id', async (c) => {
 // Create pet
 app.post('/households/:household_id/pets', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const householdId = c.req.param('household_id');
     
     const body = await c.req.json();
@@ -773,13 +682,8 @@ app.post('/households/:household_id/pets', async (c) => {
 // Update pet
 app.put('/pets/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const petId = c.req.param('id');
     
     const body = await c.req.json();
@@ -819,7 +723,7 @@ app.put('/pets/:id', async (c) => {
       title: 'Pet Profile Updated',
       description: `Pet "${updated.name}" profile was updated`,
       occurred_at: new Date().toISOString(),
-      created_by: getUserId(user),
+      created_by: user.id,
       created_by_name: user.user_metadata?.full_name || user.email,
       created_at: new Date().toISOString(),
     };
@@ -838,13 +742,8 @@ app.put('/pets/:id', async (c) => {
 
 app.get('/households/:household_id/activity', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
     
     const activities = await kv.getByPrefix(`customer:${tenantId}:activity:${householdId}:`);
@@ -868,23 +767,8 @@ app.get('/households/:household_id/activity', async (c) => {
 // List documents for a household
 app.get('/households/:household_id/documents', async (c) => {
   try {
-    // Priority: X-User-Token (from frontend) over Authorization (could be anon key)
-    const userToken = c.req.header('X-User-Token');
-    const authHeader = c.req.header('Authorization');
-    
-    let tenantId = 'demo-tenant';
-    
-    const token = userToken ? userToken.replace('Bearer ', '') : (authHeader ? authHeader.replace('Bearer ', '') : null);
-    
-    if (token) {
-      try {
-        const user = await getUserFromToken(token);
-        tenantId = getTenantId(user);
-      } catch (e) {
-        console.log('[List Documents] Using demo tenant (auth failed)');
-      }
-    }
-    
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
     
     // DEBUG: Check if documents exist with different tenant IDs
@@ -916,27 +800,10 @@ app.get('/households/:household_id/documents', async (c) => {
 // Create document metadata (actual file upload happens client-side to storage)
 app.post('/households/:household_id/documents', async (c) => {
   try {
-    // Try to get user, but allow anonymous access with demo tenant
-    let tenantId = 'demo-tenant';
-    let userId = 'system';
-    let userName = 'System';
-    
-    // Check X-User-Token first (user session), then fall back to Authorization (anon key)
-    const userTokenHeader = c.req.header('X-User-Token');
-    const authHeader = userTokenHeader || c.req.header('Authorization');
-    
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      try {
-        const user = await getUserFromToken(token);
-        tenantId = getTenantId(user);
-        userId = getUserId(user);
-        userName = user.name || userId;
-      } catch (e) {
-        console.log('[Documents] Using demo tenant (auth failed)');
-      }
-    }
-    
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
+    const userName = user.name || userId;
     const householdId = c.req.param('household_id');
     
     // Handle both JSON and FormData
@@ -1017,23 +884,8 @@ app.post('/households/:household_id/documents', async (c) => {
 // Delete document
 app.delete('/households/:household_id/documents/:id', async (c) => {
   try {
-    // Try to get user, but allow anonymous access with demo tenant
-    let tenantId = 'demo-tenant';
-    
-    // Check X-User-Token first (user session), then fall back to Authorization (anon key)
-    const userTokenHeader = c.req.header('X-User-Token');
-    const authHeader = userTokenHeader || c.req.header('Authorization');
-    
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      try {
-        const user = await getUserFromToken(token);
-        tenantId = getTenantId(user);
-      } catch (e) {
-        console.log('[Documents] Using demo tenant (auth failed)');
-      }
-    }
-    
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
     const documentId = c.req.param('id');
     
@@ -1055,13 +907,8 @@ app.delete('/households/:household_id/documents/:id', async (c) => {
 
 app.get('/document-alerts', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     const documents = await kv.getByPrefix(`customer:${tenantId}:document:`);
     const allHouseholdsRaw = await kv.getByPrefix(`customer:${tenantId}:household:`);
@@ -1129,15 +976,9 @@ app.get('/document-alerts', async (c) => {
 
 app.post('/seed-data', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    console.log('[Seed] Token present:', !!token);
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     console.log('[Seed] User:', user.email, 'TenantId:', tenantId, 'UserId:', userId);
     
     // Check if force reseed requested (clears existing test data)
@@ -1365,13 +1206,8 @@ app.post('/seed-data', async (c) => {
 // Download import template
 app.get('/import/template', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     // For now, return a simple message
     // In production, this would generate an Excel template using a library like xlsx
@@ -1388,13 +1224,8 @@ app.get('/import/template', async (c) => {
 // Import customers from XLSX
 app.post('/import', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     // For now, return a mock result
     // In production, this would:
@@ -1423,13 +1254,8 @@ app.post('/import', async (c) => {
 // Export customers to XLSX
 app.get('/export', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     // Get query parameters for filtering and options
     const search = c.req.query('search') || '';
@@ -1615,13 +1441,8 @@ app.get('/export', async (c) => {
 // List household notes
 app.get('/households/:id/notes', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('id');
     
     // Verify household belongs to tenant
@@ -1659,14 +1480,9 @@ app.get('/households/:id/notes', async (c) => {
 // Create household note
 app.post('/households/:id/notes', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const householdId = c.req.param('id');
     
     // Verify household belongs to tenant
@@ -1744,14 +1560,9 @@ app.post('/households/:id/notes', async (c) => {
 // Update household note
 app.patch('/notes/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const noteId = c.req.param('id');
     
     // Find the note (search across all households)
@@ -1837,14 +1648,9 @@ app.patch('/notes/:id', async (c) => {
 // Delete household note (soft delete)
 app.delete('/notes/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const noteId = c.req.param('id');
     
     // Find the note
@@ -1884,13 +1690,8 @@ app.delete('/notes/:id', async (c) => {
 // List household flags
 app.get('/households/:id/flags', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const householdId = c.req.param('id');
     
     // Verify household belongs to tenant
@@ -1915,14 +1716,9 @@ app.get('/households/:id/flags', async (c) => {
 // Create or update household flag
 app.post('/households/:id/flags', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const householdId = c.req.param('id');
     
     // Verify household belongs to tenant
@@ -2036,13 +1832,8 @@ app.post('/households/:id/flags', async (c) => {
 // Update household flag
 app.patch('/flags/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const flagId = c.req.param('id');
     
     // Find the flag
@@ -2128,13 +1919,8 @@ app.patch('/flags/:id', async (c) => {
 // Delete household flag
 app.delete('/flags/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const flagId = c.req.param('id');
     
     // Find the flag
@@ -2213,13 +1999,8 @@ app.delete('/flags/:id', async (c) => {
 // Clear all flags and timeline events (for fresh start)
 app.delete('/clear-timeline-data', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     console.log(`[Clear Timeline Data] Clearing all flags and activities for tenant ${tenantId}`);
     
@@ -2302,13 +2083,8 @@ app.delete('/clear-timeline-data', async (c) => {
 // Get timeline events for a pet
 app.get('/pets/:petId/timeline', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const petId = c.req.param('petId');
     
     // Verify pet exists
@@ -2407,14 +2183,9 @@ app.get('/pets/:petId/timeline', async (c) => {
 // Create activity event
 app.post('/activity', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     const body = await c.req.json();
     const { 
@@ -2487,13 +2258,8 @@ app.post('/activity', async (c) => {
 // Debug route to inspect KV store data
 app.get('/debug/kv-keys', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     console.log('[Debug KV] Checking keys for tenant:', tenantId);
     

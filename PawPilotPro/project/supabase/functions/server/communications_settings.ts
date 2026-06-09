@@ -1,7 +1,11 @@
 import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
+import { requireAuth } from "./_shared/auth.ts";
 
 const app = new Hono();
+
+// Every communications-settings route requires a validated user.
+app.use("*", requireAuth);
 
 // Prefix for all communications settings keys
 const PREFIX = "communications_settings";

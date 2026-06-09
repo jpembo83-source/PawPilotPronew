@@ -3,8 +3,12 @@
 
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
+import { requireAuth } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every view-as (impersonation) route requires a validated user.
+app.use('*', requireAuth);
 
 // --- Utility Functions ---
 

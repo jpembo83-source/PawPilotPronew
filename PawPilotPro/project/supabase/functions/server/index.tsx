@@ -48,33 +48,23 @@ app.use(
 );
 
 // Setup Supabase Admin Client
-// CRITICAL: Must use SERVICE_ROLE_KEY for JWT validation - ANON key cannot validate user tokens
+// CRITICAL: Must use SERVICE_ROLE_KEY for JWT validation — ANON key cannot validate user tokens.
+// Fail fast on missing config: ANON is NEVER an acceptable fallback for privileged operations.
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 console.log("[Server Init] Environment check:");
 console.log("[Server Init] SUPABASE_URL:", supabaseUrl ? "✓ SET" : "✗ MISSING");
 console.log("[Server Init] SUPABASE_SERVICE_ROLE_KEY:", supabaseServiceKey ? "✓ SET" : "✗ MISSING");
-console.log("[Server Init] SUPABASE_ANON_KEY:", Deno.env.get("SUPABASE_ANON_KEY") ? "✓ SET" : "✗ MISSING");
 
-// Check if we have the required credentials
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error("[Server Init] ⚠️ CRITICAL: Missing required environment variables!");
-  console.error("[Server Init] The backend CANNOT validate JWT tokens without SUPABASE_SERVICE_ROLE_KEY");
-  console.error("[Server Init] All authenticated endpoints will fail with 401 errors");
-  console.error("[Server Init] Please configure these secrets in your Supabase project settings");
+  throw new Error(
+    "[Server Init] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required. " +
+    "Refusing to start with broken auth. Configure both in the Supabase project secrets."
+  );
 }
 
-const getSupabase = () => {
-  const url = supabaseUrl || "";
-  const key = supabaseServiceKey || Deno.env.get("SUPABASE_ANON_KEY") || "";
-  
-  if (!supabaseServiceKey) {
-    console.warn("[getSupabase] ⚠️ WARNING: Using ANON key fallback - JWT validation will FAIL");
-  }
-  
-  return createClient(url, key);
-};
+const getSupabase = () => createClient(supabaseUrl, supabaseServiceKey);
 
 // Health check
 app.get("/make-server-fc003b23/health", (c) => {
@@ -127,321 +117,25 @@ app.get("/make-server-fc003b23/health", (c) => {
   }
 })();
 
-// Test POST endpoint (no auth required)
-app.post("/make-server-fc003b23/test-post", async (c) => {
-  console.log('[TEST-POST] Request received!');
-  const body = await c.req.json().catch(() => ({}));
-  console.log('[TEST-POST] Body:', body);
-  return c.json({ success: true, received: body });
-});
-
-// Check environment configuration
-app.get("/make-server-fc003b23/check-env", (c) => {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const hasServiceKey = !!Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const hasAnonKey = !!Deno.env.get("SUPABASE_ANON_KEY");
-  const hasDbUrl = !!Deno.env.get("SUPABASE_DB_URL");
-  
-  // Get the actual keys (first 20 chars only for security)
-  const serviceKeyPreview = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.substring(0, 20) + "...";
-  const anonKeyPreview = Deno.env.get("SUPABASE_ANON_KEY")?.substring(0, 20) + "...";
-  
-  return c.json({ 
-    supabaseUrl,
-    hasServiceKey,
-    hasAnonKey,
-    hasDbUrl,
-    serviceKeyPreview: hasServiceKey ? serviceKeyPreview : "NOT SET",
-    anonKeyPreview: hasAnonKey ? anonKeyPreview : "NOT SET",
-    expectedUrl: "https://ruahrxkfgfyshuxykiay.supabase.co",
-    message: hasServiceKey 
-      ? "✓ All environment variables are properly configured!"
-      : "✗ SUPABASE_SERVICE_ROLE_KEY is missing - running in development mode"
-  });
-});
-
-// Debug endpoint to check KV store user profiles
-app.get("/make-server-fc003b23/debug-users", async (c) => {
-  try {
-    console.log('[Debug Users] Fetching all user profiles from KV store');
-    
-    const allUsersRaw = await kv.getByPrefix('user:demo-tenant-001:profile:');
-    console.log('[Debug Users] Found', allUsersRaw.length, 'user profiles');
-    
-    const users = allUsersRaw.map((item, index) => {
-      try {
-        // Check if already an object
-        if (typeof item === 'object' && item !== null) {
-          console.log(`[Debug Users] User ${index} (already object):`, item);
-          return item;
-        }
-        // If string, parse it
-        const parsed = JSON.parse(item);
-        console.log(`[Debug Users] User ${index} (parsed):`, parsed);
-        return parsed;
-      } catch (e) {
-        console.error('[Debug Users] Failed to parse user:', e);
-        return { error: 'Failed to parse', raw: item };
-      }
-    });
-    
-    return c.json({
-      count: users.length,
-      users,
-      rawCount: allUsersRaw.length,
-    });
-  } catch (err: any) {
-    console.error('[Debug Users] Error:', err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
-// Debug endpoint to compare Supabase Auth users vs KV store
-app.get("/make-server-fc003b23/debug-auth-users", async (c) => {
-  try {
-    const supabase = getSupabase();
-    
-    // Get all users from Supabase Auth
-    const { data: { users: authUsers }, error } = await supabase.auth.admin.listUsers();
-    if (error) {
-      return c.json({ error: error.message }, 500);
-    }
-    
-    // Get all user profiles from KV store
-    const kvUsersRaw = await kv.getByPrefix('user:demo-tenant-001:profile:');
-    const kvUsers = kvUsersRaw.map(item => {
-      if (typeof item === 'object' && item !== null) return item;
-      try { return JSON.parse(item); } catch { return null; }
-    }).filter(u => u !== null);
-    
-    // Compare
-    const authUserIds = authUsers.map(u => u.id);
-    const kvUserIds = kvUsers.map((u: any) => u.id);
-    
-    const inAuthNotKv = authUsers.filter(u => !kvUserIds.includes(u.id));
-    const inKvNotAuth = kvUsers.filter((u: any) => !authUserIds.includes(u.id));
-    
-    return c.json({
-      authUsersCount: authUsers.length,
-      kvUsersCount: kvUsers.length,
-      authUsers: authUsers.map(u => ({
-        id: u.id,
-        email: u.email,
-        role: u.user_metadata?.role,
-        name: u.user_metadata?.name,
-        tenant_id: u.user_metadata?.tenant_id || u.user_metadata?.tenantId,
-      })),
-      kvUsers: kvUsers,
-      inAuthNotKv: inAuthNotKv.map(u => ({
-        id: u.id,
-        email: u.email,
-        role: u.user_metadata?.role,
-        name: u.user_metadata?.name,
-      })),
-      inKvNotAuth: inKvNotAuth,
-    });
-  } catch (err: any) {
-    console.error('[Debug Auth Users] Error:', err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
-// Sync endpoint to create KV store profiles for Auth users that are missing them
-app.post("/make-server-fc003b23/sync-users", async (c) => {
-  try {
-    const supabase = getSupabase();
-    const tenantId = 'demo-tenant-001';
-    
-    console.log('[Sync Users] Starting user sync for tenant:', tenantId);
-    
-    // Get all users from Supabase Auth
-    const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers();
-    if (authError) {
-      console.error('[Sync Users] Failed to fetch auth users:', authError);
-      return c.json({ error: authError.message }, 500);
-    }
-    
-    console.log('[Sync Users] Found', authUsers.length, 'auth users');
-    
-    // Get all user profiles from KV store
-    const kvUsersRaw = await kv.getByPrefix(`user:${tenantId}:profile:`);
-    const kvUsers = kvUsersRaw.map(item => {
-      if (typeof item === 'object' && item !== null) return item;
-      try { return JSON.parse(item); } catch { return null; }
-    }).filter(u => u !== null);
-    
-    const kvUserIds = kvUsers.map((u: any) => u.id);
-    console.log('[Sync Users] Found', kvUsers.length, 'KV store profiles');
-    
-    // Find users that need KV profiles
-    const usersNeedingProfiles = authUsers.filter(u => !kvUserIds.includes(u.id));
-    console.log('[Sync Users] Found', usersNeedingProfiles.length, 'users needing KV profiles');
-    
-    const syncResults = [];
-    
-    for (const authUser of usersNeedingProfiles) {
-      try {
-        const userId = authUser.id;
-        const metadata = authUser.user_metadata || {};
-        
-        // Parse name
-        const fullName = metadata.name || authUser.email?.split('@')[0] || 'Unknown User';
-        const nameParts = fullName.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
-        // Create KV store profile
-        const userProfile = {
-          id: userId,
-          email: authUser.email || '',
-          first_name: firstName,
-          last_name: lastName,
-          name: fullName,
-          role: metadata.role || 'staff',
-          phone: metadata.phone || '',
-          isActive: true,
-          createdAt: authUser.created_at,
-          lastLogin: authUser.last_sign_in_at || null,
-          updatedAt: new Date().toISOString(),
-          locationIds: ['all'],
-          permissions: [],
-        };
-        
-        await kv.set(`user:${tenantId}:profile:${userId}`, userProfile);
-        console.log('[Sync Users] Created KV profile for user:', userId, authUser.email);
-        
-        // Update Auth metadata to include tenant_id if missing
-        const currentTenantId = metadata.tenant_id || metadata.tenantId;
-        if (!currentTenantId) {
-          await supabase.auth.admin.updateUserById(userId, {
-            user_metadata: {
-              ...metadata,
-              tenant_id: tenantId,
-              tenantId: tenantId,
-            },
-          });
-          console.log('[Sync Users] Updated Auth metadata with tenant_id for user:', userId);
-        }
-        
-        syncResults.push({
-          userId,
-          email: authUser.email,
-          status: 'success',
-          actions: ['created_kv_profile', !currentTenantId ? 'updated_tenant_id' : null].filter(Boolean),
-        });
-      } catch (err: any) {
-        console.error('[Sync Users] Failed to sync user:', authUser.id, err);
-        syncResults.push({
-          userId: authUser.id,
-          email: authUser.email,
-          status: 'error',
-          error: err.message,
-        });
-      }
-    }
-    
-    return c.json({
-      success: true,
-      totalAuthUsers: authUsers.length,
-      totalKvUsers: kvUsers.length,
-      usersSynced: usersNeedingProfiles.length,
-      syncResults,
-    });
-  } catch (err: any) {
-    console.error('[Sync Users] Error:', err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
-// Test auth endpoint to debug JWT validation
-app.get("/make-server-fc003b23/test-auth", async (c) => {
-  try {
-    // Read from X-User-Token header (where the actual user JWT is)
-    const xUserToken = c.req.header('X-User-Token');
-    console.log('[test-auth] X-User-Token header present:', !!xUserToken);
-    
-    if (!xUserToken || !xUserToken.startsWith('Bearer ')) {
-      return c.json({ error: 'No X-User-Token header' }, 401);
-    }
-    
-    const token = xUserToken.split(' ')[1];
-    console.log('[test-auth] Token length:', token?.length);
-    console.log('[test-auth] Token (first 50 chars):', token?.substring(0, 50));
-    
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
-    console.log('[test-auth] Backend Supabase URL:', supabaseUrl);
-    console.log('[test-auth] Has service key:', !!supabaseServiceKey);
-    
-    // DEVELOPMENT MODE: If SERVICE_ROLE_KEY is not available, decode JWT payload without validation
-    if (!supabaseServiceKey) {
-      console.warn('[test-auth] ⚠️ DEVELOPMENT MODE: No SERVICE_ROLE_KEY - decoding JWT without validation');
-      
-      try {
-        // Decode JWT payload (without signature verification)
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-          return c.json({ error: 'Invalid JWT format' }, 401);
-        }
-        
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        console.log('[test-auth] Decoded JWT payload:', payload);
-        
-        return c.json({ 
-          success: true,
-          developmentMode: true,
-          user: {
-            id: payload.sub,
-            email: payload.email,
-            role: payload.user_metadata?.role,
-            metadata: payload.user_metadata
-          }
-        });
-      } catch (decodeError) {
-        console.error('[test-auth] Failed to decode JWT:', decodeError);
-        return c.json({ error: 'Failed to decode JWT' }, 401);
-      }
-    }
-    
-    // PRODUCTION MODE: Validate JWT with Supabase
-    const supabase = getSupabase();
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error) {
-      console.log('[test-auth] Error:', error);
-      return c.json({ 
-        error: 'Auth failed', 
-        message: error.message,
-        details: error,
-        backendUrl: supabaseUrl
-      }, 401);
-    }
-    
-    if (!user) {
-      return c.json({ error: 'No user' }, 401);
-    }
-    
-    return c.json({ 
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.user_metadata?.role,
-        metadata: user.user_metadata
-      }
-    });
-  } catch (err: any) {
-    console.error('[test-auth] Exception:', err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
 // Development endpoint to seed admin user
 app.post("/make-server-fc003b23/seed-admin", async (c) => {
   try {
+    // Bootstrap-only endpoint. Creating an admin with a known password must not
+    // be reachable in production — gate it behind an explicit env flag (the
+    // canonical path is the CLI backfill script, not an HTTP route).
+    if (Deno.env.get("SEED_ENABLED") !== "true") {
+      return c.json({ error: "not_found" }, 404);
+    }
+
+    // Never hardcode the bootstrap credential — require it from the environment.
+    const seedPassword = Deno.env.get("SEED_ADMIN_PASSWORD");
+    if (!seedPassword) {
+      console.error("[Seed Admin] SEED_ADMIN_PASSWORD not set; refusing to seed");
+      return c.json({ error: "seed_unavailable" }, 503);
+    }
+
     const supabase = getSupabase();
-    
+
     // Check if admin already exists
     const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
     if (listError) {
@@ -459,6 +153,13 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
         const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
           existingAdmin.id,
           {
+            // Role lives in app_metadata (server-set, untamperable). The
+            // user_metadata mirror is retained as a transitional copy and
+            // will be dropped once 1B.3 cleanup completes.
+            app_metadata: {
+              ...(existingAdmin.app_metadata ?? {}),
+              role: 'manager',
+            },
             user_metadata: {
               ...existingAdmin.user_metadata,
               role: 'manager',
@@ -483,7 +184,7 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
         id: existingAdmin.id,
         email: existingAdmin.email,
         name: existingAdmin.user_metadata?.name || 'System Administrator',
-        role: existingAdmin.user_metadata?.role || 'manager',
+        role: existingAdmin.app_metadata?.role || 'manager',
         locationIds: existingAdmin.user_metadata?.locationIds || ['all'],
         permissions: existingAdmin.user_metadata?.permissions || [],
         isActive: true,
@@ -507,10 +208,12 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
     // Create admin user with tenant_id
     const { data, error } = await supabase.auth.admin.createUser({
       email: 'admin@mdcoperations.com',
-      password: 'Admin123!',
+      password: seedPassword,
       email_confirm: true,
-      user_metadata: { 
-        role: 'manager',
+      // Role is the security-bearing field — it lives in app_metadata so the
+      // client cannot self-promote via supabase.auth.updateUser.
+      app_metadata: { role: 'manager' },
+      user_metadata: {
         name: 'System Administrator',
         tenant_id: 'demo-tenant-001',
         tenantId: 'demo-tenant-001',
@@ -554,62 +257,10 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
   }
 });
 
-// Promote user to admin by email (one-time setup endpoint)
-app.post("/make-server-fc003b23/promote-to-admin", async (c) => {
-  try {
-    const supabase = getSupabase();
-    const body = await c.req.json();
-    const { email } = body;
-    
-    if (!email) {
-      return c.json({ error: "Email is required" }, 400);
-    }
-    
-    // Find user by email
-    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) {
-      return c.json({ error: listError.message }, 500);
-    }
-    
-    const user = users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
-    if (!user) {
-      return c.json({ error: `User not found: ${email}` }, 404);
-    }
-    
-    // Update user to admin role
-    const { data, error } = await supabase.auth.admin.updateUserById(user.id, {
-      user_metadata: {
-        ...user.user_metadata,
-        role: 'admin',
-        locationIds: ['all'] // Admins have access to all locations
-      }
-    });
-    
-    if (error) {
-      return c.json({ error: error.message }, 400);
-    }
-    
-    console.log(`[Promote Admin] User ${email} promoted to admin`);
-    
-    return c.json({ 
-      message: `User ${email} promoted to admin successfully`,
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        role: data.user.user_metadata?.role,
-        locationIds: data.user.user_metadata?.locationIds
-      }
-    });
-  } catch (err: any) {
-    console.error("Server error:", err);
-    return c.json({ error: err.message }, 500);
-  }
-});
-
 // --- User Management Routes ---
 
 // Create User
-app.post("/make-server-fc003b23/users", async (c) => {
+app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 'create'), async (c) => {
   try {
     const supabase = getSupabase();
     const body = await c.req.json();
@@ -622,7 +273,10 @@ app.post("/make-server-fc003b23/users", async (c) => {
       email,
       password: password || 'tempPass123!', // Require password or default
       email_confirm: true,
-      user_metadata: { role, name, locationIds, permissions, templateId, tenant_id: finalTenantId, tenantId: finalTenantId }
+      // Role lives in app_metadata (server-set, untamperable). Non-role
+      // profile fields stay in user_metadata.
+      app_metadata: { role: role || 'staff' },
+      user_metadata: { name, locationIds, permissions, templateId, tenant_id: finalTenantId, tenantId: finalTenantId }
     });
 
     if (error) {
@@ -659,13 +313,13 @@ app.post("/make-server-fc003b23/users", async (c) => {
 });
 
 // Update User
-app.put("/make-server-fc003b23/users/:id", async (c) => {
+app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users', 'update'), async (c) => {
   try {
     const supabase = getSupabase();
     const id = c.req.param("id");
     const body = await c.req.json();
     
-    const updates: any = {}; 
+    const updates: any = {};
     if (body.password) updates.password = body.password;
     if (body.email) updates.email = body.email;
     if (body.isActive !== undefined) {
@@ -675,9 +329,18 @@ app.put("/make-server-fc003b23/users/:id", async (c) => {
          updates.ban_duration = "none";
        }
     }
-    
+
+    // Role is the security-bearing field — write it to app_metadata so the
+    // user cannot self-promote via supabase.auth.updateUser on the client.
+    if (body.role) {
+      const { data: existing } = await supabase.auth.admin.getUserById(id);
+      updates.app_metadata = {
+        ...(existing?.user?.app_metadata ?? {}),
+        role: body.role,
+      };
+    }
+
     const metadataUpdates: any = {};
-    if (body.role) metadataUpdates.role = body.role;
     if (body.name) metadataUpdates.name = body.name;
     if (body.locationIds) metadataUpdates.locationIds = body.locationIds;
     if (body.permissions) metadataUpdates.permissions = body.permissions;
@@ -706,7 +369,7 @@ app.put("/make-server-fc003b23/users/:id", async (c) => {
           id: data.user.id,
           email: body.email || data.user.email,
           name: body.name || data.user.user_metadata?.name || data.user.email,
-          role: body.role || data.user.user_metadata?.role || 'staff',
+          role: body.role || data.user.app_metadata?.role || 'staff',
           locationIds: body.locationIds || data.user.user_metadata?.locationIds || [],
           permissions: body.permissions || data.user.user_metadata?.permissions || [],
           templateId: body.templateId !== undefined ? body.templateId : data.user.user_metadata?.templateId,
@@ -730,7 +393,7 @@ app.put("/make-server-fc003b23/users/:id", async (c) => {
 });
 
 // Delete User
-app.delete("/make-server-fc003b23/users/:id", async (c) => {
+app.delete("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users', 'delete'), async (c) => {
   try {
     const supabase = getSupabase();
     const id = c.req.param("id");
@@ -758,7 +421,7 @@ app.delete("/make-server-fc003b23/users/:id", async (c) => {
 });
 
 // List Users
-app.get("/make-server-fc003b23/users", async (c) => {
+app.get("/make-server-fc003b23/users", requireAuth, requirePermission('users', 'view'), async (c) => {
   try {
     const supabase = getSupabase();
     const { data: { users }, error } = await supabase.auth.admin.listUsers();
@@ -769,7 +432,7 @@ app.get("/make-server-fc003b23/users", async (c) => {
       id: u.id,
       email: u.email,
       name: u.user_metadata?.name || u.email,
-      role: u.user_metadata?.role || 'staff',
+      role: u.app_metadata?.role || 'staff',
       locationIds: u.user_metadata?.locationIds || [],
       permissions: u.user_metadata?.permissions || [],
       templateId: u.user_metadata?.templateId,

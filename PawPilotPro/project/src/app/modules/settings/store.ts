@@ -1,73 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
-
-// Helper to get auth headers with automatic token refresh
-async function getAuthHeaders() {
-  try {
-    // Get the current session from Supabase
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    console.log('[getAuthHeaders] Full session object:', session);
-    console.log('[getAuthHeaders] Session error:', sessionError);
-    
-    if (sessionError) {
-      console.error('[getAuthHeaders] Session error:', sessionError);
-      throw new Error('Authentication error. Please log in again.');
-    }
-    
-    if (!session?.access_token) {
-      console.error('[getAuthHeaders] No session or access token found. User may not be logged in.');
-      throw new Error('Authentication required. Please log in.');
-    }
-    
-    console.log('[getAuthHeaders] Current session expires at:', new Date(session.expires_at! * 1000).toISOString());
-    console.log('[getAuthHeaders] User:', session.user?.email);
-    console.log('[getAuthHeaders] User ID:', session.user?.id);
-    console.log('[getAuthHeaders] Access token (first 100 chars):', session.access_token.substring(0, 100));
-    
-    // Check if token is expired or expiring soon (within 5 minutes)
-    const expiresAt = session.expires_at || 0;
-    const now = Date.now() / 1000; // Convert to seconds
-    const fiveMinutesFromNow = now + (5 * 60);
-    
-    console.log('[getAuthHeaders] Token expiry check - expiresAt:', expiresAt, 'now:', now, 'expires in seconds:', expiresAt - now);
-    
-    if (expiresAt < fiveMinutesFromNow) {
-      console.log('[getAuthHeaders] Token expired or expiring soon, refreshing session...');
-      
-      // Refresh the session
-      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-      
-      if (refreshError || !refreshedSession) {
-        console.error('[getAuthHeaders] Session refresh failed:', refreshError);
-        throw new Error('Session expired. Please log in again.');
-      }
-      
-      console.log('[getAuthHeaders] Session refreshed successfully. New expiry:', new Date(refreshedSession.expires_at! * 1000).toISOString());
-      
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`, // ANON key for Supabase Edge Function invocation
-        'X-User-Token': `Bearer ${refreshedSession.access_token}`, // User JWT for authentication within the function
-      };
-    }
-    
-    console.log('[getAuthHeaders] Using existing valid token');
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${publicAnonKey}`, // ANON key for Supabase Edge Function invocation
-      'X-User-Token': `Bearer ${session.access_token}`, // User JWT for authentication within the function
-    };
-  } catch (error) {
-    console.error('[getAuthHeaders] Error getting auth headers:', error);
-    throw error;
-  }
-}
 
 export interface OrganisationSettings {
   name: string;

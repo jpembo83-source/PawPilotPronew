@@ -1,7 +1,12 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
+import { requireAuth } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every route in this module requires a validated user. requireAuth runs
+// before the per-route handlers and short-circuits with 401 on auth failure.
+app.use('*', requireAuth);
 
 // Prefix for all routes
 const PREFIX = '/make-server-fc003b23/messaging';
@@ -9,19 +14,6 @@ const PREFIX = '/make-server-fc003b23/messaging';
 // Helper: Generate ID
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
-
-// Helper: Get user from auth token
-async function getUserFromToken(supabase: any, request: Request) {
-  const accessToken = request.headers.get('Authorization')?.split(' ')[1];
-  if (!accessToken) {
-    return null;
-  }
-  const { data: { user }, error } = await supabase.auth.getUser(accessToken);
-  if (error || !user) {
-    return null;
-  }
-  return user;
 }
 
 // ============================================================================

@@ -5,8 +5,14 @@
 import { Hono } from 'npm:hono';
 import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every daycare route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
+// getUserFromToken helper that used to live here has been removed.
+app.use('*', requireAuth);
 
 // ============================================================================
 // TYPES
@@ -124,42 +130,6 @@ const getSupabase = () => {
   }
   
   return createClient(supabaseUrl, supabaseServiceKey);
-};
-
-const getUserFromToken = async (authHeader: string | null) => {
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid X-User-Token header');
-  }
-  
-  const token = authHeader.substring(7);
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase credentials');
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  
-  if (error || !user) {
-    console.error('Token validation error:', error);
-    throw new Error('Unauthorized: Invalid token');
-  }
-  
-  return {
-    id: user.id,
-    email: user.email!,
-    name: user.user_metadata?.name || user.email!,
-    role: user.user_metadata?.role || 'staff',
-    locationIds: user.user_metadata?.locationIds || [],
-    tenant_id: user.user_metadata?.tenant_id || user.id, // Add tenant_id
-  };
-};
-
-const getTenantId = (user: any): string => {
-  return user.tenant_id || user.id;
 };
 
 const hasPermission = (userRole: string, action: string): boolean => {
@@ -380,14 +350,14 @@ const validateCheckIn = async (booking: DaycareBooking, tenantId: string) => {
 // Search households and pets for booking creation
 app.get('/search-customers', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied: insufficient permissions' }, 403);
     }
     
     const query = c.req.query('q') || '';
-    const tenantId = getTenantId(user); // Use getTenantId helper
+    const tenantId = user.tenantId;
     
     // Search households and pets from customer database
     const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
@@ -538,7 +508,7 @@ async function createTransportJobFromBooking(
   address: string,
   locationAddress: string,
 ) {
-  const tenantId = getTenantId(user);
+  const tenantId = user.tenantId;
   const jobId = generateId('tjob');
   const now = new Date().toISOString();
   
@@ -643,7 +613,7 @@ async function cancelTransportJobsForBooking(bookingId: string, tenantId: string
 
 app.get('/capacity', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied' }, 403);
@@ -711,7 +681,7 @@ app.get('/capacity', async (c) => {
 // Get bookings with filters
 app.get('/bookings', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied: insufficient permissions' }, 403);
@@ -802,7 +772,7 @@ app.get('/bookings', async (c) => {
 // Get single booking
 app.get('/bookings/:id', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const bookingId = c.req.param('id');
     
     if (!hasPermission(user.role, 'view')) {
@@ -831,7 +801,7 @@ app.get('/bookings/:id', async (c) => {
 // Create booking
 app.post('/bookings', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'create_booking')) {
       return c.json({ error: 'Access denied: insufficient permissions to create bookings' }, 403);
@@ -859,7 +829,7 @@ app.post('/bookings', async (c) => {
     }
     
     // Validate and fetch pet from customer database
-    const tenantId = getTenantId(user); // Use getTenantId helper
+    const tenantId = user.tenantId;
     const petData = await kv.getByPrefix(`customer:${tenantId}:pet:`);
     const petRecord = petData.find((p: string) => {
       const pet = p;
@@ -1043,7 +1013,7 @@ app.post('/bookings', async (c) => {
 // Cancel booking
 app.post('/bookings/:id/cancel', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const bookingId = c.req.param('id');
     
     if (!hasPermission(user.role, 'cancel')) {
@@ -1092,7 +1062,7 @@ app.post('/bookings/:id/cancel', async (c) => {
     
     if (booking.requires_transport) {
       try {
-        const tenantId = getTenantId(user);
+        const tenantId = user.tenantId;
         const cancelledCount = await cancelTransportJobsForBooking(bookingId, tenantId, user.id);
         if (cancelledCount > 0) {
           console.log(`[Daycare] Cancelled ${cancelledCount} transport job(s) for booking ${bookingId}`);
@@ -1116,9 +1086,9 @@ app.post('/bookings/:id/cancel', async (c) => {
 // Validate check-in
 app.post('/bookings/:id/validate-checkin', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const bookingId = c.req.param('id');
-    const tenantId = getTenantId(user); // Get tenant ID from current user
+    const tenantId = user.tenantId; // Get tenant ID from current user
     
     console.log('=== VALIDATE CHECK-IN DEBUG ===');
     console.log('Booking ID:', bookingId);
@@ -1157,9 +1127,9 @@ app.post('/bookings/:id/validate-checkin', async (c) => {
 // Check-in
 app.post('/bookings/:id/checkin', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const bookingId = c.req.param('id');
-    const tenantId = getTenantId(user); // Get tenant ID from current user
+    const tenantId = user.tenantId; // Get tenant ID from current user
     
     if (!hasPermission(user.role, 'check_in')) {
       return c.json({ error: 'Access denied' }, 403);
@@ -1255,7 +1225,7 @@ app.post('/bookings/:id/checkin', async (c) => {
 // Check-out
 app.post('/bookings/:id/checkout', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     const bookingId = c.req.param('id');
     
     if (!hasPermission(user.role, 'check_out')) {
@@ -1348,7 +1318,7 @@ app.post('/bookings/:id/checkout', async (c) => {
 // Get today's attendance (for Quick Notes modal)
 app.get('/attendance/today', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied' }, 403);
@@ -1391,7 +1361,7 @@ app.get('/attendance/today', async (c) => {
     const includeOvernights = c.req.query('include_overnights') === 'true';
     if (includeOvernights) {
       try {
-        const tenantId = getTenantId(user);
+        const tenantId = user.tenantId;
         const overnightReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
         const overnightDogs = overnightReservations.filter((r: any) => {
           if (!r || typeof r !== 'object') return false;
@@ -1435,7 +1405,7 @@ app.get('/attendance/today', async (c) => {
 
 app.get('/attendance/active', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied' }, 403);
@@ -1496,7 +1466,7 @@ app.get('/attendance/active', async (c) => {
 
 app.get('/stats', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied' }, 403);
@@ -1578,7 +1548,7 @@ app.get('/stats', async (c) => {
 
 app.get('/events', async (c) => {
   try {
-    const user = await getUserFromToken(c.req.header('X-User-Token'));
+    const user = c.get('user') as AuthenticatedUser;
     
     if (!hasPermission(user.role, 'view')) {
       return c.json({ error: 'Access denied' }, 403);

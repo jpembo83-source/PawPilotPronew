@@ -2,39 +2,22 @@
 // Highest-privilege area for global system control, safety, and governance
 
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
 
-// --- Auth Gate (interim, until 1B.1 ships the shared requireAuth middleware) ---
-// Validates the user's access token server-side with SERVICE_ROLE_KEY and confirms
-// app_metadata.role === 'admin'. No fallbacks, no ANON_KEY validation, no user_metadata
-// role reads. Returns a Response on failure; the caller short-circuits with it.
-async function requireAdmin(c: any): Promise<Response | null> {
-  const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-  if (!token) {
-    return c.json({ error: 'unauthorized' }, 401);
-  }
+// Every system route requires a validated user. The destructive admin actions
+// below add `requireAdmin` on top for role enforcement.
+app.use('*', requireAuth);
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceKey) {
-    console.error('[system requireAdmin] SUPABASE_SERVICE_ROLE_KEY missing — refusing to validate');
-    return c.json({ error: 'auth_unavailable' }, 503);
-  }
-
-  const supabase = createClient(supabaseUrl, serviceKey);
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) {
-    return c.json({ error: 'unauthorized' }, 401);
-  }
-
-  const role = data.user.app_metadata?.role;
-  if (role !== 'admin') {
-    return c.json({ error: 'forbidden' }, 403);
-  }
-
+// Admin-only gate. Consumes the user that requireAuth already attached, so
+// there is no second token validation. Role is sourced from app_metadata by
+// requireAuth (never user_metadata, which is client-writable).
+function requireAdmin(c: any): Response | null {
+  const user = c.get('user') as AuthenticatedUser | undefined;
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+  if (user.role !== 'admin') return c.json({ error: 'forbidden' }, 403);
   return null;
 }
 
@@ -503,7 +486,7 @@ app.get('/audit-logs', async (c) => {
 // --- System Actions ---
 
 app.post('/actions/emergency-disable', async (c) => {
-  const denied = await requireAdmin(c);
+  const denied = requireAdmin(c);
   if (denied) return denied;
 
   const data = await c.req.json();
@@ -528,7 +511,7 @@ app.post('/actions/emergency-disable', async (c) => {
 });
 
 app.post('/actions/force-logout', async (c) => {
-  const denied = await requireAdmin(c);
+  const denied = requireAdmin(c);
   if (denied) return denied;
 
   const data = await c.req.json();
@@ -556,6 +539,9 @@ app.post('/actions/force-logout', async (c) => {
 });
 
 app.post('/actions/maintenance-mode', async (c) => {
+  const denied = requireAdmin(c);
+  if (denied) return denied;
+
   const data = await c.req.json();
   const actionId = generateId();
 

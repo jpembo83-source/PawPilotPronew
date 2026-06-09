@@ -1,33 +1,14 @@
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
 
-app.use('/*', async (c, next) => {
-  const user = await getUserFromToken(c.req.raw);
-  if (!user) {
-    return c.json({ error: 'Unauthorised' }, 401);
-  }
-  c.set('user', user);
-  await next();
-});
-
-async function getUserFromToken(request: Request) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const accessToken = request.headers.get('X-User-Token')?.replace('Bearer ', '');
-  if (!accessToken) return null;
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data?.user) return null;
-  return data.user;
-}
-
-function getTenantId(user: any): string {
-  return user?.user_metadata?.tenant_id || user?.tenant_id || user?.id || 'default';
-}
+// Every calendar route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY. The local middleware that
+// used to live here read X-User-Token via getUserFromToken validated with
+// the ANON_KEY (which cannot verify JWT signatures) — both have been removed.
+app.use('*', requireAuth);
 
 interface CalendarEvent {
   id: string;
@@ -261,10 +242,10 @@ async function getTransportEvents(tenantId: string, startDate: string, endDate: 
   return events;
 }
 
-function getUserAllowedLocations(user: any): string[] | null {
-  const locs = user?.user_metadata?.locationIds || user?.user_metadata?.location_ids;
-  if (!locs || (Array.isArray(locs) && locs.includes('all'))) return null;
-  return Array.isArray(locs) ? locs : [locs];
+function getUserAllowedLocations(user: AuthenticatedUser): string[] | null {
+  const locs = user.locationIds;
+  if (!locs || locs.length === 0 || locs.includes('all')) return null;
+  return locs;
 }
 
 function filterByAllowedLocations(events: CalendarEvent[], allowed: string[] | null): CalendarEvent[] {
@@ -274,8 +255,8 @@ function filterByAllowedLocations(events: CalendarEvent[], allowed: string[] | n
 
 app.get('/events', async (c) => {
   try {
-    const user = c.get('user');
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const allowedLocations = getUserAllowedLocations(user);
     let locationId = c.req.query('location_id') || undefined;
 

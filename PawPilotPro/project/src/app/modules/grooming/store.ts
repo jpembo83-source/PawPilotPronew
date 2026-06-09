@@ -2,8 +2,8 @@
 // Zustand store for grooming salon operations
 
 import { create } from 'zustand';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { broadcastMutation } from '../../lib/realtimeBroadcast';
 import type {
   GroomingAppointment,
@@ -15,20 +15,6 @@ import type {
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/grooming`;
-
-const getAuthHeaders = async () => {
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError || !session?.access_token) {
-    throw new Error('Authentication required. Please log in.');
-  }
-  
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session.access_token}`,
-  };
-};
 
 // ============================================================================
 // STORE STATE

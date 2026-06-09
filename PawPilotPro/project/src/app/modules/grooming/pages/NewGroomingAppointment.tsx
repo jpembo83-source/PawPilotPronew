@@ -28,8 +28,8 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { SERVICE_TYPES, type GroomingServiceType } from '../types';
-import { supabase } from '../../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 
 interface SearchResult {
   household_id: string;
@@ -78,16 +78,6 @@ export function NewGroomingAppointment() {
     const locId = selectedLocationForAppt || undefined;
     fetchGroomers(locId);
   }, [selectedLocationForAppt]);
-
-  const getAuthHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Not authenticated');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${publicAnonKey}`,
-      'X-User-Token': `Bearer ${session.access_token}`,
-    };
-  };
 
   const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);
@@ -196,25 +186,18 @@ export function NewGroomingAppointment() {
     const effectiveGroomerId = groomerId && groomerId !== 'unassigned' ? groomerId : undefined;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        const headers = {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': `Bearer ${session.access_token}`,
-        };
-        const params = new URLSearchParams({ pet_id: selectedPetId, date: appointmentDate });
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/grooming/appointments?${params}`,
-          { headers },
-        );
-        if (res.ok) {
-          const existing: any[] = await res.json();
-          const conflict = existing.find(a => a.status !== 'cancelled');
-          if (conflict) {
-            toast.error(`${selectedPet?.name || 'This pet'} already has a grooming appointment on this date`);
-            return;
-          }
+      const headers = await getAuthHeaders();
+      const params = new URLSearchParams({ pet_id: selectedPetId, date: appointmentDate });
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/grooming/appointments?${params}`,
+        { headers },
+      );
+      if (res.ok) {
+        const existing: any[] = await res.json();
+        const conflict = existing.find(a => a.status !== 'cancelled');
+        if (conflict) {
+          toast.error(`${selectedPet?.name || 'This pet'} already has a grooming appointment on this date`);
+          return;
         }
       }
     } catch {

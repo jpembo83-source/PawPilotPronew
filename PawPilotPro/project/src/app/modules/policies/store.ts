@@ -2,56 +2,10 @@
 // Zustand store for policy compliance operations
 
 import { create } from 'zustand';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/policies`;
-
-const getAuthHeaders = async () => {
-  // Get the current session from Supabase
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError) {
-    console.error('Session error:', sessionError);
-    throw new Error('Authentication error. Please log in again.');
-  }
-  
-  if (!session?.access_token) {
-    console.error('No session or access token found');
-    throw new Error('Authentication required. Please log in.');
-  }
-  
-  // Check if token is expired or expiring soon (within 5 minutes)
-  const expiresAt = session.expires_at || 0;
-  const now = Date.now() / 1000; // Convert to seconds
-  const fiveMinutesFromNow = now + (5 * 60);
-  
-  if (expiresAt < fiveMinutesFromNow) {
-    console.log('Token expired or expiring soon, refreshing session...');
-    
-    // Refresh the session
-    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-    
-    if (refreshError || !refreshedSession) {
-      console.error('Session refresh failed:', refreshError);
-      throw new Error('Session expired. Please log in again.');
-    }
-    
-    console.log('Session refreshed successfully');
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${publicAnonKey}`, // ANON key for Supabase Edge Function invocation
-      'X-User-Token': `Bearer ${refreshedSession.access_token}`, // User JWT for authentication within the function
-    };
-  }
-  
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`, // ANON key for Supabase Edge Function invocation
-    'X-User-Token': `Bearer ${session.access_token}`, // User JWT for authentication within the function
-  };
-};
 
 // ============================================================================
 // TYPES

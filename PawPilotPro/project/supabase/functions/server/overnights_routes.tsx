@@ -4,47 +4,25 @@
  */
 
 import { Hono } from "npm:hono";
-import { createClient } from "npm:@supabase/supabase-js@2";
 import * as kv from "./kv_store.tsx";
+import { requireAuth, AuthenticatedUser } from "./_shared/auth.ts";
 
 const routes = new Hono();
+
+// Every overnights route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
+// getUserFromToken helper that used to live here has been removed.
+routes.use('*', requireAuth);
 
 // ============================================================================
 // AUTH & TENANT HELPERS
 // ============================================================================
 
-async function getUserFromToken(request: Request) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const accessToken = request.headers.get('X-User-Token')?.replace('Bearer ', '');
-  if (!accessToken) {
-    return null;
-  }
-  
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data?.user) {
-    return null;
-  }
-  
-  return data.user;
-}
-
-function getTenantId(user: any): string {
-  return user.user_metadata?.tenant_id || user.id;
-}
-
-function getUserInfo(user: any) {
+function getUserInfo(user: AuthenticatedUser) {
   return {
     id: user.id,
-    name: user.user_metadata?.name || user.email,
-    role: user.user_metadata?.role || 'staff',
+    name: user.name,
+    role: user.role,
   };
 }
 
@@ -93,12 +71,8 @@ async function checkConflictingAttendance(tenantId: string, petId: string, locat
 
 routes.get("/reservations", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     const startDate = c.req.query("startDate");
     const endDate = c.req.query("endDate");
@@ -138,12 +112,8 @@ routes.get("/reservations", async (c) => {
 
 routes.post("/reservations", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     
@@ -184,12 +154,8 @@ routes.post("/reservations", async (c) => {
 
 routes.put("/reservations/:id", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -217,12 +183,8 @@ routes.put("/reservations/:id", async (c) => {
 
 routes.post("/check-in", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { reservationId, vaccinationValid, waiverSigned, behaviourWarningsAcknowledged, medicalWarningsAcknowledged, checkInNotes } = body;
@@ -285,12 +247,8 @@ routes.post("/check-in", async (c) => {
 
 routes.post("/check-out", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { reservationId, handedOverTo, checkOutNotes, nextVisitNotes } = body;
@@ -350,12 +308,8 @@ routes.post("/check-out", async (c) => {
 
 routes.get("/care-logs", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const reservationId = c.req.query("reservationId");
     const date = c.req.query("date");
     
@@ -377,12 +331,8 @@ routes.get("/care-logs", async (c) => {
 
 routes.post("/care-logs", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     
@@ -406,12 +356,8 @@ routes.post("/care-logs", async (c) => {
 
 routes.put("/care-logs/:id", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -439,12 +385,8 @@ routes.put("/care-logs/:id", async (c) => {
 
 routes.get("/sleeping-areas", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     
     let areas = await kv.getByPrefix(`overnight:${tenantId}:area:`);
@@ -461,12 +403,8 @@ routes.get("/sleeping-areas", async (c) => {
 
 routes.post("/sleeping-areas", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     
@@ -490,12 +428,8 @@ routes.post("/sleeping-areas", async (c) => {
 
 routes.put("/sleeping-areas/:id", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -523,12 +457,8 @@ routes.put("/sleeping-areas/:id", async (c) => {
 
 routes.get("/handovers", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     const date = c.req.query("date");
     
@@ -550,12 +480,8 @@ routes.get("/handovers", async (c) => {
 
 routes.post("/handovers", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     
@@ -578,12 +504,8 @@ routes.post("/handovers", async (c) => {
 
 routes.post("/handovers/:id/acknowledge", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param("id");
     
@@ -611,12 +533,8 @@ routes.post("/handovers/:id/acknowledge", async (c) => {
 
 routes.get("/capacity", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     
     if (!locationId) {
@@ -632,12 +550,8 @@ routes.get("/capacity", async (c) => {
 
 routes.post("/capacity", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { locationId, ...capacityData } = body;
@@ -663,12 +577,8 @@ routes.post("/capacity", async (c) => {
 
 routes.get("/capacity/snapshot", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     const date = c.req.query("date");
     
@@ -717,12 +627,8 @@ routes.get("/capacity/snapshot", async (c) => {
 
 routes.get("/tonights-boarders", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     const date = c.req.query("date") || new Date().toISOString().split('T')[0];
     
@@ -798,12 +704,8 @@ routes.get("/tonights-boarders", async (c) => {
 
 routes.get("/carers", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     const date = c.req.query("date") || new Date().toISOString().split('T')[0];
 
@@ -848,12 +750,8 @@ routes.get("/carers", async (c) => {
 
 routes.post("/assign-carer", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { stayId, carerId } = body;
@@ -918,12 +816,8 @@ routes.post("/assign-carer", async (c) => {
 
 routes.put("/assign-carer/:stayId", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const stayId = c.req.param("stayId");
     const body = await c.req.json();
@@ -994,12 +888,8 @@ routes.put("/assign-carer/:stayId", async (c) => {
 
 routes.post("/calculate-billing", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { reservationId } = body;
@@ -1101,12 +991,8 @@ routes.post("/calculate-billing", async (c) => {
 
 routes.post("/transition/daycare-to-overnight", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { petId, daycareBookingId, locationId, reservationId, assignedCarerUserId, specialInstructions } = body;
@@ -1216,12 +1102,8 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
 
 routes.post("/transition/overnight-to-daycare", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { reservationId } = body;
@@ -1293,12 +1175,8 @@ routes.post("/transition/overnight-to-daycare", async (c) => {
 
 routes.get("/events", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const stayId = c.req.query("stayId");
     
     let events = await kv.getByPrefix(`overnight:${tenantId}:event:`);
@@ -1317,12 +1195,8 @@ routes.get("/events", async (c) => {
 
 routes.post("/events", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
     const { stayId, eventType, metadata } = body;
@@ -1345,12 +1219,8 @@ routes.post("/events", async (c) => {
 
 routes.get("/stats", async (c) => {
   try {
-    const user = await getUserFromToken(c.req.raw);
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const locationId = c.req.query("locationId");
     const date = c.req.query("date") || new Date().toISOString().split('T')[0];
     

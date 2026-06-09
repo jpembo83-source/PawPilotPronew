@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { broadcastMutation } from '../../lib/realtimeBroadcast';
 import {
   OvernightReservation,
@@ -19,20 +19,6 @@ import {
 } from './types';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
-
-const getAuthHeaders = async () => {
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-  if (sessionError || !session?.access_token) {
-    throw new Error('Authentication required. Please log in.');
-  }
-
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session.access_token}`,
-  };
-};
 
 export interface OvernightsState {
   reservations: OvernightReservation[];

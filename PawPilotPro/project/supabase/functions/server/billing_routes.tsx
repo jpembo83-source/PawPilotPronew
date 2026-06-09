@@ -2,49 +2,16 @@
 // Production-grade billing API with financial data governance and tenant isolation
 
 import { Hono } from 'npm:hono';
-import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { requireAuth } from './_shared/auth.ts';
 
 const app = new Hono();
 
-// ============================================================================
-// AUTH & TENANT HELPERS
-// ============================================================================
-
-async function getUserFromToken(request: Request) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  
-  const accessToken = request.headers.get('X-User-Token')?.replace('Bearer ', '');
-  if (!accessToken) {
-    return null;
-  }
-  
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data?.user) {
-    return null;
-  }
-  
-  return data.user;
-}
-
-function getTenantId(user: any): string {
-  return user.user_metadata?.tenant_id || user.id;
-}
-
-function getUserInfo(user: any) {
-  return {
-    id: user.id,
-    name: user.user_metadata?.name || user.email,
-    role: user.user_metadata?.role || 'staff',
-  };
-}
+// Every billing route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY. Before this gate landed
+// (1B.2 ext) every billing endpoint was unauthenticated — the file held a
+// getUserFromToken/getTenantId/getUserInfo helper trio that no route called.
+app.use('*', requireAuth);
 
 // ============================================================================
 // TYPES

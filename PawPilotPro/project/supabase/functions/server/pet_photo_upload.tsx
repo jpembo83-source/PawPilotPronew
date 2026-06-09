@@ -1,11 +1,22 @@
 import { Hono } from "npm:hono";
 import { createClient } from "npm:@supabase/supabase-js";
+import { requireAuth } from "./_shared/auth.ts";
 
 const app = new Hono();
 
+// Photo upload requires a validated user.
+app.use("*", requireAuth);
+
 const getSupabase = () => {
-  const url = Deno.env.get("SUPABASE_URL") || "https://ruahrxkfgfyshuxykiay.supabase.co";
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "";
+  // Storage writes use the service role to bypass RLS. ANON_KEY is NOT an
+  // acceptable fallback — fail fast rather than silently degrade.
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) {
+    throw new Error(
+      "[pet_photo_upload] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required."
+    );
+  }
   return createClient(url, key);
 };
 

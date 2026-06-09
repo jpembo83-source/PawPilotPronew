@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '../../../../utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import {
   Approval,
   ImpactPreview,
@@ -15,21 +15,11 @@ import {
 } from '../types/approvals';
 
 // Validate that required config is available
-if (!projectId || !publicAnonKey) {
-  console.error('Missing Supabase configuration:', { projectId: !!projectId, publicAnonKey: !!publicAnonKey });
+if (!projectId) {
+  console.error('Missing Supabase configuration:', { projectId: !!projectId });
 }
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/pricing-approvals`;
-
-// Auth helper - get headers with user token
-async function getAuthHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session?.access_token || ''}`,
-  };
-}
 
 export interface ApprovalsState {
   // Data

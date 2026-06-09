@@ -1,59 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '../../../../utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
-
-// Helper to get auth headers with automatic token refresh (same as settings store)
-async function getAuthHeaders() {
-  try {
-    // Get the current session from Supabase
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError) {
-      console.error('[getAuthHeaders] Session error:', sessionError);
-      throw new Error('Authentication error. Please log in again.');
-    }
-    
-    if (!session?.access_token) {
-      console.error('[getAuthHeaders] No session or access token found. User may not be logged in.');
-      throw new Error('Authentication required. Please log in.');
-    }
-    
-    // Check if token is expired or expiring soon (within 5 minutes)
-    const expiresAt = session.expires_at || 0;
-    const now = Date.now() / 1000; // Convert to seconds
-    const fiveMinutesFromNow = now + (5 * 60);
-    
-    if (expiresAt < fiveMinutesFromNow) {
-      console.log('[getAuthHeaders] Token expired or expiring soon, refreshing session...');
-      
-      // Refresh the session
-      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
-      
-      if (refreshError || !refreshedSession) {
-        console.error('[getAuthHeaders] Session refresh failed:', refreshError);
-        throw new Error('Session expired. Please log in again.');
-      }
-      
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`, // ANON key for Supabase Edge Function invocation
-        'X-User-Token': `Bearer ${refreshedSession.access_token}`, // User JWT for authentication within the function
-      };
-    }
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${publicAnonKey}`, // ANON key for Supabase Edge Function invocation
-      'X-User-Token': `Bearer ${session.access_token}`, // User JWT for authentication within the function
-    };
-  } catch (error) {
-    console.error('[getAuthHeaders] Error getting auth headers:', error);
-    throw error;
-  }
-}
 
 // Re-using/Extending types compatible with AuthContext
 export type Role = 'admin' | 'manager' | 'staff';
@@ -246,12 +196,16 @@ export const useUserStore = create<UserState>()(
            
            const newUser = await res.json();
            const metadata = newUser.user_metadata || {};
+           // Role lives in app_metadata (server-set). user_metadata is
+           // client-writable so reading role from there would let a user
+           // self-promote.
+           const appMetadata = newUser.app_metadata || {};
 
            const mappedUser: User = {
              id: newUser.id,
              name: metadata.name || user.name,
              email: newUser.email || user.email,
-             role: metadata.role || user.role,
+             role: appMetadata.role || user.role,
              locationIds: metadata.locationIds || user.locationIds,
              permissions: metadata.permissions || user.permissions,
              isActive: true,

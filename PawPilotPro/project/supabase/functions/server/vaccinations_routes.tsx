@@ -1,7 +1,14 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every vaccinations route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY. The local getUserFromAuth
+// helper that used to live here decoded the JWT with `atob` WITHOUT signature
+// verification — accepting any forged token — and has been removed.
+app.use('*', requireAuth);
 
 // Type definitions
 type VaccinationType = 
@@ -32,29 +39,6 @@ interface VaccinationRecord {
   created_by_name?: string;
   created_at: string;
   updated_at: string;
-}
-
-// Helper function to get user from auth token
-async function getUserFromAuth(authHeader: string | null) {
-  if (!authHeader) return null;
-  const token = authHeader.replace('Bearer ', '');
-  
-  // In production, validate JWT token. For now, extract user_id from header
-  // This is a simplified version - in real implementation, verify JWT
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return {
-      id: payload.sub || 'system',
-      email: payload.email || 'system@example.com',
-      name: payload.user_metadata?.name || payload.email || 'System User',
-    };
-  } catch {
-    return {
-      id: 'system',
-      email: 'system@example.com',
-      name: 'System User',
-    };
-  }
 }
 
 // Helper to calculate vaccination status for a pet
@@ -189,8 +173,8 @@ app.post('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
     const pet = JSON.parse(petStr);
     const tenantId = pet.tenant_id;
 
-    // Get user from auth
-    const user = await getUserFromAuth(c.req.header('Authorization'));
+    // requireAuth has already validated the bearer token and attached the user.
+    const user = c.get('user') as AuthenticatedUser;
     
     // Validate required fields
     if (!body.vaccination_type || !body.date_administered) {
@@ -295,8 +279,8 @@ app.put('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', async (
 
     const existing = JSON.parse(vaccinationsData[0]);
 
-    // Get user from auth
-    const user = await getUserFromAuth(c.req.header('Authorization'));
+    // requireAuth has already validated the bearer token and attached the user.
+    const user = c.get('user') as AuthenticatedUser;
 
     // Update vaccination
     const updated: VaccinationRecord = {
@@ -385,8 +369,8 @@ app.delete('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', asyn
     // Update pet's overall vaccination status
     await updatePetVaccinationStatus(petId, tenantId);
 
-    // Get user from auth
-    const user = await getUserFromAuth(c.req.header('Authorization'));
+    // requireAuth has already validated the bearer token and attached the user.
+    const user = c.get('user') as AuthenticatedUser;
 
     // Create activity event
     const activityId = crypto.randomUUID();

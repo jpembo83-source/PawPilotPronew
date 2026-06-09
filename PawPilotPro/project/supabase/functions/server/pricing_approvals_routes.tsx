@@ -1,7 +1,11 @@
 import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
+import { requireAuth } from "./_shared/auth.ts";
 
 const routes = new Hono();
+
+// Every pricing-approval route requires a validated user.
+routes.use("*", requireAuth);
 
 // ============================================================================
 // HELPER FUNCTIONS

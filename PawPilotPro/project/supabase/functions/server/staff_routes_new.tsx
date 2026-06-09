@@ -6,75 +6,25 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
+
+// Every staff route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY. The local getUserFromToken
+// helper that used to live here had a dev-mode JWT-decode-without-validation
+// fallback (the same anti-pattern 1B.1 removed from settings_rbac.ts) — both
+// it and the getTenantId/getUserId pickers are removed; the per-route
+// pattern is now `const user = c.get('user') as AuthenticatedUser`.
+//
+// `createClient` is still imported below because some routes generate signed
+// Supabase Storage URLs server-side using SERVICE_ROLE_KEY (legitimate use).
+app.use('*', requireAuth);
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
-async function getUserFromToken(token: string) {
-  if (!token || token === 'undefined') {
-    console.error('[getUserFromToken] Token is missing or invalid:', token);
-    throw new Error('Invalid token');
-  }
-  
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
-  // DEVELOPMENT MODE: If SERVICE_ROLE_KEY is not available, decode JWT payload without validation
-  if (!supabaseServiceKey) {
-    console.warn('[getUserFromToken] ⚠️ DEVELOPMENT MODE: No SERVICE_ROLE_KEY - decoding JWT without validation');
-    
-    try {
-      // Decode JWT payload (without signature verification)
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        throw new Error('Invalid JWT format');
-      }
-      
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      console.log('[getUserFromToken] Decoded JWT payload (dev mode):', payload);
-      
-      return {
-        id: payload.sub,
-        email: payload.email,
-        user_metadata: payload.user_metadata || {},
-      };
-    } catch (decodeError: any) {
-      console.error('[getUserFromToken] Failed to decode JWT:', decodeError);
-      throw new Error('Invalid token');
-    }
-  }
-  
-  // PRODUCTION MODE: Validate JWT with Supabase
-  const supabase = createClient(supabaseUrl!, supabaseServiceKey);
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  
-  if (error || !user) {
-    console.error('[getUserFromToken] Auth error:', error?.message || 'No user found');
-    console.error('[getUserFromToken] Token (first 50 chars):', token?.substring(0, 50));
-    throw new Error('Invalid token');
-  }
-  
-  return user;
-}
-
-function getTenantId(user: any): string {
-  const tenantId = user.user_metadata?.tenant_id || user.user_metadata?.tenantId || '';
-  
-  // Development fallback: If no tenant ID, use demo tenant
-  if (!tenantId) {
-    console.warn('[getTenantId] No tenant ID found in user metadata, using demo-tenant-001');
-    return 'demo-tenant-001';
-  }
-  
-  return tenantId;
-}
-
-function getUserId(user: any): string {
-  return user.id;
-}
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -105,13 +55,8 @@ function isStaffRole(role: string): boolean {
 // List all staff members - LIVE DATA FROM SETTINGS (NO SEED DATA)
 app.get('/', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     if (!tenantId) {
       return c.json({ error: 'Tenant ID required' }, 400);
@@ -264,13 +209,8 @@ app.get('/', async (c) => {
 // List policies
 app.get('/policies', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     const search = c.req.query('search');
     const category = c.req.query('category');
@@ -341,14 +281,9 @@ app.get('/policies', async (c) => {
 // Create policy
 app.post('/policies', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     console.log('[Create Policy] Request received');
     console.log('[Create Policy] Content-Type:', c.req.header('Content-Type'));
@@ -396,13 +331,8 @@ app.post('/policies', async (c) => {
 // Get policy by ID
 app.get('/policies/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const policyId = c.req.param('id');
     
     const policy = await kv.get(`staff:${tenantId}:policy:${policyId}`);
@@ -437,13 +367,8 @@ app.get('/policies/:id', async (c) => {
 // Publish policy
 app.post('/policies/:id/publish', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const policyId = c.req.param('id');
     
     const policy = await kv.get(`staff:${tenantId}:policy:${policyId}`) as any;
@@ -472,13 +397,8 @@ app.post('/policies/:id/publish', async (c) => {
 // Archive policy
 app.post('/policies/:id/archive', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const policyId = c.req.param('id');
     
     const policy = await kv.get(`staff:${tenantId}:policy:${policyId}`) as any;
@@ -502,14 +422,9 @@ app.post('/policies/:id/archive', async (c) => {
 // Create policy version
 app.post('/policies/:id/versions', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const policyId = c.req.param('id');
     
     const policy = await kv.get(`staff:${tenantId}:policy:${policyId}`);
@@ -611,13 +526,8 @@ app.post('/policies/:id/versions', async (c) => {
 // Get policy download URL
 app.get('/policies/:id/versions/:versionId/download', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const policyId = c.req.param('id');
     const versionId = c.req.param('versionId');
     
@@ -679,13 +589,8 @@ app.get('/policies/:id/versions/:versionId/download', async (c) => {
 // Delete policy
 app.delete('/policies/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const policyId = c.req.param('id');
     
     console.log('[Delete Policy] Deleting policy:', policyId);
@@ -740,15 +645,9 @@ app.delete('/policies/:id', async (c) => {
 // My policies (for staff view) - MUST come before /:id route
 app.get('/my-policies', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      console.error('[/my-policies] No token provided');
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     console.log('[/my-policies] Fetching policies for user:', {
       tenantId,
@@ -913,13 +812,8 @@ app.get('/my-policies', async (c) => {
 // Get staff member profile - LIVE DATA
 app.get('/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const staffId = c.req.param('id');
     
     console.log('[Staff Profile] Fetching profile for:', staffId);
@@ -1014,13 +908,8 @@ app.get('/:id', async (c) => {
 // List assignments
 app.get('/policies/assignments', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     const policy_id = c.req.query('policy_id');
     const user_id = c.req.query('user_id');
@@ -1075,14 +964,9 @@ app.get('/policies/assignments', async (c) => {
 // Assign policy - Enhanced with repeat cycles and compliance features
 app.post('/policies/assign', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     console.log('[Assign Policy] Request received');
     
@@ -1237,13 +1121,8 @@ app.post('/policies/assign', async (c) => {
 // Get assignment by ID
 app.get('/policies/assignments/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const assignmentId = c.req.param('id');
     
     const assignment = await kv.get(`staff:${tenantId}:assignment:${assignmentId}`);
@@ -1262,14 +1141,9 @@ app.get('/policies/assignments/:id', async (c) => {
 // Acknowledge policy - Enhanced with repeat cycle support and audit trail
 app.post('/policies/acknowledge', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     const body = await c.req.json();
     const acknowledgementId = generateId('pack');
@@ -1394,13 +1268,8 @@ app.post('/policies/acknowledge', async (c) => {
 // List rotas
 app.get('/rotas', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     const location_id = c.req.query('location_id');
     const start_date = c.req.query('start_date');
@@ -1445,14 +1314,9 @@ app.get('/rotas', async (c) => {
 // Create rota
 app.post('/rotas', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     const body = await c.req.json();
     const rotaId = generateId('rot');
@@ -1483,13 +1347,8 @@ app.post('/rotas', async (c) => {
 // Get rota by ID
 app.get('/rotas/:id', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const rotaId = c.req.param('id');
     
     const rota = await kv.get(`staff:${tenantId}:rota:${rotaId}`);
@@ -1521,14 +1380,9 @@ app.get('/rotas/:id', async (c) => {
 // Publish rota
 app.post('/rotas/:id/publish', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     const rotaId = c.req.param('id');
     
     const rota = await kv.get(`staff:${tenantId}:rota:${rotaId}`);
@@ -1555,13 +1409,8 @@ app.post('/rotas/:id/publish', async (c) => {
 // Create shift
 app.post('/rotas/:id/shifts', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const rotaId = c.req.param('id');
     
     const rota = await kv.get(`staff:${tenantId}:rota:${rotaId}`);
@@ -1604,13 +1453,8 @@ app.post('/rotas/:id/shifts', async (c) => {
 // Update shift
 app.put('/rotas/:rotaId/shifts/:shiftId', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const rotaId = c.req.param('rotaId');
     const shiftId = c.req.param('shiftId');
     
@@ -1649,13 +1493,8 @@ app.put('/rotas/:rotaId/shifts/:shiftId', async (c) => {
 // Delete shift
 app.delete('/rotas/:rotaId/shifts/:shiftId', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const rotaId = c.req.param('rotaId');
     const shiftId = c.req.param('shiftId');
     
@@ -1685,14 +1524,9 @@ app.delete('/rotas/:rotaId/shifts/:shiftId', async (c) => {
 // My rota (for staff view)
 app.get('/my-rota', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    const userId = getUserId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
     
     const shiftsRaw = await kv.getByPrefix(`staff:${tenantId}:shift:user:${userId}:`);
     const shifts = shiftsRaw.map(s => {
@@ -1717,13 +1551,8 @@ app.get('/my-rota', async (c) => {
 // Get compliance statistics for all staff
 app.get('/policies/compliance/stats', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     console.log('[Compliance Stats] Fetching for tenant:', tenantId);
     
@@ -1783,13 +1612,8 @@ app.get('/policies/compliance/stats', async (c) => {
 // Check if a staff member has blocking policies (for rota enforcement)
 app.get('/policies/blocking/:userId', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const targetUserId = c.req.param('userId');
     
     // Get user's assignments
@@ -1833,13 +1657,8 @@ app.get('/policies/blocking/:userId', async (c) => {
 // Get compliance report by policy
 app.get('/policies/compliance/by-policy', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     // Get all policies
     const policiesRaw = await kv.getByPrefix(`staff:${tenantId}:policy:`);
@@ -1889,16 +1708,12 @@ app.get('/policies/compliance/by-policy', async (c) => {
 // Export acknowledgements for audit (immutable records)
 app.get('/policies/export/acknowledgements', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     // Only managers/admins can export
-    const role = user.user_metadata?.role;
+    // Role lives in app_metadata (server-set, untamperable from client).
+    const role = user.app_metadata?.role;
     if (!['admin', 'manager'].includes(role)) {
       return c.json({ error: 'Insufficient permissions to export acknowledgements' }, 403);
     }
@@ -1942,16 +1757,12 @@ app.get('/policies/export/acknowledgements', async (c) => {
 // Get audit trail
 app.get('/policies/audit', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     // Only managers/admins can view audit trail
-    const role = user.user_metadata?.role;
+    // Role lives in app_metadata (server-set, untamperable from client).
+    const role = user.app_metadata?.role;
     if (!['admin', 'manager'].includes(role)) {
       return c.json({ error: 'Insufficient permissions to view audit trail' }, 403);
     }
@@ -1977,13 +1788,8 @@ app.get('/policies/audit', async (c) => {
 // Clean up old demo staff data from KV store
 app.delete('/cleanup-demo', async (c) => {
   try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorised' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     
     console.log('[Cleanup Demo] Removing old demo staff data for tenant:', tenantId);
     

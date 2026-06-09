@@ -2,15 +2,11 @@
 // Zustand store for all billing operations
 
 import { create } from 'zustand';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { broadcastMutation } from '../../lib/realtimeBroadcast';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/billing`;
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${publicAnonKey}`,
-};
 
 // Development mode - use mock data if backend is not available
 const USE_MOCK_DATA = false; // Set to true for development without backend
@@ -284,7 +280,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       console.log('Fetching billing overview from:', url);
         
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -310,7 +306,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const params = new URLSearchParams(filters as any).toString();
       const url = params ? `${BASE_URL}/invoices?${params}` : `${BASE_URL}/invoices`;
       
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch invoices');
@@ -329,7 +325,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       
-      const response = await fetch(`${BASE_URL}/invoices/${id}`, { headers });
+      const response = await fetch(`${BASE_URL}/invoices/${id}`, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch invoice');
@@ -355,7 +351,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/invoices`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       });
       
@@ -387,7 +383,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/invoices/${id}/issue`, {
         method: 'PATCH',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ due_days: dueDays, issued_by: issuedBy }),
       });
       
@@ -416,7 +412,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/invoices/${id}/void`, {
         method: 'PATCH',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ reason, voided_by: voidedBy }),
       });
       
@@ -448,7 +444,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const params = new URLSearchParams(filters as any).toString();
       const url = params ? `${BASE_URL}/payments?${params}` : `${BASE_URL}/payments`;
       
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch payments');
@@ -467,7 +463,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       
-      const response = await fetch(`${BASE_URL}/payments/${id}`, { headers });
+      const response = await fetch(`${BASE_URL}/payments/${id}`, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch payment');
@@ -492,7 +488,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/payments`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       });
       
@@ -524,7 +520,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/payments/${paymentId}/allocate`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ invoice_id: invoiceId, amount, created_by: createdBy }),
       });
       
@@ -557,7 +553,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const params = new URLSearchParams(filters as any).toString();
       const url = params ? `${BASE_URL}/subscriptions?${params}` : `${BASE_URL}/subscriptions`;
       
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch subscriptions');
@@ -578,7 +574,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/subscriptions`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       });
       
@@ -610,7 +606,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/subscriptions/${id}/pause`, {
         method: 'PATCH',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ reason }),
       });
       
@@ -637,7 +633,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/subscriptions/${id}/cancel`, {
         method: 'PATCH',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ reason }),
       });
       
@@ -668,7 +664,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         ? `${BASE_URL}/credits?household_id=${householdId}`
         : `${BASE_URL}/credits`;
         
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch credits');
@@ -689,7 +685,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/credits`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       });
       
@@ -723,7 +719,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         ? `${BASE_URL}/refunds?household_id=${householdId}`
         : `${BASE_URL}/refunds`;
         
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch refunds');
@@ -744,7 +740,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/refunds`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       });
       
@@ -778,7 +774,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const params = new URLSearchParams(filters as any).toString();
       const url = params ? `${BASE_URL}/fees?${params}` : `${BASE_URL}/fees`;
       
-      const response = await fetch(url, { headers });
+      const response = await fetch(url, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch fees');
@@ -799,7 +795,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/fees`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       });
       
@@ -830,7 +826,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     try {
       set({ loading: true, error: null });
       
-      const response = await fetch(`${BASE_URL}/exports`, { headers });
+      const response = await fetch(`${BASE_URL}/exports`, { headers: await getAuthHeaders() });
       
       if (!response.ok) {
         throw new Error('Failed to fetch exports');
@@ -851,7 +847,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/exports`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       });
       
@@ -884,7 +880,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       const response = await fetch(`${BASE_URL}/seed`, {
         method: 'POST',
-        headers,
+        headers: await getAuthHeaders(),
       });
       
       if (!response.ok) {

@@ -4,15 +4,21 @@
  * NO SEED DATA - all operations use real household and pet references
  */
 
-import { Hono } from 'npm:hono';
+import { Context, Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
+import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 
 const app = new Hono();
 
 // Enable CORS
 app.use('*', cors());
+
+// Every transport route requires a validated user. requireAuth handles JWT
+// validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
+// getUserFromToken helper that used to live here has been removed.
+app.use('*', requireAuth);
 
 // ============================================================================
 // HELPERS
@@ -22,50 +28,18 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-async function getUserFromToken(request: Request) {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!
-  );
-  
-  const accessToken = request.headers.get('X-User-Token')?.replace('Bearer ', '');
-  if (!accessToken) {
-    return null;
-  }
-  
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data?.user) {
-    return null;
-  }
-  
-  return data.user;
-}
-
-function getTenantId(user: any): string {
-  return user.user_metadata?.tenant_id || user.id;
-}
-
-async function validateUserPermission(request: Request, requiredPermission: string) {
-  const user = await getUserFromToken(request);
-  if (!user) {
-    return { error: 'Unauthorized', status: 401 };
-  }
-  
-  const tenant_id = getTenantId(user);
-  
-  // Get user's role and location from metadata (simplified approach)
-  const location_id = user.user_metadata?.location_id || null;
-  const role_id = user.user_metadata?.role_id || 'default';
-  
-  // For now, we'll allow all authenticated users to access transport features
-  // In a full implementation, you would check permissions from the KV store
-  // For compatibility with the existing system, we trust authenticated users
-  
+/**
+ * Returns the same shape callers already consume (auth.user, auth.tenant_id,
+ * etc.). The `error`/`status` branch is gone — requireAuth has already
+ * short-circuited unauthenticated requests with 401 before we get here.
+ */
+function validateUserPermission(c: Context, _requiredPermission: string) {
+  const user = c.get('user') as AuthenticatedUser;
   return {
     user,
-    tenant_id,
-    location_id,
-    role_id
+    tenant_id: user.tenantId,
+    location_id: null as string | null,
+    role_id: user.role,
   };
 }
 
@@ -138,7 +112,8 @@ async function getActiveDrivers(tenantId: string, locationId?: string) {
       first_name: user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0] || 'Unknown',
       last_name: user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
       email: user.email,
-      role: user.user_metadata?.role || 'staff',
+      // Role lives in app_metadata (server-set, untamperable from client).
+      role: user.app_metadata?.role || 'staff',
       location_ids: user.user_metadata?.locationIds || []
     }));
     
@@ -186,10 +161,7 @@ async function getActiveVehicles(tenantId: string, locationId?: string) {
 
 app.get('/active-drivers', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:read');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:read');
     
     const locationId = c.req.query('location_id');
     const activeDrivers = await getActiveDrivers(auth.tenant_id, locationId);
@@ -214,10 +186,7 @@ app.get('/active-drivers', async (c) => {
 
 app.post('/jobs', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:write');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:write');
     
     const body = await c.req.json();
     const {
@@ -401,10 +370,7 @@ app.post('/jobs', async (c) => {
 
 app.get('/jobs', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:read');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:read');
     
     const url = new URL(c.req.url);
     const location_id = url.searchParams.get('location_id');
@@ -505,10 +471,7 @@ app.get('/jobs', async (c) => {
 
 app.get('/jobs/:id', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:read');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:read');
     
     const jobId = c.req.param('id');
     const jobKey = `transport_job:${auth.tenant_id}:${jobId}`;
@@ -566,10 +529,7 @@ app.get('/jobs/:id', async (c) => {
 
 app.patch('/jobs/:id', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:write');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:write');
     
     const jobId = c.req.param('id');
     const jobKey = `transport_job:${auth.tenant_id}:${jobId}`;
@@ -641,10 +601,7 @@ app.patch('/jobs/:id', async (c) => {
 
 app.delete('/jobs/:id', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:write');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:write');
     
     const jobId = c.req.param('id');
     const jobKey = `transport_job:${auth.tenant_id}:${jobId}`;
@@ -693,10 +650,7 @@ app.delete('/jobs/:id', async (c) => {
 
 app.post('/jobs/:id/assign', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:write');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:write');
     
     const jobId = c.req.param('id');
     const { driver_user_id, vehicle_id } = await c.req.json();
@@ -749,10 +703,7 @@ app.post('/jobs/:id/assign', async (c) => {
 app.post('/jobs/:id/status', async (c) => {
   try {
     // Allow both drivers (for their jobs) and managers/admins (for any job)
-    const auth = await validateUserPermission(c.req.raw, 'transport:read');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:read');
     
     const jobId = c.req.param('id');
     const { event_type, notes } = await c.req.json();
@@ -764,9 +715,12 @@ app.post('/jobs/:id/status', async (c) => {
       return c.json({ error: 'Transport job not found' }, 404);
     }
     
-    // Get user's role from metadata to determine permissions
-    const userRole = auth.user.user_metadata?.role || 'driver';
-    const isManager = userRole === 'manager' || userRole === 'admin' || userRole === 'owner';
+    // auth.user is the AuthenticatedUser from requireAuth — its .role is
+    // already sourced from app_metadata, no need to re-read.
+    const userRole = auth.user.role || 'driver';
+    // 'owner' is not a Role in this codebase (Role = admin | manager |
+    // assistant_manager | staff), so the comparison was always false.
+    const isManager = userRole === 'manager' || userRole === 'admin';
     
     // Drivers can only update jobs assigned to them
     // Managers/Admins can update any job
@@ -821,10 +775,7 @@ app.post('/jobs/:id/status', async (c) => {
 
 app.post('/vehicles', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:write');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:write');
     
     const body = await c.req.json();
     const { location_id, name, licence_plate, capacity, notes, assigned_driver_user_id } = body;
@@ -872,10 +823,7 @@ app.post('/vehicles', async (c) => {
 
 app.get('/vehicles', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:read');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:read');
     
     const url = new URL(c.req.url);
     const location_id = url.searchParams.get('location_id');
@@ -916,10 +864,7 @@ app.get('/vehicles', async (c) => {
 
 app.patch('/vehicles/:id', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:write');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:write');
     
     const vehicleId = c.req.param('id');
     const vehicleKey = `transport_vehicle:${auth.tenant_id}:${vehicleId}`;
@@ -953,10 +898,7 @@ app.patch('/vehicles/:id', async (c) => {
 
 app.delete('/vehicles/:id', async (c) => {
   try {
-    const auth = await validateUserPermission(c.req.raw, 'transport:write');
-    if (auth.error) {
-      return c.json({ error: auth.error }, auth.status);
-    }
+    const auth = validateUserPermission(c, 'transport:write');
     
     const vehicleId = c.req.param('id');
     const vehicleKey = `transport_vehicle:${auth.tenant_id}:${vehicleId}`;

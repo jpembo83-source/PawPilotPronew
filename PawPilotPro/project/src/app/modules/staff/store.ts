@@ -2,8 +2,8 @@
 // Manages state for staff, policies, and rotas
 
 import { create } from 'zustand';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { broadcastMutation } from '../../lib/realtimeBroadcast';
 import type {
   StaffMember,
@@ -28,25 +28,6 @@ import type {
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff`;
-
-async function getAuthHeaders() {
-  // Get the current session from Supabase
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  const tenantId = session?.user?.user_metadata?.tenant_id || session?.user?.user_metadata?.tenantId;
-  
-  if (!token) {
-    console.warn('[Staff Store] No access token found in session - user may not be logged in');
-    return null; // Return null instead of headers with undefined token
-  }
-  
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${token}`,
-    'X-Tenant-Id': tenantId || '',
-  };
-}
 
 interface StaffState {
   // Staff Management

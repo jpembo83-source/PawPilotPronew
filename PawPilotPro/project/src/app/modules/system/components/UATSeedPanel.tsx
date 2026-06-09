@@ -14,8 +14,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
@@ -90,17 +90,6 @@ export function UATSeedPanel() {
     pets: { total: TEST_CUSTOMERS.reduce((sum, c) => sum + c.pets.length, 0), done: 0, status: 'pending' },
     bookings: { total: 0, done: 0, status: 'pending' },
   });
-
-  const getAuthHeaders = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) throw new Error('Not authenticated');
-    // Supabase Edge Functions: anon key in Authorization for gateway, user JWT in X-User-Token
-    return {
-      'Authorization': `Bearer ${publicAnonKey}`,
-      'X-User-Token': session.access_token,
-      'Content-Type': 'application/json',
-    };
-  };
 
   const seedTestData = async () => {
     setIsSeeding(true);
