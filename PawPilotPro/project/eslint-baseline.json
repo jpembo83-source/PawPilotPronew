@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4908,
+  "errors": 4901,
   "warnings": 557
  },
  "files": {
@@ -1071,10 +1071,6 @@
   "src/app/utils/api.ts": {
    "errors": 7,
    "warnings": 1
-  },
-  "src/app/utils/seedAdmin.ts": {
-   "errors": 7,
-   "warnings": 0
   },
   "tests/e2e/auth-self-promote.spec.ts": {
    "errors": 2,
