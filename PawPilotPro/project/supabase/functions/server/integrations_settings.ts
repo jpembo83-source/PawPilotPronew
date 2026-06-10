@@ -20,9 +20,42 @@ function getCurrentTimestamp(): string {
   return new Date().toISOString();
 }
 
-function hashSecret(secret: string): string {
-  // In production, use proper encryption (e.g., AES-256)
-  return `hashed_${secret.split('').reverse().join('')}`;
+// --- Secret encryption (AES-256-GCM via Web Crypto) ---
+// Key: INTEGRATIONS_ENC_KEY env secret, 32 random bytes base64-encoded
+// (generate with: openssl rand -base64 32). Fail fast when missing —
+// storing secrets unencrypted or reversibly "obfuscated" is not a fallback.
+
+async function getEncKey(): Promise<CryptoKey> {
+  const b64 = Deno.env.get("INTEGRATIONS_ENC_KEY");
+  if (!b64) throw new Error("INTEGRATIONS_ENC_KEY not configured");
+  const raw = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+  if (raw.length !== 32) throw new Error("INTEGRATIONS_ENC_KEY must decode to 32 bytes");
+  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+
+const b64encode = (u: Uint8Array) => btoa(String.fromCharCode(...u));
+const b64decode = (s: string) => Uint8Array.from(atob(s), (ch) => ch.charCodeAt(0));
+
+async function encryptSecret(plain: string): Promise<string> {
+  const key = await getEncKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plain)),
+  );
+  return `enc_v1:${b64encode(iv)}:${b64encode(ct)}`;
+}
+
+/** Counterpart for future server-side use of stored secrets. Never expose results to clients. */
+async function decryptSecret(value: string): Promise<string> {
+  const [tag, ivB64, ctB64] = value.split(":");
+  if (tag !== "enc_v1" || !ivB64 || !ctB64) throw new Error("Unrecognised secret format");
+  const key = await getEncKey();
+  const pt = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: b64decode(ivB64) },
+    key,
+    b64decode(ctB64),
+  );
+  return new TextDecoder().decode(pt);
 }
 
 // --- Statistics ---
@@ -207,10 +240,18 @@ app.post('/credentials', async (c) => {
   const id = generateId();
   const key = `integration:credential:${id}`;
 
+  let encrypted: string;
+  try {
+    encrypted = await encryptSecret(data.credential_value);
+  } catch (err) {
+    console.error('[Integrations] credential encryption unavailable:', err instanceof Error ? err.message : 'unknown');
+    return c.json({ error: 'encryption_unavailable' }, 503);
+  }
+
   const credential = {
     id,
     ...data,
-    credential_value: hashSecret(data.credential_value), // Encrypt in production
+    credential_value: encrypted,
     is_encrypted: true,
     created_at: getCurrentTimestamp(),
     updated_at: getCurrentTimestamp(),
@@ -320,7 +361,9 @@ app.put('/scopes/:id', async (c) => {
 
 app.get('/webhooks', async (c) => {
   const webhooks = await kv.getByPrefix('integration:webhook:');
-  return c.json(webhooks || []);
+  // Never return stored secrets (even encrypted) to clients.
+  const sanitised = (webhooks || []).map((w: any) => ({ ...w, secret: undefined }));
+  return c.json(sanitised);
 });
 
 app.post('/webhooks', async (c) => {
@@ -328,10 +371,18 @@ app.post('/webhooks', async (c) => {
   const id = generateId();
   const key = `integration:webhook:${id}`;
 
+  let encryptedSecret: string;
+  try {
+    encryptedSecret = await encryptSecret(data.secret);
+  } catch (err) {
+    console.error('[Integrations] webhook secret encryption unavailable:', err instanceof Error ? err.message : 'unknown');
+    return c.json({ error: 'encryption_unavailable' }, 503);
+  }
+
   const webhook = {
     id,
     ...data,
-    secret: hashSecret(data.secret),
+    secret: encryptedSecret,
     failure_count: 0,
     created_at: getCurrentTimestamp(),
     updated_at: getCurrentTimestamp(),
@@ -339,7 +390,8 @@ app.post('/webhooks', async (c) => {
 
   await kv.set(key, webhook);
 
-  // Audit log
+  // Audit log (never include the secret, even encrypted)
+  const { secret: _omit, ...webhookForAudit } = webhook;
   await kv.set(`integration:audit:${generateId()}`, {
     action_type: 'webhook_configured',
     integration_id: data.integration_id,
@@ -347,11 +399,11 @@ app.post('/webhooks', async (c) => {
     user_id: 'system',
     user_name: 'Admin User',
     user_role: 'admin',
-    changes: { after: webhook },
+    changes: { after: webhookForAudit },
     created_at: getCurrentTimestamp(),
   });
 
-  return c.json(webhook, 201);
+  return c.json(webhookForAudit, 201);
 });
 
 app.put('/webhooks/:id', async (c) => {
