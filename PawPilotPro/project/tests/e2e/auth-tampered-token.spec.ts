@@ -53,7 +53,7 @@ const PROTECTED_ROUTES = [
   '/make-server-fc003b23/reports/pets',
 ];
 
-test.describe('tampered token is rejected (1B.2)', () => {
+test.describe('tampered token is rejected (1B.2) @smoke', () => {
   test.skip(!projectId || !anonKey,
     'requires VITE_SUPABASE_PROJECT_ID and VITE_SUPABASE_ANON_KEY in env');
 

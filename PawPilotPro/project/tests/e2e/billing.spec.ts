@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
  * These assert CURRENT observable behaviour as a safety net for the
  * auth/billing remediation work. They are not a spec.
  */
-test.describe('Billing Module', () => {
+test.describe('Billing Module @smoke', () => {
   test('billing page loads', async ({ page }) => {
     await page.goto('/billing');
 

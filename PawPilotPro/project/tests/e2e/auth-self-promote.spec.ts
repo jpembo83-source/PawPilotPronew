@@ -30,7 +30,7 @@ const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_
 const email = process.env.TEST_EMAIL;
 const password = process.env.TEST_PASSWORD;
 
-test.describe('user_metadata.role=admin does NOT grant admin (1B.3)', () => {
+test.describe('user_metadata.role=admin does NOT grant admin (1B.3) @smoke', () => {
   test.skip(!projectUrl || !anonKey || !email || !password,
     'requires VITE_SUPABASE_URL (or VITE_SUPABASE_PROJECT_ID), ' +
     'VITE_SUPABASE_ANON_KEY, TEST_EMAIL, TEST_PASSWORD');

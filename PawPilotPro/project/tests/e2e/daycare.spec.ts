@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Daycare Module', () => {
+test.describe('Daycare Module @smoke', () => {
   test('daycare page loads', async ({ page }) => {
     await page.goto('/daycare');
     
@@ -48,7 +48,7 @@ test.describe('Daycare Module', () => {
   });
 });
 
-test.describe('Daycare Check-in Flow', () => {
+test.describe('Daycare Check-in Flow @smoke', () => {
   // The "Check In" button on the dashboard navigates to /daycare/check-in
   // (it is a page, not a modal).
 
