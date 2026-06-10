@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 5278,
+  "errors": 5376,
   "warnings": 620
  },
  "files": {
@@ -81,7 +81,7 @@
    "warnings": 0
   },
   "src/app/context/AuthContext.tsx": {
-   "errors": 5,
+   "errors": 6,
    "warnings": 0
   },
   "src/app/context/RealtimeContext.tsx": {
@@ -181,7 +181,7 @@
    "warnings": 0
   },
   "src/app/modules/billing/pages/BillingExports.tsx": {
-   "errors": 12,
+   "errors": 9,
    "warnings": 1
   },
   "src/app/modules/billing/pages/BillingOverview.tsx": {
@@ -193,7 +193,7 @@
    "warnings": 1
   },
   "src/app/modules/billing/store.ts": {
-   "errors": 85,
+   "errors": 95,
    "warnings": 16
   },
   "src/app/modules/calendar/CalendarPage.tsx": {
@@ -201,7 +201,7 @@
    "warnings": 1
   },
   "src/app/modules/calendar/api.ts": {
-   "errors": 3,
+   "errors": 2,
    "warnings": 0
   },
   "src/app/modules/calendar/components/AgendaView.tsx": {
@@ -277,7 +277,7 @@
    "warnings": 5
   },
   "src/app/modules/customers/components/DocumentManager.tsx": {
-   "errors": 30,
+   "errors": 31,
    "warnings": 3
   },
   "src/app/modules/customers/components/household-detail/BillingTab.tsx": {
@@ -333,7 +333,7 @@
    "warnings": 0
   },
   "src/app/modules/customers/components/pet-profile/PetProfilePicture.tsx": {
-   "errors": 12,
+   "errors": 13,
    "warnings": 1
   },
   "src/app/modules/customers/components/pet-profile/PetTimelineTab.tsx": {
@@ -349,7 +349,7 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/BulkImportPage.tsx": {
-   "errors": 19,
+   "errors": 18,
    "warnings": 2
   },
   "src/app/modules/customers/pages/ClearDataPage.tsx": {
@@ -361,7 +361,7 @@
    "warnings": 1
   },
   "src/app/modules/customers/pages/CustomersPage.tsx": {
-   "errors": 14,
+   "errors": 11,
    "warnings": 2
   },
   "src/app/modules/customers/pages/ExportPage.tsx": {
@@ -381,7 +381,7 @@
    "warnings": 1
   },
   "src/app/modules/customers/pages/PetProfilePage.tsx": {
-   "errors": 43,
+   "errors": 44,
    "warnings": 6
   },
   "src/app/modules/customers/pages/VaxReviewPage.tsx": {
@@ -389,7 +389,7 @@
    "warnings": 2
   },
   "src/app/modules/customers/store.ts": {
-   "errors": 230,
+   "errors": 252,
    "warnings": 31
   },
   "src/app/modules/customers/types.ts": {
@@ -593,7 +593,7 @@
    "warnings": 0
   },
   "src/app/modules/daycare/store.ts": {
-   "errors": 87,
+   "errors": 100,
    "warnings": 13
   },
   "src/app/modules/daycare/types.ts": {
@@ -621,7 +621,7 @@
    "warnings": 7
   },
   "src/app/modules/grooming/store.ts": {
-   "errors": 100,
+   "errors": 108,
    "warnings": 14
   },
   "src/app/modules/grooming/types.ts": {
@@ -789,7 +789,7 @@
    "warnings": 2
   },
   "src/app/modules/overnights/store.ts": {
-   "errors": 146,
+   "errors": 181,
    "warnings": 24
   },
   "src/app/modules/overnights/types.ts": {
@@ -905,7 +905,7 @@
    "warnings": 0
   },
   "src/app/modules/settings/components/AuditLogViewer.tsx": {
-   "errors": 5,
+   "errors": 4,
    "warnings": 3
   },
   "src/app/modules/settings/components/PermissionGuard.tsx": {
@@ -1085,7 +1085,7 @@
    "warnings": 1
   },
   "src/app/modules/transport/store.ts": {
-   "errors": 89,
+   "errors": 104,
    "warnings": 13
   },
   "src/app/modules/transport/types.ts": {
