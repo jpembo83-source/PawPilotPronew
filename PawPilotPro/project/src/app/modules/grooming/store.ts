@@ -158,6 +158,7 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         appointments: [...state.appointments, appointment],
         isLoading: false,
       }));
+      broadcastMutation('grooming', 'appointment', 'created', appointment.id);
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -186,6 +187,7 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         selectedAppointment: state.selectedAppointment?.id === id ? appointment : state.selectedAppointment,
         isLoading: false,
       }));
+      broadcastMutation('grooming', 'appointment', 'updated', id);
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -213,6 +215,7 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         appointments: state.appointments.map(a => a.id === id ? appointment : a),
         isLoading: false,
       }));
+      broadcastMutation('grooming', 'appointment', 'updated', id, { status: 'cancelled' });
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -261,9 +264,11 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         isLoading: false,
       }));
       
+      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'check-in' });
+
       // Refresh queue
       get().fetchQueue();
-      
+
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -292,10 +297,12 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         isLoading: false,
       }));
       
+      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'start' });
+
       // Refresh queue and groomers
       get().fetchQueue();
       get().fetchGroomers();
-      
+
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -324,9 +331,11 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         isLoading: false,
       }));
       
+      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'complete' });
+
       // Refresh groomers
       get().fetchGroomers();
-      
+
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -354,6 +363,7 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
         isLoading: false,
       }));
+      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'check-out' });
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });

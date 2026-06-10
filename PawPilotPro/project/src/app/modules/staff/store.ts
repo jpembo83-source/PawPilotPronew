@@ -331,7 +331,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         policies: [policy, ...state.policies],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('staff', 'policy', 'created')
+
       return policy;
     } catch (error: any) {
       console.error('Create policy error:', error);
@@ -459,8 +461,10 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       }
       
       console.log('[createPolicyVersion] File uploaded successfully');
-      
+
       set({ isLoading: false });
+      broadcastMutation('staff', 'policy', 'updated')
+
       return version;
     } catch (error: any) {
       console.error('Create policy version error:', error);
@@ -518,6 +522,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         policies: state.policies.filter(p => p.id !== id),
         isLoading: false,
       }));
+      broadcastMutation('staff', 'policy', 'deleted', id);
     } catch (error: any) {
       console.error('Delete policy error:', error);
       set({ error: error.message, isLoading: false });
@@ -634,7 +639,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         assignments: [assignment, ...state.assignments],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('staff', 'policy-assignment', 'created')
+
       return assignment;
     } catch (error: any) {
       console.error('Assign policy error:', error);
@@ -715,7 +722,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         ),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('staff', 'policy', 'updated')
+
       return acknowledgement;
     } catch (error: any) {
       console.error('Acknowledge policy error:', error);
@@ -806,7 +815,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         rotas: [rota, ...state.rotas],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('staff', 'rota', 'created')
+
       return rota;
     } catch (error: any) {
       console.error('Create rota error:', error);
@@ -870,7 +881,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         rotaShifts: [...state.rotaShifts, shift],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('staff', 'shift', 'created')
+
       return shift;
     } catch (error: any) {
       console.error('Create shift error:', error);
@@ -898,7 +911,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         rotaShifts: state.rotaShifts.map(s => s.id === shiftId ? shift : s),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('staff', 'shift', 'updated', shiftId)
+
       return shift;
     } catch (error: any) {
       console.error('Update shift error:', error);
@@ -924,6 +939,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         rotaShifts: state.rotaShifts.filter(s => s.id !== shiftId),
         isLoading: false,
       }));
+      broadcastMutation('staff', 'shift', 'deleted', shiftId);
     } catch (error: any) {
       console.error('Delete shift error:', error);
       set({ error: error.message, isLoading: false });

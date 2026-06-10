@@ -286,7 +286,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         households: [household, ...state.households],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'household', 'created', household.id)
+
       return household;
     } catch (error: any) {
       console.error('Create household error:', error);
@@ -316,7 +318,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         selectedHousehold: state.selectedHousehold?.id === id ? { ...state.selectedHousehold, ...household } : state.selectedHousehold,
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'household', 'updated', id)
+
       return household;
     } catch (error: any) {
       console.error('Update household error:', error);
@@ -343,7 +347,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         currentHouseholdDetail: state.currentHouseholdDetail?.id === id ? null : state.currentHouseholdDetail,
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'household', 'deleted', id)
+
       return await response.json();
     } catch (error: any) {
       console.error('Delete household error:', error);
@@ -395,7 +401,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         contacts: [...state.contacts, contact],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'contact', 'created', contact.id)
+
       return contact;
     } catch (error: any) {
       console.error('Create contact error:', error);
@@ -424,7 +432,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         contacts: state.contacts.map(c => c.id === id ? contact : c),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'contact', 'updated', id)
+
       return contact;
     } catch (error: any) {
       console.error('Update contact error:', error);
@@ -450,6 +460,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         contacts: state.contacts.filter(c => c.id !== id),
         isLoading: false,
       }));
+      broadcastMutation('customers', 'contact', 'deleted', id);
     } catch (error: any) {
       console.error('Delete contact error:', error);
       set({ error: error.message, isLoading: false });
@@ -561,7 +572,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         pets: [...state.pets, pet],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'pet', 'created', pet.id)
+
       return pet;
     } catch (error: any) {
       console.error('Create pet error:', error);
@@ -590,7 +603,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         pets: state.pets.map(p => p.id === id ? pet : p),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'pet', 'updated', id)
+
       return pet;
     } catch (error: any) {
       console.error('Update pet error:', error);
@@ -642,7 +657,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         documents: [...state.documents, document],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'document', 'created')
+
       return document;
     } catch (error: any) {
       console.error('Create document error:', error);
@@ -670,7 +687,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         documents: state.documents.filter(d => d.id !== id),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'document', 'deleted', id)
+
       return result.storage_path;
     } catch (error: any) {
       console.error('Delete document error:', error);
@@ -741,7 +760,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         activity: [...state.activity, activity],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'activity', 'created')
+
       return activity;
     } catch (error: any) {
       console.error('Create activity error:', error);
@@ -816,7 +837,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         notes: [...state.notes, note],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'note', 'created')
+
       return note;
     } catch (error: any) {
       console.error('Create note error:', error);
@@ -845,7 +868,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         notes: state.notes.map(n => n.id === id ? note : n),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'note', 'updated', id)
+
       return note;
     } catch (error: any) {
       console.error('Update note error:', error);
@@ -871,6 +896,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         notes: state.notes.filter(n => n.id !== id),
         isLoading: false,
       }));
+      broadcastMutation('customers', 'note', 'deleted', id);
     } catch (error: any) {
       console.error('Delete note error:', error);
       set({ error: error.message, isLoading: false });
@@ -922,7 +948,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         flags: [...state.flags, flag],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'flag', 'created')
+
       return flag;
     } catch (error: any) {
       console.error('Create flag error:', error);
@@ -951,7 +979,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         flags: state.flags.map(f => f.id === id ? flag : f),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('customers', 'flag', 'updated', id)
+
       return flag;
     } catch (error: any) {
       console.error('Update flag error:', error);
@@ -977,6 +1007,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         flags: state.flags.filter(f => f.id !== id),
         isLoading: false,
       }));
+      broadcastMutation('customers', 'flag', 'deleted', id);
     } catch (error: any) {
       console.error('Delete flag error:', error);
       set({ error: error.message, isLoading: false });

@@ -123,7 +123,9 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       }
       
       const result = await response.json();
-      
+
+      broadcastMutation('transport', 'job', 'created', result.job?.id, undefined, data.location_id);
+
       // Refresh jobs list
       await get().fetchJobs({ service_date: data.service_date, location_id: data.location_id });
       
@@ -157,6 +159,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
+      broadcastMutation('transport', 'job', 'updated', jobId, undefined, result.job?.location_id);
     } catch (error: any) {
       console.error('Error updating transport job:', error);
       set({ error: error.message, isLoading: false });
@@ -183,6 +186,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         jobs: state.jobs.filter(j => j.id !== jobId),
         isLoading: false
       }));
+      broadcastMutation('transport', 'job', 'deleted', jobId);
     } catch (error: any) {
       console.error('Error deleting transport job:', error);
       set({ error: error.message, isLoading: false });
@@ -212,6 +216,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
+      broadcastMutation('transport', 'job', 'updated', jobId, { action: 'driver-assigned' }, result.job?.location_id);
     } catch (error: any) {
       console.error('Error assigning driver:', error);
       set({ error: error.message, isLoading: false });
@@ -241,6 +246,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
+      broadcastMutation('transport', 'job', 'updated', jobId, { action: 'status-change', eventType }, result.job?.location_id);
     } catch (error: any) {
       console.error('Error updating job status:', error);
       set({ error: error.message, isLoading: false });
@@ -333,7 +339,9 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       }
       
       const result = await response.json();
-      
+
+      broadcastMutation('transport', 'vehicle', 'created', result.vehicle?.id);
+
       // Refresh vehicles list to ensure consistency
       await get().fetchVehicles(data.location_id);
       
@@ -378,6 +386,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         vehicles: state.vehicles.map(v => v.id === vehicleId ? result.vehicle : v),
         isLoading: false
       }));
+      broadcastMutation('transport', 'vehicle', 'updated', vehicleId);
     } catch (error: any) {
       console.error('[Transport Store] Error updating vehicle:', error);
       set({ error: error.message, isLoading: false });
@@ -404,6 +413,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         vehicles: state.vehicles.filter(v => v.id !== vehicleId),
         isLoading: false
       }));
+      broadcastMutation('transport', 'vehicle', 'deleted', vehicleId);
     } catch (error: any) {
       console.error('Error deleting vehicle:', error);
       set({ error: error.message, isLoading: false });
