@@ -5,17 +5,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileText, Clock, User, Shield, Warning } from '@phosphor-icons/react';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
+import { projectId } from '../../../../utils/supabase/info';
 import { SettingsSection } from '../types/permissions';
-import { createClient } from '@supabase/supabase-js';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
-
-// Create Supabase client for auth
-const supabase = createClient(
-  `https://${projectId}.supabase.co`,
-  publicAnonKey
-);
 
 interface AuditLogEntry {
   id: string;
@@ -58,23 +52,12 @@ export function AuditLogViewer({
     try {
       setLoading(true);
       
-      // Get access token from session
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      
-      if (!token) {
-        console.warn('No auth token available, skipping audit log fetch');
-        setError('Authentication required');
-        setLoading(false);
-        return;
-      }
-      
-      const url = section 
+      const url = section
         ? `${API_URL}/settings/audit-logs?section=${section}&limit=${limit}`
         : `${API_URL}/settings/audit-logs?limit=${limit}`;
-        
+
       const res = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: await getAuthHeaders()
       });
       
       if (res.ok) {

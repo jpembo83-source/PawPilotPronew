@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router';
 import { Trash, Warning, CircleNotch, CheckCircle } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 
 export function ClearDataPage() {
   const navigate = useNavigate();
@@ -25,16 +26,11 @@ export function ClearDataPage() {
     setResult(null);
     
     try {
-      const token = localStorage.getItem('auth_token');
-      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/clear-timeline-data`,
         {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': token || '',
-          },
+          headers: await getAuthHeaders(),
         }
       );
       

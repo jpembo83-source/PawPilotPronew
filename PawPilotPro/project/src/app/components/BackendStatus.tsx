@@ -19,6 +19,11 @@ export function BackendStatus() {
     setError(null);
 
     try {
+      // DELIBERATE anon-key usage: /health is an unauthenticated endpoint (no
+      // requireAuth). The anon key only satisfies the Supabase functions
+      // gateway; it must run pre-login, so the user session token cannot be
+      // used here. Do NOT copy this pattern for authenticated routes — use
+      // getAuthHeaders() from utils/supabase/authHeaders instead.
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/health`,
         {

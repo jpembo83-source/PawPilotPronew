@@ -268,10 +268,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   createService: async (service) => {
     const res = await fetch(`${API_URL}/pricing/services`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(service)
     });
     if (!res.ok) throw new Error('Failed to create service');
@@ -283,10 +280,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   updateService: async (id, updates) => {
     const res = await fetch(`${API_URL}/pricing/services/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error('Failed to update service');
@@ -309,10 +303,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   createPriceBook: async (priceBook) => {
     const res = await fetch(`${API_URL}/pricing/price-books`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(priceBook)
     });
     if (!res.ok) throw new Error('Failed to create price book');
@@ -324,10 +315,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   updatePriceBook: async (id, updates) => {
     const res = await fetch(`${API_URL}/pricing/price-books/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error('Failed to update price book');
@@ -363,10 +351,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   createMembershipPlan: async (plan) => {
     const res = await fetch(`${API_URL}/pricing/memberships`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(plan)
     });
     if (!res.ok) throw new Error('Failed to create membership plan');
@@ -378,10 +363,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   updateMembershipPlan: async (id, updates) => {
     const res = await fetch(`${API_URL}/pricing/memberships/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error('Failed to update membership plan');
@@ -404,10 +386,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   createLocationOverride: async (override) => {
     const res = await fetch(`${API_URL}/pricing/location-overrides`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(override)
     });
     if (!res.ok) throw new Error('Failed to create location override');
@@ -419,10 +398,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   updateLocationOverride: async (id, updates) => {
     const res = await fetch(`${API_URL}/pricing/location-overrides/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error('Failed to update location override');
@@ -450,10 +426,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   createMultiDogRule: async (rule) => {
     const res = await fetch(`${API_URL}/pricing/multi-dog-rules`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(rule)
     });
     if (!res.ok) throw new Error('Failed to create multi-dog rule');
@@ -465,10 +438,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   updateMultiDogRule: async (id, updates) => {
     const res = await fetch(`${API_URL}/pricing/multi-dog-rules/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error('Failed to update multi-dog rule');
@@ -491,10 +461,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   createFeeRule: async (rule) => {
     const res = await fetch(`${API_URL}/pricing/fee-rules`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(rule)
     });
     if (!res.ok) throw new Error('Failed to create fee rule');
@@ -506,10 +473,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   updateFeeRule: async (id, updates) => {
     const res = await fetch(`${API_URL}/pricing/fee-rules/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error('Failed to update fee rule');
@@ -532,10 +496,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   createDiscountRule: async (rule) => {
     const res = await fetch(`${API_URL}/pricing/discount-rules`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(rule)
     });
     if (!res.ok) throw new Error('Failed to create discount rule');
@@ -547,10 +508,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   updateDiscountRule: async (id, updates) => {
     const res = await fetch(`${API_URL}/pricing/discount-rules/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error('Failed to update discount rule');
@@ -573,10 +531,7 @@ export const useServicesPricingStore = create<ServicesPricingState>((set, get) =
   resolvePrice: async (request) => {
     const res = await fetch(`${API_URL}/pricing/resolve`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify(request)
     });
     if (!res.ok) {

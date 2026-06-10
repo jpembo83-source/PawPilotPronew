@@ -4,7 +4,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/utils/supabase/client';
-import { publicAnonKey, projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 
 interface BlockingPolicyInfo {
   assignment_id: string;
@@ -55,18 +56,10 @@ export function usePolicyCompliance(userId?: string) {
     try {
       setStatus(prev => ({ ...prev, isLoading: true, error: null }));
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/blocking/${checkId}`,
         {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`,
-          },
+          headers: await getAuthHeaders(),
         }
       );
 
@@ -115,18 +108,10 @@ export function useComplianceStats() {
       setIsLoading(true);
       setError(null);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/compliance/stats`,
         {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`,
-          },
+          headers: await getAuthHeaders(),
         }
       );
 
@@ -170,10 +155,7 @@ export function useCanBeScheduled() {
         const response = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/blocking/${session.user.id}`,
           {
-            headers: {
-              'Authorization': `Bearer ${publicAnonKey}`,
-              'X-User-Token': `Bearer ${session.access_token}`,
-            },
+            headers: await getAuthHeaders(),
           }
         );
 

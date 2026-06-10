@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Save, Gauge, Sun, Moon, Scissors, Car, RotateCcw, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 
 /**
  * Tenant-level daily caps for each service. These are the defaults the
@@ -38,15 +38,6 @@ const SERVICES: ReadonlyArray<{
 
 interface ServiceState { daily: string; isDefault: boolean; default: number }
 
-async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    Authorization: `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session?.access_token ?? ''}`,
-    'Content-Type': 'application/json',
-  };
-}
-
 export function ServiceCapacitySettings() {
   const [state, setState] = useState<Record<string, ServiceState>>({});
   const [loading, setLoading] = useState(true);
@@ -56,7 +47,7 @@ export function ServiceCapacitySettings() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/settings/capacity`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
@@ -109,7 +100,7 @@ export function ServiceCapacitySettings() {
         }
         payload[svc.key] = { daily: n };
       }
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/settings/capacity`, {
         method: 'PUT',
         headers,

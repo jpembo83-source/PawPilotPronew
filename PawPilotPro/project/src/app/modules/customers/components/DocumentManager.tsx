@@ -18,8 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '@/utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 
 interface DocumentManagerProps {
   householdId: string;
@@ -60,16 +60,10 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
     setIsLoading(true);
     setError(null);
     try {
-      // Get user session for auth
-      const { data: { session } } = await supabase.auth.getSession();
-      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/households/${householdId}/documents`,
         {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            ...(session?.access_token && { 'X-User-Token': `Bearer ${session.access_token}` }),
-          },
+          headers: await getAuthHeaders(),
         }
       );
 
@@ -146,13 +140,6 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
     setError(null);
 
     try {
-      // Get user session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Authentication required. Please log in.');
-      }
-
       // Create FormData for file upload
       const uploadData = new FormData();
       uploadData.append('file', selectedFile);
@@ -168,14 +155,14 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
         uploadData.append('pet_id', petId);
       }
 
+      // FormData posts must not send the JSON Content-Type the shared util
+      // adds — the browser sets the multipart boundary itself.
+      const { 'Content-Type': _ct, ...auth } = await getAuthHeaders();
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/households/${householdId}/documents`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`, // Add user token!
-          },
+          headers: auth,
           body: uploadData,
         }
       );
@@ -207,17 +194,11 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
     setError(null);
 
     try {
-      // Get user session for auth
-      const { data: { session } } = await supabase.auth.getSession();
-      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/households/${householdId}/documents/${documentId}`,
         {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            ...(session?.access_token && { 'X-User-Token': `Bearer ${session.access_token}` }),
-          },
+          headers: await getAuthHeaders(),
         }
       );
 

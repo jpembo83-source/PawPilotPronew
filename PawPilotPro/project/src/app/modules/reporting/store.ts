@@ -1,24 +1,12 @@
 import { create } from 'zustand';
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import type { ReportId, ReportFilters, ReportResult, ReportColumn } from './types';
 
 const CUSTOMERS_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 const DAYCARE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare`;
 const GROOMING_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/grooming`;
 const TRANSPORT_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/transport`;
-
-const getAuthHeaders = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error || !session?.access_token) {
-    throw new Error('Authentication required. Please log in.');
-  }
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session.access_token}`,
-  };
-};
 
 const apiFetch = async (url: string) => {
   const headers = await getAuthHeaders();

@@ -8,8 +8,8 @@ import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Syringe, CheckCircle2, XCircle, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 
@@ -39,15 +39,6 @@ interface QueueItem {
   viewUrl: string | null;
 }
 
-async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    Authorization: `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session?.access_token ?? ''}`,
-    'Content-Type': 'application/json',
-  };
-}
-
 export function VaxReviewPage() {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +46,7 @@ export function VaxReviewPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/vax-queue`, { headers });
       if (res.ok) {
         const body = await res.json();
@@ -129,7 +120,7 @@ function ReviewCard({ item, onResolved }: { item: QueueItem; onResolved: () => v
     if (!dateAdministered) { toast.error('Date administered required'); return; }
     setBusy(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/vax-queue/${item.id}/approve`, {
         method: 'POST',
         headers,
@@ -155,7 +146,7 @@ function ReviewCard({ item, onResolved }: { item: QueueItem; onResolved: () => v
     if (reason.trim().length < 3) { toast.error('Reason must be at least 3 characters'); return; }
     setBusy(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/vax-queue/${item.id}/reject`, {
         method: 'POST',
         headers,

@@ -6,8 +6,8 @@ import { Badge } from '../../../components/ui/badge';
 import { Textarea } from '../../../components/ui/textarea';
 import { Calendar, CheckCircle2, XCircle, Loader2, AlertTriangle, Sparkles, Gauge } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 
@@ -58,15 +58,6 @@ interface PendingRequest {
   childRequests?: ChildRequest[];
 }
 
-async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    Authorization: `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session?.access_token ?? ''}`,
-    'Content-Type': 'application/json',
-  };
-}
-
 export function PendingRequestsPage() {
   const [items, setItems] = useState<PendingRequest[]>([]);
   const [snapshots, setSnapshots] = useState<SnapshotMap>({});
@@ -75,7 +66,7 @@ export function PendingRequestsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/pending-requests`, { headers });
       if (res.ok) {
         const body = await res.json();
@@ -106,7 +97,7 @@ export function PendingRequestsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const headers = await authHeaders();
+        const headers = await getAuthHeaders();
         const res = await fetch(`${FN_BASE}/capacity-snapshot`, {
           method: 'POST',
           headers,
@@ -174,7 +165,7 @@ function RequestRow({ r, snapshots, onResolved }: { r: PendingRequest; snapshots
   async function approve() {
     setBusy(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/bookings/${r.id}/approve`, { method: 'POST', headers });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -187,7 +178,7 @@ function RequestRow({ r, snapshots, onResolved }: { r: PendingRequest; snapshots
     if (reason.trim().length < 3) { toast.error('Reason must be at least 3 characters'); return; }
     setBusy(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/bookings/${r.id}/decline`, {
         method: 'POST',
         headers,

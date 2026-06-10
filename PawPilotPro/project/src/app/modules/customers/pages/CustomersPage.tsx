@@ -8,8 +8,6 @@ import { useCustomerStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import type { CustomerFilters } from '../types';
 import { toast } from 'sonner';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '../../../../utils/supabase/client';
 
 export function CustomersPage() {
   const navigate = useNavigate();

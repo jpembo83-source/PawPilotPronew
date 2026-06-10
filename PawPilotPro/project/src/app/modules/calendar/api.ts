@@ -1,7 +1,6 @@
-import { supabase } from '../../../utils/supabase/client';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 
 const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-const publicAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/calendar`;
 
 export interface FetchCalendarParams {
@@ -16,15 +15,7 @@ export interface FetchCalendarParams {
 }
 
 export async function fetchCalendarEvents(params: FetchCalendarParams) {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-  };
-  if (session?.access_token) {
-    headers['X-User-Token'] = session.access_token;
-  }
+  const headers = await getAuthHeaders();
 
   const searchParams = new URLSearchParams();
   searchParams.set('start_date', params.start_date);

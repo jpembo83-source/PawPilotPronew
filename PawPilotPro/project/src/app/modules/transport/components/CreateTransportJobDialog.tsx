@@ -8,8 +8,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSettingsStore } from '../../settings/store';
 import { useTransportStore } from '../store';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '@/utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -150,22 +150,12 @@ export function CreateTransportJobDialog({
     setError(null);
 
     try {
-      // Get session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Authentication required. Please log in.');
-      }
-
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/search-customers?q=${encodeURIComponent(query)}`;
-      
+
       console.log('[Transport] Performing search, URL:', url);
-      
+
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': `Bearer ${session.access_token}`,
-        },
+        headers: await getAuthHeaders(),
       });
 
       console.log('[Transport] Response status:', response.status);
@@ -261,13 +251,6 @@ export function CreateTransportJobDialog({
     setError(null);
 
     try {
-      // Get session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Authentication required. Please log in.');
-      }
-
       // Determine direction based on addresses
       let direction: TransportDirection = 'roundtrip';
       if (formData.address_pickup && !formData.address_dropoff) {
@@ -306,11 +289,7 @@ export function CreateTransportJobDialog({
       
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': `Bearer ${session.access_token}`,
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(payload),
       });
 

@@ -7,8 +7,8 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 import { useSettingsStore } from '../../settings/store';
 import type { DaycareBooking } from '../../daycare/types';
 import { format } from 'date-fns';
@@ -46,16 +46,6 @@ interface CreateFromBookingsDialogProps {
 const DAYCARE_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare`;
 const TRANSPORT_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/transport`;
 
-async function authHeaders(): Promise<HeadersInit> {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  if (error || !session?.access_token) throw new Error('Not authenticated');
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session.access_token}`,
-  };
-}
-
 export function CreateFromBookingsDialog({
   open,
   onOpenChange,
@@ -89,7 +79,7 @@ export function CreateFromBookingsDialog({
     setIsFetching(true);
     setFetchError(null);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const params = new URLSearchParams({
         date: dateStr,
         location_id: locationId,
@@ -145,7 +135,7 @@ export function CreateFromBookingsDialog({
     if (!canCreate) return;
     setIsCreating(true);
 
-    const headers = await authHeaders().catch(() => null);
+    const headers = await getAuthHeaders().catch(() => null);
     if (!headers) { toast.error('Not authenticated'); setIsCreating(false); return; }
 
     const selected = bookings.filter(b => selectedIds.has(b.id));

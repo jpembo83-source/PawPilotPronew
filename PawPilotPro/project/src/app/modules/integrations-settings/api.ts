@@ -1,7 +1,7 @@
 // Integrations Settings API - MDC Operations Centre
 
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import type {
   CatalogueEntry,
   ConnectedIntegration,
@@ -18,33 +18,23 @@ import type {
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/integrations`;
 
-// Get auth headers dynamically
-async function getHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session?.access_token || ''}`,
-  };
-}
-
 // Statistics
 export async function getStats(): Promise<IntegrationsStats> {
-  const response = await fetch(`${BASE_URL}/stats`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/stats`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch statistics');
   return response.json();
 }
 
 // Catalogue
 export async function getCatalogue(): Promise<CatalogueEntry[]> {
-  const response = await fetch(`${BASE_URL}/catalogue`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/catalogue`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch catalogue');
   return response.json();
 }
 
 // Connected Integrations
 export async function getIntegrations(): Promise<ConnectedIntegration[]> {
-  const response = await fetch(`${BASE_URL}/integrations`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/integrations`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch integrations');
   return response.json();
 }
@@ -52,7 +42,7 @@ export async function getIntegrations(): Promise<ConnectedIntegration[]> {
 export async function createIntegration(data: Partial<ConnectedIntegration>): Promise<ConnectedIntegration> {
   const response = await fetch(`${BASE_URL}/integrations`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create integration');
@@ -62,7 +52,7 @@ export async function createIntegration(data: Partial<ConnectedIntegration>): Pr
 export async function updateIntegration(id: string, data: Partial<ConnectedIntegration>): Promise<ConnectedIntegration> {
   const response = await fetch(`${BASE_URL}/integrations/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update integration');
@@ -72,14 +62,14 @@ export async function updateIntegration(id: string, data: Partial<ConnectedInteg
 export async function deleteIntegration(id: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/integrations/${id}`, {
     method: 'DELETE',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to delete integration');
 }
 
 // Credentials
 export async function getCredentials(): Promise<IntegrationCredential[]> {
-  const response = await fetch(`${BASE_URL}/credentials`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/credentials`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch credentials');
   return response.json();
 }
@@ -87,7 +77,7 @@ export async function getCredentials(): Promise<IntegrationCredential[]> {
 export async function createCredential(data: Partial<IntegrationCredential>): Promise<IntegrationCredential> {
   const response = await fetch(`${BASE_URL}/credentials`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create credential');
@@ -97,14 +87,14 @@ export async function createCredential(data: Partial<IntegrationCredential>): Pr
 export async function deleteCredential(id: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/credentials/${id}`, {
     method: 'DELETE',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to delete credential');
 }
 
 // Data Scopes
 export async function getScopes(): Promise<DataScope[]> {
-  const response = await fetch(`${BASE_URL}/scopes`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/scopes`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch scopes');
   return response.json();
 }
@@ -112,7 +102,7 @@ export async function getScopes(): Promise<DataScope[]> {
 export async function createScope(data: Partial<DataScope>): Promise<DataScope> {
   const response = await fetch(`${BASE_URL}/scopes`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create scope');
@@ -122,7 +112,7 @@ export async function createScope(data: Partial<DataScope>): Promise<DataScope> 
 export async function updateScope(id: string, data: Partial<DataScope>): Promise<DataScope> {
   const response = await fetch(`${BASE_URL}/scopes/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update scope');
@@ -131,7 +121,7 @@ export async function updateScope(id: string, data: Partial<DataScope>): Promise
 
 // Webhooks
 export async function getWebhooks(): Promise<WebhookConfig[]> {
-  const response = await fetch(`${BASE_URL}/webhooks`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/webhooks`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch webhooks');
   return response.json();
 }
@@ -139,7 +129,7 @@ export async function getWebhooks(): Promise<WebhookConfig[]> {
 export async function createWebhook(data: Partial<WebhookConfig>): Promise<WebhookConfig> {
   const response = await fetch(`${BASE_URL}/webhooks`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create webhook');
@@ -149,7 +139,7 @@ export async function createWebhook(data: Partial<WebhookConfig>): Promise<Webho
 export async function updateWebhook(id: string, data: Partial<WebhookConfig>): Promise<WebhookConfig> {
   const response = await fetch(`${BASE_URL}/webhooks/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update webhook');
@@ -159,14 +149,14 @@ export async function updateWebhook(id: string, data: Partial<WebhookConfig>): P
 export async function deleteWebhook(id: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/webhooks/${id}`, {
     method: 'DELETE',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to delete webhook');
 }
 
 // Sync Configurations
 export async function getSyncConfigs(): Promise<SyncConfiguration[]> {
-  const response = await fetch(`${BASE_URL}/sync-configs`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/sync-configs`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch sync configurations');
   return response.json();
 }
@@ -174,7 +164,7 @@ export async function getSyncConfigs(): Promise<SyncConfiguration[]> {
 export async function createSyncConfig(data: Partial<SyncConfiguration>): Promise<SyncConfiguration> {
   const response = await fetch(`${BASE_URL}/sync-configs`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create sync configuration');
@@ -183,7 +173,7 @@ export async function createSyncConfig(data: Partial<SyncConfiguration>): Promis
 
 // Sync Jobs
 export async function getSyncJobs(): Promise<SyncJob[]> {
-  const response = await fetch(`${BASE_URL}/sync-jobs`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/sync-jobs`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch sync jobs');
   return response.json();
 }
@@ -191,7 +181,7 @@ export async function getSyncJobs(): Promise<SyncJob[]> {
 export async function triggerSync(integrationId: string, syncConfigId: string, triggeredBy: string): Promise<SyncJob> {
   const response = await fetch(`${BASE_URL}/sync-jobs/trigger`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify({ integration_id: integrationId, sync_config_id: syncConfigId, triggered_by: triggeredBy }),
   });
   if (!response.ok) throw new Error('Failed to trigger sync');
@@ -200,14 +190,14 @@ export async function triggerSync(integrationId: string, syncConfigId: string, t
 
 // Logs
 export async function getLogs(): Promise<IntegrationLog[]> {
-  const response = await fetch(`${BASE_URL}/logs`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/logs`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch logs');
   return response.json();
 }
 
 // Alerts
 export async function getAlerts(): Promise<IntegrationAlert[]> {
-  const response = await fetch(`${BASE_URL}/alerts`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/alerts`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch alerts');
   return response.json();
 }
@@ -215,7 +205,7 @@ export async function getAlerts(): Promise<IntegrationAlert[]> {
 export async function resolveAlert(id: string): Promise<IntegrationAlert> {
   const response = await fetch(`${BASE_URL}/alerts/${id}/resolve`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to resolve alert');
   return response.json();
@@ -223,7 +213,7 @@ export async function resolveAlert(id: string): Promise<IntegrationAlert> {
 
 // Audit Logs
 export async function getAuditLogs(): Promise<IntegrationAuditLog[]> {
-  const response = await fetch(`${BASE_URL}/audit-logs`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/audit-logs`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch audit logs');
   return response.json();
 }
@@ -232,7 +222,7 @@ export async function getAuditLogs(): Promise<IntegrationAuditLog[]> {
 export async function seedData(): Promise<void> {
   const response = await fetch(`${BASE_URL}/seed`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to seed data');
 }

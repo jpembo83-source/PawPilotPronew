@@ -962,14 +962,10 @@ export const useStaffStore = create<StaffState>((set, get) => ({
   seedDemoData: async () => {
     try {
       const headers = await getAuthHeaders();
-      const fetchHeaders = headers || {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-      };
-      
+
       const response = await fetch(`${BASE_URL}/seed-demo`, {
         method: 'POST',
-        headers: fetchHeaders,
+        headers,
       });
       
       if (!response.ok) {

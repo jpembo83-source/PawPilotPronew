@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { useAuth } from '../../../context/AuthContext';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { exportToXlsx } from '../../reports/utils/exportXlsx';
 import type { ExportColumn } from '../../reports/utils/exportXlsx';
 import { Button } from '../../../components/ui/button';
@@ -25,7 +25,6 @@ const BEXIO_COLUMNS: ExportColumn[] = [
 ];
 
 export function BillingExports() {
-  const { session } = useAuth();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,13 +34,7 @@ export function BillingExports() {
     setLoading(true);
     setError('');
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-      };
-      if (session?.access_token) {
-        headers['X-User-Token'] = session.access_token;
-      }
+      const headers = await getAuthHeaders();
 
       let url = `${BASE_URL}/bexio-export?`;
       if (fromDate) url += `from_date=${fromDate}&`;

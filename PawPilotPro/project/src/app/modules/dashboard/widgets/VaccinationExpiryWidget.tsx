@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { WidgetCard } from './WidgetCard';
 import { Badge } from '../../../components/ui/badge';
 import {
@@ -53,11 +54,7 @@ export function VaccinationExpiryWidget() {
         return;
       }
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-        'X-User-Token': `Bearer ${session.access_token}`,
-      };
+      const headers = await getAuthHeaders();
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/households`,

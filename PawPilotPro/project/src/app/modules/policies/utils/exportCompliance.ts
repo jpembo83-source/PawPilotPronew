@@ -1,8 +1,8 @@
 // Policy Compliance Export Utilities
 // Generate audit-ready exports for employment compliance documentation
 
-import { supabase } from '@/utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 
 interface AcknowledgementRecord {
   id: string;
@@ -29,18 +29,10 @@ interface ExportOptions {
 
 export async function exportAcknowledgements(options: ExportOptions = { format: 'csv' }): Promise<void> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      throw new Error('Not authenticated');
-    }
-
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/export/acknowledgements`,
       {
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': `Bearer ${session.access_token}`,
-        },
+        headers: await getAuthHeaders(),
       }
     );
 
@@ -129,18 +121,10 @@ function formatDateForFilename(date: Date): string {
 // Generate a compliance summary report
 export async function exportComplianceSummary(options: ExportOptions = { format: 'csv' }): Promise<void> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      throw new Error('Not authenticated');
-    }
-
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/compliance/by-policy`,
       {
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': `Bearer ${session.access_token}`,
-        },
+        headers: await getAuthHeaders(),
       }
     );
 
@@ -196,18 +180,10 @@ export async function exportComplianceSummary(options: ExportOptions = { format:
 // Export audit trail
 export async function exportAuditTrail(options: ExportOptions = { format: 'csv' }): Promise<void> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      throw new Error('Not authenticated');
-    }
-
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/audit`,
       {
-        headers: {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': `Bearer ${session.access_token}`,
-        },
+        headers: await getAuthHeaders(),
       }
     );
 

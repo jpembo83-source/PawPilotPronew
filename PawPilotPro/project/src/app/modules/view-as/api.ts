@@ -1,20 +1,16 @@
 // View As API - MDC Operations Centre
 
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import type { ViewAsSession, ViewAsUser, ViewAsAuditLog } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/view-as`;
-
-const headers = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${publicAnonKey}`,
-};
 
 export async function startViewAsSession(viewerUserId: string, viewAsUserId: string, reason?: string): Promise<{ session: ViewAsSession; target_user: ViewAsUser }> {
   try {
     const response = await fetch(`${BASE_URL}/start`, {
       method: 'POST',
-      headers,
+      headers: await getAuthHeaders(),
       body: JSON.stringify({ viewer_user_id: viewerUserId, view_as_user_id: viewAsUserId, reason }),
       signal: AbortSignal.timeout(10000), // 10 second timeout for this critical operation
     });
@@ -43,7 +39,7 @@ export async function endViewAsSession(viewerUserId: string, sessionId: string):
   try {
     const response = await fetch(`${BASE_URL}/end`, {
       method: 'POST',
-      headers,
+      headers: await getAuthHeaders(),
       body: JSON.stringify({ viewer_user_id: viewerUserId, session_id: sessionId }),
       signal: AbortSignal.timeout(10000),
     });
@@ -69,7 +65,7 @@ export async function endViewAsSession(viewerUserId: string, sessionId: string):
 export async function getActiveSession(viewerUserId: string): Promise<ViewAsSession | null> {
   try {
     const response = await fetch(`${BASE_URL}/active/${viewerUserId}`, { 
-      headers,
+      headers: await getAuthHeaders(),
       // Add timeout to prevent hanging
       signal: AbortSignal.timeout(5000),
     });
@@ -95,7 +91,7 @@ export async function getActiveSession(viewerUserId: string): Promise<ViewAsSess
 export async function validateAction(sessionId: string, actionType: string): Promise<{ allowed: boolean; reason?: string }> {
   const response = await fetch(`${BASE_URL}/validate-action`, {
     method: 'POST',
-    headers,
+    headers: await getAuthHeaders(),
     body: JSON.stringify({ session_id: sessionId, action_type: actionType }),
   });
   
@@ -109,7 +105,7 @@ export async function validateAction(sessionId: string, actionType: string): Pro
 export async function getSessions(): Promise<ViewAsSession[]> {
   try {
     const response = await fetch(`${BASE_URL}/sessions`, { 
-      headers,
+      headers: await getAuthHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     
@@ -127,7 +123,7 @@ export async function getSessions(): Promise<ViewAsSession[]> {
 export async function getAuditLogs(): Promise<ViewAsAuditLog[]> {
   try {
     const response = await fetch(`${BASE_URL}/audit-logs`, { 
-      headers,
+      headers: await getAuthHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     
@@ -146,7 +142,7 @@ export async function seedData(): Promise<void> {
   try {
     const response = await fetch(`${BASE_URL}/seed`, {
       method: 'POST',
-      headers,
+      headers: await getAuthHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     

@@ -86,10 +86,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/price-book/activate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ priceBookVersionId, activateImmediately, scheduledActivationDate, comment })
       });
       
@@ -121,10 +118,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/price-book/submit`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(request)
       });
       
@@ -148,10 +142,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/price-book/approve`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(request)
       });
       
@@ -176,10 +167,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/price-book/reject`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(request)
       });
       
@@ -209,10 +197,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/location-override/activate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ locationId, serviceId, price, effectiveFrom, effectiveTo, justification })
       });
       
@@ -238,10 +223,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/location-override/propose`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(request)
       });
       
@@ -269,10 +251,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/location-override/approve`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(request)
       });
       
@@ -297,10 +276,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isSubmitting: true });
       const res = await fetch(`${API_URL}/location-override/reject`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify(request)
       });
       
@@ -329,10 +305,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
       set({ isLoading: true });
       const res = await fetch(`${API_URL}/impact-preview`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`
-        },
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ type, referenceId, proposedChanges })
       });
       
@@ -356,7 +329,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
   
   fetchPendingApprovals: async () => {
     // Don't attempt API call if configuration is missing
-    if (!projectId || !publicAnonKey) {
+    if (!projectId) {
       set({ pendingApprovals: [], isLoading: false });
       return;
     }
@@ -385,7 +358,7 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
   
   fetchApprovalHistory: async () => {
     // Don't attempt API call if configuration is missing
-    if (!projectId || !publicAnonKey) {
+    if (!projectId) {
       set({ approvalHistory: [], isLoading: false });
       return;
     }
