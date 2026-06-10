@@ -30,7 +30,7 @@ export interface DaycareBooking {
   location_name: string;
   service_id: string;
   service_name: string;
-  service_type: 'hourly' | 'half_day' | 'full_day' | 'trial_day' | 'membership';
+  service_type: 'hourly' | 'half_day' | 'full_day' | 'membership';
   
   // Scheduling
   booking_date: string; // YYYY-MM-DD
@@ -65,7 +65,6 @@ export interface DaycareBooking {
   medical_notes?: string;
   
   // Requirements validation
-  vaccination_status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
   waiver_status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
   
   // Holds
@@ -166,8 +165,6 @@ export interface DaycareCapacity {
 // DASHBOARD TYPES
 // ============================================================================
 
-export type RAGStatus = 'green' | 'amber' | 'red';
-
 export interface DaycareStats {
   location_id: string;
   date: string;
@@ -182,24 +179,14 @@ export interface DaycareStats {
   
   // Capacity
   max_capacity: number;
-  capacity_utilisation: number;
+  capacity_utilisation: number; // percentage
   available_slots: number;
-  rag_status: RAGStatus;
-  
-  // Service breakdown
-  service_breakdown?: {
-    full_day: number;
-    half_day: number;
-    trial_day: number;
-    hourly: number;
-  };
   
   // Expected
   expected_arrivals_2h: number;
   expected_pickups_2h: number;
   
   // Alerts
-  vaccination_alerts: number;
   waiver_alerts: number;
   hold_alerts: number;
   behaviour_flags: number;
@@ -208,18 +195,6 @@ export interface DaycareStats {
   // Revenue (permission gated)
   total_revenue?: number;
   currency?: string;
-}
-
-export interface DaycareEvent {
-  id: string;
-  booking_id?: string;
-  location_id: string;
-  event_type: 'booking_created' | 'booking_cancelled' | 'checked_in' | 'checked_out' | 'capacity_override' | 'booking_updated';
-  actor_id: string;
-  actor_name: string;
-  description: string;
-  metadata?: Record<string, any>;
-  timestamp: string;
 }
 
 // ============================================================================
@@ -253,7 +228,7 @@ export interface CheckInValidation {
 
 export interface ValidationIssue {
   type: 'blocker' | 'warning';
-  category: 'vaccination' | 'waiver' | 'hold' | 'behaviour' | 'medical' | 'capacity' | 'other';
+  category: 'waiver' | 'hold' | 'behaviour' | 'medical' | 'capacity' | 'other';
   message: string;
   details?: any;
 }
@@ -358,16 +333,9 @@ export const CHECK_IN_STATUSES: Record<CheckInStatus, { label: string; color: st
   },
 };
 
-export const SERVICE_TYPES: Record<string, { label: string; color: string; bgColor: string }> = {
-  hourly: { label: 'Hourly', color: 'text-slate-700', bgColor: 'bg-slate-100' },
-  half_day: { label: 'Half Day', color: 'text-purple-700', bgColor: 'bg-purple-100' },
-  full_day: { label: 'Full Day', color: 'text-blue-700', bgColor: 'bg-blue-100' },
-  trial_day: { label: 'Trial Day', color: 'text-emerald-700', bgColor: 'bg-emerald-100' },
-  membership: { label: 'Membership', color: 'text-indigo-700', bgColor: 'bg-indigo-100' },
-};
-
-export const RAG_STATUS_CONFIG: Record<RAGStatus, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  green: { label: 'Available', color: 'text-green-700', bgColor: 'bg-green-100', borderColor: 'border-green-300' },
-  amber: { label: 'Filling Up', color: 'text-amber-700', bgColor: 'bg-amber-100', borderColor: 'border-amber-300' },
-  red: { label: 'Nearly Full', color: 'text-red-700', bgColor: 'bg-red-100', borderColor: 'border-red-300' },
+export const SERVICE_TYPES: Record<string, string> = {
+  hourly: 'Hourly',
+  half_day: 'Half Day',
+  full_day: 'Full Day',
+  membership: 'Membership',
 };

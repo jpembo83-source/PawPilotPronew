@@ -1,24 +1,32 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router';
-import { 
-  LayoutDashboard, 
-  Dog, 
-  Scissors,
-  CalendarCheck, 
-  Users, 
-  MessageSquare, 
-  Receipt, 
-  AlertTriangle, 
-  Settings, 
-  LogOut,
-  Building2,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
+import {
+  SignOut,
+  Buildings,
+  CaretDown,
+  CaretLeft,
+  CaretRight,
   Check,
-  FlaskConical,
-  ShieldAlert
-} from 'lucide-react';
+} from '@phosphor-icons/react';
+import {
+  GridFour,
+  PawPrint,
+  Scissors,
+  Van,
+  Moon,
+  UsersThree,
+  ChatCircleDots,
+  Receipt,
+  Warning,
+  ChartBar,
+  ClipboardText,
+  UserGear,
+  Package,
+  Gear,
+  ShoppingBag,
+  Gauge,
+  CalendarCheck,
+} from '@phosphor-icons/react';
 // Default logo imported as defaultLogo above
 import { useAuth } from '../../context/AuthContext';
 import { useDashboardStore } from '../../modules/dashboard/store';
@@ -48,6 +56,7 @@ const PATH_TO_MODULE: Record<string, string> = {
   '/capacity': 'capacity', // Separate permission for capacity management
   '/calendar': 'calendar',
   '/customers': 'customers',
+  '/customers/pending-requests': 'customers',
   '/daycare': 'daycare',
   '/daycare/check-in': 'daycare',
   '/grooming': 'grooming',
@@ -67,6 +76,37 @@ const PATH_TO_MODULE: Record<string, string> = {
   '/settings': 'settings',
 };
 
+// Phosphor icon overrides — weight="fill" for active, weight="regular" for inactive
+const PATH_ICONS: Record<string, React.ElementType> = {
+  '/':           GridFour,
+  '/daycare':    PawPrint,
+  '/capacity':   Gauge,
+  '/grooming':   Scissors,
+  '/transport':  Van,
+  '/overnights': Moon,
+  '/customers':  UsersThree,
+  '/messages':   ChatCircleDots,
+  '/messaging':  ChatCircleDots,
+  '/billing':    Receipt,
+  '/invoices':   Receipt,
+  '/incidents':  Warning,
+  '/reports':    ChartBar,
+  '/policies':   ClipboardText,
+  '/staff':      UserGear,
+  '/packages':   Package,
+  '/settings':   Gear,
+  '/boutique':   ShoppingBag,
+  '/calendar':   CalendarCheck,
+};
+
+// Section grouping for nav items
+const NAV_SECTIONS = [
+  { label: 'Operations', paths: ['/', '/customers/pending-requests', '/daycare', '/overnights', '/grooming', '/transport', '/capacity'] },
+  { label: 'Business', paths: ['/customers', '/billing', '/messages', '/reports', '/incidents'] },
+  { label: 'Team', paths: ['/staff', '/policies', '/packages'] },
+  { label: 'Admin', paths: ['/settings'] },
+];
+
 export function Sidebar() {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -74,15 +114,15 @@ export function Sidebar() {
   const { locations, globalEnabledModules, organisation } = useSettingsStore();
   const { hasBetaAccess, filterNavItems } = useBetaFeatures();
   const { canAccessModule, isAdmin } = usePermissions();
-  
+
   // Get logo and name from organisation settings
   const logo = organisation.logoUrl || defaultLogo;
   const orgName = organisation.tradingName || organisation.name || 'Paw Pilot Pro';
-  
+
   const isCollapsed = sidebarCollapsed;
 
-  const activeLocationName = selectedLocationId === 'ALL' 
-    ? 'All Locations' 
+  const activeLocationName = selectedLocationId === 'ALL'
+    ? 'All Locations'
     : locations.find(l => l && l.id === selectedLocationId)?.name || 'Unknown Location';
 
   // Build dynamic nav items from MODULES
@@ -95,204 +135,261 @@ export function Sidebar() {
     if (module.isCore) {
       return [...acc, ...module.navItems];
     }
-    
-    // Optional modules - check if enabled OR user has permission
-    let isModuleEnabled = false;
 
-    if (selectedLocationId === 'ALL') {
-      isModuleEnabled = (globalEnabledModules || []).includes(module.id);
-    } else {
-      const isGloballyEnabled = (globalEnabledModules || []).includes(module.id);
+    // Global enable/disable is the primary gate — a disabled module is hidden for everyone
+    const isGloballyEnabled = (globalEnabledModules || []).includes(module.id);
+    if (!isGloballyEnabled) {
+      return acc;
+    }
+
+    // When viewing a specific location, also check that location's enabledModules.
+    // Exception: if the user has an explicit role permission (e.g. driver for Transport),
+    // still show the item so they can do their job.
+    if (selectedLocationId !== 'ALL') {
       const currentLoc = locations.find(l => l && l.id === selectedLocationId);
-      if (currentLoc && currentLoc.isActive && isGloballyEnabled) {
-        isModuleEnabled = (currentLoc.enabledModules || []).includes(module.id);
+      const isEnabledAtLocation = currentLoc?.isActive &&
+        (currentLoc.enabledModules || []).includes(module.id);
+      const userHasPermission = canAccessModule(module.id);
+      if (!isEnabledAtLocation && !userHasPermission) {
+        return acc;
       }
     }
 
-    // Also check if user has explicit permission for this module
-    // This ensures drivers see Transport even if not "enabled" at org level
-    const userHasPermission = canAccessModule(module.id);
-
-    if (!isModuleEnabled && !userHasPermission) {
-      return acc; // Skip - not enabled AND user has no permission
-    }
-    
     // Add all nav items from this module
     return [...acc, ...module.navItems];
   }, [] as any[]);
-  
-  // Step 2: Add Settings nav item
-  allNavItems.push({ label: 'Settings', icon: Settings, path: '/settings' });
-  
+
+  // Step 2: Add Settings nav item (icon resolved via PATH_ICONS)
+  allNavItems.push({ label: 'Settings', icon: Gear, path: '/settings' });
+
   // Step 3: Filter by beta access (adds "(beta)" suffix for admins, hides for others)
   const betaFilteredNavItems = filterNavItems(allNavItems);
-  
+
   // Step 4: Filter by RBAC permissions - this is the key enforcement point
   const filteredNavItems = betaFilteredNavItems.filter((item: any) => {
     const moduleName = PATH_TO_MODULE[item.path];
-    
+
     // If no module mapping found, hide the item (fail secure)
     if (!moduleName) {
       console.warn(`[Sidebar] No permission mapping for path: ${item.path}`);
       return false;
     }
-    
+
     // Check if user has permission to access this module
     return canAccessModule(moduleName);
   });
 
+  // Group filteredNavItems into sections
+  const groupedSections = NAV_SECTIONS.map(section => ({
+    label: section.label,
+    items: filteredNavItems.filter((item: any) => section.paths.includes(item.path)),
+  })).filter(section => section.items.length > 0);
+
+  // Any items not matched by a section fall into an "Other" group
+  const allSectionPaths = NAV_SECTIONS.flatMap(s => s.paths);
+  const ungroupedItems = filteredNavItems.filter((item: any) => !allSectionPaths.includes(item.path));
+
+  const renderNavItem = (item: any) => {
+    const PhosphorIcon = PATH_ICONS[item.path];
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        title={isCollapsed ? (item.label || item.name) : undefined}
+        className={({ isActive }) => classNames(
+          'group relative flex items-center rounded-lg text-[13.5px] font-medium transition-all duration-150',
+          isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
+          isActive
+            ? 'text-primary bg-primary-tint'
+            : 'text-[#57534E] hover:text-[#1C1916] hover:bg-[#F5F3F0]'
+        )}
+      >
+        {({ isActive }) => (
+          <>
+            {isActive && !isCollapsed && (
+              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full" />
+            )}
+            {PhosphorIcon ? (
+              <PhosphorIcon
+                size={isCollapsed ? 20 : 18}
+                weight={isActive ? 'fill' : 'regular'}
+                className={classNames(
+                  "flex-shrink-0 transition-colors",
+                  isActive ? 'text-primary' : 'text-[#78716C] group-hover:text-[#1C1916]'
+                )}
+              />
+            ) : (
+              <item.icon
+                className={classNames(
+                  "flex-shrink-0 transition-colors",
+                  isCollapsed ? "h-5 w-5" : "h-[18px] w-[18px]",
+                  isActive ? 'text-primary' : 'text-[#78716C] group-hover:text-[#1C1916]'
+                )}
+                strokeWidth={1.5}
+              />
+            )}
+            {!isCollapsed && (
+              <span className="leading-none tracking-tight">{item.label || item.name}</span>
+            )}
+          </>
+        )}
+      </NavLink>
+    );
+  };
+
   return (
     <div className={classNames(
-      "flex flex-col h-full bg-slate-900 text-white flex-shrink-0 transition-all duration-300 relative",
-      isCollapsed ? "w-16" : "w-64"
+      "flex flex-col h-full bg-[#FAFAF8] border-r border-[#E2DED8] flex-shrink-0 transition-all duration-300 relative",
+      isCollapsed ? "w-16" : "w-60"
     )}>
       {/* Collapse Toggle Button */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-20 z-50 h-6 w-6 bg-white border border-slate-200 rounded-full shadow-md flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+        className="absolute -right-3 top-20 z-50 h-6 w-6 bg-white border border-[#E2DED8] rounded-full shadow-sm flex items-center justify-center text-[#6B6762] hover:text-[#1C1916] hover:bg-[#F0EDE8] transition-colors"
         title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {isCollapsed ? (
-          <ChevronRight className="h-4 w-4" />
+          <CaretRight className="h-3.5 w-3.5" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <CaretLeft className="h-3.5 w-3.5" />
         )}
       </button>
 
+      {/* Logo / Org Header */}
       <div className={classNames(
-        "flex items-center gap-3 bg-[rgb(255,250,250)] transition-all duration-300",
-        isCollapsed ? "p-3 justify-center" : "p-6"
+        "flex items-center gap-2.5 transition-all duration-300",
+        isCollapsed ? "p-3 justify-center" : "px-4 py-[18px]"
       )}>
         <div className={classNames(
-          "flex-shrink-0 bg-white rounded-full p-1 overflow-hidden transition-all duration-300",
-          isCollapsed ? "h-8 w-8" : "h-10 w-10"
+          "flex-shrink-0 rounded-lg overflow-hidden flex items-center justify-center bg-primary transition-all duration-300",
+          isCollapsed ? "h-7 w-7 p-1" : "h-7 w-7 p-1"
         )}>
-          <img src={logo} alt="Organisation Logo" className="h-full w-full object-contain" />
+          <img src={logo} alt="" className="h-full w-full object-contain brightness-0 invert" />
         </div>
         {!isCollapsed && (
-          <div className="overflow-hidden">
-            <h1 className="font-bold text-lg tracking-tight leading-tight text-[rgb(0,0,0)] truncate">{orgName}</h1>
-            <p className="text-xs text-slate-400">Control Centre</p>
+          <div className="overflow-hidden flex-1 min-w-0">
+            <h1 className="font-semibold text-[13px] leading-tight text-[#1C1916] truncate">{orgName}</h1>
           </div>
         )}
       </div>
 
+      {/* Location Picker */}
       <div className={classNames(
-        "bg-[rgb(255,252,252)] transition-all duration-300",
-        isCollapsed ? "px-2 py-2" : "px-6 py-2"
+        "transition-all duration-300 border-b border-[#E2DED8]",
+        isCollapsed ? "px-2 py-2" : "px-2 py-2"
       )}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className={classNames(
-              "w-full bg-[rgb(255,255,255)] hover:bg-slate-700 transition-colors rounded-md flex items-center text-sm border border-slate-700 group text-[rgb(0,0,0)]",
-              isCollapsed ? "p-2 justify-center" : "p-3 justify-between"
+              "w-full hover:bg-[#F0EDE8] transition-colors rounded-lg flex items-center text-[13px] group",
+              isCollapsed ? "p-2 justify-center" : "px-3 py-2 gap-2 justify-between"
             )}>
               <div className="flex items-center gap-2 overflow-hidden">
-                <Building2 className="h-4 w-4 text-primary shrink-0" />
+                <Buildings className="h-3.5 w-3.5 text-primary shrink-0" strokeWidth={1.5} />
                 {!isCollapsed && (
-                  <span className="font-medium truncate text-left">{activeLocationName}</span>
+                  <span className="font-medium truncate text-left text-[#57534E]">{activeLocationName}</span>
                 )}
               </div>
               {!isCollapsed && (
-                <ChevronDown className="h-3 w-3 text-slate-400 group-hover:text-white" />
+                <CaretDown className="h-3 w-3 text-[#A09893] shrink-0" strokeWidth={1.5} />
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-52 bg-slate-800 border-slate-700 text-slate-200">
+          <DropdownMenuContent className="w-52">
             {user?.role === 'admin' && (
               <>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => setLocation('ALL')}
-                  className="focus:bg-slate-700 focus:text-white cursor-pointer flex justify-between"
+                  className="cursor-pointer flex justify-between"
                 >
                   <span>All Locations</span>
-                  {selectedLocationId === 'ALL' && <Check className="h-4 w-4" />}
+                  {selectedLocationId === 'ALL' && <Check className="h-4 w-4 text-primary" />}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-slate-700" />
+                <DropdownMenuSeparator />
               </>
             )}
-            
+
             {locations.filter(loc => loc != null).map(loc => (
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 key={loc.id}
                 onClick={() => setLocation(loc.id)}
-                className="focus:bg-slate-700 focus:text-white cursor-pointer flex justify-between"
+                className="cursor-pointer flex justify-between"
               >
                 <span>{loc.name}</span>
-                {selectedLocationId === loc.id && <Check className="h-4 w-4" />}
+                {selectedLocationId === loc.id && <Check className="h-4 w-4 text-primary" />}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
+      {/* Navigation */}
       <nav className={classNames(
-        "flex-1 py-6 space-y-1 overflow-y-auto bg-[rgb(255,255,255)] transition-all duration-300",
-        isCollapsed ? "px-2" : "px-4"
+        "flex-1 py-2 overflow-y-auto transition-all duration-300",
+        isCollapsed ? "px-2" : "px-2"
       )}>
-        {/* Beta indicator for admins */}
-        {hasBetaAccess && !isCollapsed && (
-          <div className="flex items-center gap-2 px-3 py-2 mb-2 text-xs text-purple-600 bg-purple-50 rounded-md border border-purple-200">
-            <FlaskConical className="h-3.5 w-3.5" />
-            <span>Beta modules visible</span>
-          </div>
-        )}
-        {filteredNavItems.map((item: any) => {
-          const isActive = location.pathname === item.path || 
-                          (item.path !== '/' && location.pathname.startsWith(item.path));
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={isCollapsed ? (item.label || item.name) : undefined}
-              className={({ isActive }) => classNames(
-                'flex items-center rounded-md text-sm font-medium transition-colors',
-                isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5',
-                isActive 
-                  ? 'bg-primary text-white shadow-sm' 
-                  : 'text-slate-900 hover:bg-slate-800 hover:text-white'
+        <div>
+          {groupedSections.map((section, sectionIdx) => (
+            <React.Fragment key={section.label}>
+              {sectionIdx > 0 && (
+                <div className="my-1.5 mx-2 h-px bg-[#EAE7E2]" />
               )}
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!isCollapsed && (item.label || item.name)}
-            </NavLink>
-          );
-        })}
+              <div className="space-y-px">
+                {section.items.map((item: any) => renderNavItem(item))}
+              </div>
+            </React.Fragment>
+          ))}
+
+          {ungroupedItems.length > 0 && (
+            <React.Fragment>
+              <div className="my-1.5 mx-2 h-px bg-[#EAE7E2]" />
+              <div className="space-y-px">
+                {ungroupedItems.map((item: any) => renderNavItem(item))}
+              </div>
+            </React.Fragment>
+          )}
+        </div>
       </nav>
 
+      {/* User / Sign Out Section */}
       <div className={classNames(
-        "border-t border-slate-800 bg-[rgb(255,252,252)] transition-all duration-300",
-        isCollapsed ? "p-2" : "p-4"
+        "border-t border-[#E2DED8] transition-all duration-300",
+        isCollapsed ? "p-2" : "px-2 py-2"
       )}>
-        {!isCollapsed && (
-          <div className="flex items-center gap-3 px-2 mb-4">
-            <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-primary font-bold flex-shrink-0">
-              {user?.name.charAt(0)}
+        {!isCollapsed ? (
+          <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[#F5F3F0] transition-colors cursor-default">
+            <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+              {user?.name.charAt(0).toUpperCase()}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-medium truncate text-[rgb(0,0,0)]">{user?.name}</p>
-              <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+            <div className="overflow-hidden flex-1">
+              <p className="text-[13px] font-medium truncate text-[#1C1916] leading-tight">{user?.name}</p>
+              <p className="text-[11px] text-[#9E9B97] capitalize leading-tight">{user?.role?.replace('_', ' ')}</p>
             </div>
+            <button
+              onClick={logout}
+              title="Sign Out"
+              className="text-[#A09893] hover:text-[#C03030] transition-colors rounded p-1 hover:bg-[#FEF2F2] ml-auto"
+            >
+              <SignOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <div
+              className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold"
+              title={user?.name}
+            >
+              {user?.name.charAt(0).toUpperCase()}
+            </div>
+            <button
+              onClick={logout}
+              title="Sign Out"
+              className="text-[#A09893] hover:text-[#C03030] transition-colors rounded p-1.5 hover:bg-[#FEF2F2]"
+            >
+              <SignOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
           </div>
         )}
-        {isCollapsed && (
-          <div className="flex justify-center mb-2">
-            <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-primary font-bold" title={user?.name}>
-              {user?.name.charAt(0)}
-            </div>
-          </div>
-        )}
-        <button
-          onClick={logout}
-          title={isCollapsed ? "Sign Out" : undefined}
-          className={classNames(
-            "flex items-center w-full text-sm text-[rgb(0,0,0)] hover:text-white hover:bg-slate-800 rounded-md transition-colors",
-            isCollapsed ? "justify-center px-2 py-2" : "gap-2 px-3 py-2"
-          )}
-        >
-          <LogOut className="h-4 w-4 flex-shrink-0" />
-          {!isCollapsed && "Sign Out"}
-        </button>
       </div>
     </div>
   );

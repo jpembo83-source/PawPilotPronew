@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useUserStore, PermissionTemplate } from '../../stores/userStore';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, Shield, Lock, Trash2, Edit } from 'lucide-react';
+import { Plus, Shield, Lock, Trash, PencilSimple } from '@phosphor-icons/react';
 import { TemplateDialog } from './TemplateDialog';
 
 export function TemplateManager() {
@@ -54,11 +54,11 @@ export function TemplateManager() {
               </div>
               <div className="flex gap-1">
                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEdit(tpl)}>
-                    <Edit className="h-4 w-4 text-slate-500" />
+                    <PencilSimple className="h-4 w-4 text-slate-500" />
                  </Button>
                  {!tpl.isSystem && (
                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => deleteTemplate(tpl.id, 'Admin')}>
-                     <Trash2 className="h-4 w-4" />
+                     <Trash className="h-4 w-4" />
                    </Button>
                  )}
               </div>

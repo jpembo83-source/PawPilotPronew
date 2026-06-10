@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, CircleNotch } from '@phosphor-icons/react';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 
 export function BackendStatus() {
@@ -54,7 +54,7 @@ export function BackendStatus() {
   if (status === 'checking') {
     return (
       <Alert>
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <CircleNotch className="h-4 w-4 animate-spin" />
         <AlertTitle>Checking Backend Status...</AlertTitle>
         <AlertDescription>
           Verifying connection to Supabase Edge Functions
@@ -66,7 +66,7 @@ export function BackendStatus() {
   if (status === 'online') {
     return (
       <Alert className="border-green-200 bg-green-50">
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <CheckCircle className="h-4 w-4 text-green-600" />
         <AlertTitle className="text-green-900">Backend Online</AlertTitle>
         <AlertDescription className="text-green-700">
           All backend services are operational and ready.

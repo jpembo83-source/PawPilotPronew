@@ -1,14 +1,15 @@
 // Bulk Import Page
-// Upload and process CSV files to import multiple households
+// UploadSimple and process CSV files to import multiple households
 
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Upload, FileText, AlertCircle, CheckCircle, XCircle, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, UploadSimple, FileText, Warning, CheckCircle, XCircle, DownloadSimple, CircleNotch } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { supabase } from '../../../../utils/supabase/client';
 
 interface ImportResult {
   success: boolean;
@@ -35,7 +36,6 @@ export function BulkImportPage() {
   const [isDryRun, setIsDryRun] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
-  const [importFormat, setImportFormat] = useState<'standard' | 'daysmartpet'>('standard');
   
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -53,12 +53,18 @@ export function BulkImportPage() {
   
   const handleDownloadTemplate = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Not authenticated — please log in again');
+        return;
+      }
+      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/import/template`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${user?.access_token}`,
+            'X-User-Token': `Bearer ${session.access_token}`,
             'X-Tenant-Id': activeTenantId || '',
           },
         }
@@ -104,10 +110,16 @@ export function BulkImportPage() {
     setIsProcessing(true);
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Not authenticated — please log in again');
+        setIsProcessing(false);
+        return;
+      }
+      
       const formData = new FormData();
       formData.append('file', file);
       formData.append('dry_run', isDryRun.toString());
-      formData.append('format', importFormat);
       
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/import`,
@@ -115,7 +127,7 @@ export function BulkImportPage() {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${user?.access_token}`,
+            'X-User-Token': `Bearer ${session.access_token}`,
             'X-Tenant-Id': activeTenantId || '',
           },
           body: formData,
@@ -208,86 +220,39 @@ export function BulkImportPage() {
         </p>
       </div>
       
-      {/* Format Selector */}
-      <Card className="mb-6">
+      {/* Instructions */}
+      <Card className="mb-6 bg-blue-50 border-blue-200">
         <CardContent className="py-4">
-          <h3 className="font-semibold text-slate-900 mb-3">Import Source</h3>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setImportFormat('standard')}
-              className={`flex-1 px-4 py-3 rounded-lg border-2 text-left transition-colors ${
-                importFormat === 'standard'
-                  ? 'border-[#BA7E74] bg-[#F4E5E3]/30'
-                  : 'border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <p className="font-medium text-slate-900">Standard Template</p>
-              <p className="text-xs text-slate-500 mt-1">Use our Excel template format</p>
-            </button>
-            <button
-              onClick={() => setImportFormat('daysmartpet')}
-              className={`flex-1 px-4 py-3 rounded-lg border-2 text-left transition-colors ${
-                importFormat === 'daysmartpet'
-                  ? 'border-[#BA7E74] bg-[#F4E5E3]/30'
-                  : 'border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <p className="font-medium text-slate-900">DaySmartPet</p>
-              <p className="text-xs text-slate-500 mt-1">Import from DaySmartPet export</p>
-            </button>
-          </div>
+          <h3 className="font-semibold text-blue-900 mb-2">Import Process</h3>
+          <ol className="text-blue-800 text-sm space-y-1 list-decimal list-inside">
+            <li>DownloadSimple the Excel template and fill in your customer data</li>
+            <li>Upload the completed file and run a dry run to validate</li>
+            <li>Review the summary and fix any errors</li>
+            <li>Apply the import to create/update records in your database</li>
+          </ol>
         </CardContent>
       </Card>
-
-      {importFormat === 'daysmartpet' && (
-        <Card className="mb-6 bg-amber-50 border-amber-200">
-          <CardContent className="py-4">
-            <h3 className="font-semibold text-amber-900 mb-2">DaySmartPet Import Guide</h3>
-            <ol className="text-amber-800 text-sm space-y-1 list-decimal list-inside">
-              <li>In DaySmartPet, go to <strong>Clients → Export</strong> and export all clients as Excel</li>
-              <li>Upload the exported file directly — columns will be mapped automatically</li>
-              <li>Expected columns: Client Name, First Name, Last Name, Email, Phone, Pet Name, Breed, Weight, Birth Date, Sex, Spayed/Neutered</li>
-              <li>Run a dry run first to verify the mapping is correct</li>
-            </ol>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Instructions */}
-      {importFormat === 'standard' && (
-        <Card className="mb-6 bg-blue-50 border-blue-200">
-          <CardContent className="py-4">
-            <h3 className="font-semibold text-blue-900 mb-2">Import Process</h3>
-            <ol className="text-blue-800 text-sm space-y-1 list-decimal list-inside">
-              <li>Download the Excel template and fill in your customer data</li>
-              <li>Upload the completed file and run a dry run to validate</li>
-              <li>Review the summary and fix any errors</li>
-              <li>Apply the import to create/update records in your database</li>
-            </ol>
-          </CardContent>
-        </Card>
-      )}
       
-      {/* Template Download */}
+      {/* Template DownloadSimple */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Step 1: Download Template</CardTitle>
+          <CardTitle>Step 1: DownloadSimple Template</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-slate-600 mb-4">
-            Download the Excel template with the correct column headers and example data
+            DownloadSimple the Excel template with the correct column headers and example data
           </p>
           <Button
             onClick={handleDownloadTemplate}
             variant="outline"
           >
-            <Download className="h-4 w-4 mr-2" />
-            Download Template
+            <DownloadSimple className="h-4 w-4 mr-2" />
+            DownloadSimple Template
           </Button>
         </CardContent>
       </Card>
       
-      {/* File Upload */}
+      {/* File UploadSimple */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Step 2: Upload Your File</CardTitle>
@@ -306,7 +271,7 @@ export function BulkImportPage() {
                 onClick={() => fileInputRef.current?.click()}
                 variant="outline"
               >
-                <Upload className="h-4 w-4 mr-2" />
+                <UploadSimple className="h-4 w-4 mr-2" />
                 Select File
               </Button>
               
@@ -323,7 +288,7 @@ export function BulkImportPage() {
             
             {file && (
               <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <Warning className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
                   <p className="font-medium text-amber-900 mb-1">
                     {isDryRun ? 'Dry Run Mode (Safe)' : 'LIVE IMPORT MODE'}
@@ -347,7 +312,7 @@ export function BulkImportPage() {
                 >
                   {isProcessing ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                       Processing...
                     </>
                   ) : (
@@ -465,8 +430,8 @@ export function BulkImportPage() {
                     variant="outline"
                     size="sm"
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Error Report
+                    <DownloadSimple className="h-4 w-4 mr-2" />
+                    DownloadSimple Error Report
                   </Button>
                 </div>
                 <div className="max-h-64 overflow-y-auto border border-red-200 rounded-lg">

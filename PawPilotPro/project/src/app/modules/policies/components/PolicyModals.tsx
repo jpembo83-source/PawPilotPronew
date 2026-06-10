@@ -1,9 +1,9 @@
-// Policy Upload and Assignment Modals
+// Policy UploadSimple and Assignment Modals
 // Enhanced with repeat cycles, reminders, and compliance features
 
 import React, { useState, useEffect } from 'react';
 import { PolicyDocument } from '../store';
-import { X, Upload, AlertCircle, RefreshCw, Bell, Calendar, Info } from 'lucide-react';
+import { X, UploadSimple, Warning, ArrowClockwise, Bell, CalendarBlank, Info } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { supabase } from '../../../../utils/supabase/client';
 import { publicAnonKey, projectId } from '../../../../../utils/supabase/info';
@@ -101,7 +101,7 @@ export function UploadPolicyModal({ onClose, onCreate }: UploadPolicyModalProps)
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* File Upload */}
+          {/* File UploadSimple */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Document File <span className="text-red-500">*</span>
@@ -116,7 +116,7 @@ export function UploadPolicyModal({ onClose, onCreate }: UploadPolicyModalProps)
                 disabled={isSubmitting}
               />
               <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                <UploadSimple className="w-12 h-12 text-slate-400 mx-auto mb-3" />
                 {file ? (
                   <div>
                     <p className="text-sm font-medium text-slate-900">{file.name}</p>
@@ -255,9 +255,9 @@ export function UploadPolicyModal({ onClose, onCreate }: UploadPolicyModalProps)
           
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <Warning className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-900">
-              <p className="font-medium mb-1">Policy Upload Process</p>
+              <p className="font-medium mb-1">Policy UploadSimple Process</p>
               <ul className="list-disc list-inside space-y-1 text-blue-700">
                 <li>Policy will be created in <strong>Draft</strong> status</li>
                 <li>Review and publish when ready</li>
@@ -602,7 +602,7 @@ export function AssignPolicyModal({ policy, onClose, onAssign }: AssignPolicyMod
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700"
           >
-            <RefreshCw className="w-4 h-4" />
+            <ArrowClockwise className="w-4 h-4" />
             {showAdvanced ? 'Hide' : 'Show'} repeat cycles & reminders
           </button>
           
@@ -612,7 +612,7 @@ export function AssignPolicyModal({ policy, onClose, onAssign }: AssignPolicyMod
               {/* Repeat Cycle */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 text-slate-500" />
+                  <ArrowClockwise className="w-4 h-4 text-slate-500" />
                   Repeat Acknowledgement Cycle
                 </label>
                 <select

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Loader2, User, Bot } from 'lucide-react';
+import { PaperPlaneTilt, CircleNotch, User, Robot } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Textarea } from '../../../components/ui/textarea';
 import { ScrollArea } from '../../../components/ui/scroll-area';
@@ -116,7 +116,7 @@ export function ConversationView({ thread }: ConversationViewProps) {
                     {/* Sender info */}
                     <div className="flex items-center gap-2 mb-2">
                       {isSystem ? (
-                        <Bot className="h-4 w-4" />
+                        <Robot className="h-4 w-4" />
                       ) : (
                         <User className="h-4 w-4" />
                       )}
@@ -177,9 +177,9 @@ export function ConversationView({ thread }: ConversationViewProps) {
               className="self-end"
             >
               {isSendingMessage ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <CircleNotch className="h-4 w-4 animate-spin" />
               ) : (
-                <Send className="h-4 w-4" />
+                <PaperPlaneTilt className="h-4 w-4" />
               )}
             </Button>
           </div>

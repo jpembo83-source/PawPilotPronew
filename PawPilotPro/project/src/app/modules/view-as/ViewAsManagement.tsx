@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Eye, Clock, Shield, AlertTriangle, Server } from 'lucide-react';
+import { Eye, Clock, Shield, Warning, HardDrives } from '@phosphor-icons/react';
 import { BackendStatus } from '../../components/BackendStatus';
 import * as viewAsApi from './api';
 import type { ViewAsSession, ViewAsAuditLog } from './types';
@@ -76,7 +76,7 @@ export function ViewAsManagement() {
 
       {!isLoading && sessions.length === 0 && auditLogs.length === 0 && (
         <Alert>
-          <Server className="h-4 w-4" />
+          <HardDrives className="h-4 w-4" />
           <AlertDescription>
             No View As sessions found. Click "Seed Data" to create sample users and test the View As functionality.
             <br />
@@ -89,7 +89,7 @@ export function ViewAsManagement() {
         <Card className="border-orange-200 bg-orange-50">
           <CardHeader>
             <CardTitle className="text-orange-900 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
+              <Warning className="h-5 w-5" />
               Active Sessions
             </CardTitle>
             <CardDescription className="text-orange-700">
@@ -121,14 +121,14 @@ export function ViewAsManagement() {
 
       <Tabs defaultValue="sessions" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="sessions">Session History</TabsTrigger>
+          <TabsTrigger value="sessions">Session ClockCounterClockwise</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sessions">
           <Card>
             <CardHeader>
-              <CardTitle>Session History</CardTitle>
+              <CardTitle>Session ClockCounterClockwise</CardTitle>
               <CardDescription>Complete history of all View As sessions</CardDescription>
             </CardHeader>
             <CardContent>

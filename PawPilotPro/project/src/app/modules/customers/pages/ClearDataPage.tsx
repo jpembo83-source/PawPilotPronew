@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Trash2, AlertTriangle, Loader2, CheckCircle } from 'lucide-react';
+import { Trash, Warning, CircleNotch, CheckCircle } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
@@ -59,7 +59,7 @@ export function ClearDataPage() {
       <Card className="border-red-200">
         <CardHeader className="bg-red-50">
           <CardTitle className="flex items-center gap-2 text-red-900">
-            <AlertTriangle className="h-5 w-5" />
+            <Warning className="h-5 w-5" />
             Clear Timeline Data
           </CardTitle>
         </CardHeader>
@@ -115,12 +115,12 @@ export function ClearDataPage() {
               >
                 {isClearing ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                     Clearing...
                   </>
                 ) : (
                   <>
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash className="h-4 w-4 mr-2" />
                     Clear All Timeline Data
                   </>
                 )}

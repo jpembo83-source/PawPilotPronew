@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
 import { ScrollArea } from '../../../components/ui/scroll-area';
 import { Badge } from '../../../components/ui/badge';
-import { History, AlertCircle } from 'lucide-react';
+import { ClockCounterClockwise, Warning } from '@phosphor-icons/react';
 import { useOperationalRulesStore } from '../store';
 import { fetchAuditLog } from '../api';
 import { toast } from 'sonner';
@@ -59,7 +59,7 @@ export function AuditLogModal({ open, onClose, ruleId }: AuditLogModalProps) {
       <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
+            <ClockCounterClockwise className="h-5 w-5" />
             Audit Log
           </DialogTitle>
           <DialogDescription>
@@ -74,7 +74,7 @@ export function AuditLogModal({ open, onClose, ruleId }: AuditLogModalProps) {
             </div>
           ) : auditLog.length === 0 ? (
             <div className="text-center py-12">
-              <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <Warning className="h-12 w-12 text-slate-300 mx-auto mb-3" />
               <p className="text-sm text-slate-600">No audit entries found</p>
             </div>
           ) : (

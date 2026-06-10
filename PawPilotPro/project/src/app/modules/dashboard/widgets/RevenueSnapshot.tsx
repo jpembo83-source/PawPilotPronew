@@ -1,7 +1,7 @@
 import React from 'react';
 import { WidgetCard } from './WidgetCard';
 import { useDashboardStore } from '../store';
-import { CreditCard, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { CreditCard, TrendUp, TrendDown, CurrencyDollar } from '@phosphor-icons/react';
 import { Area, AreaChart, CartesianGrid, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 // TODO: Replace with actual revenue data from backend
@@ -39,7 +39,7 @@ export function RevenueSnapshot() {
          <div className="flex items-end gap-3 mb-6">
             <h2 className="text-3xl font-bold text-slate-900">{totalFormatted}</h2>
             <div className={`flex items-center gap-1 text-sm font-medium mb-1.5 text-slate-400`}>
-               <TrendingUp className="h-4 w-4" />
+               <TrendUp className="h-4 w-4" />
                <span>No data</span>
             </div>
          </div>

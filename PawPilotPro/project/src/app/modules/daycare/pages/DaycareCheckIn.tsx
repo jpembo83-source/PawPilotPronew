@@ -1,332 +1,574 @@
-// Daycare Check-In - MDC Operations Centre
-// Fast check-in flow with validation and warnings
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { useDaycareStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { useSettingsStore } from '../../settings/store';
+import { Dialog, DialogContent } from '../../../components/ui/dialog';
 import { Textarea } from '../../../components/ui/textarea';
-import { Badge } from '../../../components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Checkbox } from '../../../components/ui/checkbox';
-import { Search, AlertTriangle, CheckCircle, XCircle, LogIn } from 'lucide-react';
+import {
+  MagnifyingGlass,
+  X,
+  Clock,
+  SignIn,
+  CaretLeft,
+  CaretRight,
+  Dog,
+  Warning,
+  FirstAidKit,
+  XCircle,
+  CheckCircle,
+  UserPlus,
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { DaycareBooking, CheckInValidation } from '../types';
-import { BOOKING_STATUSES, CHECK_IN_STATUSES } from '../types';
 
-export function DaycareCheckIn() {
-  const { selectedLocationId } = useDashboardStore();
-  const { bookings, isLoading, fetchBookings, validateCheckIn, checkIn } = useDaycareStore();
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBooking, setSelectedBooking] = useState<DaycareBooking | null>(null);
-  const [validation, setValidation] = useState<CheckInValidation | null>(null);
-  const [handoverNotes, setHandoverNotes] = useState('');
-  const [warningsAcknowledged, setWarningsAcknowledged] = useState(false);
-  const [showValidationDialog, setShowValidationDialog] = useState(false);
-  
-  const today = new Date().toISOString().split('T')[0];
-  
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function isLate(booking: DaycareBooking): boolean {
+  if (!booking.planned_start_time) return false;
+  const [h, m] = booking.planned_start_time.split(':').map(Number);
+  const planned = new Date();
+  planned.setHours(h, m, 0, 0);
+  return Date.now() - planned.getTime() > 30 * 60 * 1000; // >30 min past planned time
+}
+
+// ── Walk-in search panel ───────────────────────────────────────────────────────
+
+interface WalkInPanelProps {
+  open: boolean;
+  onClose: () => void;
+  onBooked: (booking: DaycareBooking) => void;
+  locationId: string;
+}
+
+function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) {
+  const { searchCustomers, createBooking, validateCheckIn, checkIn, isLoading } = useDaycareStore();
+  const { locations } = useSettingsStore();
+
+  const [query, setQuery]               = useState('');
+  const [results, setResults]           = useState<any[]>([]);
+  const [searching, setSearching]       = useState(false);
+  const [selectedHousehold, setHH]      = useState<any | null>(null);
+  const [selectedPet, setPet]           = useState<any | null>(null);
+  const [creating, setCreating]         = useState(false);
+  const debounceRef                     = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reset when panel closes
   useEffect(() => {
-    loadBookings();
-  }, [selectedLocationId]);
-  
-  const loadBookings = async () => {
+    if (!open) { setQuery(''); setResults([]); setHH(null); setPet(null); }
+  }, [open]);
+
+  // Live search with debounce
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (query.trim().length < 2) { setResults([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await searchCustomers(query.trim());
+        setResults(res);
+      } catch { /* silent */ }
+      finally { setSearching(false); }
+    }, 300);
+  }, [query]);
+
+  const handleSelectPet = (household: any, pet: any) => {
+    setHH(household);
+    setPet(pet);
+  };
+
+  const handleCreate = async () => {
+    if (!selectedHousehold || !selectedPet || locationId === 'ALL') return;
+    setCreating(true);
     try {
-      await fetchBookings({
-        location_id: selectedLocationId === 'ALL' ? undefined : selectedLocationId,
-        date: today,
-        check_in_status: 'not_checked_in',
-        booking_status: 'confirmed',
+      const today = new Date().toISOString().split('T')[0];
+      const locationName = locations.find(l => l.id === locationId)?.name || '';
+      const now = new Date();
+      const startTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+      // Create booking
+      const booking = await createBooking({
+        household_id:     selectedHousehold.household_id,
+        pet_id:           selectedPet.id,
+        location_id:      locationId,
+        location_name:    locationName,
+        service_id:       'service-daycare-full',
+        service_name:     'Daycare (Full Day)',
+        service_type:     'full_day',
+        booking_date:     today,
+        planned_start_time: startTime,
+        planned_end_time:   '18:00',
       });
-    } catch (err) {
-      // Error handled by store
+
+      // Immediately check in
+      const validation = await validateCheckIn(booking.id);
+      if (validation.can_check_in && validation.blockers.length === 0) {
+        await checkIn(booking.id, { warnings_acknowledged: validation.warnings.length > 0 });
+        toast.success(`${selectedPet.name} booked and checked in`);
+        onBooked(booking);
+      } else if (validation.blockers.length > 0) {
+        toast.warning(`Booking created — check-in blocked: ${validation.blockers[0].message}`);
+        onClose();
+      } else {
+        onBooked(booking);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create walk-in');
+    } finally {
+      setCreating(false);
     }
   };
-  
-  const filteredBookings = bookings.filter(b =>
+
+  if (!open) return null;
+
+  return (
+    <div className="absolute inset-0 z-20 flex flex-col bg-white rounded-2xl border border-[#E2DED8] shadow-xl m-4 overflow-hidden">
+      {/* Walk-in header */}
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E2DED8]">
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F4F3EF] text-[#6B6762] transition-colors">
+          <X size={18} />
+        </button>
+        <div>
+          <h2 className="text-base font-bold text-[#1C1916]">Walk-in</h2>
+          <p className="text-xs text-[#6B6762]">Search for a household to book and check in now</p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="relative">
+          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E9B97]" />
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search by pet or household name…"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+          />
+          {searching && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Results */}
+      <div className="flex-1 overflow-auto px-4 pb-4 space-y-2 mt-2">
+        {results.length === 0 && query.length >= 2 && !searching && (
+          <p className="text-sm text-center text-[#9E9B97] py-8">No households found</p>
+        )}
+
+        {results.map((household, i) => (
+          <div key={i} className="rounded-xl border border-[#E2DED8] overflow-hidden">
+            <div className="px-4 py-3 bg-[#FAFAF8]">
+              <p className="text-sm font-semibold text-[#1C1916]">{household.household_name}</p>
+            </div>
+            {household.pets.map((pet: any) => {
+              const isSelected = selectedPet?.id === pet.id;
+              return (
+                <button
+                  key={pet.id}
+                  onClick={() => handleSelectPet(isSelected ? null : household, isSelected ? null : pet)}
+                  className="w-full flex items-center gap-3 px-4 py-3 border-t border-[#F0EDE8] transition-colors"
+                  style={{ background: isSelected ? 'var(--primary-tint)' : 'white' }}
+                >
+                  <div
+                    className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold"
+                    style={{ background: isSelected ? 'var(--primary)' : '#F0EDE8', color: isSelected ? 'white' : '#6B6762' }}
+                  >
+                    {pet.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium text-[#1C1916]">{pet.name}</p>
+                    {pet.breed && <p className="text-xs text-[#9E9B97] truncate">{pet.breed}</p>}
+                  </div>
+                  {pet.behaviour_notes && <Warning size={14} weight="fill" className="text-amber-500 flex-shrink-0" />}
+                  {pet.medical_notes   && <FirstAidKit size={14} weight="fill" className="text-red-500 flex-shrink-0" />}
+                  {isSelected && <CheckCircle size={18} weight="fill" style={{ color: 'var(--primary)' }} className="flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Confirm */}
+      {selectedPet && (
+        <div className="px-4 pb-4 pt-2 border-t border-[#E2DED8]">
+          {locationId === 'ALL' ? (
+            <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-4 py-3 text-center">
+              Select a specific location before creating a walk-in
+            </p>
+          ) : (
+            <button
+              onClick={handleCreate}
+              disabled={creating || isLoading}
+              className="w-full h-12 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 transition-opacity"
+              style={{ background: 'var(--primary)' }}
+            >
+              <SignIn size={17} weight="bold" />
+              {creating ? 'Booking & checking in…' : `Check in ${selectedPet.name} as walk-in`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main check-in page ─────────────────────────────────────────────────────────
+
+export function DaycareCheckIn() {
+  const navigate = useNavigate();
+  const { selectedLocationId } = useDashboardStore();
+  const { bookings, isLoading, fetchBookings, validateCheckIn, checkIn } = useDaycareStore();
+
+  const [searchQuery, setSearchQuery]             = useState('');
+  const [selectedBooking, setSelectedBooking]     = useState<DaycareBooking | null>(null);
+  const [validation, setValidation]               = useState<CheckInValidation | null>(null);
+  const [handoverNotes, setHandoverNotes]         = useState('');
+  const [warningsAcknowledged, setWarningsAck]    = useState(false);
+  const [showValidationDialog, setShowDialog]     = useState(false);
+  const [showWalkIn, setShowWalkIn]               = useState(false);
+  const [submitting, setSubmitting]               = useState(false);
+
+  const today         = new Date().toISOString().split('T')[0];
+  const todayFormatted = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  useEffect(() => { load(); }, [selectedLocationId]);
+
+  const load = async () => {
+    try {
+      await fetchBookings({
+        location_id:    selectedLocationId === 'ALL' ? undefined : selectedLocationId,
+        date:           today,
+        check_in_status: 'not_checked_in',
+        booking_status:  'confirmed',
+      });
+    } catch { /* handled by store */ }
+  };
+
+  const filtered = bookings.filter(b =>
     searchQuery === '' ||
     b.pet_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     b.household_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  
+
+  const lateCount = filtered.filter(isLate).length;
+
   const handleSelectBooking = async (booking: DaycareBooking) => {
     try {
-      console.log('[DaycareCheckIn] Validating booking:', {
-        booking_id: booking.id,
-        household_id: booking.household_id,
-        pet_name: booking.pet_name,
-        household_name: booking.household_name
-      });
-      
       const result = await validateCheckIn(booking.id);
-      
-      console.log('[DaycareCheckIn] Validation result:', {
-        can_check_in: result.can_check_in,
-        blockers: result.blockers,
-        warnings: result.warnings
-      });
-      
-      console.log('[DaycareCheckIn] FULL VALIDATION RESPONSE:', JSON.stringify(result, null, 2));
-      
       setValidation(result);
       setSelectedBooking(booking);
       setHandoverNotes('');
-      setWarningsAcknowledged(false);
-      setShowValidationDialog(true);
-    } catch (error: any) {
-      console.error('[DaycareCheckIn] Validation error:', error);
-      toast.error(error.message || 'Failed to validate check-in');
+      setWarningsAck(false);
+      setShowDialog(true);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to validate check-in');
     }
   };
-  
+
   const handleCheckIn = async () => {
     if (!selectedBooking || !validation) return;
-    
-    if (!validation.can_check_in) {
-      toast.error('Cannot check in due to blockers');
-      return;
-    }
-    
+    if (!validation.can_check_in) { toast.error('Cannot check in — blockers must be resolved'); return; }
     if (validation.warnings.length > 0 && !warningsAcknowledged) {
-      toast.error('Please acknowledge warnings before checking in');
+      toast.error('Acknowledge warnings before checking in');
       return;
     }
-    
+    setSubmitting(true);
     try {
       await checkIn(selectedBooking.id, {
-        handover_notes: handoverNotes,
-        warnings_acknowledged: validation.warnings.length > 0,
+        handover_notes:       handoverNotes,
+        warnings_acknowledged: warningsAcknowledged,
       });
-      
-      toast.success(`${selectedBooking.pet_name} checked in successfully`);
-      setShowValidationDialog(false);
+      toast.success(`${selectedBooking.pet_name} checked in`);
+      setShowDialog(false);
       setSelectedBooking(null);
       setValidation(null);
-      
-      // Refresh bookings list
-      await loadBookings();
-      
-      // Refresh dashboard stats if available
       const { fetchStats } = useDaycareStore.getState();
-      const today = new Date().toISOString().split('T')[0];
-      await fetchStats(selectedLocationId === 'ALL' ? undefined : selectedLocationId, today);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to check in');
+      await Promise.all([
+        load(),
+        fetchStats(selectedLocationId === 'ALL' ? undefined : selectedLocationId, today),
+      ]);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to check in');
+    } finally {
+      setSubmitting(false);
     }
   };
-  
+
+  const canConfirm = !!validation?.can_check_in &&
+    (validation.warnings.length === 0 || warningsAcknowledged) &&
+    !submitting;
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Check-In</h1>
-        <p className="text-slate-600 mt-1">Check in pets for daycare</p>
-      </div>
-      
-      {/* Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Find Booking</CardTitle>
-          <CardDescription>Search by pet name or household</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search pet or household..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+    <div className="flex flex-col h-full relative" style={{ background: 'var(--background)' }}>
+
+      {/* Top bar */}
+      <div className="bg-white border-b border-[#E2DED8] px-4 py-4 sticky top-0 z-10">
+        <div className="flex items-center gap-3 mb-3">
+          <button
+            onClick={() => navigate('/daycare')}
+            className="p-1.5 rounded-lg hover:bg-[#F4F3EF] text-[#6B6762] transition-colors"
+          >
+            <CaretLeft size={20} />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-lg font-bold text-[#1C1916]">Check In</h1>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-[#6B6762]">
+                {filtered.length} waiting · {todayFormatted}
+              </p>
+              {lateCount > 0 && (
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                  {lateCount} late
+                </span>
+              )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Bookings List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ready for Check-In ({filteredBookings.length})</CardTitle>
-          <CardDescription>Confirmed bookings for today</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8 text-slate-500">Loading bookings...</div>
-          ) : filteredBookings.length === 0 ? (
-            <div className="text-center py-8">
-              <LogIn className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">No bookings ready for check-in</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredBookings.map((booking) => (
-                <div
-                  key={booking.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 cursor-pointer"
-                  onClick={() => handleSelectBooking(booking)}
-                >
-                  <div className="flex items-center gap-4">
-                    {booking.pet_photo_url && (
-                      <img
-                        src={booking.pet_photo_url}
-                        alt={booking.pet_name}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    )}
-                    <div>
-                      <p className="font-medium text-slate-900">{booking.pet_name}</p>
-                      <p className="text-sm text-slate-600">{booking.household_name}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {booking.planned_start_time && (
-                      <Badge variant="outline">{booking.planned_start_time}</Badge>
-                    )}
-                    
-                    {booking.has_behaviour_flag && (
-                      <Badge className="bg-amber-100 text-amber-700 border-0">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Behaviour
-                      </Badge>
-                    )}
-                    
-                    {booking.has_medical_flag && (
-                      <Badge className="bg-red-100 text-red-700 border-0">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Medical
-                      </Badge>
-                    )}
-                    
-                    {booking.vaccination_status !== 'valid' && booking.vaccination_status !== 'up_to_date' && (
-                      <Badge className={`border-0 ${
-                        booking.vaccination_status === 'expired' ? 'bg-red-100 text-red-700' :
-                        booking.vaccination_status === 'expiring_soon' ? 'bg-orange-100 text-orange-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {booking.vaccination_status === 'expired' ? 'Vaccination Expired' :
-                         booking.vaccination_status === 'expiring_soon' ? 'Vaccination Expiring' :
-                         'No Vaccination'}
-                      </Badge>
-                    )}
-                    
-                    <Button size="sm">
-                      <LogIn className="h-4 w-4 mr-2" />
-                      Check In
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+
+          {/* Walk-in button */}
+          <button
+            onClick={() => setShowWalkIn(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+            style={{ background: 'var(--primary-tint)', color: 'var(--primary)' }}
+          >
+            <UserPlus size={14} weight="bold" />
+            Walk-in
+          </button>
+        </div>
+
+        <div className="relative">
+          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E9B97]" />
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by pet or owner name…"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#9E9B97] hover:text-[#1C1916] transition-colors"
+            >
+              <X size={16} />
+            </button>
           )}
-        </CardContent>
-      </Card>
-      
-      {/* Validation Dialog */}
-      <Dialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              Check In: {selectedBooking?.pet_name}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedBooking?.household_name}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {/* Blockers */}
-            {validation && validation.blockers.length > 0 && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-2">
-                <div className="flex items-center gap-2 text-red-900 font-medium">
-                  <XCircle className="h-5 w-5" />
-                  Blockers - Cannot Check In
+        </div>
+      </div>
+
+      {/* Booking list */}
+      <div className="flex-1 overflow-auto p-4 space-y-3">
+
+        {isLoading && [0, 1, 2].map(i => (
+          <div key={i} className="animate-pulse rounded-2xl h-20 bg-white border border-[#E2DED8]" />
+        ))}
+
+        {!isLoading && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+            <Dog size={48} weight="thin" className="text-[#D4CFC9] mb-3" />
+            <p className="text-base font-medium text-[#1C1916] mb-1">No dogs waiting to check in</p>
+            <p className="text-sm text-[#6B6762] mb-6">
+              All confirmed bookings have been checked in.
+            </p>
+            <button
+              onClick={() => setShowWalkIn(true)}
+              className="flex items-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"
+              style={{ background: 'var(--primary-tint)', color: 'var(--primary)' }}
+            >
+              <UserPlus size={15} weight="bold" />
+              Add a walk-in
+            </button>
+          </div>
+        )}
+
+        {!isLoading && filtered.map(booking => {
+          const late = isLate(booking);
+          return (
+            <button
+              key={booking.id}
+              onClick={() => handleSelectBooking(booking)}
+              className="w-full bg-white rounded-2xl border p-4 flex items-center gap-4 text-left hover:shadow-sm active:scale-[0.99] transition-all"
+              style={{ borderColor: late ? '#FCD34D' : '#E2DED8' }}
+            >
+              {/* Avatar */}
+              <div
+                className="h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--primary-tint)' }}
+              >
+                <span className="text-lg font-bold" style={{ color: 'var(--primary)' }}>
+                  {booking.pet_name.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className="font-semibold text-[#1C1916] text-sm">{booking.pet_name}</span>
+                  {booking.service_type === 'membership' && (
+                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--primary-tint)', color: 'var(--primary)' }}>
+                      Member
+                    </span>
+                  )}
+                  {booking.has_behaviour_flag && (
+                    <Warning size={13} weight="fill" className="text-amber-500 flex-shrink-0" />
+                  )}
+                  {booking.has_medical_flag && (
+                    <FirstAidKit size={13} weight="fill" className="text-red-500 flex-shrink-0" />
+                  )}
                 </div>
-                {validation.blockers.map((blocker, index) => (
-                  <div key={index} className="flex items-start gap-2 ml-7 text-sm text-red-700">
-                    <span>•</span>
-                    <span>{blocker.message}</span>
+                <p className="text-xs text-[#6B6762] truncate">{booking.household_name}</p>
+                {booking.planned_start_time && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <Clock size={11} className="text-[#9E9B97]" />
+                    <span className="text-xs text-[#9E9B97]">{booking.planned_start_time}</span>
+                    {late && (
+                      <span className="text-xs font-semibold text-amber-600 ml-1">· Late</span>
+                    )}
                   </div>
-                ))}
+                )}
+              </div>
+
+              <CaretRight size={16} className="text-[#C8C4BC] flex-shrink-0" />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Walk-in panel (overlay) */}
+      <WalkInPanel
+        open={showWalkIn}
+        onClose={() => setShowWalkIn(false)}
+        locationId={selectedLocationId}
+        onBooked={async () => {
+          setShowWalkIn(false);
+          const { fetchStats } = useDaycareStore.getState();
+          await Promise.all([
+            load(),
+            fetchStats(selectedLocationId === 'ALL' ? undefined : selectedLocationId, today),
+          ]);
+        }}
+      />
+
+      {/* Validation dialog */}
+      <Dialog open={showValidationDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="rounded-3xl max-w-md p-0 overflow-hidden">
+
+          {/* Header */}
+          <div className="px-6 pt-6 pb-5 flex items-center gap-4" style={{ background: 'var(--primary-tint)' }}>
+            <div
+              className="h-14 w-14 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: 'var(--primary)' }}
+            >
+              <span className="text-xl font-bold text-white">
+                {selectedBooking?.pet_name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-[#1C1916] leading-tight">
+                {selectedBooking?.pet_name}
+              </h2>
+              <p className="text-sm text-[#6B6762] truncate">{selectedBooking?.household_name}</p>
+            </div>
+          </div>
+
+          <div className="px-6 py-5 space-y-4">
+
+            {/* Blockers */}
+            {validation?.blockers && validation.blockers.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <XCircle size={16} weight="fill" className="text-red-600 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-red-800">Cannot Check In</span>
+                </div>
+                <ul className="space-y-1 pl-6">
+                  {validation.blockers.map((b, i) => (
+                    <li key={i} className="text-sm text-red-700 list-disc">{b.message}</li>
+                  ))}
+                </ul>
               </div>
             )}
-            
+
             {/* Warnings */}
-            {validation && validation.warnings.length > 0 && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
-                <div className="flex items-center gap-2 text-amber-900 font-medium">
-                  <AlertTriangle className="h-5 w-5" />
-                  Warnings - Acknowledge Required
+            {validation?.warnings && validation.warnings.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Warning size={16} weight="fill" className="text-amber-600 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-amber-800">Warnings</span>
                 </div>
-                {validation.warnings.map((warning, index) => (
-                  <div key={index} className="flex items-start gap-2 ml-7 text-sm text-amber-700">
-                    <span>•</span>
-                    <span>{warning.message}</span>
-                  </div>
-                ))}
-                
-                <div className="flex items-center gap-2 ml-7 pt-2">
+                <ul className="space-y-1 pl-6 mb-3">
+                  {validation.warnings.map((w, i) => (
+                    <li key={i} className="text-sm text-amber-700 list-disc">{w.message}</li>
+                  ))}
+                </ul>
+                <div className="flex items-center gap-2 pt-2 border-t border-amber-200">
                   <Checkbox
-                    id="acknowledge-warnings"
+                    id="ack-warnings"
                     checked={warningsAcknowledged}
-                    onCheckedChange={(checked) => setWarningsAcknowledged(checked as boolean)}
+                    onCheckedChange={v => setWarningsAck(v as boolean)}
                   />
-                  <label
-                    htmlFor="acknowledge-warnings"
-                    className="text-sm font-medium text-amber-900 cursor-pointer"
-                  >
-                    I acknowledge these warnings and confirm check-in
+                  <label htmlFor="ack-warnings" className="text-sm font-medium text-amber-900 cursor-pointer">
+                    I acknowledge these warnings
                   </label>
                 </div>
               </div>
             )}
-            
-            {/* Success */}
-            {validation && validation.can_check_in && validation.blockers.length === 0 && validation.warnings.length === 0 && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2 text-green-900 font-medium">
-                  <CheckCircle className="h-5 w-5" />
-                  Ready to Check In
-                </div>
-                <p className="text-sm text-green-700 ml-7 mt-1">
-                  No issues detected. Ready to proceed.
-                </p>
+
+            {/* All clear */}
+            {validation?.can_check_in &&
+              !validation.blockers?.length &&
+              !validation.warnings?.length && (
+              <div
+                className="border rounded-xl p-4 flex items-center gap-3"
+                style={{ background: 'var(--primary-tint)', borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)' }}
+              >
+                <CheckCircle size={18} weight="fill" style={{ color: 'var(--primary)' }} className="flex-shrink-0" />
+                <span className="text-sm font-semibold" style={{ color: 'var(--primary)' }}>
+                  Ready to check in
+                </span>
               </div>
             )}
-            
-            {/* Handover Notes */}
-            {validation && validation.can_check_in && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">
-                  Handover Notes (Optional)
+
+            {/* Handover notes */}
+            {validation?.can_check_in && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-[#1C1916]">
+                  Handover notes <span className="text-[#9E9B97] font-normal">(optional)</span>
                 </label>
                 <Textarea
-                  placeholder="Any important information about the pet today..."
+                  placeholder="Any notes from the owner…"
                   value={handoverNotes}
-                  onChange={(e) => setHandoverNotes(e.target.value)}
+                  onChange={e => setHandoverNotes(e.target.value)}
                   rows={3}
+                  className="resize-none text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
                 />
               </div>
             )}
           </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowValidationDialog(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleCheckIn} 
-              disabled={!validation?.can_check_in || (validation.warnings.length > 0 && !warningsAcknowledged) || isLoading}
+
+          {/* Footer */}
+          <div className="px-6 pb-6 flex gap-3">
+            <button
+              onClick={() => setShowDialog(false)}
+              className="flex-1 h-11 rounded-xl border border-[#E2DED8] text-[#1C1916] text-sm font-medium hover:bg-[#F4F3EF] transition-colors"
             >
-              <LogIn className="h-4 w-4 mr-2" />
-              {validation?.can_check_in ? 'Confirm Check-In' : 'Cannot Check In'}
-            </Button>
-          </DialogFooter>
+              Cancel
+            </button>
+            <button
+              onClick={handleCheckIn}
+              disabled={!canConfirm}
+              className="flex-1 h-11 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
+              style={{ background: 'var(--primary)' }}
+            >
+              <SignIn size={16} weight="bold" />
+              {submitting ? 'Checking in…' : `Check In ${selectedBooking?.pet_name}`}
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
-      
     </div>
   );
 }

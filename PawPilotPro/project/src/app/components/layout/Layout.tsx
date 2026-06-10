@@ -20,11 +20,11 @@ export function Layout() {
   }, [fetchLocations, fetchOrganisation, fetchGlobalModules, isAuthLoading, user]);
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 font-sans">
+    <div className="flex flex-col h-screen w-full bg-[#F4F3EF] text-[#1C1916] font-sans">
       <ViewAsBanner />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto h-full w-full">
+        <main className="flex-1 overflow-auto h-full w-full bg-[#F4F3EF]">
           <div className="h-full w-full max-w-7xl mx-auto p-6 md:p-8">
             <Outlet />
           </div>

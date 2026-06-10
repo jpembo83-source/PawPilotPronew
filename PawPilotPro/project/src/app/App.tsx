@@ -3,10 +3,10 @@ import '../styles/theme.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ViewAsProvider } from './context/ViewAsContext';
-import { RealtimeProvider } from './context/RealtimeContext';
 import { Layout } from './components/layout/Layout';
 import { MobileLayout } from './components/layout/MobileLayout';
 import { LoginPage } from './modules/auth/LoginPage';
+import { ResetPasswordPage } from './modules/auth/ResetPasswordPage';
 import { Daycare } from './modules/daycare/Daycare';
 import { Grooming } from './modules/grooming';
 import { Dashboard } from './modules/dashboard/Dashboard';
@@ -16,6 +16,7 @@ import { OrganisationSettings } from './modules/settings/pages/OrganisationSetti
 import { LocationSettings } from './modules/settings/pages/LocationSettings';
 import { ModuleSettings } from './modules/settings/pages/ModuleSettings';
 import { DashboardSettings } from './modules/settings/pages/DashboardSettings';
+import { ServiceCapacitySettings } from './modules/settings/pages/ServiceCapacitySettings';
 import { Transportation } from './modules/transport/Transportation';
 import { UserManagement } from './modules/settings/pages/UserManagement';
 import { ServicesPricingPage } from './modules/services-pricing/pages/ServicesPricingPage';
@@ -23,7 +24,7 @@ import { ThemeManager } from './components/ThemeManager';
 import { Toaster } from 'sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Overnights } from './modules/overnights/pages/Overnights';
-import { CustomersPage, CreateHouseholdPage, HouseholdDetailPage, PetProfilePage, BulkImportPage, ExportPage, ClearDataPage } from './modules/customers';
+import { CustomersPage, CreateHouseholdPage, HouseholdDetailPage, PetProfilePage, BulkImportPage, ExportPage, ClearDataPage, VaxReviewPage, PendingRequestsPage } from './modules/customers';
 import { MessagingPage } from './modules/messaging/MessagingPage';
 import { OperationalRulesPage } from './modules/operational-rules/OperationalRulesPage';
 import { CommunicationsSettingsPage } from './modules/communications-settings';
@@ -32,12 +33,16 @@ import { DataCompliancePage } from './modules/data-compliance';
 import { IntegrationsSettingsPage } from './modules/integrations-settings';
 import { SystemPage } from './modules/system';
 import { Billing } from './modules/billing/Billing';
+import { PolicyPortal } from './modules/policies';
 import { IncidentsListPage, IncidentDetailPage } from './modules/incidents';
 import { RBACDocumentationPage } from './modules/settings/pages/RBACDocumentationPage';
-import { StaffMemberDetailPage } from './modules/staff';
-import { ReportsPage } from './modules/reports';
-import { CalendarPage } from './modules/calendar';
+import { StaffPage, StaffMemberDetailPage } from './modules/staff';
+import { KVDebug } from './debug/KVDebug';
+import { CustomerDebug } from './debug/CustomerDebug';
+import Packages from './modules/packages';
+import CapacityDashboard from './modules/capacity';
 import { BetaRoute } from './components/BetaRoute';
+import { Reporting } from './modules/reporting';
 
 // Placeholder components for unimplemented modules
 const PlaceholderModule = ({ title }: { title: string }) => (
@@ -101,7 +106,6 @@ export default function App() {
       <BrowserRouter>
         <Toaster position="top-right" />
         <AuthProvider>
-          <RealtimeProvider>
           <ViewAsProvider>
             <ThemeManager />
             <Routes>
@@ -113,6 +117,9 @@ export default function App() {
                   <LoginPage />
                 </PublicOnlyRoute>
               } />
+
+              {/* Standalone: must work regardless of the recovery session state */}
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               
               <Route path="/" element={
                 <PrivateRoute>
@@ -121,10 +128,10 @@ export default function App() {
               }>
                 <Route index element={<Dashboard />} />
                 <Route path="daycare/*" element={<Daycare />} />
-                <Route path="grooming/*" element={<Grooming />} />
+                <Route path="grooming/*" element={<BetaRoute><Grooming /></BetaRoute>} />
                 <Route path="overnights/*" element={<Overnights />} />
                 <Route path="transport/*" element={<Transportation />} />
-                {/* Boutique module placeholder hidden for production readiness */}
+                <Route path="boutique" element={<PlaceholderModule title="Boutique & POS" />} />
                 <Route path="customers" element={<CustomersPage />} />
                 <Route path="customers/new" element={<CreateHouseholdPage />} />
                 <Route path="customers/:householdId" element={<HouseholdDetailPage />} />
@@ -132,16 +139,23 @@ export default function App() {
                 <Route path="customers/bulk-import" element={<BulkImportPage />} />
                 <Route path="customers/export" element={<ExportPage />} />
                 <Route path="customers/clear-data" element={<ClearDataPage />} />
+                <Route path="customers/vax-review" element={<VaxReviewPage />} />
+                <Route path="customers/pending-requests" element={<PendingRequestsPage />} />
                 {/* Beta-only routes - only visible to beta testers */}
                 <Route path="messages" element={<BetaRoute><MessagingPage /></BetaRoute>} />
-                <Route path="calendar" element={<CalendarPage />} />
-                <Route path="billing" element={<Billing />} />
-                <Route path="staff/member/:id" element={<StaffMemberDetailPage />} />
+                <Route path="billing" element={<BetaRoute><Billing /></BetaRoute>} />
+                <Route path="policies" element={<BetaRoute><PolicyPortal /></BetaRoute>} />
+                <Route path="staff" element={<BetaRoute><StaffPage /></BetaRoute>} />
+                <Route path="staff/member/:id" element={<BetaRoute><StaffMemberDetailPage /></BetaRoute>} />
+                <Route path="packages/*" element={<BetaRoute><Packages /></BetaRoute>} />
                 
                 {/* Production routes */}
-                <Route path="reports" element={<ReportsPage />} />
                 <Route path="incidents" element={<IncidentsListPage />} />
                 <Route path="incidents/:id" element={<IncidentDetailPage />} />
+                <Route path="capacity" element={<CapacityDashboard />} />
+                <Route path="reports/*" element={<Reporting />} />
+                <Route path="debug-kv" element={<KVDebug />} />
+                <Route path="debug-customer" element={<CustomerDebug />} />
                 
                 <Route path="settings" element={<SettingsLayout />}>
                   <Route index element={<SettingsOverview />} />
@@ -150,6 +164,7 @@ export default function App() {
                   <Route path="locations" element={<LocationSettings />} />
                   <Route path="users" element={<UserManagement />} />
                   <Route path="services" element={<ServicesPricingPage />} />
+                  <Route path="capacity" element={<ServiceCapacitySettings />} />
                   <Route path="operations" element={<OperationalRulesPage />} />
                   <Route path="communications" element={<CommunicationsSettingsPage />} />
                   <Route path="billing" element={<BillingFinanceSettingsPage />} />
@@ -162,7 +177,6 @@ export default function App() {
               </Route>
             </Routes>
           </ViewAsProvider>
-          </RealtimeProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>

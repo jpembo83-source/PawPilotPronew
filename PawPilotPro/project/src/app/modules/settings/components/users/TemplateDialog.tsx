@@ -16,7 +16,7 @@ import { Checkbox } from '../../../../components/ui/checkbox';
 import { Badge } from '../../../../components/ui/badge';
 import { useAuth } from '../../../../context/AuthContext';
 import { Alert, AlertDescription } from '../../../../components/ui/alert';
-import { Info, Shield } from 'lucide-react';
+import { Info, Shield } from '@phosphor-icons/react';
 
 interface TemplateDialogProps {
   open: boolean;

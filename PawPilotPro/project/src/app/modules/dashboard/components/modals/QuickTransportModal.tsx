@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../../components/ui/dialog';
 import { Button } from '../../../../components/ui/button';
-import { Truck, ArrowRight } from 'lucide-react';
+import { Truck } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 
 interface QuickTransportModalProps {
@@ -14,12 +14,8 @@ export function QuickTransportModal({ open, onClose }: QuickTransportModalProps)
 
   const handleViewTransport = () => {
     onClose();
-    navigate('/transport');
-  };
-
-  const handleViewJobs = () => {
-    onClose();
-    navigate('/transport/jobs');
+    // Navigate to transport module when it exists
+    // navigate('/transport');
   };
 
   return (
@@ -28,49 +24,23 @@ export function QuickTransportModal({ open, onClose }: QuickTransportModalProps)
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
-            Transport
+            Transport Quick Access
           </DialogTitle>
           <DialogDescription>
-            Quick access to transport management
+            Transport management features coming soon
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 py-2">
-          <button
-            onClick={handleViewTransport}
-            className="w-full flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-left group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Truck className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900">Transport Dashboard</p>
-                <p className="text-sm text-slate-500">Overview and route planning</p>
-              </div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
-          </button>
-
-          <button
-            onClick={handleViewJobs}
-            className="w-full flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-left group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                <Truck className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="font-medium text-slate-900">All Jobs</p>
-                <p className="text-sm text-slate-500">View and manage transport jobs</p>
-              </div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600" />
-          </button>
+        <div className="py-8 text-center text-slate-500">
+          <Truck className="h-16 w-16 mx-auto mb-4 text-slate-300" />
+          <p className="font-medium">Transport Module</p>
+          <p className="text-sm mt-2">
+            This feature will provide quick access to transport scheduling and driver assignments
+          </p>
         </div>
 
-        <div className="flex justify-end pt-2 border-t">
-          <Button variant="outline" onClick={onClose}>Close</Button>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button onClick={onClose}>Close</Button>
         </div>
       </DialogContent>
     </Dialog>

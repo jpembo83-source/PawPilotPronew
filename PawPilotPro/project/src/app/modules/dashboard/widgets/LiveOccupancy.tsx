@@ -3,7 +3,7 @@ import { WidgetCard } from './WidgetCard';
 import { useDashboardStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { useDaycareStore } from '../../daycare/store';
-import { Users, AlertCircle, ArrowRight, LogOut } from 'lucide-react';
+import { UsersThree, Warning, ArrowRight, SignOut } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { AttendanceRecord } from '../../daycare/types';
 
@@ -250,7 +250,7 @@ export function LiveOccupancy() {
 
   if (isLoading || !data) {
      return (
-        <WidgetCard title="Live Occupancy" icon={Users} className="h-full">
+        <WidgetCard title="Live Occupancy" icon={UsersThree} className="h-full">
            <div className="flex items-center justify-center h-40">
              <div className="text-center">
                <div className="animate-spin h-8 w-8 border-4 border-slate-200 border-t-slate-600 rounded-full mx-auto mb-2"></div>
@@ -306,7 +306,7 @@ export function LiveOccupancy() {
     <>
       <WidgetCard 
         title="Live Occupancy" 
-        icon={Users}
+        icon={UsersThree}
         description="Real-time check-ins"
         className="h-full"
       >
@@ -348,7 +348,7 @@ export function LiveOccupancy() {
 
           {data.total.percent > 80 && (
             <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 p-3 rounded-md text-amber-900 text-xs">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <Warning className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">High occupancy warning</p>
                 <p className="text-amber-700 mt-0.5">Check staff ratios and supervision levels</p>
@@ -358,7 +358,7 @@ export function LiveOccupancy() {
 
           {data.total.percent >= 100 && (
             <div className="flex items-start gap-2 bg-red-50 border border-red-200 p-3 rounded-md text-red-900 text-xs">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <Warning className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">At capacity</p>
                 <p className="text-red-700 mt-0.5">No additional check-ins available</p>
@@ -368,7 +368,7 @@ export function LiveOccupancy() {
 
           {data.total.current === 0 && (
             <div className="text-center py-4 text-slate-400 text-sm">
-              <Users className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+              <UsersThree className="h-8 w-8 mx-auto mb-2 text-slate-300" />
               <p>No dogs currently checked in</p>
             </div>
           )}
@@ -414,7 +414,7 @@ export function LiveOccupancy() {
                           <div className="animate-spin h-3 w-3 border-2 border-blue-200 border-t-blue-600 rounded-full"></div>
                         ) : (
                           <>
-                            <LogOut className="h-3 w-3" />
+                            <SignOut className="h-3 w-3" />
                             <span>Out</span>
                           </>
                         )}

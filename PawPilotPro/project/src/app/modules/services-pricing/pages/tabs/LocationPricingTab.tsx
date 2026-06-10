@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, DollarSign } from 'lucide-react';
+import { MapPin, CurrencyDollar } from '@phosphor-icons/react';
 import { useServicesPricingStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { Badge } from '../../../../components/ui/badge';
@@ -43,7 +43,7 @@ export function LocationPricingTab() {
   if (!activePriceBook) {
     return (
       <div className="text-center py-12">
-        <DollarSign className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+        <CurrencyDollar className="h-12 w-12 text-slate-300 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-slate-900 mb-2">No active price book</h3>
         <p className="text-sm text-slate-500 mb-4">
           Activate a price book to configure location pricing

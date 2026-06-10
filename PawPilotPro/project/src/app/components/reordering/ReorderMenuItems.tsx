@@ -3,7 +3,7 @@
 // British English, RBAC-enforced, fully database-backed
 
 import { DropdownMenuItem } from '../ui/dropdown-menu';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown } from '@phosphor-icons/react';
 
 interface ReorderMenuItemsProps {
   /** Current item's position in the list (0-based index) */

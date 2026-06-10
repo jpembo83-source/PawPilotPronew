@@ -11,7 +11,7 @@ import type { Vehicle } from '../types';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
-import { Truck, Plus, Trash2, Edit, Loader2, AlertCircle, User } from 'lucide-react';
+import { Truck, Plus, Trash, PencilSimple, CircleNotch, Warning, User } from '@phosphor-icons/react';
 import {
   Dialog,
   DialogContent,
@@ -141,7 +141,7 @@ export function VehicleManager() {
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <Warning className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-medium text-red-900">Error</h4>
             <p className="text-sm text-red-700 mt-1">{error}</p>
@@ -153,7 +153,7 @@ export function VehicleManager() {
       {isLoading && vehicles.length === 0 && (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <Loader2 className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
+            <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
             <p className="text-slate-500">Loading vehicles...</p>
           </div>
         </div>
@@ -214,10 +214,10 @@ export function VehicleManager() {
 
               <div className="flex items-center justify-end gap-2 mt-2 pt-3 border-t border-slate-100">
                  <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(vehicle)}>
-                   <Edit className="h-4 w-4" />
+                   <PencilSimple className="h-4 w-4" />
                  </Button>
                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600" onClick={() => handleDelete(vehicle.id)}>
-                   <Trash2 className="h-4 w-4" />
+                   <Trash className="h-4 w-4" />
                  </Button>
               </div>
             </div>
@@ -282,7 +282,7 @@ export function VehicleManager() {
              <DialogFooter>
                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
                <Button type="submit" disabled={isLoading}>
-                 {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                 {isLoading ? <CircleNotch className="h-4 w-4 mr-2 animate-spin" /> : null}
                  Save
                </Button>
              </DialogFooter>

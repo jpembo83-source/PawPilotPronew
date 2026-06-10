@@ -20,19 +20,19 @@ import {
   DialogTitle,
 } from '../../../components/ui/dialog';
 import {
-  Search,
-  LogIn,
+  MagnifyingGlass,
+  SignIn,
   Moon,
   ArrowLeft,
-  AlertTriangle,
+  Warning,
   XCircle,
   CheckCircle,
   Pill,
-  ShieldAlert,
+  ShieldWarning,
   Syringe,
-  FileWarning,
-  ArrowRightLeft,
-} from 'lucide-react';
+  FileDashed,
+  ArrowsLeftRight,
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { OvernightReservation, CheckInRequest } from '../types';
 
@@ -197,7 +197,7 @@ export function OvernightCheckIn() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-            <LogIn className="h-6 w-6 text-emerald-600" />
+            <SignIn className="h-6 w-6 text-emerald-600" />
             Overnight Check-In
           </h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -213,7 +213,7 @@ export function OvernightCheckIn() {
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Search pet or customer name..."
               value={searchQuery}
@@ -234,7 +234,7 @@ export function OvernightCheckIn() {
             <div className="text-center py-8 text-slate-500">Loading reservations...</div>
           ) : filteredReservations.length === 0 ? (
             <div className="text-center py-8">
-              <LogIn className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <SignIn className="h-12 w-12 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500">No reservations ready for check-in today</p>
             </div>
           ) : (
@@ -267,18 +267,18 @@ export function OvernightCheckIn() {
                     )}
                     {reservation.hasBehaviourConcerns && (
                       <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
-                        <ShieldAlert className="h-3 w-3 mr-1" />
+                        <ShieldWarning className="h-3 w-3 mr-1" />
                         Behaviour
                       </Badge>
                     )}
                     {reservation.hasAllergies && (
                       <Badge variant="outline" className="text-xs text-purple-600 border-purple-200">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        <Warning className="h-3 w-3 mr-1" />
                         Allergies
                       </Badge>
                     )}
                     <Button size="sm">
-                      <LogIn className="h-4 w-4 mr-2" />
+                      <SignIn className="h-4 w-4 mr-2" />
                       Check In
                     </Button>
                   </div>
@@ -346,7 +346,7 @@ export function OvernightCheckIn() {
             {hasWarnings && (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-3">
                 <div className="flex items-center gap-2 text-amber-900 font-medium">
-                  <AlertTriangle className="h-5 w-5" />
+                  <Warning className="h-5 w-5" />
                   Warnings — Acknowledgement Required
                 </div>
                 {warnings.map((warning, index) => (
@@ -397,7 +397,7 @@ export function OvernightCheckIn() {
             <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-medium text-indigo-900">
-                  <ArrowRightLeft className="h-4 w-4" />
+                  <ArrowsLeftRight className="h-4 w-4" />
                   Transitioning from Daycare?
                 </div>
                 <Switch
@@ -464,7 +464,7 @@ export function OvernightCheckIn() {
               onClick={handleCheckIn}
               disabled={(!transitionFromDaycareMode && !canCheckIn) || isLoading}
             >
-              <LogIn className="h-4 w-4 mr-2" />
+              <SignIn className="h-4 w-4 mr-2" />
               {transitionFromDaycareMode
                 ? 'Transition & Check In'
                 : canCheckIn

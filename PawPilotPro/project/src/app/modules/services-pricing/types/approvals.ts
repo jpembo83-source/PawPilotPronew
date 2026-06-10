@@ -69,7 +69,7 @@ export interface LocationPriceOverrideProposal {
   // Status
   status: ApprovalStatus;
   
-  // Workflow
+  // GitBranch
   proposedBy: string;
   proposedAt: string;
   

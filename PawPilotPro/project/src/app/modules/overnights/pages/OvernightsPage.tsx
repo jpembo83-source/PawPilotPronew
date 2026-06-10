@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Moon, Calendar, BedDouble, ClipboardList, Users, Plus, LogIn, LogOut, LayoutGrid } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Moon, CalendarBlank, Bed, ClipboardText, UsersThree, Plus, SignIn, SignOut, SquaresFour } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
@@ -35,17 +34,6 @@ export function OvernightsPage() {
       fetchCapacity(selectedLocation.id);
     }
   }, [selectedLocation?.id]);
-
-  const loadOvernightData = useCallback(() => {
-    if (selectedLocation) {
-      fetchReservations(selectedLocation.id);
-      fetchTonightsBoarders(selectedLocation.id);
-      fetchCapacity(selectedLocation.id);
-    }
-  }, [selectedLocation, fetchReservations, fetchTonightsBoarders, fetchCapacity]);
-
-  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
-  useModuleRealtimeSync('overnights', loadOvernightData, true, locationFilter);
 
   if (!selectedLocation) {
     return (
@@ -96,7 +84,7 @@ export function OvernightsPage() {
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center">
-              <BedDouble className="h-5 w-5 text-indigo-600" />
+              <Bed className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">
@@ -113,7 +101,7 @@ export function OvernightsPage() {
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-emerald-600" />
+              <CalendarBlank className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{checkInsToday.length}</p>
@@ -125,7 +113,7 @@ export function OvernightsPage() {
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center">
-              <Users className="h-5 w-5 text-amber-600" />
+              <UsersThree className="h-5 w-5 text-amber-600" />
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{checkOutsToday.length}</p>
@@ -137,7 +125,7 @@ export function OvernightsPage() {
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center">
-              <ClipboardList className="h-5 w-5 text-rose-600" />
+              <ClipboardText className="h-5 w-5 text-rose-600" />
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">
@@ -151,21 +139,21 @@ export function OvernightsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Button variant="outline" className="gap-2 h-auto py-3" onClick={() => navigate('/overnights/check-in')}>
-          <LogIn className="h-4 w-4 text-emerald-600" />
+          <SignIn className="h-4 w-4 text-emerald-600" />
           <div className="text-left">
             <div className="text-sm font-medium">Check In</div>
             <div className="text-xs text-slate-500">{checkInsToday.length} expected</div>
           </div>
         </Button>
         <Button variant="outline" className="gap-2 h-auto py-3" onClick={() => navigate('/overnights/check-out')}>
-          <LogOut className="h-4 w-4 text-blue-600" />
+          <SignOut className="h-4 w-4 text-blue-600" />
           <div className="text-left">
             <div className="text-sm font-medium">Check Out</div>
             <div className="text-xs text-slate-500">{checkOutsToday.length} departing</div>
           </div>
         </Button>
         <Button variant="outline" className="gap-2 h-auto py-3" onClick={() => navigate('/overnights/planning')}>
-          <LayoutGrid className="h-4 w-4 text-purple-600" />
+          <SquaresFour className="h-4 w-4 text-purple-600" />
           <div className="text-left">
             <div className="text-sm font-medium">Planning Board</div>
             <div className="text-xs text-slate-500">
@@ -174,14 +162,14 @@ export function OvernightsPage() {
           </div>
         </Button>
         <Button variant="outline" className="gap-2 h-auto py-3" onClick={() => navigate('/overnights/care-logs')}>
-          <ClipboardList className="h-4 w-4 text-orange-600" />
+          <ClipboardText className="h-4 w-4 text-orange-600" />
           <div className="text-left">
             <div className="text-sm font-medium">Care Logs</div>
             <div className="text-xs text-slate-500">Nightly records</div>
           </div>
         </Button>
         <Button variant="outline" className="gap-2 h-auto py-3" onClick={() => navigate('/overnights/capacity')}>
-          <BedDouble className="h-4 w-4 text-indigo-600" />
+          <Bed className="h-4 w-4 text-indigo-600" />
           <div className="text-left">
             <div className="text-sm font-medium">Capacity</div>
             <div className="text-xs text-slate-500">Manage slots</div>

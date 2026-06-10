@@ -4,15 +4,15 @@ import { useCustomerStore } from '../store';
 import { 
   ArrowLeft, 
   Dog,
-  AlertCircle,
-  FileWarning,
-  Activity,
+  Warning,
+  FileDashed,
+  Pulse,
   Syringe,
   Flag as FlagIcon,
   Camera,
-  Loader2,
+  CircleNotch,
   X
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -22,6 +22,28 @@ import {
 } from '../../../components/ui/card';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { supabase } from '@/utils/supabase/client';
+
+const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+interface PetSummary {
+  documentCount: number;
+  documentsExpired: number;
+  recentVisits: number;
+  lastVisit: string | null;
+  vaccinationCount: number;
+  vaccinationsExpiring: number;
+}
+
+const EMPTY_SUMMARY: PetSummary = {
+  documentCount: 0,
+  documentsExpired: 0,
+  recentVisits: 0,
+  lastVisit: null,
+  vaccinationCount: 0,
+  vaccinationsExpiring: 0,
+};
 
 // Import tab components
 import { PetOverviewTab } from '../components/pet-profile/PetOverviewTab';
@@ -33,18 +55,104 @@ import { EditPetModal } from '../components/modals/EditPetModal';
 export function PetProfilePage() {
   const { petId } = useParams<{ petId: string }>();
   const navigate = useNavigate();
-  const { currentPetProfile, isLoading, fetchPetProfile, updatePet } = useCustomerStore();
+  const { currentPetProfile, isLoading, fetchPetProfile, updatePet, flags, fetchFlags } = useCustomerStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
+  const [summary, setSummary] = useState<PetSummary>(EMPTY_SUMMARY);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
   useEffect(() => {
     if (petId) {
       fetchPetProfile(petId);
     }
   }, [petId]);
+
+  useEffect(() => {
+    if (currentPetProfile?.household_id) {
+      fetchFlags(currentPetProfile.household_id);
+    }
+  }, [currentPetProfile?.household_id]);
+
+  // Fetch real summary stats (documents, vaccinations, visits) for this pet
+  useEffect(() => {
+    const householdId = currentPetProfile?.household_id;
+    const id = currentPetProfile?.id;
+    if (!householdId || !id) return;
+
+    let cancelled = false;
+    const loadSummary = async () => {
+      setSummaryLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers = {
+          'Authorization': `Bearer ${publicAnonKey}`,
+          'X-User-Token': `Bearer ${session?.access_token ?? ''}`,
+        };
+
+        const [docsRes, vaxRes, visitsRes] = await Promise.allSettled([
+          fetch(`${API_BASE}/customers/households/${householdId}/documents`, { headers }),
+          fetch(`${API_BASE}/pets/${id}/vaccinations`, { headers }),
+          fetch(`${API_BASE}/daycare/bookings?pet_id=${id}`, { headers }),
+        ]);
+
+        const now = Date.now();
+        const next: PetSummary = { ...EMPTY_SUMMARY };
+
+        // Documents — count this pet's docs plus household-wide docs that apply to it
+        if (docsRes.status === 'fulfilled' && docsRes.value.ok) {
+          const body = await docsRes.value.json().catch(() => ({}));
+          const documents: any[] = body.documents ?? [];
+          const petDocs = documents.filter(d => d.pet_id === id || !d.pet_id);
+          next.documentCount = petDocs.length;
+          next.documentsExpired = petDocs.filter(
+            d => d.expiry_date && new Date(d.expiry_date).getTime() < now
+          ).length;
+        }
+
+        // Vaccinations — count records and those due within 30 days
+        if (vaxRes.status === 'fulfilled' && vaxRes.value.ok) {
+          const body = await vaxRes.value.json().catch(() => ({}));
+          const vaccinations: any[] = body.vaccinations ?? [];
+          next.vaccinationCount = vaccinations.length;
+          next.vaccinationsExpiring = vaccinations.filter(v => {
+            if (!v.next_due_date) return false;
+            const due = new Date(v.next_due_date).getTime();
+            return due >= now && due <= now + 30 * MS_PER_DAY;
+          }).length;
+        }
+
+        // Visits — attended daycare bookings; "recent" = last 90 days
+        if (visitsRes.status === 'fulfilled' && visitsRes.value.ok) {
+          const bookings: any[] = await visitsRes.value.json().catch(() => []);
+          const attended = (Array.isArray(bookings) ? bookings : []).filter(
+            b => b.check_in_status === 'checked_out' || b.booking_status === 'completed'
+          );
+          const visitTime = (b: any) =>
+            b.actual_check_in_time
+              ? new Date(b.actual_check_in_time).getTime()
+              : b.booking_date
+              ? new Date(b.booking_date).getTime()
+              : 0;
+          next.recentVisits = attended.filter(b => visitTime(b) >= now - 90 * MS_PER_DAY).length;
+          const mostRecent = attended.reduce<number>((max, b) => Math.max(max, visitTime(b)), 0);
+          next.lastVisit = mostRecent > 0 ? new Date(mostRecent).toISOString() : null;
+        }
+
+        if (!cancelled) setSummary(next);
+      } catch (err) {
+        console.error('Failed to load pet summary:', err);
+        if (!cancelled) setSummary(EMPTY_SUMMARY);
+      } finally {
+        if (!cancelled) setSummaryLoading(false);
+      }
+    };
+
+    loadSummary();
+    return () => { cancelled = true; };
+  }, [currentPetProfile?.household_id, currentPetProfile?.id]);
   
   // Update preview when pet profile loads
   useEffect(() => {
@@ -143,7 +251,7 @@ export function PetProfilePage() {
       <div className="p-6">
         <Card>
           <CardContent className="py-12 text-center">
-            <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <Warning className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <h3 className="font-semibold text-slate-900 mb-2">Pet not found</h3>
             <p className="text-slate-600 mb-4">
               This pet doesn't exist or you don't have permission to view it
@@ -160,20 +268,10 @@ export function PetProfilePage() {
   
   // currentPetProfile is just the Pet object
   const pet = currentPetProfile;
-  const flags: any[] = []; // TODO: Fetch flags from API
-  const hasAlerts = flags.filter(f => !f.isResolved).length > 0 || !pet.active;
-  
-  // Mock summary data - TODO: Fetch from API
-  const summary = {
-    documentStatus: {
-      valid: 0,
-      expiring: 0,
-      expired: 0,
-    },
-    recentVisits: 0,
-    lastVisit: null as string | null,
-  };
-  
+  // Filter flags that belong to this pet specifically, or household-level flags with no pet link
+  const petFlags = flags.filter(f => f.is_active && (f.pet_id === pet!.id || !f.pet_id));
+  const hasAlerts = petFlags.length > 0 || !pet!.active;
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -214,7 +312,7 @@ export function PetProfilePage() {
               
               {uploading && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 text-white animate-spin" />
+                  <CircleNotch className="h-8 w-8 text-white animate-spin" />
                 </div>
               )}
               
@@ -249,7 +347,7 @@ export function PetProfilePage() {
                 {pet.active ? 'active' : 'inactive'}
               </Badge>
               {hasAlerts && (
-                <AlertCircle className="h-6 w-6 text-red-500" />
+                <Warning className="h-6 w-6 text-red-500" />
               )}
             </div>
             
@@ -286,7 +384,7 @@ export function PetProfilePage() {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+              <Warning className="h-5 w-5 text-red-600 mt-0.5" />
               <div className="flex-1">
                 <h3 className="font-semibold text-red-900 mb-2">Active Alerts</h3>
                 <div className="space-y-2">
@@ -295,11 +393,11 @@ export function PetProfilePage() {
                       • Pet is inactive
                     </div>
                   )}
-                  {flags.filter(f => !f.isResolved).map(flag => (
+                  {petFlags.map(flag => (
                     <div key={flag.id} className="text-sm text-red-700">
-                      • {flag.title}
-                      {flag.blocksCheckIn && ' (Blocks check-in)'}
-                      {flag.blocksBooking && ' (Blocks booking)'}
+                      • {flag.flag_key.replace(/_/g, ' ')}
+                      {flag.severity === 'block' && ' (Blocks check-in)'}
+                      {flag.reason && ` — ${flag.reason}`}
                     </div>
                   ))}
                 </div>
@@ -316,14 +414,20 @@ export function PetProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Documents</p>
-                <p className="text-2xl font-bold">{summary.documentStatus.valid + summary.documentStatus.expiring + summary.documentStatus.expired}</p>
-                {summary.documentStatus.expired > 0 && (
-                  <p className="text-xs text-red-600 mt-1">
-                    {summary.documentStatus.expired} expired
-                  </p>
+                {summaryLoading ? (
+                  <Skeleton className="h-8 w-10" />
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold">{summary.documentCount}</p>
+                    {summary.documentsExpired > 0 && (
+                      <p className="text-xs text-red-600 mt-1">
+                        {summary.documentsExpired} expired
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
-              <FileWarning className="h-8 w-8 text-slate-400" />
+              <FileDashed className="h-8 w-8 text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -333,14 +437,20 @@ export function PetProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Recent Visits</p>
-                <p className="text-2xl font-bold">{summary.recentVisits}</p>
-                {summary.lastVisit && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    Last: {new Date(summary.lastVisit).toLocaleDateString('en-GB')}
-                  </p>
+                {summaryLoading ? (
+                  <Skeleton className="h-8 w-10" />
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold">{summary.recentVisits}</p>
+                    {summary.lastVisit && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Last: {new Date(summary.lastVisit).toLocaleDateString('en-GB')}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
-              <Activity className="h-8 w-8 text-slate-400" />
+              <Pulse className="h-8 w-8 text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -350,7 +460,7 @@ export function PetProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Active Flags</p>
-                <p className="text-2xl font-bold">{flags.filter(f => !f.isResolved).length}</p>
+                <p className="text-2xl font-bold">{petFlags.length}</p>
               </div>
               <FlagIcon className="h-8 w-8 text-slate-400" />
             </div>
@@ -362,11 +472,17 @@ export function PetProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Vaccinations</p>
-                <p className="text-2xl font-bold">{summary.documentStatus.valid}</p>
-                {summary.documentStatus.expiring > 0 && (
-                  <p className="text-xs text-orange-600 mt-1">
-                    {summary.documentStatus.expiring} expiring soon
-                  </p>
+                {summaryLoading ? (
+                  <Skeleton className="h-8 w-10" />
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold">{summary.vaccinationCount}</p>
+                    {summary.vaccinationsExpiring > 0 && (
+                      <p className="text-xs text-orange-600 mt-1">
+                        {summary.vaccinationsExpiring} expiring soon
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
               <Syringe className="h-8 w-8 text-slate-400" />

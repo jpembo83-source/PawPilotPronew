@@ -7,9 +7,9 @@ import {
   Phone, 
   MapPin, 
   Heart,
-  AlertTriangle,
+  Warning,
   Pill
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 
@@ -224,7 +224,7 @@ export function PetOverviewTab({ pet }: PetOverviewTabProps) {
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <Warning className="h-4 w-4 text-amber-600" />
               <CardTitle className="text-amber-900 text-base">Allergies & Restrictions</CardTitle>
             </div>
           </CardHeader>

@@ -1,0 +1,61 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "PawPilotPro Dev Server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "PawPilotPro/project", "run", "dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "PawPilotPro Frosty",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/jasonpemberton/Downloads/PawPilotPronew/.claude/worktrees/frosty-panini/PawPilotPro/project", "run", "dev"],
+      "port": 5174,
+      "autoPort": false
+    },
+    {
+      "name": "PawPilotPro Assess",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/jasonpemberton/PawPilotPro-assess/project", "run", "dev", "--", "--port", "5176", "--strictPort"],
+      "port": 5176,
+      "autoPort": false
+    },
+    {
+      "name": "PawPilotPro Portal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/jasonpemberton/PawPilotPro-portal/portal", "run", "dev"],
+      "port": 5175,
+      "autoPort": true
+    },
+    {
+      "name": "PawPilotPro Staff (v2)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/jasonpemberton/PawPilotPro-portal/project", "run", "dev", "--", "--port", "5174", "--strictPort"],
+      "port": 5174,
+      "autoPort": false
+    },
+    {
+      "name": "aria-ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/jasonpemberton/projects/aria/ui", "run", "dev", "--", "--port", "5174", "--strictPort"],
+      "port": 5174,
+      "autoPort": false
+    },
+    {
+      "name": "social-sausage-hotel",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/jasonpemberton/Downloads/social-sausage-hotel", "run", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "PawPilotPro Marketing",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/jasonpemberton/Downloads/PawPilotPro-Marketing", "run", "dev", "--", "--port", "5180", "--strictPort"],
+      "port": 5180,
+      "autoPort": false
+    }
+  ]
+}

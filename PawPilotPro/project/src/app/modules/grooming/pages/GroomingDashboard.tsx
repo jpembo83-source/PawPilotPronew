@@ -1,26 +1,25 @@
 // Grooming Dashboard - MDC Operations Centre
 // Operational home for grooming salon with today's overview and quick actions
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useGroomingStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useAuth } from '../../../context/AuthContext';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { 
-  Calendar, 
-  Users, 
+  CalendarBlank, 
+  UsersThree, 
   Clock, 
   Scissors,
   Plus,
-  AlertTriangle,
+  Warning,
   CheckCircle,
   Play,
   UserCheck,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { APPOINTMENT_STATUSES, SERVICE_TYPES } from '../types';
 
@@ -59,17 +58,14 @@ export function GroomingDashboard() {
     }
   }, [error]);
   
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     const locationId = selectedLocationId === 'ALL' ? undefined : selectedLocationId;
     await Promise.all([
       fetchStats(locationId, today),
       fetchQueue(locationId),
       fetchGroomers(locationId),
     ]);
-  }, [selectedLocationId, today]);
-
-  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
-  useModuleRealtimeSync('grooming', loadData, true, locationFilter);
+  };
   
   const canCreate = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'assistant_manager' || user?.role === 'staff';
   
@@ -87,7 +83,7 @@ export function GroomingDashboard() {
         </div>
         <div className="flex items-center gap-2">
           {canCreate && (
-            <Button onClick={() => navigate('/grooming/appointments/new')}>
+            <Button onClick={() => navigate('/grooming/appointments?action=create')}>
               <Plus className="h-4 w-4 mr-2" />
               New Appointment
             </Button>
@@ -103,7 +99,7 @@ export function GroomingDashboard() {
         >
           <CardHeader className="pb-2">
             <CardDescription className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
+              <CalendarBlank className="h-4 w-4" />
               Today's Appointments
             </CardDescription>
             <CardTitle className="text-3xl">{stats?.total_appointments || 0}</CardTitle>
@@ -121,7 +117,7 @@ export function GroomingDashboard() {
         >
           <CardHeader className="pb-2">
             <CardDescription className="text-amber-900 flex items-center gap-2">
-              <Users className="h-4 w-4" />
+              <UsersThree className="h-4 w-4" />
               Waiting
             </CardDescription>
             <CardTitle className="text-3xl text-amber-900">{stats?.queue_length || queue.length || 0}</CardTitle>
@@ -169,21 +165,21 @@ export function GroomingDashboard() {
           </CardContent>
         </Card>
         
-        <Card 
-          className={`cursor-pointer hover:shadow-lg transition-shadow ${(stats?.vaccination_alerts || 0) > 0 ? 'border-red-200 bg-red-50' : ''}`}
+        <Card
+          className="cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => navigate('/grooming/appointments?has_flags=true')}
         >
           <CardHeader className="pb-2">
-            <CardDescription className={`flex items-center gap-2 ${(stats?.vaccination_alerts || 0) > 0 ? 'text-red-900' : ''}`}>
-              <AlertTriangle className="h-4 w-4" />
+            <CardDescription className="flex items-center gap-2">
+              <Warning className="h-4 w-4" />
               Alerts
             </CardDescription>
-            <CardTitle className={`text-3xl ${(stats?.vaccination_alerts || 0) > 0 ? 'text-red-900' : ''}`}>
-              {(stats?.vaccination_alerts || 0) + (stats?.behaviour_flags || 0) + (stats?.medical_flags || 0)}
+            <CardTitle className="text-3xl">
+              {(stats?.behaviour_flags || 0) + (stats?.medical_flags || 0)}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-sm ${(stats?.vaccination_alerts || 0) > 0 ? 'text-red-700' : 'text-slate-600'}`}>
+            <p className="text-sm text-slate-600">
               Needs attention
             </p>
           </CardContent>
@@ -291,15 +287,15 @@ export function GroomingDashboard() {
         <CardContent>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" onClick={() => navigate('/grooming/appointments')}>
-              <Calendar className="h-4 w-4 mr-2" />
+              <CalendarBlank className="h-4 w-4 mr-2" />
               View Schedule
             </Button>
             <Button variant="outline" onClick={() => navigate('/grooming/queue')}>
-              <Users className="h-4 w-4 mr-2" />
+              <UsersThree className="h-4 w-4 mr-2" />
               Manage Queue
             </Button>
             {canCreate && (
-              <Button variant="outline" onClick={() => navigate('/grooming/appointments/new')}>
+              <Button variant="outline" onClick={() => navigate('/grooming/appointments?action=create')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Book Appointment
               </Button>

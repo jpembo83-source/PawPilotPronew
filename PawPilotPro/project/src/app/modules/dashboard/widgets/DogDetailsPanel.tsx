@@ -2,7 +2,7 @@
 // Side panel for viewing booking details and performing check-in/out actions
 
 import React, { useState, useEffect } from 'react';
-import { X, Dog, AlertTriangle, FileWarning, Ban, Activity, Clock, CheckCircle, LogOut } from 'lucide-react';
+import { X, Dog, Warning, FileDashed, Prohibit, Pulse, Clock, CheckCircle, SignOut, ChatTeardrop, FileText } from '@phosphor-icons/react';
 import { useDaycareStore } from '../../daycare/store';
 import { useAuth } from '../../../context/AuthContext';
 import { cn } from '../../../components/ui/utils';
@@ -221,13 +221,13 @@ export function DogDetailsPanel({ booking, isOpen, onClose, onActionComplete }: 
               {validation.blockers.length > 0 && (
                 <section>
                   <h3 className="text-sm font-semibold text-red-700 mb-3 flex items-center gap-2">
-                    <Ban className="h-4 w-4" />
+                    <Prohibit className="h-4 w-4" />
                     Blockers (Must Resolve)
                   </h3>
                   <div className="space-y-2">
                     {validation.blockers.map((blocker, idx) => (
                       <div key={idx} className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-3">
-                        <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <Warning className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <p className="text-sm font-medium text-red-900">{blocker.message}</p>
                           {blocker.details && (
@@ -244,13 +244,13 @@ export function DogDetailsPanel({ booking, isOpen, onClose, onActionComplete }: 
               {validation.warnings.length > 0 && (
                 <section>
                   <h3 className="text-sm font-semibold text-amber-700 mb-3 flex items-center gap-2">
-                    <FileWarning className="h-4 w-4" />
+                    <FileDashed className="h-4 w-4" />
                     Warnings (Acknowledge to Proceed)
                   </h3>
                   <div className="space-y-2">
                     {validation.warnings.map((warning, idx) => (
                       <div key={idx} className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-3">
-                        <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <Warning className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <p className="text-sm font-medium text-amber-900">{warning.message}</p>
                           {warning.details && (
@@ -370,7 +370,7 @@ export function DogDetailsPanel({ booking, isOpen, onClose, onActionComplete }: 
                     : "bg-blue-600 text-white hover:bg-blue-700"
                 )}
               >
-                <LogOut className="h-5 w-5" />
+                <SignOut className="h-5 w-5" />
                 {isProcessing ? 'Checking Out...' : 'Check Out'}
               </button>
             )}
@@ -383,6 +383,26 @@ export function DogDetailsPanel({ booking, isOpen, onClose, onActionComplete }: 
               </div>
             )}
 
+            {/* Secondary Actions */}
+            {hasPermission('messaging', 'create') && (
+              <button
+                onClick={() => toast.info('Messaging feature coming soon')}
+                className="px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
+                title="Message Customer"
+              >
+                <ChatTeardrop className="h-5 w-5" />
+              </button>
+            )}
+
+            {hasPermission('incidents', 'create') && (
+              <button
+                onClick={() => toast.info('Incident reporting coming soon')}
+                className="px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 transition-colors"
+                title="Create Incident"
+              >
+                <FileText className="h-5 w-5" />
+              </button>
+            )}
           </div>
 
           {/* Permission notice */}

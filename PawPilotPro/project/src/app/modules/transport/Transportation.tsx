@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, NavLink, useLocation } from 'react-router';
-import { Truck, Calendar, Navigation, List, LayoutGrid, Smartphone, Monitor } from 'lucide-react';
+import { Truck, CalendarBlank, NavigationArrow, List, SquaresFour, DeviceMobile, Monitor } from '@phosphor-icons/react';
 import { TransportDashboard } from './pages/TransportDashboard';
 import { JobsList } from './pages/JobsList';
 import { CreateJob } from './pages/CreateJob';
@@ -55,14 +55,14 @@ export function Transportation() {
           <h1 className="text-xl font-bold text-slate-900">Transportation</h1>
         </div>
         
-        {/* Navigation Tabs - scrollable on mobile */}
+        {/* NavigationArrow Tabs - scrollable on mobile */}
         <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto">
           <NavLink 
             to="/transport" 
             end
             className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
-            <LayoutGrid className="h-4 w-4" />
+            <SquaresFour className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </NavLink>
           <NavLink 
@@ -85,7 +85,7 @@ export function Transportation() {
             to="/transport/driver" 
             className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
-            <Navigation className="h-4 w-4" />
+            <NavigationArrow className="h-4 w-4" />
             <span className="hidden sm:inline">Driver</span>
           </NavLink>
         </div>
@@ -96,7 +96,7 @@ export function Transportation() {
             to="/transport/driver-mobile"
             className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700"
           >
-            <Smartphone className="h-4 w-4" />
+            <DeviceMobile className="h-4 w-4" />
             Mobile Preview
           </NavLink>
         )}

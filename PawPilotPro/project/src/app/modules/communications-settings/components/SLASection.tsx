@@ -5,7 +5,7 @@ import { useCommunicationsSettingsStore } from '../store';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
-import { Plus, Clock, Edit2, Trash2, Building2, MapPin } from 'lucide-react';
+import { Plus, Clock, PencilSimple, Trash, Buildings, MapPin } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { SLADialog } from './modals/SLADialog';
 import type { SLADefinition } from '../types';
@@ -69,7 +69,7 @@ export function SLASection() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       {sla.scope === 'organisation' ? (
-                        <Building2 className="h-4 w-4 text-slate-400" />
+                        <Buildings className="h-4 w-4 text-slate-400" />
                       ) : (
                         <MapPin className="h-4 w-4 text-slate-400" />
                       )}
@@ -116,10 +116,10 @@ export function SLASection() {
                   
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(sla)}>
-                      <Edit2 className="h-3.5 w-3.5" />
+                      <PencilSimple className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(sla.id)}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      <Trash className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>
                 </div>

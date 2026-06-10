@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { HouseholdDetailView, Pet } from '../../types';
+import type { CustomerPackage } from '../../../packages/types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, Dog, ExternalLink, AlertCircle, AlertTriangle, ShieldAlert, Star, Ban, Truck, Scissors, Home, Flag } from 'lucide-react';
+import { Plus, Dog, ArrowSquareOut, Warning, ShieldWarning, Star, Prohibit, Truck, Scissors, House, Flag, Medal } from '@phosphor-icons/react';
 import { CreatePetModal } from '../pets/CreatePetModal';
 import { useCustomerStore } from '../../store';
 
 interface PetsTabProps {
   household: HouseholdDetailView;
+  memberships?: CustomerPackage[];
 }
 
-export function PetsTab({ household }: PetsTabProps) {
+export function PetsTab({ household, memberships = [] }: PetsTabProps) {
   const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { fetchHouseholdDetail, flags } = useCustomerStore();
@@ -28,12 +30,12 @@ export function PetsTab({ household }: PetsTabProps) {
   const getFlagIcon = (key: string) => {
     switch (key) {
       case 'vip': return Star;
-      case 'behaviour_caution': return AlertTriangle;
-      case 'medical_caution': return ShieldAlert;
-      case 'payment_hold': return Ban;
+      case 'behaviour_caution': return Warning;
+      case 'medical_caution': return ShieldWarning;
+      case 'payment_hold': return Prohibit;
       case 'transport_instructions': return Truck;
       case 'grooming_restrictions': return Scissors;
-      case 'overnight_restrictions': return Home;
+      case 'overnight_restrictions': return House;
       default: return Flag;
     }
   };
@@ -67,6 +69,28 @@ export function PetsTab({ household }: PetsTabProps) {
             </div>
           </CardHeader>
           <CardContent>
+            {memberships.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {memberships.map(m => (
+                  <div key={m.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--primary-tint)' }}>
+                    <Medal size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: 'var(--primary)' }}>{m.package_name}</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--primary)', opacity: 0.8 }}>
+                        {m.package_type === 'unlimited'
+                          ? 'Unlimited'
+                          : m.credits_remaining != null
+                            ? `${m.credits_remaining} credit${m.credits_remaining !== 1 ? 's' : ''} remaining`
+                            : null}
+                        {m.expiry_date && ` · Expires ${new Date(m.expiry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                        {m.next_billing_date && ` · Renews ${new Date(m.next_billing_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                      </p>
+                    </div>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white/60" style={{ color: 'var(--primary)' }}>Active</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {pets.length === 0 ? (
               <div className="text-center py-12 text-slate-400">
                 <Dog className="h-12 w-12 mx-auto mb-2 text-slate-300" />
@@ -100,7 +124,7 @@ export function PetsTab({ household }: PetsTabProps) {
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="font-semibold text-lg">{pet.name}</h3>
                           {hasAlerts && (
-                            <AlertCircle className="h-5 w-5 text-red-500" />
+                            <Warning className="h-5 w-5 text-red-500" />
                           )}
                         </div>
                         
@@ -156,7 +180,7 @@ export function PetsTab({ household }: PetsTabProps) {
                       </div>
                       
                       <Button variant="ghost" size="sm">
-                        <ExternalLink className="h-4 w-4" />
+                        <ArrowSquareOut className="h-4 w-4" />
                       </Button>
                     </div>
                   );

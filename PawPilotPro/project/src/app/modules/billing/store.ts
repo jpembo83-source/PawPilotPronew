@@ -4,7 +4,6 @@
 import { create } from 'zustand';
 import { projectId } from '../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
-import { broadcastMutation } from '../../lib/realtimeBroadcast';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/billing`;
 
@@ -272,6 +271,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== OVERVIEW ==========
   fetchOverview: async (locationId) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const url = locationId 
@@ -301,6 +301,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== INVOICES ==========
   fetchInvoices: async (filters = {}) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const params = new URLSearchParams(filters as any).toString();
@@ -323,6 +324,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   fetchInvoice: async (id) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/invoices/${id}`, { headers: await getAuthHeaders() });
@@ -347,6 +349,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   createInvoice: async (data) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/invoices`, {
@@ -365,9 +368,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         loading: false 
       }));
       
-      broadcastMutation('billing', 'invoice', 'created')
-
-      
       return invoice;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -379,6 +379,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   issueInvoice: async (id, dueDays = 7, issuedBy = 'admin') => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/invoices/${id}/issue`, {
@@ -397,7 +398,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         selectedInvoice: state.selectedInvoice?.id === id ? invoice : state.selectedInvoice,
         loading: false,
       }));
-      broadcastMutation('billing', 'invoice', 'updated', id);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       set({ error: message, loading: false });
@@ -408,6 +408,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   voidInvoice: async (id, reason, voidedBy) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/invoices/${id}/void`, {
@@ -427,7 +428,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         selectedInvoice: state.selectedInvoice?.id === id ? invoice : state.selectedInvoice,
         loading: false,
       }));
-      broadcastMutation('billing', 'invoice', 'updated', id);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       set({ error: message, loading: false });
@@ -439,6 +439,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== PAYMENTS ==========
   fetchPayments: async (filters = {}) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const params = new URLSearchParams(filters as any).toString();
@@ -461,6 +462,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   fetchPayment: async (id) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/payments/${id}`, { headers: await getAuthHeaders() });
@@ -484,6 +486,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   recordPayment: async (data) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/payments`, {
@@ -502,9 +505,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         loading: false 
       }));
       
-      broadcastMutation('billing', 'payment', 'created')
-
-      
       return payment;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -516,6 +516,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   allocatePayment: async (paymentId, invoiceId, amount, createdBy) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/payments/${paymentId}/allocate`, {
@@ -548,6 +549,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== SUBSCRIPTIONS ==========
   fetchSubscriptions: async (filters = {}) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const params = new URLSearchParams(filters as any).toString();
@@ -570,6 +572,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   createSubscription: async (data) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/subscriptions`, {
@@ -588,9 +591,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         loading: false 
       }));
       
-      broadcastMutation('billing', 'subscription', 'created')
-
-      
       return subscription;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -602,6 +602,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   pauseSubscription: async (id, reason) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/subscriptions/${id}/pause`, {
@@ -629,6 +630,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   cancelSubscription: async (id, reason) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/subscriptions/${id}/cancel`, {
@@ -646,7 +648,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         subscriptions: state.subscriptions.map(sub => sub.id === id ? subscription : sub),
         loading: false,
       }));
-      broadcastMutation('billing', 'subscription', 'updated', subscriptionId);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       set({ error: message, loading: false });
@@ -658,6 +659,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== CREDITS & REFUNDS ==========
   fetchCredits: async (householdId) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const url = householdId 
@@ -681,6 +683,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   createCredit: async (data) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/credits`, {
@@ -699,9 +702,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         loading: false 
       }));
       
-      broadcastMutation('billing', 'credit', 'created')
-
-      
       return credit;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -713,6 +713,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   fetchRefunds: async (householdId) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const url = householdId 
@@ -736,6 +737,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   issueRefund: async (data) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/refunds`, {
@@ -754,9 +756,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         loading: false 
       }));
       
-      broadcastMutation('billing', 'refund', 'created')
-
-      
       return refund;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -769,6 +768,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== FEES ==========
   fetchFees: async (filters = {}) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const params = new URLSearchParams(filters as any).toString();
@@ -791,6 +791,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   createFee: async (data) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/fees`, {
@@ -809,9 +810,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         loading: false 
       }));
       
-      broadcastMutation('billing', 'fee', 'created')
-
-      
       return fee;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -824,6 +822,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== EXPORTS ==========
   fetchExports: async () => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/exports`, { headers: await getAuthHeaders() });
@@ -843,6 +842,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
   createExport: async (data) => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/exports`, {
@@ -861,9 +861,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         loading: false 
       }));
       
-      broadcastMutation('billing', 'export', 'created')
-
-      
       return billingExport;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -876,6 +873,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // ========== SEED DATA ==========
   seedData: async () => {
     try {
+      const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
       const response = await fetch(`${BASE_URL}/seed`, {

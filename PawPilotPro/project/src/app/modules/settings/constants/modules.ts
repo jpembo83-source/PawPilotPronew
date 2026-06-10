@@ -1,11 +1,11 @@
-import { Dog, Scissors, LayoutDashboard, Users, MessageSquare, Receipt, AlertTriangle, Car, Moon, BarChart3, CalendarDays } from 'lucide-react';
+import { Dog, Scissors, ShoppingBag, Gauge, UsersThree, ChatTeardrop, Receipt, Warning, CalendarCheck, Car, Moon, FileText, UserGear, Package, ChartBar, Tray } from '@phosphor-icons/react';
 
 export interface ModuleDefinition {
   id: string;
   label: string;
   description: string;
   icon: any;
-  isCore?: boolean;
+  isCore?: boolean; // If true, cannot be disabled
   navItems: {
     label: string;
     path: string;
@@ -14,22 +14,30 @@ export interface ModuleDefinition {
 }
 
 export const MODULES: ModuleDefinition[] = [
+  // Core Platform Modules (Always Enabled)
   {
     id: 'core',
     label: 'Core Platform',
     description: 'Essential operating system functions.',
-    icon: LayoutDashboard,
+    icon: Gauge,
     isCore: true,
     navItems: [
-      { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-      { label: 'Calendar', path: '/calendar', icon: CalendarDays },
-      { label: 'Customers', path: '/customers', icon: Users },
-      { label: 'Messages', path: '/messages', icon: MessageSquare },
+      { label: 'Dashboard', path: '/', icon: Gauge },
+      // Portal Inbox sits adjacent to Capacity in the sidebar so when staff
+      // sees a pending booking they can flip straight to "what's the day's
+      // capacity look like?" — and vice versa.
+      { label: 'Portal Inbox', path: '/customers/pending-requests', icon: Tray },
+      { label: 'Capacity', path: '/capacity', icon: Gauge },
+      { label: 'Customers', path: '/customers', icon: UsersThree },
+      { label: 'Messages', path: '/messages', icon: ChatTeardrop },
       { label: 'Billing', path: '/billing', icon: Receipt },
-      { label: 'Reports', path: '/reports', icon: BarChart3 },
-      { label: 'Incidents', path: '/incidents', icon: AlertTriangle },
+      { label: 'Policies', path: '/policies', icon: FileText },
+      { label: 'Staff', path: '/staff', icon: UserGear },
+      { label: 'Incidents', path: '/incidents', icon: Warning },
+      { label: 'Reports', path: '/reports', icon: ChartBar },
     ]
   },
+  // Optional Modules
   {
     id: 'daycare',
     label: 'Daycare',
@@ -49,6 +57,15 @@ export const MODULES: ModuleDefinition[] = [
     ]
   },
   {
+    id: 'boutique',
+    label: 'Boutique',
+    description: 'Retail point-of-sale, inventory, and product management.',
+    icon: ShoppingBag,
+    navItems: [
+      { label: 'Boutique', path: '/boutique', icon: ShoppingBag },
+    ]
+  },
+  {
     id: 'transport',
     label: 'Transportation',
     description: 'Vehicle management, route planning, and driver assignments.',
@@ -64,6 +81,15 @@ export const MODULES: ModuleDefinition[] = [
     icon: Moon,
     navItems: [
       { label: 'Overnights', path: '/overnights', icon: Moon },
+    ]
+  },
+  {
+    id: 'packages',
+    label: 'Packages & Memberships',
+    description: 'Credit packs, unlimited plans, and subscription memberships.',
+    icon: Package,
+    navItems: [
+      { label: 'Packages', path: '/packages', icon: Package },
     ]
   }
 ];

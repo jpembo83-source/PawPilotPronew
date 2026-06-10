@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
-import { AlertCircle, Dog, Calendar, MapPin } from 'lucide-react';
+import { Warning, Dog, CalendarBlank, MapPin } from '@phosphor-icons/react';
 import type { MessageThread } from '../types';
 
 interface ContextPanelProps {
@@ -45,7 +45,7 @@ export function ContextPanel({ thread }: ContextPanelProps) {
             <div>
               <p className="text-xs text-slate-500 mb-1">Related Booking</p>
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
+                <CalendarBlank className="h-4 w-4 text-slate-400" />
                 <span className="text-sm">{thread.context.bookingId}</span>
               </div>
             </div>
@@ -111,7 +111,7 @@ export function ContextPanel({ thread }: ContextPanelProps) {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-4">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+              <Warning className="h-4 w-4 text-red-600 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-red-900">SLA Breached</p>
                 <p className="text-xs text-red-700 mt-1">

@@ -12,7 +12,6 @@ import type {
   DaycareFilters,
   CheckInValidation,
   DaycareCapacity,
-  DaycareEvent,
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare`;
@@ -54,8 +53,8 @@ interface DaycareState {
   // Actions - Stats
   fetchStats: (locationId?: string, date?: string) => Promise<void>;
   
-  // Events (Audit Trail)
-  fetchEvents: (params?: { booking_id?: string; location_id?: string; limit?: number }) => Promise<DaycareEvent[]>;
+  // Debug
+  debugDocuments: () => Promise<any>;
   
   // Filters
   setFilters: (filters: DaycareFilters) => void;
@@ -174,7 +173,6 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         isLoading: false,
       }));
       
-      broadcastMutation('daycare', 'booking', 'created', booking.id, undefined, booking.location_id);
       return booking;
     } catch (error: any) {
       console.error('Create booking error:', error);
@@ -205,7 +203,6 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         isLoading: false,
       }));
       
-      broadcastMutation('daycare', 'booking', 'updated', id, { status: 'cancelled' }, booking.location_id);
       return booking;
     } catch (error: any) {
       console.error('Cancel booking error:', error);
@@ -287,7 +284,6 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         isLoading: false,
       }));
       
-      broadcastMutation('daycare', 'attendance', 'created', bookingId, { action: 'check-in' }, result.booking?.location_id);
       return result;
     } catch (error: any) {
       console.error('Check-in error:', error);
@@ -319,7 +315,6 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         isLoading: false,
       }));
       
-      broadcastMutation('daycare', 'attendance', 'updated', bookingId, { action: 'check-out' }, booking.location_id);
       return booking;
     } catch (error: any) {
       console.error('Check-out error:', error);
@@ -394,24 +389,25 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
     }
   },
   
-  fetchEvents: async (params) => {
+  // Debug
+  debugDocuments: async () => {
+    set({ isLoading: true, error: null });
     try {
-      const urlParams = new URLSearchParams();
-      if (params?.booking_id) urlParams.append('booking_id', params.booking_id);
-      if (params?.location_id) urlParams.append('location_id', params.location_id);
-      if (params?.limit) urlParams.append('limit', params.limit.toString());
-      
-      const url = urlParams.toString() ? `${BASE_URL}/events?${urlParams.toString()}` : `${BASE_URL}/events`;
-      const response = await fetch(url, { headers: await getAuthHeaders() });
+      const response = await fetch(`${BASE_URL}/debug/documents`, {
+        headers: await getAuthHeaders(),
+      });
       
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to fetch events');
+        throw new Error(error.error || 'Failed to fetch debug documents');
       }
       
-      return await response.json();
+      const documents = await response.json();
+      set({ isLoading: false });
+      return documents;
     } catch (error: any) {
-      console.error('Fetch events error:', error);
+      console.error('Debug documents error:', error);
+      set({ error: error.message, isLoading: false });
       return [];
     }
   },

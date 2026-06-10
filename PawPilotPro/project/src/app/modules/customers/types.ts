@@ -94,11 +94,6 @@ export interface Pet {
   vet_phone?: string;
   vet_address?: string;
   
-  // Vaccination checklist (Swiss standard)
-  vaccinations?: PetVaccinations;
-  vaccination_status?: 'up_to_date' | 'expiring_soon' | 'expired' | 'unknown';
-  vaccination_expiry_date?: string;
-  
   // Feature enrollment
   daycare_enrolled: boolean;
   grooming_enrolled: boolean;
@@ -112,8 +107,7 @@ export interface Pet {
   updated_at: string;
 }
 
-export type DocumentType = 
-  | 'vaccination'
+export type DocumentType =
   | 'waiver'
   | 'insurance'
   | 'medical'
@@ -149,7 +143,7 @@ export interface CustomerPortalUser {
   created_at: string;
 }
 
-// Activity Timeline Event
+// Pulse Timeline Event
 export type ActivityType = 
   | 'daycare_booking'
   | 'daycare_checkin'
@@ -182,8 +176,6 @@ export type ActivityType =
   | 'contact_updated'
   | 'flag_added'
   | 'flag_updated'
-  | 'vaccination_added'
-  | 'vaccination_updated'
   | 'medical_note';
 
 export interface ActivityEvent {
@@ -382,52 +374,3 @@ export interface HouseholdDetailView extends Household {
   status: 'active' | 'suspended' | 'banned';
 }
 
-// Vaccination Records
-export interface VaccinationEntry {
-  done: boolean;
-  expiry_date?: string;
-}
-
-export interface PetVaccinations {
-  rabies?: VaccinationEntry;
-  shp?: VaccinationEntry;
-  leptospirosis?: VaccinationEntry;
-  kennel_cough?: VaccinationEntry;
-}
-
-export const SWISS_VACCINATIONS: { key: keyof PetVaccinations; label: string; description: string; required: boolean }[] = [
-  { key: 'rabies', label: 'Rabies (Tollwut)', description: 'Legally required in Switzerland', required: true },
-  { key: 'shp', label: 'SHP (Staupe, Hepatitis, Parvo)', description: 'Core vaccination — highly recommended', required: false },
-  { key: 'leptospirosis', label: 'Leptospirosis', description: 'Recommended — common in Swiss waterways', required: false },
-  { key: 'kennel_cough', label: 'Kennel Cough (Zwingerhusten)', description: 'Recommended for daycare & boarding', required: false },
-];
-
-export type VaccinationType =
-  | 'dhpp'
-  | 'rabies'
-  | 'bordetella'
-  | 'leptospirosis'
-  | 'canine_influenza'
-  | 'lyme'
-  | 'other';
-
-export interface VaccinationRecord {
-  id: string;
-  tenant_id: string;
-  pet_id: string;
-  vaccination_type: VaccinationType;
-  vaccination_name?: string;
-  date_administered: string;
-  next_due_date?: string;
-  batch_number?: string;
-  manufacturer?: string;
-  vet_clinic_name?: string;
-  vet_clinic_phone?: string;
-  administering_vet?: string;
-  notes?: string;
-  document_id?: string;
-  created_by: string;
-  created_by_name?: string;
-  created_at: string;
-  updated_at: string;
-}

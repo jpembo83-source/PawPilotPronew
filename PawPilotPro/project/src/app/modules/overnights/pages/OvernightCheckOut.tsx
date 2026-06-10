@@ -19,16 +19,16 @@ import {
   DialogTitle,
 } from '../../../components/ui/dialog';
 import {
-  Search,
-  LogOut,
+  MagnifyingGlass,
+  SignOut,
   Moon,
   ArrowLeft,
   Pill,
-  ShieldAlert,
-  AlertTriangle,
-  ArrowRightLeft,
+  ShieldWarning,
+  Warning,
+  ArrowsLeftRight,
   Clock,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { OvernightReservation, CheckOutRequest } from '../types';
 
@@ -155,7 +155,7 @@ export function OvernightCheckOut() {
         </Button>
         <div>
           <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-            <LogOut className="h-6 w-6 text-blue-600" />
+            <SignOut className="h-6 w-6 text-blue-600" />
             Overnight Check-Out
           </h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -171,7 +171,7 @@ export function OvernightCheckOut() {
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Search pet or customer name..."
               value={searchQuery}
@@ -231,13 +231,13 @@ export function OvernightCheckOut() {
                     )}
                     {reservation.hasBehaviourConcerns && (
                       <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
-                        <ShieldAlert className="h-3 w-3 mr-1" />
+                        <ShieldWarning className="h-3 w-3 mr-1" />
                         Behaviour
                       </Badge>
                     )}
                     {reservation.hasAllergies && (
                       <Badge variant="outline" className="text-xs text-purple-600 border-purple-200">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        <Warning className="h-3 w-3 mr-1" />
                         Allergies
                       </Badge>
                     )}
@@ -247,7 +247,7 @@ export function OvernightCheckOut() {
                       </Badge>
                     )}
                     <Button onClick={() => handleSelectReservation(reservation)}>
-                      <LogOut className="h-4 w-4 mr-2" />
+                      <SignOut className="h-4 w-4 mr-2" />
                       Check Out
                     </Button>
                   </div>
@@ -273,7 +273,7 @@ export function OvernightCheckOut() {
             <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 font-medium text-indigo-900">
-                  <ArrowRightLeft className="h-4 w-4" />
+                  <ArrowsLeftRight className="h-4 w-4" />
                   Transition to Daycare?
                 </div>
                 <Switch
@@ -343,7 +343,7 @@ export function OvernightCheckOut() {
               Cancel
             </Button>
             <Button onClick={handleCheckOut} disabled={isLoading}>
-              <LogOut className="h-4 w-4 mr-2" />
+              <SignOut className="h-4 w-4 mr-2" />
               {transitionToDaycareMode ? 'Transition to Daycare' : 'Confirm Check-Out'}
             </Button>
           </DialogFooter>

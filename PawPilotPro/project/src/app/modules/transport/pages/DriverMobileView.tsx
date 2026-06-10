@@ -15,27 +15,27 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTransportStore } from '../store';
 import { useAuth } from '@/app/context/AuthContext';
 import { 
-  Navigation, 
+  NavigationArrow, 
   Phone, 
-  CheckCircle2, 
+  CheckCircle, 
   XCircle, 
-  ChevronUp, 
-  ChevronDown,
+  CaretUp, 
+  CaretDown,
   MapPin,
   Clock,
-  AlertTriangle,
-  Loader2,
+  Warning,
+  CircleNotch,
   Car,
   ArrowRight,
-  RefreshCw
-} from 'lucide-react';
+  ArrowClockwise
+} from '@phosphor-icons/react';
 import { format } from 'date-fns';
 
 // Status colours - high contrast for visibility
 const STATUS_COLOURS = {
   pickup: { bg: 'bg-emerald-500', text: 'text-white', label: 'PICK UP' },
   dropoff: { bg: 'bg-orange-500', text: 'text-white', label: 'DROP OFF' },
-  round_trip: { bg: 'bg-blue-500', text: 'text-white', label: 'ROUND TRIP' },
+  roundtrip: { bg: 'bg-blue-500', text: 'text-white', label: 'ROUND TRIP' },
 };
 
 interface DriverMobileViewProps {
@@ -47,8 +47,9 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
   const { user } = useAuth();
   
   const [showRouteList, setShowRouteList] = useState(false);
+  const [showIssueDialog, setShowIssueDialog] = useState(false);
+  const [issueNote, setIssueNote] = useState('');
   const [actionPending, setActionPending] = useState<'complete' | 'issue' | null>(null);
-  const [swipeProgress, setSwipeProgress] = useState(0);
   
   const today = format(new Date(), 'yyyy-MM-dd');
   
@@ -92,12 +93,18 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
     setActionPending(null);
   };
 
-  // Handle issue/fail action
-  const handleIssue = async () => {
+  // Open the issue note sheet
+  const handleIssue = () => setShowIssueDialog(true);
+
+  // Called after driver writes their note and confirms
+  const handleIssueConfirm = async () => {
     if (!currentJob) return;
+    const jobId = currentJob.id; // capture before any state changes
     setActionPending('issue');
     try {
-      await updateJobStatus(currentJob.id, 'cancelled', 'Issue reported by driver');
+      await updateJobStatus(jobId, 'cancelled', issueNote.trim() || 'Issue reported by driver');
+      setShowIssueDialog(false);
+      setIssueNote('');
     } catch (err) {
       console.error('Failed to report issue:', err);
     }
@@ -138,7 +145,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
     return (
       <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
         <div className="text-center text-white">
-          <Loader2 className="h-16 w-16 animate-spin mx-auto mb-4 text-blue-400" />
+          <CircleNotch className="h-16 w-16 animate-spin mx-auto mb-4 text-blue-400" />
           <p className="text-xl">Loading your route...</p>
         </div>
       </div>
@@ -157,7 +164,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
             onClick={refreshJobs}
             className="flex items-center justify-center gap-2 w-full py-4 bg-blue-600 text-white rounded-2xl text-lg font-semibold active:bg-blue-700"
           >
-            <RefreshCw className="h-5 w-5" />
+            <ArrowClockwise className="h-5 w-5" />
             Refresh
           </button>
         </div>
@@ -169,23 +176,23 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
   if (pendingJobs.length === 0 && completedCount === totalCount) {
     return (
       <div className="fixed inset-0 bg-emerald-600 flex flex-col items-center justify-center p-6">
-        <CheckCircle2 className="h-32 w-32 text-white mb-6" />
+        <CheckCircle className="h-32 w-32 text-white mb-6" />
         <h1 className="text-4xl font-bold text-white mb-2">Route Complete!</h1>
         <p className="text-emerald-100 text-xl mb-8">{completedCount} stops completed</p>
         <button 
           onClick={refreshJobs}
           className="flex items-center justify-center gap-2 px-8 py-4 bg-white text-emerald-600 rounded-2xl text-lg font-semibold active:bg-emerald-50"
         >
-          <RefreshCw className="h-5 w-5" />
+          <ArrowClockwise className="h-5 w-5" />
           Check for Updates
         </button>
       </div>
     );
   }
 
-  const currentAddress = currentJob?.direction === 'pickup' 
-    ? currentJob.address_pickup 
-    : currentJob.address_dropoff;
+  const currentAddress = currentJob?.direction === 'pickup'
+    ? currentJob?.address_pickup
+    : currentJob?.address_dropoff;
 
   const statusConfig = STATUS_COLOURS[currentJob?.direction as keyof typeof STATUS_COLOURS] || STATUS_COLOURS.pickup;
 
@@ -220,7 +227,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
           className="p-2 text-slate-400 active:text-white"
           disabled={isLoading}
         >
-          <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+          <ArrowClockwise className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -272,7 +279,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
             {/* Notes Alert */}
             {currentJob?.notes && (
               <div className="mt-4 bg-amber-500/20 border border-amber-500/30 rounded-2xl p-4 flex gap-3">
-                <AlertTriangle className="h-6 w-6 text-amber-400 shrink-0" />
+                <Warning className="h-6 w-6 text-amber-400 shrink-0" />
                 <p className="text-amber-200 text-lg">{currentJob.notes}</p>
               </div>
             )}
@@ -285,19 +292,28 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
               onClick={() => currentAddress && openNavigation(currentAddress)}
               className="flex-1 bg-blue-600 active:bg-blue-700 text-white rounded-2xl py-5 flex items-center justify-center gap-3 text-xl font-semibold"
             >
-              <Navigation className="h-7 w-7" />
+              <NavigationArrow className="h-7 w-7" />
               Navigate
             </button>
-            
-            {/* Call Button */}
-            {currentJob?.contact_phone && (
+
+            {/* Call or email — show whichever contact info is available */}
+            {currentJob?.contact_phone ? (
               <button
-                onClick={() => makeCall(currentJob.contact_phone)}
+                onClick={() => makeCall(currentJob!.contact_phone!)}
                 className="bg-slate-700 active:bg-slate-600 text-white rounded-2xl px-6 py-5 flex items-center justify-center"
+                aria-label="Call customer"
               >
                 <Phone className="h-7 w-7" />
               </button>
-            )}
+            ) : currentJob?.contact_email ? (
+              <a
+                href={`mailto:${currentJob.contact_email}`}
+                className="bg-slate-700 active:bg-slate-600 text-white rounded-2xl px-6 py-5 flex items-center justify-center"
+                aria-label="Email customer"
+              >
+                <Phone className="h-7 w-7 opacity-60" />
+              </a>
+            ) : null}
           </div>
         </div>
 
@@ -314,7 +330,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
               <p className="text-slate-500 text-sm">NEXT</p>
               <p className="text-white font-semibold">{nextJob.pet_name}</p>
             </div>
-            <ChevronUp className="h-6 w-6 text-slate-500" />
+            <CaretUp className="h-6 w-6 text-slate-500" />
           </button>
         )}
       </div>
@@ -329,10 +345,10 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
             className="w-full bg-emerald-500 active:bg-emerald-600 disabled:opacity-50 text-white rounded-2xl py-6 text-2xl font-bold flex items-center justify-center gap-3"
           >
             {actionPending ? (
-              <Loader2 className="h-8 w-8 animate-spin" />
+              <CircleNotch className="h-8 w-8 animate-spin" />
             ) : (
               <>
-                <Navigation className="h-8 w-8" />
+                <NavigationArrow className="h-8 w-8" />
                 START ROUTE
               </>
             )}
@@ -346,7 +362,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
               className="flex-1 bg-red-500/20 border-2 border-red-500 active:bg-red-500/40 disabled:opacity-50 text-red-400 rounded-2xl py-5 text-lg font-bold flex items-center justify-center gap-2"
             >
               {actionPending === 'issue' ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
+                <CircleNotch className="h-6 w-6 animate-spin" />
               ) : (
                 <>
                   <XCircle className="h-6 w-6" />
@@ -360,10 +376,10 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
               className="flex-[2] bg-emerald-500 active:bg-emerald-600 disabled:opacity-50 text-white rounded-2xl py-5 text-xl font-bold flex items-center justify-center gap-3"
             >
               {actionPending === 'complete' ? (
-                <Loader2 className="h-7 w-7 animate-spin" />
+                <CircleNotch className="h-7 w-7 animate-spin" />
               ) : (
                 <>
-                  <CheckCircle2 className="h-7 w-7" />
+                  <CheckCircle className="h-7 w-7" />
                   DONE
                 </>
               )}
@@ -371,6 +387,41 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
           </div>
         )}
       </div>
+
+      {/* Issue Note Bottom Sheet */}
+      {showIssueDialog && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-end">
+          <div className="bg-slate-800 w-full rounded-t-3xl p-6 pb-10 safe-area-bottom">
+            <h3 className="text-xl font-bold text-white mb-1">Report Issue</h3>
+            <p className="text-slate-400 text-sm mb-4">Describe what happened so the manager can follow up.</p>
+            <textarea
+              value={issueNote}
+              onChange={e => setIssueNote(e.target.value)}
+              placeholder="e.g. Customer not home, dog was aggressive, wrong address…"
+              className="w-full bg-slate-700 text-white rounded-2xl p-4 text-lg resize-none outline-none placeholder:text-slate-500 border-0"
+              rows={3}
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => { setShowIssueDialog(false); setIssueNote(''); }}
+                className="flex-1 bg-slate-700 active:bg-slate-600 text-white rounded-2xl py-4 text-lg font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleIssueConfirm}
+                disabled={actionPending !== null}
+                className="flex-[2] bg-red-500 active:bg-red-600 disabled:opacity-50 text-white rounded-2xl py-4 text-xl font-bold flex items-center justify-center gap-2"
+              >
+                {actionPending === 'issue'
+                  ? <CircleNotch className="h-6 w-6 animate-spin" />
+                  : 'Confirm Issue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Route List Drawer */}
       {showRouteList && (
@@ -388,7 +439,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
                 onClick={() => setShowRouteList(false)}
                 className="p-2 text-slate-400"
               >
-                <ChevronDown className="h-6 w-6" />
+                <CaretDown className="h-6 w-6" />
               </button>
             </div>
             <div className="overflow-auto max-h-[60vh] p-4 space-y-3">
@@ -413,7 +464,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
                       isCurrent ? 'bg-white text-blue-600' :
                       'bg-slate-600 text-white'
                     }`}>
-                      {isDone ? <CheckCircle2 className="h-5 w-5" /> : idx + 1}
+                      {isDone ? <CheckCircle className="h-5 w-5" /> : idx + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`font-semibold truncate ${isCurrent ? 'text-white' : isDone ? 'text-slate-400' : 'text-white'}`}>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../../components/ui/dialog';
 import { Button } from '../../../../components/ui/button';
-import { FileUp } from 'lucide-react';
+import { FileUp } from '@phosphor-icons/react';
 
 interface QuickDocumentModalProps {
   open: boolean;

@@ -1,16 +1,15 @@
-import { 
-  Users, 
-  AlertTriangle, 
-  FileText, 
+import {
+  UsersThree,
+  Warning,
+  FileText,
   Truck,
   Dog,
-  BarChart3,
+  ChartBar,
   Scissors,
   Moon,
-  Syringe,
   Gauge,
-  TrendingUp
-} from 'lucide-react';
+  TrendUp
+} from '@phosphor-icons/react';
 
 export interface WidgetDefinition {
   id: string;
@@ -37,9 +36,9 @@ export const WIDGETS: WidgetDefinition[] = [
   },
   {
     id: 'weekly_activity',
-    title: 'Weekly Activity',
+    title: 'Weekly Pulse',
     description: 'Booking activity across the week',
-    icon: BarChart3,
+    icon: ChartBar,
     defaultSize: 'medium',
     colSpan: 2,
     rowSpan: 1,
@@ -59,7 +58,7 @@ export const WIDGETS: WidgetDefinition[] = [
     id: 'occupancy',
     title: 'Live Occupancy',
     description: 'Real-time capacity and check-ins',
-    icon: Users,
+    icon: UsersThree,
     defaultSize: 'medium',
     colSpan: 1,
     rowSpan: 2,
@@ -93,7 +92,8 @@ export const WIDGETS: WidgetDefinition[] = [
     defaultSize: 'medium',
     colSpan: 1,
     rowSpan: 1,
-    category: 'operational'
+    category: 'operational',
+    isBeta: true
   },
   {
     id: 'overnights_today',
@@ -104,16 +104,6 @@ export const WIDGETS: WidgetDefinition[] = [
     colSpan: 1,
     rowSpan: 2,
     category: 'operational'
-  },
-  {
-    id: 'vaccination_alerts',
-    title: 'Vaccination Alerts',
-    description: 'Dogs with vaccines expiring or expired',
-    icon: Syringe,
-    defaultSize: 'medium',
-    colSpan: 1,
-    rowSpan: 1,
-    category: 'risk'
   },
   {
     id: 'capacity',
@@ -129,7 +119,7 @@ export const WIDGETS: WidgetDefinition[] = [
     id: 'reporting',
     title: 'Quick Stats',
     description: 'Daily revenue, trends, and busiest days',
-    icon: TrendingUp,
+    icon: TrendUp,
     defaultSize: 'medium',
     colSpan: 1,
     rowSpan: 1,
@@ -139,6 +129,6 @@ export const WIDGETS: WidgetDefinition[] = [
 
 export const DEFAULT_WIDGETS_BY_ROLE: Record<string, string[]> = {
   admin: WIDGETS.map(w => w.id),
-  manager: ['todays_dogs', 'weekly_activity', 'todays_daycare_dogs', 'occupancy', 'documents', 'driver_status', 'grooming_today', 'overnights_today', 'vaccination_alerts', 'capacity', 'reporting'],
+  manager: ['todays_dogs', 'weekly_activity', 'todays_daycare_dogs', 'occupancy', 'documents', 'driver_status', 'grooming_today', 'overnights_today', 'capacity', 'reporting'],
   staff: ['todays_dogs', 'weekly_activity', 'occupancy', 'documents', 'driver_status', 'grooming_today', 'overnights_today', 'capacity']
 };

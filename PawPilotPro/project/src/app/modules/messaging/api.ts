@@ -1,3 +1,4 @@
+import { supabase } from '../../../utils/supabase/client';
 import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
 import type {
   MessageThread,
@@ -10,10 +11,14 @@ import type {
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/messaging`;
 
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${publicAnonKey}`
-});
+const getHeaders = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${publicAnonKey}`,
+    'X-User-Token': `Bearer ${session?.access_token}`,
+  };
+};
 
 // ============================================================================
 // THREADS
@@ -31,7 +36,7 @@ export async function fetchThreads(filters?: MessageFilters): Promise<{ threads:
   if (filters?.search) params.append('search', filters.search);
   
   const url = `${API_BASE}/threads?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getHeaders() });
   
   if (!response.ok) {
     const error = await response.json();
@@ -43,7 +48,7 @@ export async function fetchThreads(filters?: MessageFilters): Promise<{ threads:
 
 export async function fetchThread(threadId: string): Promise<MessageThread> {
   const response = await fetch(`${API_BASE}/threads/${threadId}`, {
-    headers: getHeaders()
+    headers: await getHeaders()
   });
   
   if (!response.ok) {
@@ -68,7 +73,7 @@ export async function createThread(data: {
 }): Promise<MessageThread> {
   const response = await fetch(`${API_BASE}/threads`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify(data)
   });
   
@@ -83,7 +88,7 @@ export async function createThread(data: {
 export async function updateThread(threadId: string, updates: Partial<MessageThread>): Promise<MessageThread> {
   const response = await fetch(`${API_BASE}/threads/${threadId}`, {
     method: 'PATCH',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify(updates)
   });
   
@@ -101,7 +106,7 @@ export async function updateThread(threadId: string, updates: Partial<MessageThr
 
 export async function fetchMessages(threadId: string): Promise<Message[]> {
   const response = await fetch(`${API_BASE}/threads/${threadId}/messages`, {
-    headers: getHeaders()
+    headers: await getHeaders()
   });
   
   if (!response.ok) {
@@ -130,7 +135,7 @@ export async function sendMessage(data: {
 }): Promise<Message> {
   const response = await fetch(`${API_BASE}/threads/${data.threadId}/messages`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify(data)
   });
   
@@ -159,7 +164,7 @@ export async function fetchTemplates(filters?: {
   if (filters?.activeOnly) params.append('activeOnly', 'true');
   
   const url = `${API_BASE}/templates?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getHeaders() });
   
   if (!response.ok) {
     const error = await response.json();
@@ -187,7 +192,7 @@ export async function createTemplate(data: {
 }): Promise<MessageTemplate> {
   const response = await fetch(`${API_BASE}/templates`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify(data)
   });
   
@@ -202,7 +207,7 @@ export async function createTemplate(data: {
 export async function updateTemplate(templateId: string, updates: Partial<MessageTemplate> & { updatedBy: string }): Promise<MessageTemplate> {
   const response = await fetch(`${API_BASE}/templates/${templateId}`, {
     method: 'PATCH',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify(updates)
   });
   
@@ -220,7 +225,7 @@ export async function updateTemplate(templateId: string, updates: Partial<Messag
 
 export async function fetchConsent(contactId: string): Promise<ContactConsent> {
   const response = await fetch(`${API_BASE}/consent/${contactId}`, {
-    headers: getHeaders()
+    headers: await getHeaders()
   });
   
   if (!response.ok) {
@@ -244,7 +249,7 @@ export async function updateConsent(contactId: string, data: {
 }): Promise<ContactConsent> {
   const response = await fetch(`${API_BASE}/consent/${contactId}`, {
     method: 'PUT',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify(data)
   });
   
@@ -272,7 +277,7 @@ export async function fetchStats(locationId?: string): Promise<{
   if (locationId) params.append('locationId', locationId);
   
   const url = `${API_BASE}/stats?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getHeaders() });
   
   if (!response.ok) {
     const error = await response.json();

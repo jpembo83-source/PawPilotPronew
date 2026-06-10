@@ -6,21 +6,21 @@ import { useAuth } from '../../context/AuthContext';
 import { getAccessibleSections, hasSettingsPermission } from './utils/rbac';
 import { SettingsSection as SettingsSectionKey } from './types/permissions';
 import { 
-  Building2,
-  Layers,
+  Buildings,
+  Stack,
   MapPin,
-  Users,
+  UsersThree,
   Tag,
   BookOpen,
-  MessageSquare,
+  ChatTeardrop,
   Receipt,
   ShieldCheck,
-  Workflow,
-  LayoutDashboard,
-  Settings2,
-  ChevronRight,
-  Search
-} from 'lucide-react';
+  GitBranch,
+  Gauge,
+  SlidersHorizontal,
+  CaretRight,
+  MagnifyingGlass
+} from '@phosphor-icons/react';
 
 interface SettingsSection {
   id: string;
@@ -32,18 +32,25 @@ interface SettingsSection {
 }
 
 const sections: SettingsSection[] = [
-  { id: 'org', label: 'Organisation', icon: Building2, path: '/settings/organisation', description: 'Profile, brand, and global defaults', sectionKey: 'organisation' },
-  { id: 'modules', label: 'Modules', icon: Layers, path: '/settings/modules', description: 'Enable/disable platform modules', sectionKey: 'modules' },
+  { id: 'org', label: 'Organisation', icon: Buildings, path: '/settings/organisation', description: 'Profile, brand, and global defaults', sectionKey: 'organisation' },
+  { id: 'modules', label: 'Modules', icon: Stack, path: '/settings/modules', description: 'Enable/disable platform modules', sectionKey: 'modules' },
   { id: 'locations', label: 'Locations', icon: MapPin, path: '/settings/locations', description: 'Manage branches and capacity', sectionKey: 'locations' },
-  { id: 'users', label: 'Users & Access', icon: Users, path: '/settings/users', description: 'Staff accounts and roles', sectionKey: 'users' },
+  { id: 'users', label: 'Users & Access', icon: UsersThree, path: '/settings/users', description: 'Staff accounts and roles', sectionKey: 'users' },
   { id: 'services', label: 'Services & Pricing', icon: Tag, path: '/settings/services', description: 'Service catalogue and price books', sectionKey: 'services' },
+  // Sits in the operations RBAC bucket since these caps drive whether the
+  // Portal Inbox shows pending requests as Limited/Full/Overbooked.
+  { id: 'capacity', label: 'Service Capacity', icon: Gauge, path: '/settings/capacity', description: 'Daily caps used by the Portal Inbox', sectionKey: 'operations' },
   { id: 'ops', label: 'Operations Rules', icon: BookOpen, path: '/settings/operations', description: 'Booking and check-in policies', sectionKey: 'operations' },
-  { id: 'comms', label: 'Communications', icon: MessageSquare, path: '/settings/communications', description: 'Templates and channels', sectionKey: 'communications' },
+  { id: 'comms', label: 'Communications', icon: ChatTeardrop, path: '/settings/communications', description: 'Templates and channels', sectionKey: 'communications' },
   { id: 'billing', label: 'Billing & Finance', icon: Receipt, path: '/settings/billing', description: 'Invoices, taxes, and penalties', sectionKey: 'billing' },
   { id: 'compliance', label: 'Data & Compliance', icon: ShieldCheck, path: '/settings/compliance', description: 'Retention and GDPR', sectionKey: 'compliance' },
-  { id: 'integrations', label: 'Integrations', icon: Workflow, path: '/settings/integrations', description: 'API and webhooks', sectionKey: 'integrations' },
-  { id: 'dashboard', label: 'Dashboard Config', icon: LayoutDashboard, path: '/settings/dashboard', description: 'Widget visibility and RBAC', sectionKey: 'dashboard' },
-  { id: 'system', label: 'System', icon: Settings2, path: '/settings/system', description: 'Environment and maintenance', sectionKey: 'system' },
+  { id: 'integrations', label: 'Integrations', icon: GitBranch, path: '/settings/integrations', description: 'API and webhooks', sectionKey: 'integrations' },
+  // 'Dashboard Config' removed — it managed widget visibility for an older
+  // widget-based dashboard. The current dashboard is fixed-tile so this
+  // section had nothing useful to configure. The DashboardSettings page +
+  // /settings/dashboard route are left in the source tree in case widgets
+  // come back; they're just no longer surfaced in the sidebar/grid.
+  { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Environment and maintenance', sectionKey: 'system' },
 ];
 
 export function SettingsLayout() {
@@ -72,7 +79,7 @@ export function SettingsLayout() {
       <div className="bg-white border-b border-slate-200 px-8 py-4">
         <div className="flex items-center gap-2 text-sm text-slate-500 mb-1">
           <span>Settings</span>
-          <ChevronRight className="h-4 w-4" />
+          <CaretRight className="h-4 w-4" />
           <span className="font-medium text-slate-900">
             {sections.find(s => location.pathname.startsWith(s.path))?.label || 'Overview'}
           </span>
@@ -86,7 +93,7 @@ export function SettingsLayout() {
         <nav className="w-64 bg-white border-r border-slate-200 overflow-y-auto py-4 flex flex-col">
           <div className="px-4 mb-4">
              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <MagnifyingGlass className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input 
                   type="text" 
                   placeholder="Search settings..." 

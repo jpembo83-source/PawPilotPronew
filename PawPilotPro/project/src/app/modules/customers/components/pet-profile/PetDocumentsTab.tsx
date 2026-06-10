@@ -3,7 +3,7 @@ import { Pet } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, FileText, Download, AlertCircle, Calendar } from 'lucide-react';
+import { Plus, FileText, DownloadSimple, Warning, CalendarBlank } from '@phosphor-icons/react';
 
 interface PetDocumentsTabProps {
   pet: Pet;
@@ -84,7 +84,7 @@ export function PetDocumentsTab({ pet }: PetDocumentsTabProps) {
                           
                           {doc.expiryDate && (
                             <div className="flex items-center gap-1 text-sm text-slate-600">
-                              <Calendar className="h-4 w-4" />
+                              <CalendarBlank className="h-4 w-4" />
                               <span>
                                 Expires: {new Date(doc.expiryDate).toLocaleDateString('en-GB', {
                                   day: 'numeric',
@@ -106,7 +106,7 @@ export function PetDocumentsTab({ pet }: PetDocumentsTabProps) {
                         
                         <div className="flex gap-2">
                           <Button variant="ghost" size="sm">
-                            <Download className="h-4 w-4" />
+                            <DownloadSimple className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm">Edit</Button>
                         </div>
@@ -125,7 +125,7 @@ export function PetDocumentsTab({ pet }: PetDocumentsTabProps) {
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
+              <Warning className="h-5 w-5 text-red-600" />
               <CardTitle className="text-red-900">Expiry Alerts</CardTitle>
             </div>
           </CardHeader>

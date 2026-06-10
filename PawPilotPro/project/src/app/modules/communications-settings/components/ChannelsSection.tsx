@@ -5,14 +5,14 @@ import { useCommunicationsSettingsStore } from '../store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Switch } from '../../../components/ui/switch';
 import { Badge } from '../../../components/ui/badge';
-import { Mail, MessageSquare, Phone, Circle } from 'lucide-react';
+import { EnvelopeSimple, ChatTeardrop, Phone, Circle } from '@phosphor-icons/react';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
 
 const channelIcons = {
-  email: Mail,
+  email: EnvelopeSimple,
   sms: Phone,
-  whatsapp: MessageSquare,
+  whatsapp: ChatTeardrop,
 };
 
 const statusColors = {

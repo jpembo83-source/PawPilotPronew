@@ -3,7 +3,7 @@ import { Household, HouseholdContact, Pet, PetDocument, HouseholdNote, Household
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, FileText, Pin, AlertTriangle, Flag, ShieldAlert, Star, AlertCircle, Truck, Scissors, Home, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, FileText, PushPin, Warning, Flag, ShieldWarning, Star, Warning, Truck, Scissors, House, PencilSimple, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from '../../../../context/AuthContext';
 import { useCustomerStore } from '../../store';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
@@ -178,7 +178,7 @@ function NoteCard({ note, household }: { note: HouseholdNote; household: Househo
               )}
               {note.is_pinned && (
                 <Badge variant="default" className="bg-amber-500">
-                  <Pin className="h-3 w-3 mr-1" />
+                  <PushPin className="h-3 w-3 mr-1" />
                   Pinned
                 </Badge>
               )}
@@ -210,16 +210,16 @@ function NoteCard({ note, household }: { note: HouseholdNote; household: Househo
               variant="ghost" 
               size="sm"
               onClick={handleTogglePin}
-              title={note.is_pinned ? 'Unpin' : 'Pin'}
+              title={note.is_pinned ? 'Unpin' : 'PushPin'}
             >
-              <Pin className={`h-4 w-4 ${note.is_pinned ? 'fill-current' : ''}`} />
+              <PushPin className={`h-4 w-4 ${note.is_pinned ? 'fill-current' : ''}`} />
             </Button>
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => setShowEdit(true)}
             >
-              <Pencil className="h-4 w-4" />
+              <PencilSimple className="h-4 w-4" />
             </Button>
             <Button 
               variant="ghost" 
@@ -227,7 +227,7 @@ function NoteCard({ note, household }: { note: HouseholdNote; household: Househo
               onClick={handleDelete}
               disabled={isDeleting}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -278,12 +278,12 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
   const getFlagIcon = (key: FlagKey) => {
     switch (key) {
       case 'vip': return Star;
-      case 'behaviour_caution': return AlertTriangle;
-      case 'medical_caution': return ShieldAlert;
-      case 'payment_hold': return AlertCircle;
+      case 'behaviour_caution': return Warning;
+      case 'medical_caution': return ShieldWarning;
+      case 'payment_hold': return Warning;
       case 'transport_instructions': return Truck;
       case 'grooming_restrictions': return Scissors;
-      case 'overnight_restrictions': return Home;
+      case 'overnight_restrictions': return House;
       default: return Flag;
     }
   };
@@ -333,7 +333,7 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
           onClick={handleToggleActive}
           title={flag.is_active ? 'Deactivate' : 'Activate'}
         >
-          {flag.is_active ? <X className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          {flag.is_active ? <X className="h-4 w-4" /> : <Warning className="h-4 w-4" />}
         </Button>
         <Button
           variant="ghost"
@@ -341,7 +341,7 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
           onClick={handleDelete}
           disabled={isDeleting}
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash className="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -469,7 +469,7 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
           )}
           
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded">
-            <Label htmlFor="pinned" className="cursor-pointer">Pin this note</Label>
+            <Label htmlFor="pinned" className="cursor-pointer">PushPin this note</Label>
             <Switch
               id="pinned"
               checked={formData.is_pinned}
@@ -600,7 +600,7 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
           )}
           
           <div className="flex items-center justify-between p-3 bg-slate-50 rounded">
-            <Label htmlFor="pinned" className="cursor-pointer">Pin this note</Label>
+            <Label htmlFor="pinned" className="cursor-pointer">PushPin this note</Label>
             <Switch
               id="pinned"
               checked={formData.is_pinned}

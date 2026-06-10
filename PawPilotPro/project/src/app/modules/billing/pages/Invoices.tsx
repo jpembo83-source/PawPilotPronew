@@ -1,8 +1,7 @@
 // Invoices Page - MDC Operations Centre
 // Invoice list and detail management with RBAC enforcement
 
-import { useEffect, useState, useCallback } from 'react';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
 import { Badge } from '../../../components/ui/badge';
@@ -10,9 +9,9 @@ import { Button } from '../../../components/ui/button';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Input } from '../../../components/ui/input';
 import { 
-  FileText, Search, Filter, Plus, Send, Eye, Ban, 
-  CheckCircle, Clock, AlertCircle, XCircle, Lock
-} from 'lucide-react';
+  FileText, MagnifyingGlass, Funnel, Plus, PaperPlaneTilt, Eye, Prohibit, 
+  CheckCircle, Clock, Warning, XCircle, Lock
+} from '@phosphor-icons/react';
 import { useBillingStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { useCurrency } from '../../../utils/currency';
@@ -46,25 +45,12 @@ export function Invoices() {
     fetchInvoices(filters);
   }, [selectedLocationId, statusFilter, fetchInvoices]);
 
-  const refetchInvoices = useCallback(() => {
-    const filters: Record<string, any> = {};
-    if (selectedLocationId && selectedLocationId !== 'all') {
-      filters.location_id = selectedLocationId;
-    }
-    if (statusFilter !== 'all') {
-      filters.status = statusFilter;
-    }
-    fetchInvoices(filters);
-  }, [fetchInvoices, selectedLocationId, statusFilter]);
-
-  useModuleRealtimeSync('billing', refetchInvoices);
-
   const getStatusBadge = (status: InvoiceStatus) => {
     const config = {
       draft: { variant: 'secondary' as const, icon: FileText, label: 'Draft' },
       issued: { variant: 'default' as const, icon: Clock, label: 'Issued' },
       paid: { variant: 'default' as const, icon: CheckCircle, label: 'Paid', className: 'bg-green-600' },
-      overdue: { variant: 'destructive' as const, icon: AlertCircle, label: 'Overdue' },
+      overdue: { variant: 'destructive' as const, icon: Warning, label: 'Overdue' },
       void: { variant: 'secondary' as const, icon: XCircle, label: 'Void' },
       part_paid: { variant: 'default' as const, icon: Clock, label: 'Part Paid', className: 'bg-blue-600' },
     };
@@ -119,7 +105,7 @@ export function Invoices() {
 
       {error && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+          <Warning className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -130,7 +116,7 @@ export function Invoices() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Search invoices..."
                   value={searchTerm}
@@ -237,7 +223,7 @@ export function Invoices() {
                           </Button>
                           {invoice.status === 'issued' && (
                             <Button variant="ghost" size="sm">
-                              <Send className="h-4 w-4" />
+                              <PaperPlaneTilt className="h-4 w-4" />
                             </Button>
                           )}
                         </div>

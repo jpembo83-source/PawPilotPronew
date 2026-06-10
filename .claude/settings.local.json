@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(netlify deploy:*)",
+      "Bash(curl -s \"https://ruahrxkfgfyshuxykiay.supabase.co/functions/v1/make-server-fc003b23/daycare/bookings?booking_status=confirmed\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1YWhyeGtmZ2Z5c2h1eHlraWF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NDUxMTcsImV4cCI6MjA4MjQyMTExN30.gG65FbgAYdrjbLAgKJRscIGwbcHwyuEAGa5M_o_fYeU\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(type\\(d\\), len\\(d\\) if isinstance\\(d, list\\) else d\\)\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(mkdir -p ~/projects/aria)",
+      "Bash(mkdir -p orchestrator/aria scripts data)",
+      "mcp__plugin_app-store-connect_app-store-connect__asc_list_apps",
+      "mcp__plugin_app-store-connect_app-store-connect__asc_list_customer_reviews",
+      "mcp__plugin_app-store-connect_app-store-connect__asc_get_public_ratings_summary",
+      "Read(//Users/jasonpemberton/.claude/**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(k\\) for k in d] if isinstance\\(d,dict\\) else print\\(d\\)\")",
+      "mcp__plugin_app-store-connect_app-store-connect__asc_list_builds",
+      "Bash(python3 -c \"import json;json.load\\(open\\('/Users/jasonpemberton/Documents/Claude/Artifacts/extraction-product-health/asc-snapshot.json'\\)\\);print\\('snapshot OK'\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(dns-sd -t 3 -B _linn._tcp .)",
+      "Bash(dns-sd -t 3 -B _raop._tcp .)",
+      "Bash(python3 -c ' *)",
+      "Bash(dns-sd -t 4 -Z _raop._tcp local.)",
+      "Bash(arp -a)",
+      "mcp__03dc1175-b531-4808-a854-be36288cebfa__execute_sql",
+      "mcp__03dc1175-b531-4808-a854-be36288cebfa__get_logs",
+      "Read(//private/tmp/**)",
+      "Bash(ping -c 1 -W 1000 \"Linn-Wohnen.local\")",
+      "Bash(ping -c 1 -W 1000 \"Linn.local\")",
+      "Bash(ping -c 1 -W 1000 \"00260f21f5ca.local\")",
+      "Bash(npm --version)",
+      "Bash(npx --version)"
+    ]
+  }
+}

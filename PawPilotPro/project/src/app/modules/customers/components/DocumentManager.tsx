@@ -3,18 +3,17 @@ import { PetDocument, DocumentType } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
-import { 
+import {
   FileText,
   Plus,
-  Download,
-  Trash2,
-  AlertCircle,
-  Calendar,
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
-  Upload
-} from 'lucide-react';
+  DownloadSimple,
+  Trash,
+  Warning,
+  CalendarBlank,
+  CheckCircle,
+  CircleNotch,
+  UploadSimple
+} from '@phosphor-icons/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
@@ -265,7 +264,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-slate-400" />
+          <CircleNotch className="h-8 w-8 animate-spin mx-auto text-slate-400" />
         </CardContent>
       </Card>
     );
@@ -291,7 +290,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
         <CardContent>
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
-              <AlertCircle className="h-4 w-4" />
+              <Warning className="h-4 w-4" />
               {error}
             </div>
           )}
@@ -331,9 +330,9 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
                           size="sm"
                           onClick={() => window.open(document.storage_path, '_blank')}
                           disabled={isSubmitting}
-                          title="Download"
+                          title="DownloadSimple"
                         >
-                          <Download className="h-4 w-4" />
+                          <DownloadSimple className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -342,7 +341,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
                           disabled={isSubmitting}
                           title="Delete"
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
                     </div>
@@ -356,9 +355,9 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
                         <div>
                           <p className="text-slate-600 mb-0.5">Expiry Date</p>
                           <div className="flex items-center gap-2">
-                            {status.status === 'expired' && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
-                            {status.status === 'expiring_soon' && <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />}
-                            {status.status === 'valid' && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+                            {status.status === 'expired' && <Warning className="h-3.5 w-3.5 text-red-500" />}
+                            {status.status === 'expiring_soon' && <Warning className="h-3.5 w-3.5 text-orange-500" />}
+                            {status.status === 'valid' && <CheckCircle className="h-3.5 w-3.5 text-green-500" />}
                             <p className="font-medium">
                               {new Date(document.expiry_date).toLocaleDateString('en-GB', {
                                 day: 'numeric',
@@ -401,7 +400,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
         </CardContent>
       </Card>
 
-      {/* Upload Modal */}
+      {/* UploadSimple Modal */}
       <Dialog open={showAddModal} onOpenChange={handleCloseModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -430,13 +429,13 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
               </select>
               {selectedDocType?.requiresExpiry && (
                 <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" />
+                  <Warning className="h-3 w-3" />
                   This document type requires an expiry date for compliance tracking
                 </p>
               )}
             </div>
 
-            {/* File Upload */}
+            {/* File UploadSimple */}
             <div>
               <Label htmlFor="file">File *</Label>
               <div className="mt-1">
@@ -509,7 +508,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
 
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
-                <AlertCircle className="h-4 w-4" />
+                <Warning className="h-4 w-4" />
                 {error}
               </div>
             )}
@@ -521,12 +520,12 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
               <Button type="submit" disabled={isSubmitting || !selectedFile}>
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                     Uploading...
                   </>
                 ) : (
                   <>
-                    <Upload className="h-4 w-4 mr-2" />
+                    <UploadSimple className="h-4 w-4 mr-2" />
                     Upload Document
                   </>
                 )}

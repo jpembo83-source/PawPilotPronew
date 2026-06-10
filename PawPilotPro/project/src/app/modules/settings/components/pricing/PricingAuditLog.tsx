@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Badge } from '../../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../components/ui/table';
-import { FileText, DollarSign, CreditCard, Package, CircleAlert } from 'lucide-react';
+import { FileText, CurrencyDollar, CreditCard, Package, CircleAlert } from '@phosphor-icons/react';
 import { usePricingStore } from '../../../pricing/store';
 import { toast } from 'sonner';
 
@@ -10,15 +10,15 @@ const ACTION_ICONS = {
   CREATE_SERVICE: FileText,
   UPDATE_SERVICE: FileText,
   DELETE_SERVICE: FileText,
-  CREATE_PRICE_BOOK: DollarSign,
-  UPDATE_PRICE_BOOK: DollarSign,
-  DELETE_PRICE_BOOK: DollarSign,
-  CREATE_PRICE_ENTRY: DollarSign,
-  UPDATE_PRICE_ENTRY: DollarSign,
-  DELETE_PRICE_ENTRY: DollarSign,
-  CREATE_PRICE_OVERRIDE: DollarSign,
-  UPDATE_PRICE_OVERRIDE: DollarSign,
-  DELETE_PRICE_OVERRIDE: DollarSign,
+  CREATE_PRICE_BOOK: CurrencyDollar,
+  UPDATE_PRICE_BOOK: CurrencyDollar,
+  DELETE_PRICE_BOOK: CurrencyDollar,
+  CREATE_PRICE_ENTRY: CurrencyDollar,
+  UPDATE_PRICE_ENTRY: CurrencyDollar,
+  DELETE_PRICE_ENTRY: CurrencyDollar,
+  CREATE_PRICE_OVERRIDE: CurrencyDollar,
+  UPDATE_PRICE_OVERRIDE: CurrencyDollar,
+  DELETE_PRICE_OVERRIDE: CurrencyDollar,
   CREATE_MEMBERSHIP: CreditCard,
   UPDATE_MEMBERSHIP: CreditCard,
   DELETE_MEMBERSHIP: CreditCard,

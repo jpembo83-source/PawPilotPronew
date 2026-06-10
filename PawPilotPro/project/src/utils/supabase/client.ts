@@ -8,16 +8,12 @@ if (!projectId || !publicAnonKey) {
   console.error('Supabase configuration missing: projectId or publicAnonKey is undefined');
 }
 
-export const supabase = createClient(
-  supabaseUrl || 'https://not-configured.supabase.co',
-  supabaseKey || 'not-configured',
-  {
-    auth: {
-      persistSession: true,
-      storage: window.localStorage,
-      storageKey: 'mdc-operations-auth',
-      autoRefreshToken: true,
-      detectSessionInUrl: true
-    }
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    storage: window.localStorage,
+    storageKey: 'mdc-operations-auth',
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   }
-);
+});

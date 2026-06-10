@@ -2,7 +2,7 @@
 // Button to initiate View As mode for a specific user
 
 import { useState } from 'react';
-import { Eye } from 'lucide-react';
+import { Eye } from '@phosphor-icons/react';
 import { Button } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';

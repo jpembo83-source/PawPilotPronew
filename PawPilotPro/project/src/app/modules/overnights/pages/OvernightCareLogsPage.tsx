@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ClipboardList, Moon, ArrowLeft, CheckCircle, XCircle, Search, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ClipboardText, Moon, ArrowLeft, CheckCircle, XCircle, MagnifyingGlass, CaretDown } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { useOvernightsStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { useDashboardStore } from '../../dashboard/store';
@@ -41,16 +40,6 @@ export function OvernightCareLogsPage() {
       fetchCareLogs(undefined, today);
     }
   }, [locationId]);
-
-  const refetchCareLogs = useCallback(() => {
-    if (locationId) {
-      fetchTonightsBoarders(locationId);
-      fetchCareLogs(undefined, today);
-    }
-  }, [fetchTonightsBoarders, fetchCareLogs, locationId, today]);
-
-  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
-  useModuleRealtimeSync('overnights', refetchCareLogs, true, locationFilter);
 
   const boarders = tonightsBoarders?.boarders || [];
 
@@ -149,7 +138,7 @@ export function OvernightCareLogsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-              <ClipboardList className="h-6 w-6 text-orange-600" />
+              <ClipboardText className="h-6 w-6 text-orange-600" />
               Care Logs
             </h1>
             <p className="text-sm text-slate-500 mt-1">
@@ -206,7 +195,7 @@ export function OvernightCareLogsPage() {
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Search boarders..."
             value={searchTerm}
@@ -236,7 +225,7 @@ export function OvernightCareLogsPage() {
 
       {filteredBoarders.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
-          <ClipboardList className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+          <ClipboardText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
           <p>{searchTerm || filterStatus !== 'all' ? 'No boarders match your filters' : 'No boarders staying tonight'}</p>
         </div>
       ) : (

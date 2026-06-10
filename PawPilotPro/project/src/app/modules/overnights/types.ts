@@ -77,8 +77,6 @@ export interface OvernightReservation {
 
   daycareBookingId?: string;
 
-  includeInDaycareAttendance: boolean;
-
   createdAt: string;
   createdBy: string;
   updatedAt: string;

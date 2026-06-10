@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4901,
-  "warnings": 557
+  "errors": 5278,
+  "warnings": 620
  },
  "files": {
   "eslint.config.js": {
@@ -20,15 +20,15 @@
    "errors": 1,
    "warnings": 0
   },
+  "scripts/migrate-icons.mjs": {
+   "errors": 1,
+   "warnings": 0
+  },
   "scripts/seed-test-data.ts": {
    "errors": 34,
    "warnings": 0
   },
   "scripts/typecheck-baseline.mjs": {
-   "errors": 1,
-   "warnings": 0
-  },
-  "src/app/App.tsx": {
    "errors": 1,
    "warnings": 0
   },
@@ -44,17 +44,21 @@
    "errors": 1,
    "warnings": 0
   },
+  "src/app/components/ThemeManager.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
   "src/app/components/layout/Layout.tsx": {
    "errors": 3,
    "warnings": 0
   },
   "src/app/components/layout/MobileLayout.tsx": {
    "errors": 1,
-   "warnings": 1
+   "warnings": 3
   },
   "src/app/components/layout/Sidebar.tsx": {
-   "errors": 33,
-   "warnings": 3
+   "errors": 29,
+   "warnings": 7
   },
   "src/app/components/reordering/ReorderMenuItems.tsx": {
    "errors": 2,
@@ -117,7 +121,11 @@
    "warnings": 1
   },
   "src/app/modules/auth/LoginPage.tsx": {
-   "errors": 5,
+   "errors": 6,
+   "warnings": 2
+  },
+  "src/app/modules/auth/ResetPasswordPage.tsx": {
+   "errors": 6,
    "warnings": 1
   },
   "src/app/modules/billing-finance-settings/BillingFinanceSettingsPage.tsx": {
@@ -169,7 +177,7 @@
    "warnings": 4
   },
   "src/app/modules/billing/Billing.tsx": {
-   "errors": 3,
+   "errors": 7,
    "warnings": 0
   },
   "src/app/modules/billing/pages/BillingExports.tsx": {
@@ -177,15 +185,15 @@
    "warnings": 1
   },
   "src/app/modules/billing/pages/BillingOverview.tsx": {
-   "errors": 7,
+   "errors": 5,
    "warnings": 0
   },
   "src/app/modules/billing/pages/Invoices.tsx": {
-   "errors": 13,
-   "warnings": 2
+   "errors": 11,
+   "warnings": 1
   },
   "src/app/modules/billing/store.ts": {
-   "errors": 73,
+   "errors": 85,
    "warnings": 16
   },
   "src/app/modules/calendar/CalendarPage.tsx": {
@@ -209,12 +217,12 @@
    "warnings": 0
   },
   "src/app/modules/capacity/CapacityDashboard.tsx": {
-   "errors": 8,
+   "errors": 7,
    "warnings": 0
   },
   "src/app/modules/capacity/store.ts": {
-   "errors": 10,
-   "warnings": 2
+   "errors": 14,
+   "warnings": 5
   },
   "src/app/modules/communications-settings/CommunicationsSettingsPage.tsx": {
    "errors": 2,
@@ -260,10 +268,6 @@
    "errors": 4,
    "warnings": 2
   },
-  "src/app/modules/communications-settings/components/modals/TemplateBuilderDialog.tsx": {
-   "errors": 1,
-   "warnings": 0
-  },
   "src/app/modules/communications-settings/store.ts": {
    "errors": 52,
    "warnings": 26
@@ -281,8 +285,8 @@
    "warnings": 0
   },
   "src/app/modules/customers/components/household-detail/BookingsTab.tsx": {
-   "errors": 1,
-   "warnings": 0
+   "errors": 32,
+   "warnings": 3
   },
   "src/app/modules/customers/components/household-detail/ContactsTab.tsx": {
    "errors": 1,
@@ -304,21 +308,21 @@
    "errors": 3,
    "warnings": 0
   },
+  "src/app/modules/customers/components/household-detail/PortalActivityTab.tsx": {
+   "errors": 23,
+   "warnings": 2
+  },
   "src/app/modules/customers/components/modals/AddContactModal.tsx": {
    "errors": 5,
    "warnings": 2
   },
   "src/app/modules/customers/components/modals/EditContactModal.tsx": {
-   "errors": 5,
+   "errors": 4,
    "warnings": 2
   },
   "src/app/modules/customers/components/modals/EditPetModal.tsx": {
    "errors": 5,
    "warnings": 3
-  },
-  "src/app/modules/customers/components/pet-profile/PetCareProfileTab.tsx": {
-   "errors": 4,
-   "warnings": 0
   },
   "src/app/modules/customers/components/pet-profile/PetDocumentsTab.tsx": {
    "errors": 42,
@@ -337,7 +341,7 @@
    "warnings": 1
   },
   "src/app/modules/customers/components/pet-profile/VaccinationManager.tsx": {
-   "errors": 2,
+   "errors": 50,
    "warnings": 1
   },
   "src/app/modules/customers/components/pets/CreatePetModal.tsx": {
@@ -345,7 +349,7 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/BulkImportPage.tsx": {
-   "errors": 18,
+   "errors": 19,
    "warnings": 2
   },
   "src/app/modules/customers/pages/ClearDataPage.tsx": {
@@ -361,28 +365,40 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/ExportPage.tsx": {
-   "errors": 18,
-   "warnings": 2
+   "errors": 95,
+   "warnings": 10
   },
   "src/app/modules/customers/pages/HouseholdDetailPage.tsx": {
-   "errors": 14,
+   "errors": 16,
    "warnings": 1
   },
+  "src/app/modules/customers/pages/PendingRequestsPage.tsx": {
+   "errors": 22,
+   "warnings": 2
+  },
   "src/app/modules/customers/pages/PetDetailPage.tsx": {
-   "errors": 88,
+   "errors": 83,
    "warnings": 1
   },
   "src/app/modules/customers/pages/PetProfilePage.tsx": {
-   "errors": 24,
-   "warnings": 3
+   "errors": 43,
+   "warnings": 6
+  },
+  "src/app/modules/customers/pages/VaxReviewPage.tsx": {
+   "errors": 18,
+   "warnings": 2
   },
   "src/app/modules/customers/store.ts": {
-   "errors": 249,
-   "warnings": 30
+   "errors": 230,
+   "warnings": 31
   },
   "src/app/modules/customers/types.ts": {
    "errors": 0,
    "warnings": 3
+  },
+  "src/app/modules/dashboard/Dashboard.tsx": {
+   "errors": 13,
+   "warnings": 0
   },
   "src/app/modules/dashboard/components/DashboardHeader.tsx": {
    "errors": 7,
@@ -405,8 +421,8 @@
    "warnings": 1
   },
   "src/app/modules/dashboard/components/modals/QuickBookModal.tsx": {
-   "errors": 93,
-   "warnings": 11
+   "errors": 53,
+   "warnings": 9
   },
   "src/app/modules/dashboard/components/modals/QuickCheckInModal.tsx": {
    "errors": 9,
@@ -441,11 +457,11 @@
    "warnings": 1
   },
   "src/app/modules/dashboard/widgets/AlertsFlagsWidget.tsx": {
-   "errors": 11,
+   "errors": 6,
    "warnings": 0
   },
   "src/app/modules/dashboard/widgets/CapacityWidget.tsx": {
-   "errors": 7,
+   "errors": 9,
    "warnings": 0
   },
   "src/app/modules/dashboard/widgets/DogDetailsPanel.tsx": {
@@ -453,7 +469,7 @@
    "warnings": 3
   },
   "src/app/modules/dashboard/widgets/DriverStatus.tsx": {
-   "errors": 8,
+   "errors": 9,
    "warnings": 0
   },
   "src/app/modules/dashboard/widgets/GroomingTodayWidget.tsx": {
@@ -465,7 +481,7 @@
    "warnings": 0
   },
   "src/app/modules/dashboard/widgets/MessagingWidget.tsx": {
-   "errors": 1,
+   "errors": 13,
    "warnings": 0
   },
   "src/app/modules/dashboard/widgets/OvernightsTodayWidget.tsx": {
@@ -477,7 +493,7 @@
    "warnings": 1
   },
   "src/app/modules/dashboard/widgets/ReportingWidget.tsx": {
-   "errors": 3,
+   "errors": 7,
    "warnings": 0
   },
   "src/app/modules/dashboard/widgets/RevenueSnapshot.tsx": {
@@ -549,40 +565,40 @@
    "warnings": 0
   },
   "src/app/modules/daycare/components/CreateBookingDialog.tsx": {
-   "errors": 60,
-   "warnings": 11
+   "errors": 74,
+   "warnings": 10
   },
   "src/app/modules/daycare/components/LiveOccupancy.tsx": {
    "errors": 1,
    "warnings": 0
   },
   "src/app/modules/daycare/pages/DaycareAttendance.tsx": {
-   "errors": 6,
+   "errors": 5,
    "warnings": 0
   },
   "src/app/modules/daycare/pages/DaycareBookings.tsx": {
-   "errors": 14,
+   "errors": 13,
    "warnings": 2
   },
   "src/app/modules/daycare/pages/DaycareCheckIn.tsx": {
-   "errors": 10,
-   "warnings": 2
+   "errors": 39,
+   "warnings": 9
   },
   "src/app/modules/daycare/pages/DaycareCheckOut.tsx": {
-   "errors": 7,
-   "warnings": 2
-  },
-  "src/app/modules/daycare/pages/DaycareDashboard.tsx": {
-   "errors": 19,
+   "errors": 6,
    "warnings": 1
   },
+  "src/app/modules/daycare/pages/DaycareDashboard.tsx": {
+   "errors": 37,
+   "warnings": 0
+  },
   "src/app/modules/daycare/store.ts": {
-   "errors": 97,
-   "warnings": 12
+   "errors": 87,
+   "warnings": 13
   },
   "src/app/modules/daycare/types.ts": {
    "errors": 0,
-   "warnings": 2
+   "warnings": 1
   },
   "src/app/modules/grooming/pages/GroomingAppointmentDetail.tsx": {
    "errors": 26,
@@ -605,8 +621,8 @@
    "warnings": 7
   },
   "src/app/modules/grooming/store.ts": {
-   "errors": 120,
-   "warnings": 15
+   "errors": 100,
+   "warnings": 14
   },
   "src/app/modules/grooming/types.ts": {
    "errors": 0,
@@ -733,11 +749,11 @@
    "warnings": 0
   },
   "src/app/modules/overnights/components/CareLogForm.tsx": {
-   "errors": 8,
+   "errors": 9,
    "warnings": 0
   },
   "src/app/modules/overnights/components/CreateReservationModal.tsx": {
-   "errors": 73,
+   "errors": 71,
    "warnings": 10
   },
   "src/app/modules/overnights/components/EventTimeline.tsx": {
@@ -749,7 +765,7 @@
    "warnings": 1
   },
   "src/app/modules/overnights/pages/OvernightCareLogsPage.tsx": {
-   "errors": 8,
+   "errors": 6,
    "warnings": 0
   },
   "src/app/modules/overnights/pages/OvernightCheckIn.tsx": {
@@ -765,23 +781,27 @@
    "warnings": 0
   },
   "src/app/modules/overnights/pages/OvernightReservationsPage.tsx": {
-   "errors": 5,
+   "errors": 4,
    "warnings": 0
   },
   "src/app/modules/overnights/pages/OvernightsPage.tsx": {
-   "errors": 34,
+   "errors": 31,
    "warnings": 2
   },
   "src/app/modules/overnights/store.ts": {
-   "errors": 181,
+   "errors": 146,
    "warnings": 24
   },
   "src/app/modules/overnights/types.ts": {
    "errors": 0,
    "warnings": 2
   },
+  "src/app/modules/packages/components/AssignMembershipDialog.tsx": {
+   "errors": 26,
+   "warnings": 5
+  },
   "src/app/modules/packages/pages/PackagesDashboard.tsx": {
-   "errors": 8,
+   "errors": 5,
    "warnings": 0
   },
   "src/app/modules/packages/store.ts": {
@@ -805,7 +825,7 @@
    "warnings": 4
   },
   "src/app/modules/policies/pages/PoliciesManagementPage.tsx": {
-   "errors": 120,
+   "errors": 119,
    "warnings": 13
   },
   "src/app/modules/policies/store.ts": {
@@ -818,6 +838,22 @@
   },
   "src/app/modules/pricing/store.ts": {
    "errors": 226,
+   "warnings": 1
+  },
+  "src/app/modules/reporting/pages/ReportViewerPage.tsx": {
+   "errors": 11,
+   "warnings": 4
+  },
+  "src/app/modules/reporting/pages/ReportsPage.tsx": {
+   "errors": 4,
+   "warnings": 1
+  },
+  "src/app/modules/reporting/store.ts": {
+   "errors": 119,
+   "warnings": 16
+  },
+  "src/app/modules/reporting/types.ts": {
+   "errors": 0,
    "warnings": 1
   },
   "src/app/modules/reports/pages/ReportsPage.tsx": {
@@ -905,11 +941,11 @@
    "warnings": 0
   },
   "src/app/modules/settings/components/users/UserList.tsx": {
-   "errors": 5,
-   "warnings": 0
+   "errors": 8,
+   "warnings": 1
   },
   "src/app/modules/settings/constants/modules.ts": {
-   "errors": 0,
+   "errors": 1,
    "warnings": 2
   },
   "src/app/modules/settings/pages/DashboardSettings.tsx": {
@@ -932,12 +968,16 @@
    "errors": 4,
    "warnings": 0
   },
+  "src/app/modules/settings/pages/ServiceCapacitySettings.tsx": {
+   "errors": 20,
+   "warnings": 2
+  },
   "src/app/modules/settings/pages/ServicesAndPricing.tsx": {
    "errors": 12,
    "warnings": 0
   },
   "src/app/modules/settings/pages/SettingsOverview.tsx": {
-   "errors": 7,
+   "errors": 8,
    "warnings": 0
   },
   "src/app/modules/settings/pages/UserManagement.tsx": {
@@ -949,7 +989,7 @@
    "warnings": 5
   },
   "src/app/modules/settings/stores/userStore.ts": {
-   "errors": 40,
+   "errors": 45,
    "warnings": 5
   },
   "src/app/modules/settings/utils/rbac.ts": {
@@ -961,23 +1001,19 @@
    "warnings": 4
   },
   "src/app/modules/staff/pages/RotasTab.tsx": {
-   "errors": 7,
+   "errors": 6,
    "warnings": 1
   },
   "src/app/modules/staff/pages/StaffMemberDetailPage.tsx": {
    "errors": 9,
    "warnings": 1
   },
-  "src/app/modules/staff/pages/StaffPage.tsx": {
-   "errors": 2,
-   "warnings": 0
-  },
   "src/app/modules/staff/pages/TeamDirectoryTab.tsx": {
-   "errors": 24,
+   "errors": 23,
    "warnings": 3
   },
   "src/app/modules/staff/store.ts": {
-   "errors": 212,
+   "errors": 204,
    "warnings": 31
   },
   "src/app/modules/staff/types.ts": {
@@ -985,7 +1021,7 @@
    "warnings": 1
   },
   "src/app/modules/system/SystemPage.tsx": {
-   "errors": 14,
+   "errors": 15,
    "warnings": 0
   },
   "src/app/modules/system/api.ts": {
@@ -1004,12 +1040,16 @@
    "errors": 4,
    "warnings": 0
   },
+  "src/app/modules/transport/components/CreateFromBookingsDialog.tsx": {
+   "errors": 16,
+   "warnings": 1
+  },
   "src/app/modules/transport/components/CreateTransportJobDialog.tsx": {
    "errors": 63,
    "warnings": 3
   },
   "src/app/modules/transport/components/CreateTransportRequestModal.tsx": {
-   "errors": 12,
+   "errors": 7,
    "warnings": 2
   },
   "src/app/modules/transport/pages/CreateJob.tsx": {
@@ -1017,7 +1057,7 @@
    "warnings": 0
   },
   "src/app/modules/transport/pages/DriverDashboard.tsx": {
-   "errors": 9,
+   "errors": 7,
    "warnings": 2
   },
   "src/app/modules/transport/pages/DriverMobileView.tsx": {
@@ -1029,7 +1069,7 @@
    "warnings": 0
   },
   "src/app/modules/transport/pages/JobsList.tsx": {
-   "errors": 6,
+   "errors": 5,
    "warnings": 0
   },
   "src/app/modules/transport/pages/RoutePlanner.tsx": {
@@ -1037,7 +1077,7 @@
    "warnings": 1
   },
   "src/app/modules/transport/pages/TransportDashboard.tsx": {
-   "errors": 6,
+   "errors": 7,
    "warnings": 0
   },
   "src/app/modules/transport/pages/VehicleManager.tsx": {
@@ -1045,7 +1085,7 @@
    "warnings": 1
   },
   "src/app/modules/transport/store.ts": {
-   "errors": 104,
+   "errors": 89,
    "warnings": 13
   },
   "src/app/modules/transport/types.ts": {
@@ -1076,8 +1116,16 @@
    "errors": 2,
    "warnings": 0
   },
-  "tests/e2e/daycare.spec.ts": {
+  "tests/e2e/auth.setup.ts": {
    "errors": 1,
+   "warnings": 0
+  },
+  "tests/e2e/documents.spec.ts": {
+   "errors": 1,
+   "warnings": 0
+  },
+  "tests/e2e/workflows.spec.ts": {
+   "errors": 2,
    "warnings": 0
   },
   "utils/supabase/info.tsx": {

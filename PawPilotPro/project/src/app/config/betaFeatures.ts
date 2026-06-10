@@ -13,6 +13,7 @@ export const BETA_MODULES = [
   'billing',      // Billing module (in core navItems)
   'messaging',    // Messages module (in core navItems)  
   'staff',        // Staff Management module (in core navItems)
+  'grooming',     // Grooming module
   'packages',     // Packages & Memberships module
 ];
 
@@ -21,6 +22,7 @@ export const BETA_NAV_PATHS = [
   '/billing',
   '/messages',
   '/staff',
+  '/grooming',
   '/packages',
   '/policies',    // Staff policies (part of staff management)
 ];

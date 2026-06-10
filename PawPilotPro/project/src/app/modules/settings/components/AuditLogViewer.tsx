@@ -4,7 +4,7 @@
 // Component to view audit logs for settings changes
 
 import React, { useState, useEffect } from 'react';
-import { FileText, Clock, User, Shield, AlertTriangle } from 'lucide-react';
+import { FileText, Clock, User, Shield, Warning } from '@phosphor-icons/react';
 import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
 import { SettingsSection } from '../types/permissions';
 import { createClient } from '@supabase/supabase-js';
@@ -122,7 +122,7 @@ export function AuditLogViewer({
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
-        <AlertTriangle className="h-5 w-5 text-red-600" />
+        <Warning className="h-5 w-5 text-red-600" />
         <p className="text-red-800">{error}</p>
       </div>
     );

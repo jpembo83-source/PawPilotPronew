@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
-import { CheckCircle2, XCircle, Loader2, AlertTriangle, Database, Server, Shield, Zap, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, CircleNotch, Warning, Database, HardDrives, Shield, Lightning, ArrowClockwise } from '@phosphor-icons/react';
 import { supabase } from '../../../../utils/supabase/client';
 import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
 import { toast } from 'sonner';
@@ -22,11 +22,11 @@ export function SupabaseConnectivityCheck() {
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheckTime, setLastCheckTime] = useState<Date | null>(null);
   const [checks, setChecks] = useState<HealthCheck[]>([
-    { name: 'Configuration', status: 'pending', message: 'Not checked', icon: Server },
+    { name: 'Configuration', status: 'pending', message: 'Not checked', icon: HardDrives },
     { name: 'Authentication', status: 'pending', message: 'Not checked', icon: Shield },
     { name: 'Database Connection', status: 'pending', message: 'Not checked', icon: Database },
-    { name: 'Edge Functions', status: 'pending', message: 'Not checked', icon: Zap },
-    { name: 'API Latency', status: 'pending', message: 'Not checked', icon: Server },
+    { name: 'Edge Functions', status: 'pending', message: 'Not checked', icon: Lightning },
+    { name: 'API Latency', status: 'pending', message: 'Not checked', icon: HardDrives },
   ]);
 
   const runHealthChecks = async () => {
@@ -48,14 +48,14 @@ export function SupabaseConnectivityCheck() {
           status: 'success',
           message: `Project: ${projectId.substring(0, 8)}...`,
           duration: performance.now() - configStart,
-          icon: Server
+          icon: HardDrives
         };
       } catch (error) {
         updatedChecks[0] = {
           name: 'Configuration',
           status: 'error',
           message: error instanceof Error ? error.message : 'Invalid configuration',
-          icon: Server
+          icon: HardDrives
         };
       }
       setChecks([...updatedChecks]);
@@ -170,7 +170,7 @@ export function SupabaseConnectivityCheck() {
             status: 'success',
             message: healthData.status || 'Functions operational',
             duration: performance.now() - edgeStart,
-            icon: Zap
+            icon: Lightning
           };
         } else {
           updatedChecks[3] = {
@@ -178,7 +178,7 @@ export function SupabaseConnectivityCheck() {
             status: 'warning',
             message: `HTTP ${healthResponse.status}`,
             duration: performance.now() - edgeStart,
-            icon: Zap
+            icon: Lightning
           };
         }
       } catch (error) {
@@ -186,7 +186,7 @@ export function SupabaseConnectivityCheck() {
           name: 'Edge Functions',
           status: 'error',
           message: error instanceof Error ? error.message : 'Edge functions unreachable',
-          icon: Zap
+          icon: Lightning
         };
       }
       setChecks([...updatedChecks]);
@@ -219,14 +219,14 @@ export function SupabaseConnectivityCheck() {
             status,
             message: `${Math.round(latency)}ms response time`,
             duration: performance.now() - latencyStart,
-            icon: Server
+            icon: HardDrives
           };
         } else {
           updatedChecks[4] = {
             name: 'API Latency',
             status: 'error',
             message: 'Unable to measure',
-            icon: Server
+            icon: HardDrives
           };
         }
       } catch (error) {
@@ -234,7 +234,7 @@ export function SupabaseConnectivityCheck() {
           name: 'API Latency',
           status: 'error',
           message: error instanceof Error ? error.message : 'Latency check failed',
-          icon: Server
+          icon: HardDrives
         };
       }
       setChecks([...updatedChecks]);
@@ -264,11 +264,11 @@ export function SupabaseConnectivityCheck() {
   const getStatusIcon = (status: HealthCheck['status']) => {
     switch (status) {
       case 'success':
-        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+        return <CheckCircle className="h-5 w-5 text-green-600" />;
       case 'error':
         return <XCircle className="h-5 w-5 text-red-600" />;
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-orange-600" />;
+        return <Warning className="h-5 w-5 text-orange-600" />;
       default:
         return <div className="h-5 w-5 rounded-full border-2 border-slate-300" />;
     }
@@ -320,12 +320,12 @@ export function SupabaseConnectivityCheck() {
             >
               {isChecking ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                   Checking...
                 </>
               ) : (
                 <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <ArrowClockwise className="h-4 w-4 mr-2" />
                   Run Health Check
                 </>
               )}
@@ -369,11 +369,11 @@ export function SupabaseConnectivityCheck() {
         <div className="mt-6 p-4 bg-slate-50 rounded-lg border">
           <div className="flex items-start gap-3">
             {overallStatus === 'success' ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
             ) : overallStatus === 'error' ? (
               <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
             ) : (
-              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
+              <Warning className="h-5 w-5 text-orange-600 mt-0.5" />
             )}
             <div className="flex-1">
               <h4 className="font-medium text-sm mb-1">

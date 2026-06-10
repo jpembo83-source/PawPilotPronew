@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Moon, Plus, Search, Filter, Calendar, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Moon, Plus, MagnifyingGlass, Funnel, CalendarBlank, ArrowLeft } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { useOvernightsStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
@@ -48,13 +47,6 @@ export function OvernightReservationsPage() {
   useEffect(() => {
     fetchReservations(locationId, dateFrom || undefined, dateTo || undefined);
   }, [locationId, dateFrom, dateTo]);
-
-  const refetchReservations = useCallback(() => {
-    fetchReservations(locationId, dateFrom || undefined, dateTo || undefined);
-  }, [fetchReservations, locationId, dateFrom, dateTo]);
-
-  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
-  useModuleRealtimeSync('overnights', refetchReservations, true, locationFilter);
 
   const filteredReservations = useMemo(() => {
     let result = [...reservations];
@@ -107,7 +99,7 @@ export function OvernightReservationsPage() {
       <Card className="p-4">
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Search by pet name, customer, or ID..."
               value={searchQuery}
@@ -117,7 +109,7 @@ export function OvernightReservationsPage() {
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[160px]">
-              <Filter className="h-4 w-4 mr-2 text-slate-400" />
+              <Funnel className="h-4 w-4 mr-2 text-slate-400" />
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -132,7 +124,7 @@ export function OvernightReservationsPage() {
             </SelectContent>
           </Select>
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-slate-400" />
+            <CalendarBlank className="h-4 w-4 text-slate-400" />
             <Input
               type="date"
               value={dateFrom}

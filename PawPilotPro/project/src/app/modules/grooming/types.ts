@@ -88,9 +88,6 @@ export interface GroomingAppointment {
   has_matting: boolean;
   matting_severity?: 'light' | 'moderate' | 'severe';
   
-  // Requirements validation
-  vaccination_status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
-  
   // Pricing
   base_price: number;
   additional_charges: AdditionalCharge[];
@@ -215,7 +212,6 @@ export interface GroomingStats {
   next_available_slot?: string;
   
   // Alerts
-  vaccination_alerts: number;
   behaviour_flags: number;
   medical_flags: number;
   overdue_count: number; // Appointments past expected end time
@@ -257,7 +253,7 @@ export interface GroomingCheckInValidation {
 
 export interface GroomingValidationIssue {
   type: 'blocker' | 'warning';
-  category: 'vaccination' | 'behaviour' | 'medical' | 'matting' | 'capacity' | 'other';
+  category: 'behaviour' | 'medical' | 'matting' | 'capacity' | 'other';
   message: string;
   details?: any;
 }

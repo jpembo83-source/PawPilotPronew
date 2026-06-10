@@ -1,35 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useCustomerStore } from '../store';
+import { useDaycareStore } from '../../daycare/store';
+import { usePackagesStore } from '../../packages/store';
 import { useAuth } from '../../../context/AuthContext';
 import { useCurrency } from '../../../utils/currency';
 import { useSettingsStore } from '../../settings/store';
 import { toast } from 'sonner';
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   Star,
-  Ban,
-  AlertCircle,
+  Prohibit,
+  Warning,
   Plus,
-  Mail,
+  EnvelopeSimple,
   Phone,
   MapPin,
   Dog,
-  Calendar,
+  CalendarBlank,
   Receipt,
-  MessageSquare,
+  ChatTeardrop,
   FileText,
   Flag,
-  Pencil,
+  PencilSimple,
   Check,
   X,
-  AlertTriangle,
-  ShieldAlert,
+  ShieldWarning,
   Truck,
   Scissors,
-  Home,
-  Trash2
-} from 'lucide-react';
+  House,
+  Trash
+} from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -51,6 +52,7 @@ import { MessagesTab } from '../components/household-detail/MessagesTab';
 import { BookingsTab } from '../components/household-detail/BookingsTab';
 import { BillingTab } from '../components/household-detail/BillingTab';
 import { NotesTab } from '../components/household-detail/NotesTab';
+import { PortalActivityTab } from '../components/household-detail/PortalActivityTab';
 import { DocumentManager } from '../components/DocumentManager';
 
 export function HouseholdDetailPage() {
@@ -61,6 +63,8 @@ export function HouseholdDetailPage() {
   const { currentHouseholdDetail, isLoading, error, fetchHouseholdDetail, updateHousehold, deleteHousehold, flags, fetchFlags } = useCustomerStore();
   const { format: formatCurrency } = useCurrency();
   const { globalEnabledModules } = useSettingsStore();
+  const { fetchCustomerPackages, customerPackages } = usePackagesStore();
+  const [householdBookingCount, setHouseholdBookingCount] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -71,9 +75,6 @@ export function HouseholdDetailPage() {
   // Validate householdId - accept any non-empty ID that's not "new"
   // We'll let the backend validate if it actually exists
   const isValidId = householdId && householdId !== 'new';
-  
-  // Debug: Log the household ID we received
-  console.log('HouseholdDetailPage - Received household ID:', householdId, 'Is valid:', isValidId);
   
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   
@@ -96,9 +97,18 @@ export function HouseholdDetailPage() {
     if (isValidId) {
       fetchHouseholdDetail(householdId!);
       // Silently fetch flags - they may not exist and that's okay
-      fetchFlags(householdId!).catch(() => {
-        // Silently ignore - flags might not exist for this household
-      });
+      fetchFlags(householdId!).catch(() => {});
+
+      // Fetch booking count for stat card
+      useDaycareStore.getState().fetchBookings({ household_id: householdId! })
+        .then(() => {
+          const bookings = useDaycareStore.getState().bookings;
+          setHouseholdBookingCount(bookings.filter(b => b.household_id === householdId).length);
+        })
+        .catch(() => {});
+
+      // Fetch membership/packages for this household
+      fetchCustomerPackages(householdId!).catch(() => {});
     }
   }, [householdId, isValidId]);
   
@@ -188,7 +198,7 @@ export function HouseholdDetailPage() {
       <div className="p-6">
         <Card>
           <CardContent className="py-12 text-center">
-            <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <Warning className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <h3 className="font-semibold text-slate-900 mb-2">
               {!isValidId ? 'Invalid household ID' : 'Household not found'}
             </h3>
@@ -230,7 +240,7 @@ export function HouseholdDetailPage() {
     activePets: pets.filter(p => p.active).length,
     totalDocuments: documents.length,
     expiredDocuments: documents.filter(d => d.expiry_date && new Date(d.expiry_date) < new Date()).length,
-    totalBookings: 0, // TODO: Get from bookings once implemented
+    totalBookings: householdBookingCount,
     outstandingBalance: 0, // TODO: Get from billing once implemented
   };
   
@@ -239,20 +249,16 @@ export function HouseholdDetailPage() {
   // Get household-wide active flags (pet_id is null)
   const householdFlags = flags.filter(f => f.is_active && !f.pet_id);
   
-  // Debug logging
-  console.log('All flags from store:', flags);
-  console.log('Household flags (active, no pet_id):', householdFlags);
-  
   // Helper function to get flag icon
   const getFlagIcon = (key: string) => {
     switch (key) {
       case 'vip': return Star;
-      case 'behaviour_caution': return AlertTriangle;
-      case 'medical_caution': return ShieldAlert;
-      case 'payment_hold': return Ban;
+      case 'behaviour_caution': return Warning;
+      case 'medical_caution': return ShieldWarning;
+      case 'payment_hold': return Prohibit;
       case 'transport_instructions': return Truck;
       case 'grooming_restrictions': return Scissors;
-      case 'overnight_restrictions': return Home;
+      case 'overnight_restrictions': return House;
       default: return Flag;
     }
   };
@@ -335,7 +341,7 @@ export function HouseholdDetailPage() {
                     onClick={() => setIsEditingName(true)}
                     className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:bg-slate-100"
                   >
-                    <Pencil className="h-4 w-4 text-slate-500" />
+                    <PencilSimple className="h-4 w-4 text-slate-500" />
                   </Button>
                 </>
               )}
@@ -350,7 +356,7 @@ export function HouseholdDetailPage() {
             {primaryContact && (
               <div className="flex items-center gap-4 text-sm text-slate-600">
                 <div className="flex items-center gap-1">
-                  <Mail className="h-4 w-4" />
+                  <EnvelopeSimple className="h-4 w-4" />
                   {primaryContact.email}
                 </div>
                 <div className="flex items-center gap-1">
@@ -376,7 +382,7 @@ export function HouseholdDetailPage() {
               
               {household.payment_hold && (
                 <Badge variant="destructive">
-                  <Ban className="h-3 w-3 mr-1" />
+                  <Prohibit className="h-3 w-3 mr-1" />
                   Payment Hold
                 </Badge>
               )}
@@ -400,7 +406,7 @@ export function HouseholdDetailPage() {
         {/* Quick Actions */}
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
-            <MessageSquare className="h-4 w-4 mr-2" />
+            <ChatTeardrop className="h-4 w-4 mr-2" />
             Send Message
           </Button>
           <Button size="sm">
@@ -451,7 +457,7 @@ export function HouseholdDetailPage() {
                 <p className="text-sm text-slate-600 mb-1">Bookings</p>
                 <p className="text-2xl font-bold">{summary.totalBookings}</p>
               </div>
-              <Calendar className="h-8 w-8 text-slate-400" />
+              <CalendarBlank className="h-8 w-8 text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -501,6 +507,7 @@ export function HouseholdDetailPage() {
             <TabsTrigger value="billing">Billing</TabsTrigger>
           )}
           <TabsTrigger value="notes">Notes & Flags</TabsTrigger>
+          <TabsTrigger value="portal">Portal</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview">
@@ -512,7 +519,10 @@ export function HouseholdDetailPage() {
         </TabsContent>
         
         <TabsContent value="pets">
-          <PetsTab household={currentHouseholdDetail} />
+          <PetsTab
+            household={currentHouseholdDetail}
+            memberships={customerPackages.filter(p => p.customer_id === householdId && p.status === 'active')}
+          />
         </TabsContent>
         
         <TabsContent value="documents">
@@ -536,6 +546,10 @@ export function HouseholdDetailPage() {
         <TabsContent value="notes">
           <NotesTab household={currentHouseholdDetail} />
         </TabsContent>
+
+        <TabsContent value="portal">
+          <PortalActivityTab householdId={currentHouseholdDetail.id} />
+        </TabsContent>
       </Tabs>
       
       {/* Danger Zone */}
@@ -553,7 +567,7 @@ export function HouseholdDetailPage() {
               size="sm"
               onClick={handleDeleteConfirm}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash className="h-4 w-4 mr-2" />
               Delete Household
             </Button>
           </CardContent>
@@ -564,7 +578,7 @@ export function HouseholdDetailPage() {
       {showDeleteConfirm && (
         <Card className="border-red-500">
           <CardContent className="py-12 text-center">
-            <Trash2 className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <Trash className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h3 className="font-semibold text-slate-900 mb-2">
               Delete Household "{household.name}"?
             </h3>

@@ -1,18 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  LogIn, 
-  Calendar, 
+  SignIn, 
+  CalendarBlank, 
   Truck, 
-  LogOut,
+  SignOut,
   UserPlus,
-  Search,
+  MagnifyingGlass,
   Scissors,
   Moon,
-  RefreshCw,
-  StickyNote,
+  ArrowClockwise,
+  Note,
   Camera,
-  ChevronRight
-} from 'lucide-react';
+  CaretRight
+} from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../../components/ui/tooltip';
 import { useAuth } from '../../../context/AuthContext';
@@ -64,7 +64,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'check-in',
     label: 'Check-in',
-    icon: LogIn,
+    icon: SignIn,
     variant: 'primary',
     action: 'modal',
     requiredModule: 'daycare',
@@ -74,7 +74,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'check-out',
     label: 'Check-out',
-    icon: LogOut,
+    icon: SignOut,
     variant: 'primary',
     action: 'modal',
     requiredPermission: { module: 'daycare', action: 'update' },
@@ -83,7 +83,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'book',
     label: 'New Booking',
-    icon: Calendar,
+    icon: CalendarBlank,
     variant: 'primary',
     action: 'modal',
     requiredPermission: { module: 'bookings', action: 'create' },
@@ -102,7 +102,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'quick-note',
     label: 'Quick Note',
-    icon: StickyNote,
+    icon: Note,
     variant: 'secondary',
     action: 'modal',
     requiredPermission: { module: 'daycare', action: 'update' },
@@ -129,7 +129,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'search',
     label: 'Search',
-    icon: Search,
+    icon: MagnifyingGlass,
     variant: 'subtle',
     action: 'navigate',
     target: '/customers',
@@ -142,6 +142,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     action: 'navigate',
     target: '/grooming',
     requiredModule: 'grooming',
+    isBeta: true,
   },
   {
     id: 'overnights',
@@ -155,7 +156,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'refresh',
     label: 'Refresh',
-    icon: RefreshCw,
+    icon: ArrowClockwise,
     variant: 'subtle',
     action: 'refresh',
   },

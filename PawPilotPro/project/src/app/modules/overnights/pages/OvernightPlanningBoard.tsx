@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
-import { LayoutGrid, AlertTriangle, Moon, Pill, Dog, Heart, ArrowLeft, RefreshCw } from 'lucide-react';
+import { SquaresFour, Warning, Moon, Pill, Dog, Heart, ArrowLeft, ArrowClockwise } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -192,7 +191,7 @@ function CarerColumn({
 
       {isProcessing && (
         <div className="p-2 text-center">
-          <RefreshCw className="h-4 w-4 animate-spin text-indigo-500 mx-auto" />
+          <ArrowClockwise className="h-4 w-4 animate-spin text-indigo-500 mx-auto" />
         </div>
       )}
     </div>
@@ -237,8 +236,6 @@ function PlanningBoardContent() {
       fetchTonightsBoarders(locationId);
     }
   }, [locationId]);
-
-  useModuleRealtimeSync('overnights', handleRefresh);
 
   const handleDrop = useCallback(async (reservationId: string, carerId: string | null) => {
     if (!carerId) return;
@@ -295,7 +292,7 @@ function PlanningBoardContent() {
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-              <LayoutGrid className="h-6 w-6 text-purple-600" />
+              <SquaresFour className="h-6 w-6 text-purple-600" />
               Planning Board
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -317,7 +314,7 @@ function PlanningBoardContent() {
             {unassignedBoarders.length} unassigned
           </Badge>
           <Button variant="outline" size="sm" className="gap-1" onClick={handleRefresh} disabled={isLoading}>
-            <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+            <ArrowClockwise className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
             Refresh
           </Button>
         </div>
@@ -325,7 +322,7 @@ function PlanningBoardContent() {
 
       {notOnRota.length > 0 && (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <Warning className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
             <span className="font-medium">Rota Warning:</span>{' '}
             {notOnRota.map((c) => c.name).join(', ')}{' '}

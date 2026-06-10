@@ -3,18 +3,22 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Download, Loader2, Calendar } from 'lucide-react';
+import { ArrowLeft, DownloadSimple, CircleNotch, CalendarBlank } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { useCustomerStore } from '../store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { supabase } from '../../../../utils/supabase/client';
+import * as XLSX from 'xlsx';
 import type { CustomerFilters } from '../types';
+
+const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 
 export function ExportPage() {
   const navigate = useNavigate();
-  const { user, activeTenantId } = useAuth();
+  const { activeTenantId } = useAuth();
   const { filters } = useCustomerStore();
   
   const [isExporting, setIsExporting] = useState(false);
@@ -28,66 +32,131 @@ export function ExportPage() {
     setIsExporting(true);
     
     try {
-      const queryParams = new URLSearchParams();
-      
-      // Add filters
-      if (exportFilters.search) queryParams.set('search', exportFilters.search);
-      if (exportFilters.status) queryParams.set('status', exportFilters.status);
-      if (exportFilters.location) queryParams.set('location', exportFilters.location);
-      if (exportFilters.vip !== undefined) queryParams.set('vip', exportFilters.vip.toString());
-      if (exportFilters.paymentHold !== undefined) queryParams.set('paymentHold', exportFilters.paymentHold.toString());
-      if (exportFilters.documentAlerts !== undefined) queryParams.set('documentAlerts', exportFilters.documentAlerts.toString());
-      
-      // Add export options
-      queryParams.set('includeInactive', includeInactive.toString());
-      queryParams.set('includeContacts', includeContacts.toString());
-      queryParams.set('includePets', includePets.toString());
-      queryParams.set('includeDocuments', includeDocuments.toString());
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/export?${queryParams.toString()}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${user?.access_token}`,
-            'X-Tenant-Id': activeTenantId || '',
-          },
-        }
-      );
-      
-      if (!response.ok) {
-        // Try to parse error as JSON, but handle non-JSON responses
-        let errorMessage = 'Export failed';
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const error = await response.json();
-            errorMessage = error.error || error.message || 'Export failed';
-          } else {
-            const text = await response.text();
-            errorMessage = text.substring(0, 100) || `Export failed (${response.status})`;
-          }
-        } catch {
-          errorMessage = `Export failed (${response.status})`;
-        }
-        throw new Error(errorMessage);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated — please log in again');
       }
       
-      // Download the file
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`,
+        'X-User-Token': `Bearer ${session.access_token}`,
+      };
       
-      const timestamp = new Date().toISOString().split('T')[0];
-      a.download = `customers-export-${timestamp}.xlsx`;
+      // Fetch all households
+      const params = new URLSearchParams();
+      if (exportFilters.search) params.set('search', exportFilters.search);
+      if (exportFilters.status) params.set('status', exportFilters.status);
+      if (exportFilters.location) params.set('location', exportFilters.location);
+      if (exportFilters.vip !== undefined) params.set('vip', exportFilters.vip.toString());
+      if (exportFilters.paymentHold !== undefined) params.set('paymentHold', exportFilters.paymentHold.toString());
+      if (!includeInactive) params.set('status', exportFilters.status || 'active');
       
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const hhUrl = params.toString() ? `${BASE_URL}/households?${params}` : `${BASE_URL}/households`;
+      const hhRes = await fetch(hhUrl, { headers: authHeaders });
+      if (!hhRes.ok) {
+        const err = await hhRes.json().catch(() => ({}));
+        throw new Error(err.error || `Failed to fetch households (${hhRes.status})`);
+      }
+      const households: any[] = await hhRes.json();
       
-      toast.success('Export completed successfully');
+      // Build household rows
+      const householdRows = households.map((h: any) => ({
+        'Household ID': h.id,
+        'Household Name': h.household_name || h.name || '',
+        'Status': h.status || '',
+        'Location': h.location || '',
+        'VIP': h.is_vip ? 'Yes' : 'No',
+        'Payment Hold': h.payment_hold ? 'Yes' : 'No',
+        'Primary Contact': h.primary_contact_name || '',
+        'Primary Email': h.primary_contact_email || '',
+        'Primary Phone': h.primary_contact_phone || '',
+        'Created': h.created_at ? new Date(h.created_at).toISOString().split('T')[0] : '',
+      }));
+      
+      const contactRows: any[] = [];
+      const petRows: any[] = [];
+      
+      // Fetch contacts and pets per household
+      for (const h of households) {
+        const householdName = h.household_name || h.name || '';
+        
+        if (includeContacts) {
+          const cRes = await fetch(`${BASE_URL}/households/${h.id}/contacts`, { headers: authHeaders });
+          if (cRes.ok) {
+            const contacts: any[] = await cRes.json();
+            contacts.forEach((c: any) => {
+              if (!c.deleted_at) {
+                contactRows.push({
+                  'Contact ID': c.id,
+                  'Household ID': h.id,
+                  'Household Name': householdName,
+                  'First Name': c.first_name || '',
+                  'Last Name': c.last_name || '',
+                  'Email': c.email || '',
+                  'Phone': c.phone || '',
+                  'Type': c.contact_type || '',
+                  'Relationship': c.relationship || '',
+                  'Primary': c.is_primary ? 'Yes' : 'No',
+                  'Emergency': c.is_emergency ? 'Yes' : 'No',
+                  'Billing': c.is_billing ? 'Yes' : 'No',
+                });
+              }
+            });
+          }
+        }
+        
+        if (includePets) {
+          const pRes = await fetch(`${BASE_URL}/households/${h.id}/pets`, { headers: authHeaders });
+          if (pRes.ok) {
+            const pets: any[] = await pRes.json();
+            pets.forEach((p: any) => {
+              if (!p.deleted_at) {
+                petRows.push({
+                  'Pet ID': p.id,
+                  'Household ID': h.id,
+                  'Household Name': householdName,
+                  'Name': p.name || '',
+                  'Species': p.species || '',
+                  'Breed': p.breed || '',
+                  'Sex': p.sex || '',
+                  'Date of Birth': p.date_of_birth || '',
+                  'Age (years)': p.age_years || '',
+                  'Weight (lbs)': p.weight_lbs || '',
+                  'Colour': p.colour || '',
+                  'Microchip': p.microchip || '',
+                  'Spayed/Neutered': p.spayed_neutered ? 'Yes' : 'No',
+                  'Medical Conditions': Array.isArray(p.medical_conditions) ? p.medical_conditions.join(', ') : (p.medical_conditions || ''),
+                  'Behaviour Notes': p.behaviour_notes || '',
+                  'Active': p.is_active !== false ? 'Yes' : 'No',
+                });
+              }
+            });
+          }
+        }
+      }
+      
+      // Build XLSX workbook
+      const wb = XLSX.utils.book_new();
+      
+      const hhSheet = XLSX.utils.json_to_sheet(householdRows.length > 0 ? householdRows : [{}]);
+      XLSX.utils.book_append_sheet(wb, hhSheet, 'Households');
+      
+      if (includeContacts) {
+        const cSheet = XLSX.utils.json_to_sheet(contactRows.length > 0 ? contactRows : [{}]);
+        XLSX.utils.book_append_sheet(wb, cSheet, 'Contacts');
+      }
+      
+      if (includePets) {
+        const pSheet = XLSX.utils.json_to_sheet(petRows.length > 0 ? petRows : [{}]);
+        XLSX.utils.book_append_sheet(wb, pSheet, 'Pets');
+      }
+      
+      // Write and download
+      const exportDate = new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `customers-export-${exportDate}.xlsx`);
+      
+      toast.success(`Exported ${householdRows.length} households successfully`);
     } catch (error: any) {
       toast.error(error.message || 'Export failed');
     } finally {
@@ -110,7 +179,7 @@ export function ExportPage() {
         
         <h1 className="text-3xl font-bold text-slate-900">Export Customers</h1>
         <p className="text-slate-600 mt-2">
-          Download customer data as an Excel spreadsheet
+          DownloadSimple customer data as an Excel spreadsheet
         </p>
       </div>
       
@@ -200,23 +269,6 @@ export function ExportPage() {
                 </select>
               </div>
               
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Location
-                </label>
-                <select
-                  value={exportFilters.location || ''}
-                  onChange={(e) => setExportFilters({ ...exportFilters, location: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                >
-                  <option value="">All locations</option>
-                  <option value="loc_main">Main Facility</option>
-                  <option value="loc_north">North Branch</option>
-                  <option value="loc_south">South Branch</option>
-                </select>
-              </div>
-              
               {/* VIP */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -244,12 +296,12 @@ export function ExportPage() {
       <Card className="mb-6 bg-blue-50 border-blue-200">
         <CardContent className="py-4">
           <div className="flex items-start gap-3">
-            <Calendar className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <CalendarBlank className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">Export Format</p>
               <p>
-                The export will include multiple sheets for households, contacts, and pets. 
-                You can re-import this file after making changes using the Bulk Import feature.
+                The export includes separate sheets for Households, Contacts, and Pets.
+                Open the file in Excel or Google Sheets.
               </p>
             </div>
           </div>
@@ -265,12 +317,12 @@ export function ExportPage() {
         >
           {isExporting ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
               Exporting...
             </>
           ) : (
             <>
-              <Download className="h-4 w-4 mr-2" />
+              <DownloadSimple className="h-4 w-4 mr-2" />
               Export to Excel
             </>
           )}

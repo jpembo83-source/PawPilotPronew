@@ -3,7 +3,7 @@ import { UserList } from '../components/users/UserList';
 import { TemplateManager } from '../components/users/TemplateManager';
 import { AccessAudit } from '../components/users/AccessAudit';
 import { Button } from '../../../components/ui/button';
-import { Users, Shield, History, Eye } from 'lucide-react';
+import { UsersThree, Shield, ClockCounterClockwise, Eye } from '@phosphor-icons/react';
 import { useSettingsStore } from '../store';
 import { ViewAsManagement } from '../../../modules/view-as/ViewAsManagement';
 import { useAuth } from '../../../context/AuthContext';
@@ -40,8 +40,8 @@ export function UserManagement() {
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          <Users className="h-4 w-4" />
-          Users
+          <UsersThree className="h-4 w-4" />
+          UsersThree
         </button>
         <button
           onClick={() => setActiveTab('templates')}
@@ -73,7 +73,7 @@ export function UserManagement() {
               : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          <History className="h-4 w-4" />
+          <ClockCounterClockwise className="h-4 w-4" />
           Audit Log
         </button>
       </div>

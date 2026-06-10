@@ -1,8 +1,7 @@
-// Photo Upload Modal - Snap pics during the day, attach to dog's profile
+// Photo UploadSimple Modal - Snap pics during the day, attach to dog's profile
 // Parents love seeing photos of their dogs!
 
 import React, { useState, useEffect, useRef } from 'react';
-import { projectId } from '../../../../../../utils/supabase/info';
 import {
   Dialog,
   DialogContent,
@@ -19,14 +18,14 @@ import { Badge } from '../../../../components/ui/badge';
 import { 
   Camera, 
   Dog, 
-  Search, 
-  Upload,
+  MagnifyingGlass, 
+  UploadSimple,
   Image as ImageIcon,
   X,
   Check,
-  Loader2,
-  Sparkles
-} from 'lucide-react';
+  CircleNotch,
+  Star
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { supabase } from '../../../../../utils/supabase/client';
 import { useDashboardStore } from '../../store';
@@ -86,7 +85,7 @@ export function PhotoUploadModal({ open, onClose, preSelectedPets }: PhotoUpload
       params.append('status', 'checked_in');
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/attendance/today?${params}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-fc003b23/daycare/attendance/today?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -174,7 +173,7 @@ export function PhotoUploadModal({ open, onClose, preSelectedPets }: PhotoUpload
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      // Upload each photo
+      // UploadSimple each photo
       for (const photo of photos) {
         const formData = new FormData();
         formData.append('file', photo.file);
@@ -184,7 +183,7 @@ export function PhotoUploadModal({ open, onClose, preSelectedPets }: PhotoUpload
         formData.append('timestamp', new Date().toISOString());
 
         const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/photos/upload`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-fc003b23/photos/upload`,
           {
             method: 'POST',
             headers: {
@@ -245,7 +244,7 @@ export function PhotoUploadModal({ open, onClose, preSelectedPets }: PhotoUpload
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Photo Upload Area */}
+            {/* Photo UploadSimple Area */}
             <div>
               <Label>Photos</Label>
               <div className="mt-2">
@@ -329,9 +328,9 @@ export function PhotoUploadModal({ open, onClose, preSelectedPets }: PhotoUpload
                 </div>
               )}
               
-              {/* Search to add more */}
+              {/* MagnifyingGlass to add more */}
               <div className="relative mt-2">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Search to add pets..."
                   value={searchQuery}
@@ -344,7 +343,7 @@ export function PhotoUploadModal({ open, onClose, preSelectedPets }: PhotoUpload
                 <div className="mt-2 max-h-32 overflow-y-auto border rounded-lg">
                   {isLoading ? (
                     <div className="p-4 text-center text-slate-500">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                      <CircleNotch className="h-5 w-5 animate-spin mx-auto" />
                     </div>
                   ) : filteredPets.length === 0 ? (
                     <div className="p-3 text-center text-slate-500 text-sm">
@@ -394,12 +393,12 @@ export function PhotoUploadModal({ open, onClose, preSelectedPets }: PhotoUpload
             >
               {isUploading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                   Uploading...
                 </>
               ) : (
                 <>
-                  <Upload className="h-4 w-4 mr-2" />
+                  <UploadSimple className="h-4 w-4 mr-2" />
                   Upload {photos.length} Photo{photos.length !== 1 ? 's' : ''}
                 </>
               )}

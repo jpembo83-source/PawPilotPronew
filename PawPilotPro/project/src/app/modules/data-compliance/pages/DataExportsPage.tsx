@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Plus, Download, Lock } from 'lucide-react';
+import { Plus, DownloadSimple, Lock } from '@phosphor-icons/react';
 import { useDataComplianceStore } from '../store';
 import { CreateExportDialog } from '../components/CreateExportDialog';
 
@@ -82,8 +82,8 @@ export function DataExportsPage() {
                   <TableCell>
                     {exp.status === 'ready' ? (
                       <Button size="sm" onClick={() => handleDownload(exp)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
+                        <DownloadSimple className="h-4 w-4 mr-2" />
+                        DownloadSimple
                       </Button>
                     ) : exp.status === 'downloaded' ? (
                       <Badge variant="secondary">Downloaded</Badge>

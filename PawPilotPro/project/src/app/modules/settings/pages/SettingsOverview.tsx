@@ -5,19 +5,19 @@ import { useAuth } from '../../../context/AuthContext';
 import { getAccessibleSections } from '../utils/rbac';
 import { SettingsSection as SettingsSectionKey } from '../types/permissions';
 import { 
-  Building2, 
-  Layers, 
+  Buildings, 
+  Stack, 
   MapPin, 
-  Users, 
+  UsersThree, 
   Tag, 
   BookOpen, 
-  MessageSquare, 
+  ChatTeardrop, 
   Receipt, 
   ShieldCheck, 
-  Workflow, 
-  LayoutDashboard, 
-  Settings2 
-} from 'lucide-react';
+  GitBranch, 
+  Gauge, 
+  SlidersHorizontal 
+} from '@phosphor-icons/react';
 
 interface SettingsSection {
   id: string;
@@ -29,18 +29,18 @@ interface SettingsSection {
 }
 
 const sections: SettingsSection[] = [
-  { id: 'org', label: 'Organisation', icon: Building2, path: '/settings/organisation', description: 'Legal entity, brand settings, and global operational defaults.', sectionKey: 'organisation' },
-  { id: 'modules', label: 'Modules', icon: Layers, path: '/settings/modules', description: 'Enable/disable major functional modules across the organisation.', sectionKey: 'modules' },
+  { id: 'org', label: 'Organisation', icon: Buildings, path: '/settings/organisation', description: 'Legal entity, brand settings, and global operational defaults.', sectionKey: 'organisation' },
+  { id: 'modules', label: 'Modules', icon: Stack, path: '/settings/modules', description: 'Enable/disable major functional modules across the organisation.', sectionKey: 'modules' },
   { id: 'locations', label: 'Locations', icon: MapPin, path: '/settings/locations', description: 'Manage branch profiles, operating hours, and capacity limits.', sectionKey: 'locations' },
-  { id: 'users', label: 'Users & Access', icon: Users, path: '/settings/users', description: 'Staff accounts, roles, permissions, and security policies.', sectionKey: 'users' },
+  { id: 'users', label: 'Users & Access', icon: UsersThree, path: '/settings/users', description: 'Staff accounts, roles, permissions, and security policies.', sectionKey: 'users' },
   { id: 'services', label: 'Services & Pricing', icon: Tag, path: '/settings/services', description: 'Service catalogue, price books, memberships, and packages.', sectionKey: 'services' },
   { id: 'ops', label: 'Operations Rules', icon: BookOpen, path: '/settings/operations', description: 'Booking policies, vaccination requirements, and incident rules.', sectionKey: 'operations' },
-  { id: 'comms', label: 'Communications', icon: MessageSquare, path: '/settings/communications', description: 'Email/SMS templates, notification channels, and consent.', sectionKey: 'communications' },
+  { id: 'comms', label: 'Communications', icon: ChatTeardrop, path: '/settings/communications', description: 'Email/SMS templates, notification channels, and consent.', sectionKey: 'communications' },
   { id: 'billing', label: 'Billing & Finance', icon: Receipt, path: '/settings/billing', description: 'Payment providers, tax settings, invoices, and penalties.', sectionKey: 'billing' },
   { id: 'compliance', label: 'Data & Compliance', icon: ShieldCheck, path: '/settings/compliance', description: 'Data retention, GDPR requests, and document requirements.', sectionKey: 'compliance' },
-  { id: 'integrations', label: 'Integrations', icon: Workflow, path: '/settings/integrations', description: 'API keys, webhooks, and third-party connections.', sectionKey: 'integrations' },
-  { id: 'dashboard', label: 'Dashboard Config', icon: LayoutDashboard, path: '/settings/dashboard', description: 'Widget visibility and RBAC', sectionKey: 'dashboard' },
-  { id: 'system', label: 'System', icon: Settings2, path: '/settings/system', description: 'Feature flags, environments, and system health status.', sectionKey: 'system' },
+  { id: 'integrations', label: 'Integrations', icon: GitBranch, path: '/settings/integrations', description: 'API keys, webhooks, and third-party connections.', sectionKey: 'integrations' },
+  // 'Dashboard Config' removed — see SettingsLayout.tsx for the why.
+  { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environments, and system health status.', sectionKey: 'system' },
 ];
 
 export function SettingsOverview() {

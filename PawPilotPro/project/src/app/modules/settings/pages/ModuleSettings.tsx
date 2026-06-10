@@ -2,7 +2,7 @@ import React from 'react';
 import { useSettingsStore } from '../store';
 import { MODULES } from '../constants/modules';
 import { Switch } from '../../../components/ui/switch';
-import { AlertTriangle, Info, Layers } from 'lucide-react';
+import { Warning, Info, Stack } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -44,7 +44,7 @@ export function ModuleSettings() {
           </p>
         </div>
         <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
-          <Layers className="h-5 w-5" />
+          <Stack className="h-5 w-5" />
         </div>
       </div>
 
@@ -79,7 +79,7 @@ export function ModuleSettings() {
                     
                     {!isEnabled && (
                       <div className="flex items-center gap-2 mt-3 text-xs text-amber-600 bg-amber-50 px-2 py-1.5 rounded border border-amber-100 w-fit">
-                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <Warning className="h-3.5 w-3.5" />
                         Platform features for this module are hidden globally.
                       </div>
                     )}

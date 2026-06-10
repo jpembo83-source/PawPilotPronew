@@ -140,9 +140,10 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
     }
 
     // Never hardcode the bootstrap credential — require it from the environment.
+    const seedEmail = Deno.env.get("SEED_ADMIN_EMAIL");
     const seedPassword = Deno.env.get("SEED_ADMIN_PASSWORD");
-    if (!seedPassword) {
-      console.error("[Seed Admin] SEED_ADMIN_PASSWORD not set; refusing to seed");
+    if (!seedEmail || !seedPassword) {
+      console.error("[Seed Admin] SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD not set; refusing to seed");
       return c.json({ error: "seed_unavailable" }, 503);
     }
 
@@ -154,15 +155,15 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
       console.error("List users error:", listError);
       return c.json({ error: listError.message }, 500);
     }
-    
-    const existingAdmin = users?.find(u => u.email === 'admin@mdcoperations.com');
+
+    const existingAdmin = users?.find(u => u.email === seedEmail);
     if (existingAdmin) {
       console.log("Admin user already exists");
-      
+
       // Check if admin has tenant_id, if not, update it
       if (!existingAdmin.user_metadata?.tenant_id && !existingAdmin.user_metadata?.tenantId) {
         console.log("Admin exists but missing tenant_id, updating...");
-        const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
+        const { error: updateError } = await supabase.auth.admin.updateUserById(
           existingAdmin.id,
           {
             // Role lives in app_metadata (server-set, untamperable). The
@@ -183,14 +184,14 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
             }
           }
         );
-        
+
         if (updateError) {
           console.error("Update admin error:", updateError);
         } else {
           console.log("Admin user updated with tenant_id");
         }
       }
-      
+
       // Always ensure profile exists in KV store for existing admin
       const userProfile = {
         id: existingAdmin.id,
@@ -205,21 +206,21 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
         updatedAt: new Date().toISOString(),
         lastLogin: null,
       };
-      
+
       await kv.set(`user:demo-tenant-001:profile:${existingAdmin.id}`, userProfile);
       console.log('[Seed Admin] Saved/updated existing admin profile to KV store');
-      
-      return c.json({ 
-        message: "Admin user already exists", 
-        email: "admin@mdcoperations.com",
+
+      return c.json({
+        message: "Admin user already exists",
+        email: seedEmail,
         alreadyExists: true,
         profile: userProfile
       });
     }
-    
+
     // Create admin user with tenant_id
     const { data, error } = await supabase.auth.admin.createUser({
-      email: 'admin@mdcoperations.com',
+      email: seedEmail,
       password: seedPassword,
       email_confirm: true,
       // Role is the security-bearing field — it lives in app_metadata so the
@@ -258,10 +259,10 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
     console.log('[Seed Admin] Saved admin profile to KV store');
 
     console.log("Admin user created successfully");
-    return c.json({ 
+    return c.json({
       message: "Admin user created successfully",
-      email: "admin@mdcoperations.com",
-      user: data.user 
+      email: seedEmail,
+      user: data.user
     });
   } catch (err: any) {
     console.error("Server error:", err);
@@ -275,6 +276,7 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
 app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 'create'), async (c) => {
   try {
     const supabase = getSupabase();
+    const caller = c.get('user') as UserContext;
     const body = await c.req.json();
     const { email, password, role, name, locationIds, permissions, templateId, tenant_id, tenantId } = body;
 
@@ -283,7 +285,15 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
       return c.json({ error: "A password of at least 8 characters is required" }, 400);
     }
 
-    // Get tenant ID from body or token
+    // Role must not exceed the caller's own role
+    const ROLE_RANK: Record<string, number> = { admin: 4, manager: 3, assistant_manager: 2, staff: 1 };
+    const callerRank = ROLE_RANK[caller.role] ?? 0;
+    const assignedRole = role && ROLE_RANK[role] !== undefined ? role : 'staff';
+    if (ROLE_RANK[assignedRole] > callerRank) {
+      return c.json({ error: 'You cannot assign a role higher than your own' }, 403);
+    }
+
+    // Get tenant ID from body (validated caller is already authenticated)
     const finalTenantId = tenant_id || tenantId;
 
     const { data, error } = await supabase.auth.admin.createUser({
@@ -292,7 +302,7 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
       email_confirm: true,
       // Role lives in app_metadata (server-set, untamperable). Non-role
       // profile fields stay in user_metadata.
-      app_metadata: { role: role || 'staff' },
+      app_metadata: { role: assignedRole },
       user_metadata: { name, locationIds, permissions, templateId, tenant_id: finalTenantId, tenantId: finalTenantId }
     });
 
@@ -307,7 +317,7 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
         id: data.user.id,
         email: data.user.email,
         name: name || data.user.email,
-        role: role || 'staff',
+        role: assignedRole,
         locationIds: locationIds || [],
         permissions: permissions || [],
         templateId,

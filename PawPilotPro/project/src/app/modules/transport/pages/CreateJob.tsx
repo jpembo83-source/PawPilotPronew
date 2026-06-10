@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from '@phosphor-icons/react';
 import { Button } from '@/app/components/ui/button';
 import { CreateTransportJobDialog } from '../components/CreateTransportJobDialog';
 import { format, startOfToday } from 'date-fns';

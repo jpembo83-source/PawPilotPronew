@@ -10,7 +10,7 @@ import {
 import { Badge } from '../../../components/ui/badge';
 import { Button } from '../../../components/ui/button';
 import { Dog, Booking, Owner } from '../../../lib/store';
-import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Warning, CheckCircle, Clock } from '@phosphor-icons/react';
 
 interface BookingTableProps {
   bookings: Booking[];
@@ -41,9 +41,6 @@ export function BookingTable({ bookings, dogs, owners, onCheckIn }: BookingTable
             const dog = getDog(booking.dogId);
             const owner = dog ? getOwner(dog.ownerId) : null;
             
-            // Check for expired vaccinations
-            const hasExpiredVax = dog?.vaccinations.some(v => new Date(v.expiryDate) < new Date());
-            
             return (
               <TableRow key={booking.id}>
                 <TableCell className="font-medium">
@@ -61,11 +58,6 @@ export function BookingTable({ bookings, dogs, owners, onCheckIn }: BookingTable
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    {hasExpiredVax && (
-                      <div className="text-red-500" title="Expired Vaccinations">
-                        <AlertTriangle className="h-4 w-4" />
-                      </div>
-                    )}
                     {dog?.alerts.includes('medication') && (
                       <div className="text-blue-500" title="Medication Required">
                         <Clock className="h-4 w-4" />
@@ -73,7 +65,7 @@ export function BookingTable({ bookings, dogs, owners, onCheckIn }: BookingTable
                     )}
                     {dog?.alerts.includes('anxious') && (
                       <div className="text-orange-500" title="Behavioral Alert">
-                        <AlertTriangle className="h-4 w-4" />
+                        <Warning className="h-4 w-4" />
                       </div>
                     )}
                   </div>
@@ -83,8 +75,7 @@ export function BookingTable({ bookings, dogs, owners, onCheckIn }: BookingTable
                     <Button 
                       size="sm" 
                       onClick={() => onCheckIn(booking.id)}
-                      disabled={hasExpiredVax} // Guardrail
-                      className={hasExpiredVax ? "opacity-50 cursor-not-allowed" : ""}
+                      className=""
                     >
                       Check In
                     </Button>

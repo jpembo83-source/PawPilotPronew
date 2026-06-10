@@ -4,7 +4,7 @@
 // Shows the complete RBAC model and governance rules for Settings
 
 import React from 'react';
-import { Shield, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Shield, Info, Warning, CheckCircle } from '@phosphor-icons/react';
 import { SETTINGS_ACCESS_CONTROL } from '../types/permissions';
 import { useAuth } from '../../../context/AuthContext';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
@@ -109,7 +109,7 @@ export function RBACDocumentationPage() {
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center gap-1">
                         {access.admin.canView ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -117,7 +117,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.admin.canEdit ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -125,7 +125,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.admin.canCreate ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -133,7 +133,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.admin.canDelete ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -148,7 +148,7 @@ export function RBACDocumentationPage() {
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center gap-1">
                         {access.manager.canView ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -156,7 +156,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.manager.canEdit ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -164,7 +164,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.manager.canCreate ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -172,7 +172,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.manager.canDelete ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -192,7 +192,7 @@ export function RBACDocumentationPage() {
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center gap-1">
                         {access.assistantManager.canView ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -200,7 +200,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.assistantManager.canEdit ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -208,7 +208,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.assistantManager.canCreate ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -216,7 +216,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.assistantManager.canDelete ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -231,7 +231,7 @@ export function RBACDocumentationPage() {
                     <div className="space-y-1 text-xs">
                       <div className="flex items-center gap-1">
                         {access.staff.canView ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -239,7 +239,7 @@ export function RBACDocumentationPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         {access.staff.canEdit ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-green-600" />
                         ) : (
                           <span className="h-3 w-3 text-slate-300">-</span>
                         )}
@@ -277,7 +277,7 @@ export function RBACDocumentationPage() {
                 {userRoleAccess.restrictions && userRoleAccess.restrictions.length > 0 && (
                   <div className="mt-3">
                     <Alert variant="default" className="border-amber-200 bg-amber-50">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <Warning className="h-4 w-4 text-amber-600" />
                       <AlertDescription className="text-amber-800">
                         <p className="text-xs font-medium mb-1">Restrictions:</p>
                         <ul className="list-disc list-inside space-y-0.5 text-xs">

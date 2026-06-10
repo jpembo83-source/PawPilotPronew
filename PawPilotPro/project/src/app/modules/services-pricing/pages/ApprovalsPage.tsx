@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Clock, Eye, AlertTriangle, TrendingUp, TrendingDown } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Eye, Warning, TrendUp, TrendDown } from '@phosphor-icons/react';
 import { useApprovalsStore } from '../stores/approvals-store';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
@@ -182,7 +182,7 @@ export function ApprovalsPage() {
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}
             >
-              History ({approvalHistory.length})
+              ClockCounterClockwise ({approvalHistory.length})
             </button>
           </nav>
         </div>
@@ -422,12 +422,12 @@ function ImpactPreviewModal({
                     <span className="font-medium text-slate-900">{service.serviceName}</span>
                     {service.priceChangePercent >= 0 ? (
                       <div className="flex items-center gap-1 text-emerald-600">
-                        <TrendingUp className="h-4 w-4" />
+                        <TrendUp className="h-4 w-4" />
                         <span className="text-sm font-medium">+{service.priceChangePercent.toFixed(1)}%</span>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-rose-600">
-                        <TrendingDown className="h-4 w-4" />
+                        <TrendDown className="h-4 w-4" />
                         <span className="text-sm font-medium">{service.priceChangePercent.toFixed(1)}%</span>
                       </div>
                     )}
@@ -491,7 +491,7 @@ function ImpactPreviewModal({
           {/* Warning */}
           {impactPreview.upcomingBookingsImpacted > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <Warning className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-amber-900">
                   {impactPreview.upcomingBookingsImpacted} upcoming booking(s) may be affected

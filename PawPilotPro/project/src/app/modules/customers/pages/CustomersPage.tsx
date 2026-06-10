@@ -1,10 +1,9 @@
 // Customer Management System
 // Modern Customer Master Database with comprehensive household management
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Search, Plus, Download, Upload, AlertTriangle, Star, DollarSign, FileWarning, MapPin, RefreshCw } from 'lucide-react';
+import { MagnifyingGlass, Plus, DownloadSimple, UploadSimple, Warning, Star, CurrencyDollar, FileDashed, MapPin, ArrowClockwise } from '@phosphor-icons/react';
 import { useCustomerStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import type { CustomerFilters } from '../types';
@@ -37,12 +36,6 @@ export function CustomersPage() {
     });
     fetchLocations(); // Fetch locations for display
   }, []);
-
-  const refetchCustomers = useCallback(() => {
-    fetchHouseholds(filters).catch(() => {});
-  }, [fetchHouseholds, filters]);
-
-  useModuleRealtimeSync('customers', refetchCustomers);
   
   const handleSearch = () => {
     setFilters({ ...filters, search: searchInput });
@@ -108,14 +101,14 @@ export function CustomersPage() {
               onClick={() => navigate('/customers/bulk-import')}
               className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-2"
             >
-              <Upload className="w-4 h-4" />
+              <UploadSimple className="w-4 h-4" />
               Bulk Import
             </button>
             <button
               onClick={() => navigate('/customers/export')}
               className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-2"
             >
-              <Download className="w-4 h-4" />
+              <DownloadSimple className="w-4 h-4" />
               Export
             </button>
             <button
@@ -135,16 +128,16 @@ export function CustomersPage() {
                 (isRefreshing || isLoading) ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <ArrowClockwise className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
             </button>
           </div>
         </div>
         
-        {/* Search and Filters */}
+        {/* MagnifyingGlass and Filters */}
         <div className="flex items-center gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
               placeholder="Search by household name, contact, email, phone, or pet name..."
@@ -207,7 +200,7 @@ export function CustomersPage() {
                 : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'
             }`}
           >
-            <DollarSign className="w-3.5 h-3.5" />
+            <CurrencyDollar className="w-3.5 h-3.5" />
             Payment Hold
           </button>
         </div>
@@ -217,7 +210,7 @@ export function CustomersPage() {
       <div className="flex-1 overflow-auto">
         {error && (
           <div className="m-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <Warning className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-medium text-red-900">Error loading customers</p>
               <p className="text-sm text-red-700 mt-1">{error}</p>
@@ -241,7 +234,7 @@ export function CustomersPage() {
         ) : households.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-              <Search className="w-8 h-8 text-slate-400" />
+              <MagnifyingGlass className="w-8 h-8 text-slate-400" />
             </div>
             <p className="text-lg font-medium text-slate-900">No customers found</p>
             <p className="text-sm text-slate-500 mt-1 max-w-md">
@@ -289,7 +282,7 @@ export function CustomersPage() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {households
-                  .filter(household => household && household.id && !household.id.startsWith('flag-') && !household.id.startsWith('note-') && !household.id.startsWith('activity-'))
+                  .filter(household => household && household.id) // Filter out any invalid households
                   .map((household) => {
                   // Debug: Log household details to console
                   console.log('Household in list:', {
@@ -360,7 +353,7 @@ export function CustomersPage() {
                         <div className="flex items-center gap-2">
                           {household.payment_hold && (
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
-                              <DollarSign className="w-3 h-3" />
+                              <CurrencyDollar className="w-3 h-3" />
                               Payment Hold
                             </span>
                           )}

@@ -18,15 +18,14 @@ import { Badge } from '../../../components/ui/badge';
 import { Textarea } from '../../../components/ui/textarea';
 import { Checkbox } from '../../../components/ui/checkbox';
 import {
-  Search,
+  MagnifyingGlass,
   Dog,
-  AlertTriangle,
+  Warning,
   Pill,
-  ShieldAlert,
-  Loader2,
+  ShieldWarning,
+  CircleNotch,
   PoundSterling,
-  RefreshCw,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 
 interface CreateReservationModalProps {
@@ -38,7 +37,7 @@ interface CreateReservationModalProps {
 export function CreateReservationModal({ open, onOpenChange, onSuccess }: CreateReservationModalProps) {
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
-  const { createReservation, calculateBilling, isLoading, reservations: existingReservations } = useOvernightsStore();
+  const { createReservation, calculateBilling, isLoading } = useOvernightsStore();
   const { searchCustomers } = useDaycareStore();
 
   const [step, setStep] = useState<'search' | 'select-pet' | 'details' | 'review'>('search');
@@ -57,16 +56,9 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
   const [requiresMedication, setRequiresMedication] = useState(false);
   const [hasBehaviourConcerns, setHasBehaviourConcerns] = useState(false);
   const [hasAllergies, setHasAllergies] = useState(false);
-  const [includeInDaycareAttendance, setIncludeInDaycareAttendance] = useState(true);
 
   const [billingBreakdown, setBillingBreakdown] = useState<any | null>(null);
   const [calculatingBilling, setCalculatingBilling] = useState(false);
-
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurInterval, setRecurInterval] = useState<'weekly' | 'fortnightly' | 'monthly'>('weekly');
-  const [recurEndType, setRecurEndType] = useState<'date' | 'count'>('count');
-  const [recurEndDate, setRecurEndDate] = useState('');
-  const [recurCount, setRecurCount] = useState(4);
 
   useEffect(() => {
     if (!open) {
@@ -84,13 +76,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
       setRequiresMedication(false);
       setHasBehaviourConcerns(false);
       setHasAllergies(false);
-      setIncludeInDaycareAttendance(true);
       setBillingBreakdown(null);
-      setIsRecurring(false);
-      setRecurInterval('weekly');
-      setRecurEndType('count');
-      setRecurEndDate('');
-      setRecurCount(4);
     } else {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -100,42 +86,6 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
       setEndDate(dayAfter.toISOString().split('T')[0]);
     }
   }, [open]);
-
-  const generateRecurStays = (): { start: string; end: string }[] => {
-    if (!startDate || !endDate) return [];
-    if (!isRecurring) return [{ start: startDate, end: endDate }];
-
-    const nights = Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000);
-    const shiftStart = (i: number): string => {
-      const d = new Date(startDate + 'T00:00:00');
-      if (recurInterval === 'weekly') d.setDate(d.getDate() + 7 * i);
-      else if (recurInterval === 'fortnightly') d.setDate(d.getDate() + 14 * i);
-      else d.setMonth(d.getMonth() + i);
-      return d.toISOString().split('T')[0];
-    };
-    const computeEnd = (s: string): string => {
-      const d = new Date(s + 'T00:00:00');
-      d.setDate(d.getDate() + nights);
-      return d.toISOString().split('T')[0];
-    };
-
-    const stays: { start: string; end: string }[] = [];
-    if (recurEndType === 'count') {
-      for (let i = 0; i < Math.min(recurCount, 52); i++) {
-        const s = shiftStart(i);
-        stays.push({ start: s, end: computeEnd(s) });
-      }
-    } else if (recurEndDate) {
-      for (let i = 0; stays.length < 52; i++) {
-        const s = shiftStart(i);
-        if (s > recurEndDate) break;
-        stays.push({ start: s, end: computeEnd(s) });
-      }
-    } else {
-      stays.push({ start: startDate, end: endDate });
-    }
-    return stays;
-  };
 
   const handleSearch = async () => {
     if (searchQuery.trim().length < 2) {
@@ -223,101 +173,46 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
       return;
     }
 
-    const stays = generateRecurStays();
-    if (stays.length === 0) {
-      toast.error('No valid stay dates to create');
-      return;
-    }
-
-    const pricePerNight = billingBreakdown?.pricePerNight || 45;
-    let created = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    const locallyCreated: { start: Date; end: Date }[] = [];
-
     try {
-      for (const stay of stays) {
-        const stayStart = new Date(stay.start);
-        const stayEnd = new Date(stay.end);
-        const stayNights = Math.round((stayEnd.getTime() - stayStart.getTime()) / 86400000);
+      await createReservation({
+        customerId: selectedHousehold.household_id,
+        petId: selectedPet.id,
+        householdId: selectedHousehold.household_id,
+        startDate,
+        endDate,
+        checkInWindow: { start: '14:00', end: '18:00' },
+        checkOutWindow: { start: '08:00', end: '11:00' },
+        locationId,
+        status: 'confirmed',
+        specialInstructions: specialInstructions || undefined,
+        feedingInstructions: feedingInstructions || undefined,
+        medicationInstructions: medicationInstructions || undefined,
+        behaviourNotes: behaviourNotes || undefined,
+        requiresMedication,
+        hasBehaviourConcerns,
+        hasAllergies,
+        pricePerNight: billingBreakdown?.pricePerNight || 45,
+        totalNights,
+        totalPrice: billingBreakdown?.total || totalNights * 45,
+        currency: 'GBP',
+        priceLockedAt: new Date().toISOString(),
+        requiresPickup: false,
+        requiresDropOff: false,
+        petName: selectedPet.name,
+        customerName: selectedHousehold.household_name,
+      });
 
-        const existingConflict = existingReservations.find(r =>
-          r.petId === selectedPet.id &&
-          r.status !== 'cancelled' &&
-          new Date(r.startDate) < stayEnd &&
-          new Date(r.endDate) > stayStart
-        );
-        const localConflict = locallyCreated.find(lc =>
-          lc.start < stayEnd && lc.end > stayStart
-        );
-
-        if (existingConflict || localConflict) { skipped++; continue; }
-
-        try {
-          await createReservation({
-            customerId: selectedHousehold.household_id,
-            petId: selectedPet.id,
-            householdId: selectedHousehold.household_id,
-            startDate: stay.start,
-            endDate: stay.end,
-            checkInWindow: { start: '14:00', end: '18:00' },
-            checkOutWindow: { start: '08:00', end: '11:00' },
-            locationId,
-            status: 'confirmed',
-            specialInstructions: specialInstructions || undefined,
-            feedingInstructions: feedingInstructions || undefined,
-            medicationInstructions: medicationInstructions || undefined,
-            behaviourNotes: behaviourNotes || undefined,
-            requiresMedication,
-            hasBehaviourConcerns,
-            hasAllergies,
-            pricePerNight,
-            totalNights: stayNights,
-            totalPrice: pricePerNight * stayNights,
-            currency: 'GBP',
-            priceLockedAt: new Date().toISOString(),
-            requiresPickup: false,
-            requiresDropOff: false,
-            includeInDaycareAttendance,
-            petName: selectedPet.name,
-            customerName: selectedHousehold.household_name,
-          });
-          locallyCreated.push({ start: stayStart, end: stayEnd });
-          created++;
-        } catch {
-          failed++;
-        }
-      }
-
-      if (stays.length === 1) {
-        if (created === 1) {
-          toast.success(`Reservation created for ${selectedPet.name}`);
-        } else {
-          toast.error(`Failed to create reservation for ${selectedPet.name}`);
-          return;
-        }
-      } else {
-        const parts: string[] = [`Created ${created} reservation${created !== 1 ? 's' : ''} for ${selectedPet.name}`];
-        if (skipped) parts.push(`${skipped} skipped (dates overlap)`);
-        if (failed) parts.push(`${failed} failed`);
-        if (created > 0) {
-          toast.success(parts.join(' · '));
-        } else {
-          toast.error(`No reservations created — all ${skipped} stays overlap existing bookings`);
-          return;
-        }
-      }
+      toast.success(`Reservation created for ${selectedPet.name}`);
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to create reservations');
+      toast.error(error.message || 'Failed to create reservation');
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {step === 'search' && 'Search Household'}
@@ -333,13 +228,11 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto min-h-0 px-1">
-
         {step === 'search' && (
           <div className="space-y-4">
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Search households..."
                   value={searchQuery}
@@ -349,7 +242,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                 />
               </div>
               <Button onClick={handleSearch} disabled={searching}>
-                {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+                {searching ? <CircleNotch className="h-4 w-4 animate-spin" /> : 'Search'}
               </Button>
             </div>
 
@@ -414,7 +307,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                     <div className="flex flex-wrap gap-2">
                       {pet.behaviour_notes && (
                         <Badge className="bg-amber-100 text-amber-700 border-0">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          <Warning className="h-3 w-3 mr-1" />
                           Behaviour
                         </Badge>
                       )}
@@ -559,127 +452,14 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
               </div>
             </div>
 
-            <div className="space-y-3">
-              <Label>Daycare Attendance</Label>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="includeInDaycareAttendance"
-                  checked={includeInDaycareAttendance}
-                  onCheckedChange={(checked) => setIncludeInDaycareAttendance(checked === true)}
-                />
-                <Label htmlFor="includeInDaycareAttendance" className="font-normal">
-                  Include in daycare attendance list
-                </Label>
-              </div>
-              <p className="text-xs text-slate-500">
-                When enabled, this dog will appear in the daycare daily overview during their stay. Disable if the dog stays full-time with the sitter.
-              </p>
-            </div>
-
-            {/* Recurring stays */}
-            <div className="border-t pt-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="crm-recurring"
-                  checked={isRecurring}
-                  onCheckedChange={v => {
-                    setIsRecurring(v === true);
-                    if (v && startDate) {
-                      const end = new Date(startDate + 'T00:00:00');
-                      end.setMonth(end.getMonth() + 3);
-                      setRecurEndDate(end.toISOString().split('T')[0]);
-                    }
-                  }}
-                />
-                <Label htmlFor="crm-recurring" className="font-normal flex items-center gap-1.5 cursor-pointer">
-                  <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
-                  Make this a recurring stay
-                </Label>
-              </div>
-
-              {isRecurring && (
-                <div className="pl-6 space-y-3 text-sm">
-                  <div>
-                    <Label className="text-xs text-slate-500 uppercase tracking-wide">Repeat every</Label>
-                    <div className="flex gap-2 mt-1.5 flex-wrap">
-                      {([
-                        { value: 'weekly', label: 'Week' },
-                        { value: 'fortnightly', label: '2 Weeks' },
-                        { value: 'monthly', label: 'Month' },
-                      ] as const).map(opt => (
-                        <button
-                          key={opt.value}
-                          onClick={() => setRecurInterval(opt.value)}
-                          className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-                            recurInterval === opt.value
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-xs text-slate-500 uppercase tracking-wide">End</Label>
-                    <div className="flex gap-2 mt-1.5">
-                      {(['count', 'date'] as const).map(t => (
-                        <button
-                          key={t}
-                          onClick={() => setRecurEndType(t)}
-                          className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-                            recurEndType === t
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                          }`}
-                        >
-                          {t === 'count' ? 'After N stays' : 'On date'}
-                        </button>
-                      ))}
-                    </div>
-                    {recurEndType === 'count' && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={52}
-                          value={recurCount}
-                          onChange={e => setRecurCount(Number(e.target.value))}
-                          className="w-20"
-                        />
-                        <span className="text-slate-500 text-sm">stays</span>
-                      </div>
-                    )}
-                    {recurEndType === 'date' && (
-                      <Input
-                        type="date"
-                        value={recurEndDate}
-                        onChange={e => setRecurEndDate(e.target.value)}
-                        className="mt-2 max-w-[180px]"
-                      />
-                    )}
-                  </div>
-
-                  {(() => {
-                    const stays = generateRecurStays();
-                    if (stays.length === 0) return null;
-                    const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                    return (
-                      <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-blue-800 text-sm space-y-1">
-                        <p>Will create <strong>{stays.length}</strong> stay{stays.length !== 1 ? 's' : ''} ({totalNights} {totalNights === 1 ? 'night' : 'nights'} each)</p>
-                        {stays.length <= 4
-                          ? <p>{stays.map(s => `${fmt(s.start)} → ${fmt(s.end)}`).join(', ')}</p>
-                          : <p>{fmt(stays[0].start)} → {fmt(stays[0].end)} through {fmt(stays[stays.length - 1].start)} → {fmt(stays[stays.length - 1].end)}</p>
-                        }
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleProceedToReview}>
+                Review Reservation
+              </Button>
+            </DialogFooter>
           </div>
         )}
 
@@ -696,34 +476,15 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                 <p className="text-sm text-slate-600">{selectedHousehold?.household_name}</p>
               </div>
               <div className="p-4">
-                <h4 className="text-sm font-medium text-slate-500 mb-1">{isRecurring ? 'Stay Series' : 'Dates'}</h4>
-                {isRecurring ? (() => {
-                  const stays = generateRecurStays();
-                  const fmt = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-                  return (
-                    <div className="space-y-1">
-                      <p className="font-medium text-slate-900">
-                        {stays.length} stay{stays.length !== 1 ? 's' : ''} · {totalNights} {totalNights === 1 ? 'night' : 'nights'} each
-                      </p>
-                      <div className="max-h-40 overflow-y-auto space-y-0.5 mt-2">
-                        {stays.map((s, i) => (
-                          <p key={i} className="text-sm text-slate-600">{i + 1}. {fmt(s.start)} → {fmt(s.end)}</p>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })() : (
-                  <>
-                    <p className="font-medium text-slate-900">
-                      {new Date(startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                      {' '}&rarr;{' '}
-                      {new Date(endDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      {totalNights} {totalNights === 1 ? 'night' : 'nights'}
-                    </p>
-                  </>
-                )}
+                <h4 className="text-sm font-medium text-slate-500 mb-1">Dates</h4>
+                <p className="font-medium text-slate-900">
+                  {new Date(startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  {' '}&rarr;{' '}
+                  {new Date(endDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {totalNights} {totalNights === 1 ? 'night' : 'nights'}
+                </p>
               </div>
               {(specialInstructions || feedingInstructions || medicationInstructions || behaviourNotes) && (
                 <div className="p-4 space-y-2">
@@ -753,13 +514,13 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                   )}
                   {hasBehaviourConcerns && (
                     <Badge variant="outline" className="text-amber-600 border-amber-200">
-                      <ShieldAlert className="h-3 w-3 mr-1" />
+                      <ShieldWarning className="h-3 w-3 mr-1" />
                       Behaviour Concerns
                     </Badge>
                   )}
                   {hasAllergies && (
                     <Badge variant="outline" className="text-purple-600 border-purple-200">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      <Warning className="h-3 w-3 mr-1" />
                       Allergies
                     </Badge>
                   )}
@@ -772,7 +533,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                 <h4 className="text-sm font-medium text-slate-500 mb-1">Estimated Price</h4>
                 {calculatingBilling ? (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <CircleNotch className="h-4 w-4 animate-spin" />
                     Calculating...
                   </div>
                 ) : (
@@ -788,41 +549,23 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
               </div>
             </div>
 
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateReservation} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <CircleNotch className="h-4 w-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  'Confirm Reservation'
+                )}
+              </Button>
+            </DialogFooter>
           </div>
         )}
-
-        </div>
-
-        <DialogFooter className="border-t pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          {step === 'details' && (
-            <Button onClick={handleProceedToReview}>
-              {isRecurring && generateRecurStays().length > 1
-                ? `Review ${generateRecurStays().length} Stays`
-                : 'Review Reservation'
-              }
-            </Button>
-          )}
-          {step === 'review' && (
-            <Button onClick={handleCreateReservation} disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Creating...
-                </>
-              ) : isRecurring && generateRecurStays().length > 1 ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Confirm {generateRecurStays().length} Stays
-                </>
-              ) : (
-                'Confirm Reservation'
-              )}
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

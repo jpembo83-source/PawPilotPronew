@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { usePermissions, PermissionAction } from '../hooks/usePermissions';
-import { ShieldOff, Lock } from 'lucide-react';
+import { ShieldSlash, Lock } from '@phosphor-icons/react';
 import { Alert, AlertDescription } from './ui/alert';
 
 interface PermissionGateProps {
@@ -60,7 +60,7 @@ export function PermissionGate({
   if (showDeniedMessage) {
     return (
       <Alert variant="default" className="border-amber-200 bg-amber-50">
-        <ShieldOff className="h-4 w-4 text-amber-600" />
+        <ShieldSlash className="h-4 w-4 text-amber-600" />
         <AlertDescription className="text-amber-800">
           {deniedMessage || `You don't have permission to ${action} ${module}. Contact your administrator if you need access.`}
         </AlertDescription>

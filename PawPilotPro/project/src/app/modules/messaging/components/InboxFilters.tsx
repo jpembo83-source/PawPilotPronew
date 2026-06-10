@@ -3,7 +3,7 @@ import { Label } from '../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Switch } from '../../../components/ui/switch';
 import { Button } from '../../../components/ui/button';
-import { X } from 'lucide-react';
+import { X } from '@phosphor-icons/react';
 import { useMessagingStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 

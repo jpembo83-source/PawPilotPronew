@@ -158,7 +158,6 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         appointments: [...state.appointments, appointment],
         isLoading: false,
       }));
-      broadcastMutation('grooming', 'appointment', 'created', appointment.id);
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -187,7 +186,6 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         selectedAppointment: state.selectedAppointment?.id === id ? appointment : state.selectedAppointment,
         isLoading: false,
       }));
-      broadcastMutation('grooming', 'appointment', 'updated', id);
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -213,10 +211,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const appointment = await response.json();
       set(state => ({
         appointments: state.appointments.map(a => a.id === id ? appointment : a),
-        selectedAppointment: state.selectedAppointment?.id === id ? appointment : state.selectedAppointment,
         isLoading: false,
       }));
-      broadcastMutation('grooming', 'appointment', 'updated', id, { status: 'cancelled' });
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -262,13 +258,12 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const appointment = await response.json();
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
-        selectedAppointment: state.selectedAppointment?.id === appointmentId ? appointment : state.selectedAppointment,
         isLoading: false,
       }));
       
+      // Refresh queue
       get().fetchQueue();
       
-      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'check-in' });
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -294,14 +289,13 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const appointment = await response.json();
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
-        selectedAppointment: state.selectedAppointment?.id === appointmentId ? appointment : state.selectedAppointment,
         isLoading: false,
       }));
       
+      // Refresh queue and groomers
       get().fetchQueue();
       get().fetchGroomers();
       
-      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'start' });
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -327,13 +321,12 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const appointment = await response.json();
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
-        selectedAppointment: state.selectedAppointment?.id === appointmentId ? appointment : state.selectedAppointment,
         isLoading: false,
       }));
       
+      // Refresh groomers
       get().fetchGroomers();
       
-      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'complete' });
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -359,10 +352,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const appointment = await response.json();
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
-        selectedAppointment: state.selectedAppointment?.id === appointmentId ? appointment : state.selectedAppointment,
         isLoading: false,
       }));
-      broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'check-out' });
       return appointment;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
@@ -447,9 +438,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
   searchCustomers: async (query: string) => {
     try {
       const headers = await getAuthHeaders();
-      const params = new URLSearchParams({ search: query });
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/households?${params}`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/search?q=${encodeURIComponent(query)}`,
         { headers }
       );
       
@@ -457,12 +447,7 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
         return [];
       }
       
-      const households = await response.json();
-      return (households || []).map((h: any) => ({
-        household_id: h.id,
-        household_name: h.name,
-        pets: [],
-      }));
+      return await response.json();
     } catch (error) {
       return [];
     }

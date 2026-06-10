@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui/button';
 import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { Warning, CircleNotch } from '@phosphor-icons/react';
 import { useAuth } from '../../../context/AuthContext';
 import { useMessagingStore } from '../store';
 import { createThread, sendMessage } from '../api';
@@ -107,7 +107,7 @@ export function ComposeMessageModal({
           <div className="space-y-2">
             <Label>Household *</Label>
             <Alert>
-              <AlertCircle className="h-4 w-4" />
+              <Warning className="h-4 w-4" />
               <AlertDescription className="text-xs">
                 In production, this would be a searchable household selector
               </AlertDescription>
@@ -172,7 +172,7 @@ export function ComposeMessageModal({
             <Button onClick={handleSubmit} disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                   Sending...
                 </>
               ) : (

@@ -35,47 +35,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const init = async () => {
-      // If the user previously logged in without "Stay logged in", sign them out
-      // on a new browsing session. Must be awaited before checking the session
-      // to avoid a race where getSession() returns a stale token that signOut()
-      // then immediately invalidates.
+    // Check if this is a temporary session that should be cleared
+    const checkTemporarySession = async () => {
       const isTempSession = sessionStorage.getItem('mdc-temp-session');
-      const hasStoredSession = localStorage.getItem('mdc-operations-auth');
-      const sessionStart = sessionStorage.getItem('mdc-session-start');
-      const tempLoginFlag = localStorage.getItem('mdc-temp-login-flag');
-
-      if (!isTempSession && hasStoredSession && !sessionStart && tempLoginFlag === 'true') {
-        localStorage.removeItem('mdc-temp-login-flag');
-        await supabase.auth.signOut();
+      const hasLocalStorage = localStorage.getItem('mdc-operations-auth');
+      
+      // If temp session flag exists OR no remember-me was set, logout on new window
+      if (!isTempSession && hasLocalStorage) {
+        // This is a new window/tab and user didn't check "remember me"
+        // Check if session was created within this browsing session
+        const sessionStart = sessionStorage.getItem('mdc-session-start');
+        if (!sessionStart) {
+          // New browsing session, logout if it was a temp login
+          const tempLoginFlag = localStorage.getItem('mdc-temp-login-flag');
+          if (tempLoginFlag === 'true') {
+            await supabase.auth.signOut();
+            localStorage.removeItem('mdc-temp-login-flag');
+            return;
+          }
+        }
       }
-
+      
+      // Mark that this session has started
       if (!sessionStorage.getItem('mdc-session-start')) {
         sessionStorage.setItem('mdc-session-start', new Date().toISOString());
       }
+    };
+    
+    checkTemporarySession();
+    
+    let initialSessionResolved = false;
 
-      if (cancelled) return;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!cancelled) {
-        setUser(session?.user ? mapSupabaseUser(session.user) : null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!initialSessionResolved) {
+        initialSessionResolved = true;
+        if (session?.user) {
+          setUser(mapSupabaseUser(session.user));
+        } else {
+          setUser(null);
+        }
         setIsLoading(false);
       }
-    };
-
-    init();
+    }).catch(() => {
+      if (!initialSessionResolved) {
+        initialSessionResolved = true;
+        setUser(null);
+        setIsLoading(false);
+      }
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ? mapSupabaseUser(session.user) : null);
+      initialSessionResolved = true;
+      if (session?.user) {
+        setUser(mapSupabaseUser(session.user));
+      } else {
+        setUser(null);
+      }
       setIsLoading(false);
     });
 
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string, rememberMe?: boolean) => {
@@ -98,8 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) {
       setIsLoading(false);
-      // Supabase AuthError properties are non-enumerable — normalise to a plain Error
-      throw new Error(error.message || error.name || 'Authentication failed');
+      throw error;
     }
   };
 

@@ -6,7 +6,7 @@ import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Switch } from '../../../components/ui/switch';
-import { Plus, Zap, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Lightning, PencilSimple, Trash } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { AutomationRuleDialog } from './modals/AutomationRuleDialog';
@@ -77,7 +77,7 @@ export function AutomationSection() {
       {automationRules.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-12 text-center text-sm text-slate-500">
-            <Zap className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+            <Lightning className="h-12 w-12 mx-auto mb-3 text-slate-300" />
             <p>No automation rules configured</p>
             <p className="text-xs mt-1">Create automation rules to send messages automatically</p>
           </CardContent>
@@ -129,10 +129,10 @@ export function AutomationSection() {
                       onCheckedChange={() => handleToggle(rule)}
                     />
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
-                      <Edit2 className="h-3.5 w-3.5" />
+                      <PencilSimple className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(rule.id)}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      <Trash className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>
                 </div>

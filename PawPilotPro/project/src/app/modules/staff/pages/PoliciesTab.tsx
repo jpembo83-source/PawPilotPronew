@@ -4,10 +4,10 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { 
-  FileText, Upload, Users, Search, CheckCircle, AlertCircle, 
-  Trash2, Edit, Loader2, Shield, Calendar, RefreshCw, ExternalLink,
-  Download, Clock
-} from 'lucide-react';
+  FileText, UploadSimple, UsersThree, MagnifyingGlass, CheckCircle, Warning, 
+  Trash, PencilSimple, CircleNotch, Shield, CalendarBlank, ArrowClockwise, ArrowSquareOut,
+  DownloadSimple, Clock
+} from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { useStaffStore } from '../store';
 import type { Policy, PolicyCategory, POLICY_CATEGORY_LABELS } from '../types';
@@ -44,7 +44,7 @@ export function PoliciesTab() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPolicyForEdit, setSelectedPolicyForEdit] = useState<Policy | null>(null);
   
-  // Upload form
+  // UploadSimple form
   const [uploadForm, setUploadForm] = useState({
     title: '',
     category: 'other' as PolicyCategory,
@@ -52,7 +52,7 @@ export function PoliciesTab() {
     effective_date: new Date().toISOString().split('T')[0],
   });
   
-  // Edit form (new version)
+  // PencilSimple form (new version)
   const [editForm, setEditForm] = useState({
     file: null as File | null,
     effective_date: new Date().toISOString().split('T')[0],
@@ -85,7 +85,7 @@ export function PoliciesTab() {
         effective_date: uploadForm.effective_date,
       });
       
-      // Upload first version
+      // UploadSimple first version
       await createPolicyVersion(policy.id, uploadForm.file, {
         effective_date: uploadForm.effective_date,
       });
@@ -250,7 +250,7 @@ export function PoliciesTab() {
       <div className="flex items-center justify-between">
         <div className="flex-1 max-w-md">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Search policies..."
               value={searchInput}
@@ -264,7 +264,7 @@ export function PoliciesTab() {
           <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700">
-                <Upload className="h-4 w-4 mr-2" />
+                <UploadSimple className="h-4 w-4 mr-2" />
                 Upload Policy
               </Button>
             </DialogTrigger>
@@ -337,12 +337,12 @@ export function PoliciesTab() {
                 <Button onClick={handleCreateAndUpload} disabled={isLoading}>
                   {isLoading ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                       Uploading...
                     </>
                   ) : (
                     <>
-                      <Upload className="h-4 w-4 mr-2" />
+                      <UploadSimple className="h-4 w-4 mr-2" />
                       Upload
                     </>
                   )}
@@ -391,7 +391,7 @@ export function PoliciesTab() {
       {/* Policy List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          <CircleNotch className="h-8 w-8 animate-spin text-slate-400" />
         </div>
       ) : policies.length === 0 ? (
         <Card>
@@ -399,7 +399,7 @@ export function PoliciesTab() {
             <FileText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-600 mb-4">No policies yet</p>
             <Button onClick={() => setUploadDialogOpen(true)}>
-              <Upload className="h-4 w-4 mr-2" />
+              <UploadSimple className="h-4 w-4 mr-2" />
               Upload First Policy
             </Button>
           </CardContent>
@@ -432,7 +432,7 @@ export function PoliciesTab() {
                       {stats && (
                         <div className="flex items-center gap-4 mt-3 text-sm">
                           <div className="flex items-center gap-1">
-                            <Users className="h-4 w-4 text-slate-400" />
+                            <UsersThree className="h-4 w-4 text-slate-400" />
                             <span className="text-slate-600">{stats.totalAssignees} assigned</span>
                           </div>
                           <div className="flex items-center gap-1">
@@ -441,7 +441,7 @@ export function PoliciesTab() {
                           </div>
                           {stats.totalOverdue > 0 && (
                             <div className="flex items-center gap-1">
-                              <AlertCircle className="h-4 w-4 text-amber-500" />
+                              <Warning className="h-4 w-4 text-amber-500" />
                               <span className="text-amber-600">{stats.totalOverdue} overdue</span>
                             </div>
                           )}
@@ -456,7 +456,7 @@ export function PoliciesTab() {
                         size="sm"
                         onClick={() => openAssignDialog(policy)}
                       >
-                        <Users className="h-4 w-4 mr-2" />
+                        <UsersThree className="h-4 w-4 mr-2" />
                         Assign
                       </Button>
                       
@@ -466,7 +466,7 @@ export function PoliciesTab() {
                         size="sm"
                         onClick={() => handleDeletePolicy(policy)}
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
+                        <Trash className="h-4 w-4 mr-2" />
                         Delete
                       </Button>
                       
@@ -476,8 +476,8 @@ export function PoliciesTab() {
                         size="sm"
                         onClick={() => openEditDialog(policy)}
                       >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
+                        <PencilSimple className="h-4 w-4 mr-2" />
+                        PencilSimple
                       </Button>
                     </div>
                   </div>
@@ -488,7 +488,7 @@ export function PoliciesTab() {
         </div>
       )}
       
-      {/* Edit Policy Dialog (Upload New Version) */}
+      {/* PencilSimple Policy Dialog (UploadSimple New Version) */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -527,12 +527,12 @@ export function PoliciesTab() {
             <Button onClick={handleUploadNewVersion} disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                   Uploading...
                 </>
               ) : (
                 <>
-                  <Upload className="h-4 w-4 mr-2" />
+                  <UploadSimple className="h-4 w-4 mr-2" />
                   Upload New Version
                 </>
               )}
@@ -649,12 +649,12 @@ export function PoliciesTab() {
             <Button onClick={handleAssignPolicy} disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                   Assigning...
                 </>
               ) : (
                 <>
-                  <Users className="h-4 w-4 mr-2" />
+                  <UsersThree className="h-4 w-4 mr-2" />
                   Assign
                 </>
               )}

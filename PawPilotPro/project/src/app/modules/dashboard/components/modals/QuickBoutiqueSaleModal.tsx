@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../../components/ui/dialog';
 import { Button } from '../../../../components/ui/button';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from '@phosphor-icons/react';
 
 interface QuickBoutiqueSaleModalProps {
   open: boolean;

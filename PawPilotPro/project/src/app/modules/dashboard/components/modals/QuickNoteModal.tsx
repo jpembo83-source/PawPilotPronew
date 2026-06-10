@@ -2,7 +2,6 @@
 // One-click "Max didn't eat lunch" type notes
 
 import React, { useState, useEffect } from 'react';
-import { projectId } from '../../../../../../utils/supabase/info';
 import {
   Dialog,
   DialogContent,
@@ -24,17 +23,17 @@ import {
   SelectValue,
 } from '../../../../components/ui/select';
 import { 
-  StickyNote, 
+  Note, 
   Dog, 
-  Search, 
-  Utensils, 
+  MagnifyingGlass, 
+  ForkKnife, 
   Heart, 
-  AlertTriangle,
-  Activity,
-  MessageSquare,
-  Loader2,
+  Warning,
+  Pulse,
+  ChatTeardrop,
+  CircleNotch,
   Check
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { supabase } from '../../../../../utils/supabase/client';
 import { useDashboardStore } from '../../store';
@@ -54,15 +53,15 @@ interface QuickNoteModalProps {
 
 // Quick note templates for common scenarios
 const NOTE_TEMPLATES = [
-  { id: 'no_eat', label: "Didn't eat", icon: Utensils, category: 'feeding' },
-  { id: 'ate_well', label: 'Ate well', icon: Utensils, category: 'feeding' },
-  { id: 'low_energy', label: 'Low energy', icon: Activity, category: 'behaviour' },
-  { id: 'hyper', label: 'Very playful', icon: Activity, category: 'behaviour' },
-  { id: 'minor_scuffle', label: 'Minor scuffle', icon: AlertTriangle, category: 'incident' },
+  { id: 'no_eat', label: "Didn't eat", icon: ForkKnife, category: 'feeding' },
+  { id: 'ate_well', label: 'Ate well', icon: ForkKnife, category: 'feeding' },
+  { id: 'low_energy', label: 'Low energy', icon: Pulse, category: 'behaviour' },
+  { id: 'hyper', label: 'Very playful', icon: Pulse, category: 'behaviour' },
+  { id: 'minor_scuffle', label: 'Minor scuffle', icon: Warning, category: 'incident' },
   { id: 'limping', label: 'Limping', icon: Heart, category: 'health' },
   { id: 'scratching', label: 'Excessive scratching', icon: Heart, category: 'health' },
   { id: 'vomit', label: 'Vomited', icon: Heart, category: 'health' },
-  { id: 'custom', label: 'Custom note', icon: MessageSquare, category: 'other' },
+  { id: 'custom', label: 'Custom note', icon: ChatTeardrop, category: 'other' },
 ];
 
 export function QuickNoteModal({ open, onClose, preSelectedPet }: QuickNoteModalProps) {
@@ -106,7 +105,7 @@ export function QuickNoteModal({ open, onClose, preSelectedPet }: QuickNoteModal
       params.append('status', 'checked_in');
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/attendance/today?${params}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-fc003b23/daycare/attendance/today?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -164,7 +163,7 @@ export function QuickNoteModal({ open, onClose, preSelectedPet }: QuickNoteModal
       if (!session) throw new Error('Not authenticated');
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/pets/${selectedPet.id}/notes`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-fc003b23/pets/${selectedPet.id}/notes`,
         {
           method: 'POST',
           headers: {
@@ -207,7 +206,7 @@ export function QuickNoteModal({ open, onClose, preSelectedPet }: QuickNoteModal
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <StickyNote className="h-5 w-5 text-amber-500" />
+            <Note className="h-5 w-5 text-amber-500" />
             Quick Note
           </DialogTitle>
           <DialogDescription>
@@ -234,7 +233,7 @@ export function QuickNoteModal({ open, onClose, preSelectedPet }: QuickNoteModal
                 {!selectedPet ? (
                   <div className="mt-2">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
                         placeholder="Search checked-in dogs..."
                         value={searchQuery}
@@ -246,7 +245,7 @@ export function QuickNoteModal({ open, onClose, preSelectedPet }: QuickNoteModal
                     <div className="mt-2 max-h-48 overflow-y-auto border rounded-lg">
                       {isLoading ? (
                         <div className="p-4 text-center text-slate-500">
-                          <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                          <CircleNotch className="h-5 w-5 animate-spin mx-auto mb-2" />
                           Loading...
                         </div>
                       ) : filteredPets.length === 0 ? (
@@ -355,12 +354,12 @@ export function QuickNoteModal({ open, onClose, preSelectedPet }: QuickNoteModal
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
                   <>
-                    <StickyNote className="h-4 w-4 mr-2" />
+                    <Note className="h-4 w-4 mr-2" />
                     Save Note
                   </>
                 )}

@@ -1,15 +1,14 @@
 // Rotas Tab
 // Shift planning and staff rotas management
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
 import { Input } from '../../../components/ui/input';
-import { Calendar, Plus, Loader2, CheckCircle, Clock } from 'lucide-react';
+import { CalendarBlank, Plus, CircleNotch, CheckCircle, Clock } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useStaffStore } from '../store';
@@ -27,12 +26,6 @@ export function RotasTab() {
   useEffect(() => {
     fetchRotas();
   }, []);
-
-  const refetchRotas = useCallback(() => {
-    fetchRotas();
-  }, [fetchRotas]);
-
-  useModuleRealtimeSync('staff', refetchRotas);
   
   // Set default dates (current week)
   useEffect(() => {
@@ -155,7 +148,7 @@ export function RotasTab() {
               <Button onClick={handleCreateRota} disabled={isLoading}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                     Creating...
                   </>
                 ) : (
@@ -198,12 +191,12 @@ export function RotasTab() {
       {/* Rota List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          <CircleNotch className="h-8 w-8 animate-spin text-slate-400" />
         </div>
       ) : rotas.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Calendar className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <CalendarBlank className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-600 mb-4">No rotas yet</p>
             <Button onClick={() => setCreateDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -222,7 +215,7 @@ export function RotasTab() {
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <Calendar className="h-8 w-8 text-blue-600" />
+                    <CalendarBlank className="h-8 w-8 text-blue-600" />
                     
                     <div>
                       <h3 className="font-semibold text-slate-900">

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { WidgetCard } from './WidgetCard';
-import { Moon, RefreshCw, AlertCircle, ChevronRight, Pill, AlertTriangle, Heart, CheckCircle, UserCheck, UserX } from 'lucide-react';
+import { Moon, ArrowClockwise, Warning, CaretRight, Pill, Warning, Heart, CheckCircle, UserCheck, UserMinus } from '@phosphor-icons/react';
 import { useDashboardStore } from '../store';
 import { useOvernightsStore } from '../../overnights/store';
 import { useNavigate } from 'react-router';
@@ -124,7 +124,7 @@ export function OvernightsTodayWidget() {
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
             title="Refresh"
           >
-            <RefreshCw className={cn("h-4 w-4", localLoading && "animate-spin")} />
+            <ArrowClockwise className={cn("h-4 w-4", localLoading && "animate-spin")} />
           </button>
         </div>
 
@@ -167,9 +167,9 @@ export function OvernightsTodayWidget() {
                 )}
               >
                 {alert.type === 'error' ? (
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <Warning className="h-4 w-4 flex-shrink-0" />
                 ) : (
-                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <Warning className="h-4 w-4 flex-shrink-0" />
                 )}
                 <span>{alert.message}</span>
               </div>
@@ -190,12 +190,12 @@ export function OvernightsTodayWidget() {
             </div>
           ) : localLoading && boarders.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 text-slate-300 animate-spin" />
+              <ArrowClockwise className="h-6 w-6 text-slate-300 animate-spin" />
             </div>
           ) : error ? (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
               <div className="flex items-center gap-2 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4" />
+                <Warning className="h-4 w-4" />
                 <span>Failed to load boarders</span>
               </div>
             </div>
@@ -225,7 +225,7 @@ export function OvernightsTodayWidget() {
                             <span title="Requires medication"><Pill className="h-3.5 w-3.5 text-blue-500" /></span>
                           )}
                           {boarder.hasBehaviourConcerns && (
-                            <span title="Behaviour concerns"><AlertTriangle className="h-3.5 w-3.5 text-amber-500" /></span>
+                            <span title="Behaviour concerns"><Warning className="h-3.5 w-3.5 text-amber-500" /></span>
                           )}
                           {boarder.hasAllergies && (
                             <span title="Has allergies"><Heart className="h-3.5 w-3.5 text-red-500" /></span>
@@ -247,14 +247,14 @@ export function OvernightsTodayWidget() {
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
-                            <UserX className="h-3 w-3" />
+                            <UserMinus className="h-3 w-3" />
                             Unassigned
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+                    <CaretRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
                   </div>
                 </button>
               ))}
@@ -277,7 +277,7 @@ export function OvernightsTodayWidget() {
             className="w-full flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-slate-900 py-2"
           >
             <span>Manage Overnights</span>
-            <ChevronRight className="h-4 w-4" />
+            <CaretRight className="h-4 w-4" />
           </button>
         </div>
       </div>

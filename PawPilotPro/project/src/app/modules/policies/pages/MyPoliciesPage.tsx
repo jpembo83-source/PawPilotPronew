@@ -6,10 +6,10 @@ import React, { useEffect, useState } from 'react';
 import { useStaffStore } from '../../staff/store';
 import { useAuth } from '../../../context/AuthContext';
 import { 
-  AlertCircle, CheckCircle, Eye, FileText, Calendar, AlertTriangle, 
-  Filter, Download, Clock, RefreshCw, Shield, FileCheck, ChevronRight,
-  ExternalLink
-} from 'lucide-react';
+  Warning, CheckCircle, Eye, FileText, CalendarBlank,
+  Funnel, DownloadSimple, Clock, ArrowClockwise, Shield, CaretRight,
+  ArrowSquareOut
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import ErrorBoundary from '../../../components/ErrorBoundary';
 import { supabase } from '@/utils/supabase/client';
@@ -203,7 +203,7 @@ export function MyPoliciesPage() {
     }
   };
   
-  // Filter assignments
+  // Funnel assignments
   const filteredAssignments = myPolicies.filter((a: MyPolicyAssignment) => {
     if (filter === 'outstanding') {
       return a.status !== 'acknowledged';
@@ -259,7 +259,7 @@ export function MyPoliciesPage() {
               ? 'bg-red-600 text-white animate-pulse'
               : 'bg-red-100 text-red-800'
           }`}>
-            <AlertTriangle className="w-3.5 h-3.5" />
+            <Warning className="w-3.5 h-3.5" />
             {isBlocking ? 'BLOCKING - Overdue' : 'Overdue'}
           </span>
         );
@@ -305,7 +305,7 @@ export function MyPoliciesPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center max-w-md">
-          <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+          <Warning className="w-16 h-16 text-amber-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Authentication Required</h2>
           <p className="text-slate-600 mb-4">
             Please log in to view your assigned policies.
@@ -337,7 +337,7 @@ export function MyPoliciesPage() {
             disabled={isRefreshing}
             className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2 disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <ArrowClockwise className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
@@ -361,7 +361,7 @@ export function MyPoliciesPage() {
         {/* Overdue Alert (non-blocking) */}
         {stats.overdue > 0 && stats.blocking === 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+            <Warning className="w-5 h-5 text-amber-600 mt-0.5" />
             <div>
               <h3 className="font-semibold text-amber-900">Overdue Policies</h3>
               <p className="text-sm text-amber-700">
@@ -399,7 +399,7 @@ export function MyPoliciesPage() {
                 <p className="text-sm text-slate-600">Overdue</p>
                 <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
               </div>
-              <AlertTriangle className="w-8 h-8 text-red-400" />
+              <Warning className="w-8 h-8 text-red-400" />
             </div>
           </div>
           
@@ -426,7 +426,7 @@ export function MyPoliciesPage() {
         
         {/* Filters */}
         <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="w-4 h-4 text-slate-600" />
+          <Funnel className="w-4 h-4 text-slate-600" />
           <span className="text-sm text-slate-600 mr-2">Filter:</span>
           {[
             { key: 'outstanding', label: 'Outstanding', count: stats.outstanding },
@@ -452,7 +452,7 @@ export function MyPoliciesPage() {
         <div className="space-y-3">
           {sortedAssignments.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
-              <FileCheck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-600 text-lg">
                 {filter === 'all' 
                   ? 'No policies assigned to you yet'
@@ -519,7 +519,7 @@ export function MyPoliciesPage() {
                           </div>
                           <div className="flex items-center gap-3 text-sm text-slate-600 mt-2">
                             <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
+                              <CalendarBlank className="w-4 h-4" />
                               Due: {formatDate(assignment.due_date)}
                               {daysUntilDue >= 0 && assignment.status !== 'acknowledged' && (
                                 <span className={`ml-1 ${
@@ -566,15 +566,15 @@ export function MyPoliciesPage() {
                         >
                           <Eye className="w-4 h-4" />
                           View & Acknowledge
-                          <ChevronRight className="w-4 h-4" />
+                          <CaretRight className="w-4 h-4" />
                         </button>
                       )}
                       <button
                         onClick={() => handleDownload(assignment)}
                         className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2 text-sm"
                       >
-                        <Download className="w-4 h-4" />
-                        Download
+                        <DownloadSimple className="w-4 h-4" />
+                        DownloadSimple
                       </button>
                       {assignment.status === 'acknowledged' && assignment.acknowledged_at && (
                         <p className="text-xs text-green-600 text-center mt-1">
@@ -631,7 +631,7 @@ export function MyPoliciesPage() {
                 ) : (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <ExternalLink className="w-5 h-5 text-blue-600 mt-0.5" />
+                      <ArrowSquareOut className="w-5 h-5 text-blue-600 mt-0.5" />
                       <div>
                         <p className="font-medium text-blue-900">Review the Policy Document</p>
                         <p className="text-sm text-blue-700 mt-1">
@@ -643,7 +643,7 @@ export function MyPoliciesPage() {
                           className="mt-2 text-sm font-medium text-blue-700 hover:text-blue-800 flex items-center gap-1"
                         >
                           Open Document
-                          <ExternalLink className="w-3 h-3" />
+                          <ArrowSquareOut className="w-3 h-3" />
                         </button>
                       </div>
                     </div>
@@ -762,7 +762,7 @@ export function MyPoliciesPage() {
                     </>
                   ) : (
                     <>
-                      <FileCheck className="w-4 h-4" />
+                      <FileText className="w-4 h-4" />
                       I Acknowledge This Policy
                     </>
                   )}

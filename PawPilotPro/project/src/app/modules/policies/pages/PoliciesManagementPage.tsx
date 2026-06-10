@@ -7,10 +7,10 @@ import { usePoliciesStore, PolicyDocument, PolicyAssignment } from '../store';
 import { useStaffStore } from '../../staff/store';
 import { useAuth } from '../../../context/AuthContext';
 import { 
-  FileText, Plus, Upload, Users, BarChart3, CheckCircle, 
-  AlertCircle, Calendar, Download, Eye, Archive, Search,
-  Filter, X, Settings, Clock, FileCheck, RefreshCw, Shield
-} from 'lucide-react';
+  FileText, Plus, UploadSimple, UsersThree, ChartBar, CheckCircle,
+  Warning, CalendarBlank, DownloadSimple, Eye, Archive, MagnifyingGlass,
+  Funnel, X, Gear, Clock, ArrowClockwise, Shield
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import ErrorBoundary from '../../../components/ErrorBoundary';
 import { supabase } from '../../../../utils/supabase/client';
@@ -140,7 +140,7 @@ export function PoliciesManagementPage() {
         ].join(','))
       ].join('\n');
       
-      // Download
+      // DownloadSimple
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -176,7 +176,7 @@ export function PoliciesManagementPage() {
         ].join(','))
       ].join('\n');
       
-      // Download
+      // DownloadSimple
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -197,7 +197,7 @@ export function PoliciesManagementPage() {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <Warning className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <p className="text-slate-600">You don't have permission to access this page</p>
         </div>
       </div>
@@ -221,14 +221,14 @@ export function PoliciesManagementPage() {
               onClick={handleExportAssignments}
               className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2"
             >
-              <Download className="w-4 h-4" />
+              <DownloadSimple className="w-4 h-4" />
               Export Assignments
             </button>
             <button
               onClick={handleExportAcknowledgements}
               className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2"
             >
-              <Download className="w-4 h-4" />
+              <DownloadSimple className="w-4 h-4" />
               Export Acknowledgements
             </button>
             <button
@@ -253,7 +253,7 @@ export function PoliciesManagementPage() {
               }`}
             >
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
+                <ChartBar className="w-4 h-4" />
                 Compliance Dashboard
               </div>
             </button>
@@ -279,7 +279,7 @@ export function PoliciesManagementPage() {
               }`}
             >
               <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
+                <UsersThree className="w-4 h-4" />
                 Assignments
               </div>
             </button>
@@ -342,13 +342,13 @@ export function PoliciesManagementPage() {
           />
         )}
         
-        {/* Upload Modal */}
+        {/* UploadSimple Modal */}
         {showUploadModal && (
           <UploadPolicyModal
             onClose={() => setShowUploadModal(false)}
             onCreate={async (data, file) => {
               try {
-                console.log('[Upload Policy] Starting policy upload with staff store...');
+                console.log('[UploadSimple Policy] Starting policy upload with staff store...');
                 
                 // Step 1: Create the policy
                 const policy = await createStaffPolicy({
@@ -356,7 +356,7 @@ export function PoliciesManagementPage() {
                   category: data.category,
                 });
                 
-                console.log('[Upload Policy] Policy created:', policy.id);
+                console.log('[UploadSimple Policy] Policy created:', policy.id);
                 
                 // Step 2: Create version with file upload
                 await createPolicyVersion(policy.id, file, {
@@ -364,7 +364,7 @@ export function PoliciesManagementPage() {
                   expiry_date: data.expiry_date,
                 });
                 
-                console.log('[Upload Policy] Version created with document');
+                console.log('[UploadSimple Policy] Version created with document');
                 
                 toast.success('Policy uploaded successfully - now in Draft status');
                 setShowUploadModal(false);
@@ -373,7 +373,7 @@ export function PoliciesManagementPage() {
                 fetchStaffPolicies();
                 fetchOldPolicies();
               } catch (err: any) {
-                console.error('[Upload Policy] Error:', err);
+                console.error('[UploadSimple Policy] Error:', err);
                 toast.error(err.message || 'Failed to upload policy');
               }
             }}
@@ -469,7 +469,7 @@ function ComplianceDashboardTab({ stats, policyCompliance, isLoading }: any) {
           <div className="bg-white border border-slate-200 rounded-lg p-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-slate-600">Overdue</p>
-              <AlertCircle className="w-5 h-5 text-red-400" />
+              <Warning className="w-5 h-5 text-red-400" />
             </div>
             <p className="text-3xl font-bold text-red-600">{stats.overdue}</p>
             <p className="text-xs text-slate-500 mt-1">Require immediate action</p>
@@ -478,7 +478,7 @@ function ComplianceDashboardTab({ stats, policyCompliance, isLoading }: any) {
           <div className="bg-white border border-slate-200 rounded-lg p-5">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm text-slate-600">Due Soon</p>
-              <Calendar className="w-5 h-5 text-amber-400" />
+              <CalendarBlank className="w-5 h-5 text-amber-400" />
             </div>
             <p className="text-3xl font-bold text-amber-600">{stats.due_soon}</p>
             <p className="text-xs text-slate-500 mt-1">Within 7 days</p>
@@ -551,9 +551,9 @@ function PoliciesLibraryTab({ policies, searchQuery, setSearchQuery, onAssign, o
   
   return (
     <div className="space-y-4">
-      {/* Search */}
+      {/* MagnifyingGlass */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
         <input
           type="text"
           placeholder="Search policies..."
@@ -622,7 +622,7 @@ function PoliciesLibraryTab({ policies, searchQuery, setSearchQuery, onAssign, o
                         onClick={() => onAssign(policy)}
                         className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
                       >
-                        <Users className="w-4 h-4" />
+                        <UsersThree className="w-4 h-4" />
                         Assign
                       </button>
                       {isAdmin && (
@@ -668,9 +668,9 @@ function AssignmentsTab({ assignments, searchQuery, setSearchQuery, isLoading }:
   
   return (
     <div className="space-y-4">
-      {/* Search */}
+      {/* MagnifyingGlass */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
         <input
           type="text"
           placeholder="Search assignments..."

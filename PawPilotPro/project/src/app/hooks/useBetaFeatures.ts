@@ -34,15 +34,8 @@ export function useBetaFeatures() {
   // Filter nav items - admins see all, others don't see beta items
   const filterNavItems = <T extends { path: string; label?: string }>(items: T[]): T[] => {
     if (hasBetaAccess) {
-      // Admin: show all items, add "(beta)" suffix to beta items
-      return items.map(item => {
-        if (isBetaPath(item.path) && item.label && !item.label.includes('(beta)')) {
-          return { ...item, label: `${item.label} (beta)` };
-        }
-        return item;
-      });
+      return items; // Admins see all items, no "(beta)" label clutter
     }
-    // Non-admin: hide beta items entirely
     return items.filter(item => !isBetaPath(item.path));
   };
   

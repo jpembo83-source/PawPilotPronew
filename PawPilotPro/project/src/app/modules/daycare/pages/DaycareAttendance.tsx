@@ -1,29 +1,22 @@
 // Daycare Attendance - MDC Operations Centre
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useDaycareStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
-import { Users, AlertTriangle, Clock } from 'lucide-react';
+import { UsersThree, Warning, Clock } from '@phosphor-icons/react';
 
 export function DaycareAttendance() {
   const navigate = useNavigate();
   const { selectedLocationId } = useDashboardStore();
   const { attendance, isLoading, fetchActiveAttendance } = useDaycareStore();
   
-  const refetch = useCallback(() => {
-    loadAttendance();
-  }, [selectedLocationId]);
-
-  useModuleRealtimeSync('daycare', refetch);
-
   useEffect(() => {
     loadAttendance();
-    const interval = setInterval(loadAttendance, 120000);
+    const interval = setInterval(loadAttendance, 60000); // Refresh every minute
     return () => clearInterval(interval);
   }, [selectedLocationId]);
   
@@ -59,7 +52,7 @@ export function DaycareAttendance() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
+            <UsersThree className="h-5 w-5" />
             Currently In Daycare ({attendance.length})
           </CardTitle>
           <CardDescription>
@@ -71,7 +64,7 @@ export function DaycareAttendance() {
             <div className="text-center py-8 text-slate-500">Loading attendance...</div>
           ) : attendance.length === 0 ? (
             <div className="text-center py-8">
-              <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <UsersThree className="h-12 w-12 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500">No pets currently in daycare</p>
             </div>
           ) : (
@@ -106,13 +99,13 @@ export function DaycareAttendance() {
                   <div className="flex items-center gap-2">
                     {record.has_behaviour_flag && (
                       <Badge className="bg-amber-100 text-amber-700 border-0">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        <Warning className="h-3 w-3 mr-1" />
                         Behaviour
                       </Badge>
                     )}
                     {record.has_medical_flag && (
                       <Badge className="bg-red-100 text-red-700 border-0">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        <Warning className="h-3 w-3 mr-1" />
                         Medical
                       </Badge>
                     )}

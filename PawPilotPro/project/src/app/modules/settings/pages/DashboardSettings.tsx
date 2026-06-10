@@ -3,7 +3,7 @@ import { useDashboardStore } from '../../dashboard/store';
 import { WIDGETS } from '../../dashboard/constants';
 import { Switch } from '../../../components/ui/switch';
 import { useAuth } from '../../../context/AuthContext';
-import { Shield, Users, Lock } from 'lucide-react';
+import { Shield, UsersThree, Lock } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 
 export function DashboardSettings() {

@@ -3,24 +3,22 @@
  * British English throughout, production-grade, no mock data
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
-import { useModuleRealtimeSync } from '@/app/hooks/useModuleRealtimeSync';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
-  Search, 
-  Filter, 
-  Download,
-  Loader2,
-  AlertCircle,
+  MagnifyingGlass, 
+  Funnel, 
+  DownloadSimple,
+  CircleNotch,
+  Warning,
   Plus,
-  ChevronDown,
-  X,
-  AlertTriangle
-} from 'lucide-react';
+  CaretDown,
+  X
+} from '@phosphor-icons/react';
 import { format, subDays, addDays } from 'date-fns';
 import type { TransportJobWithDetails } from '../types';
 
@@ -44,15 +42,8 @@ export function JobsList() {
       location_id: locationFilter || undefined
     });
   }, [fetchJobs]);
-
-  const refetchJobs = useCallback(() => {
-    fetchJobs({ location_id: locationFilter || undefined });
-  }, [fetchJobs, locationFilter]);
-
-  const syncLocationFilter = locationFilter ? [locationFilter] : undefined;
-  useModuleRealtimeSync('transport', refetchJobs, true, syncLocationFilter);
   
-  // Filter jobs client-side
+  // Funnel jobs client-side
   const filteredJobs = jobs.filter(job => {
     // Date range
     const jobDate = new Date(job.service_date);
@@ -69,7 +60,7 @@ export function JobsList() {
     // Direction
     if (directionFilter && job.direction !== directionFilter) return false;
     
-    // Search
+    // MagnifyingGlass
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       const matchesPet = job.pet_name.toLowerCase().includes(query);
@@ -110,7 +101,7 @@ export function JobsList() {
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
             >
-              <Filter className="h-4 w-4 mr-2" />
+              <Funnel className="h-4 w-4 mr-2" />
               Filters
               {activeFilterCount > 0 && (
                 <Badge variant="secondary" className="ml-2">{activeFilterCount}</Badge>
@@ -123,9 +114,9 @@ export function JobsList() {
           </div>
         </div>
         
-        {/* Search */}
+        {/* MagnifyingGlass */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
             placeholder="Search by pet, household, or address..."
@@ -228,7 +219,7 @@ export function JobsList() {
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <Warning className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-medium text-red-900">Error Loading Jobs</h4>
             <p className="text-sm text-red-700 mt-1">{error}</p>
@@ -240,7 +231,7 @@ export function JobsList() {
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <Loader2 className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
+            <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
             <p className="text-slate-500">Loading jobs...</p>
           </div>
         </div>
@@ -299,9 +290,8 @@ export function JobsList() {
 
 // Job Row Component
 function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () => void }) {
-  const statusColors: Record<string, string> = {
+  const statusColors = {
     scheduled: 'bg-slate-100 text-slate-700',
-    pending_assignment: 'bg-amber-100 text-amber-700',
     in_progress: 'bg-green-100 text-green-700',
     completed: 'bg-teal-100 text-teal-700',
     cancelled: 'bg-red-100 text-red-700'
@@ -342,12 +332,6 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       <div className="col-span-2">
         <div className="font-medium text-slate-900">{job.pet_name}</div>
         <div className="text-sm text-slate-500">{job.household_name}</div>
-        {job.notes && (
-          <div className="flex items-center gap-1 mt-1">
-            <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
-            <span className="text-xs text-amber-700 line-clamp-1">{job.notes}</span>
-          </div>
-        )}
       </div>
       
       <div className="col-span-1">

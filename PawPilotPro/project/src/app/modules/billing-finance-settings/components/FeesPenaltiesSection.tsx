@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Plus } from 'lucide-react';
+import { Plus } from '@phosphor-icons/react';
 import { useBillingFinanceSettingsStore } from '../store';
 import { FeeDialog } from './modals/FeeDialog';
 import type { FeeDefinition } from '../types';

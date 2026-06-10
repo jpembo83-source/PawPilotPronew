@@ -8,7 +8,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { FileSearch, Search, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { MagnifyingGlass, MagnifyingGlass, Clock, CheckCircle, XCircle, Warning } from '@phosphor-icons/react';
 
 const actionColors = {
   created: 'bg-green-100 text-green-700',
@@ -23,7 +23,7 @@ const deliveryStatusIcons = {
   sent: CheckCircle,
   delivered: CheckCircle,
   failed: XCircle,
-  bounced: AlertCircle,
+  bounced: Warning,
   queued: Clock,
   sending: Clock,
 };
@@ -88,7 +88,7 @@ export function AuditLogsSection() {
             <CardContent className="pt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <MagnifyingGlass className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search logs..."
                     value={auditLogFilters.search || ''}
@@ -138,7 +138,7 @@ export function AuditLogsSection() {
           {auditLogs.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center text-sm text-slate-500">
-                <FileSearch className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                <MagnifyingGlass className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                 <p>No audit logs found</p>
               </CardContent>
             </Card>
@@ -185,7 +185,7 @@ export function AuditLogsSection() {
             <CardContent className="pt-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <MagnifyingGlass className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search logs..."
                     value={deliveryLogFilters.search || ''}
@@ -230,7 +230,7 @@ export function AuditLogsSection() {
           {deliveryLogs.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-12 text-center text-sm text-slate-500">
-                <FileSearch className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                <MagnifyingGlass className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                 <p>No delivery logs found</p>
               </CardContent>
             </Card>

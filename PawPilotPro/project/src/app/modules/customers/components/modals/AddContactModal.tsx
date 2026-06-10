@@ -6,7 +6,7 @@ import { Label } from '../../../../components/ui/label';
 import { Switch } from '../../../../components/ui/switch';
 import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { Warning, CircleNotch } from '@phosphor-icons/react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';
@@ -159,7 +159,7 @@ export function AddContactModal({ open, onClose, householdId, onContactAdded }: 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+              <Warning className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -439,7 +439,7 @@ export function AddContactModal({ open, onClose, householdId, onContactAdded }: 
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isSubmitting && <CircleNotch className="h-4 w-4 mr-2 animate-spin" />}
               {isSubmitting ? 'Adding Contact...' : 'Add Contact'}
             </Button>
           </div>

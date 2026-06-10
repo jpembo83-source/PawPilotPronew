@@ -5,7 +5,7 @@ import { useCommunicationsSettingsStore } from '../store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
-import { Building2, MapPin, Mail, Phone, MessageSquare, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Buildings, MapPin, EnvelopeSimple, Phone, ChatTeardrop, Plus, PencilSimple, Trash } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { SenderIdentityDialog } from './modals/SenderIdentityDialog';
 import type { SenderIdentity } from '../types';
@@ -57,7 +57,7 @@ export function SenderIdentitySection() {
       {/* Organisation-level Identities */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Building2 className="h-4 w-4 text-slate-600" />
+          <Buildings className="h-4 w-4 text-slate-600" />
           <h4 className="font-medium text-slate-900">Organisation Default</h4>
         </div>
         
@@ -138,10 +138,10 @@ function SenderIdentityCard({ identity, onEdit, onDelete }: SenderIdentityCardPr
           </div>
           <div className="flex gap-1">
             <Button variant="ghost" size="sm" onClick={() => onEdit(identity)}>
-              <Edit2 className="h-3.5 w-3.5" />
+              <PencilSimple className="h-3.5 w-3.5" />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => onDelete(identity.id)}>
-              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              <Trash className="h-3.5 w-3.5 text-destructive" />
             </Button>
           </div>
         </div>
@@ -149,7 +149,7 @@ function SenderIdentityCard({ identity, onEdit, onDelete }: SenderIdentityCardPr
       <CardContent className="space-y-2">
         {identity.email && (
           <div className="flex items-start gap-2 text-xs">
-            <Mail className="h-3.5 w-3.5 text-slate-400 mt-0.5" />
+            <EnvelopeSimple className="h-3.5 w-3.5 text-slate-400 mt-0.5" />
             <div>
               <div className="font-medium">{identity.email.senderName}</div>
               <div className="text-slate-600">{identity.email.senderEmail}</div>
@@ -172,7 +172,7 @@ function SenderIdentityCard({ identity, onEdit, onDelete }: SenderIdentityCardPr
         )}
         {identity.whatsapp && (
           <div className="flex items-start gap-2 text-xs">
-            <MessageSquare className="h-3.5 w-3.5 text-slate-400 mt-0.5" />
+            <ChatTeardrop className="h-3.5 w-3.5 text-slate-400 mt-0.5" />
             <div>
               <div className="font-medium">{identity.whatsapp.displayName || identity.whatsapp.phoneNumber}</div>
               <div className="text-slate-600">{identity.whatsapp.phoneNumber}</div>

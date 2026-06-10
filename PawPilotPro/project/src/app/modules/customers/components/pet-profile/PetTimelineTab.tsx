@@ -4,33 +4,31 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../../components
 import { Badge } from '../../../../components/ui/badge';
 import { Button } from '../../../../components/ui/button';
 import { 
-  Calendar, 
-  FileText, 
-  Dog, 
-  User, 
+  CalendarBlank,
+  FileText,
+  Dog,
+  User,
   Flag as FlagIcon,
   Heart,
   MapPin,
-  Calendar as CalendarIcon,
-  Syringe,
+  CalendarBlank as CalendarIcon,
   Scissors,
-  Home,
+  House,
   Truck,
-  AlertTriangle,
-  Edit,
+  Warning,
+  PencilSimple,
   Plus,
-  CheckCircle2,
+  CheckCircle,
   XCircle,
-  Loader2,
-  StickyNote,
-  Pin,
+  CircleNotch,
+  Note,
+  PushPin,
   Eye,
-  EyeOff,
-  AlertCircle,
+  EyeSlash,
   Info,
-  ShieldAlert,
-  RefreshCw
-} from 'lucide-react';
+  ShieldWarning,
+  ArrowClockwise
+} from '@phosphor-icons/react';
 import { useCustomerStore } from '../../store';
 
 interface PetTimelineTabProps {
@@ -45,11 +43,9 @@ const getActivityIcon = (activityType: string) => {
       return Dog;
     case 'pet_updated':
     case 'pet_modified':
-      return Edit;
-    case 'vaccination_added':
-    case 'vaccination_updated':
+      return PencilSimple;
     case 'medical_note':
-      return Syringe;
+      return FileText;
     case 'document_added':
     case 'document_uploaded':
       return FileText;
@@ -70,14 +66,14 @@ const getActivityIcon = (activityType: string) => {
     case 'overnight_booking':
     case 'overnight_checkin':
     case 'overnight_checkout':
-      return Home;
+      return House;
     case 'transport_booking':
     case 'transport_pickup':
     case 'transport_dropoff':
       return Truck;
     case 'incident_created':
     case 'incident_reported':
-      return AlertTriangle;
+      return Warning;
     case 'household_created':
     case 'household_updated':
       return MapPin;
@@ -90,7 +86,7 @@ const getActivityIcon = (activityType: string) => {
 const getActivityColor = (activityType: string) => {
   if (activityType.includes('incident') || activityType.includes('flag')) {
     return 'text-red-600';
-  } else if (activityType.includes('vaccination') || activityType.includes('medical')) {
+  } else if (activityType.includes('medical')) {
     return 'text-blue-600';
   } else if (activityType.includes('booking') || activityType.includes('checkin')) {
     return 'text-green-600';
@@ -141,9 +137,9 @@ const getFlagSeverityColor = (severity: FlagSeverity) => {
 const getFlagSeverityIcon = (severity: FlagSeverity) => {
   switch (severity) {
     case 'block':
-      return ShieldAlert;
+      return ShieldWarning;
     case 'warn':
-      return AlertCircle;
+      return Warning;
     case 'info':
       return Info;
     default:
@@ -229,11 +225,11 @@ export function PetTimelineTab({ pet }: PetTimelineTabProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Activity Timeline</CardTitle>
+          <CardTitle>Pulse Timeline</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-2" />
+            <CircleNotch className="h-8 w-8 animate-spin text-slate-400 mx-auto mb-2" />
             <p className="text-slate-500">Loading timeline...</p>
           </div>
         </CardContent>
@@ -245,7 +241,7 @@ export function PetTimelineTab({ pet }: PetTimelineTabProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Activity Timeline</CardTitle>
+          <CardTitle>Pulse Timeline</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-12 text-red-500">
@@ -266,14 +262,14 @@ export function PetTimelineTab({ pet }: PetTimelineTabProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Activity Timeline</CardTitle>
+          <CardTitle>Pulse Timeline</CardTitle>
           <Button
             size="sm"
             variant="outline"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <ArrowClockwise className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -281,7 +277,7 @@ export function PetTimelineTab({ pet }: PetTimelineTabProps) {
       <CardContent>
         {timelineItems.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
-            <Calendar className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+            <CalendarBlank className="h-12 w-12 mx-auto mb-2 text-slate-300" />
             <p>No activity recorded yet</p>
           </div>
         ) : (
@@ -362,7 +358,7 @@ export function PetTimelineTab({ pet }: PetTimelineTabProps) {
                             className="flex gap-4 p-4 border rounded-lg hover:bg-slate-50 transition-colors"
                           >
                             <div className="mt-1 text-slate-600">
-                              <StickyNote className="h-5 w-5" />
+                              <Note className="h-5 w-5" />
                             </div>
                             
                             <div className="flex-1">
@@ -370,7 +366,7 @@ export function PetTimelineTab({ pet }: PetTimelineTabProps) {
                                 <div className="flex items-center gap-2">
                                   {item.title && <h4 className="font-medium">{item.title}</h4>}
                                   {item.is_pinned && (
-                                    <Pin className="h-4 w-4 text-amber-600" />
+                                    <PushPin className="h-4 w-4 text-amber-600" />
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -380,7 +376,7 @@ export function PetTimelineTab({ pet }: PetTimelineTabProps) {
                                   {item.visibility === 'customer' ? (
                                     <Eye className="h-4 w-4 text-slate-400" title="Visible to customer" />
                                   ) : (
-                                    <EyeOff className="h-4 w-4 text-slate-400" title="Internal only" />
+                                    <EyeSlash className="h-4 w-4 text-slate-400" title="Internal only" />
                                   )}
                                 </div>
                               </div>

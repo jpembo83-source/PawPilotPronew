@@ -8,7 +8,7 @@ import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Textarea } from '../../../../components/ui/textarea';
-import { Plus, Edit, Trash2, MapPin, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, PencilSimple, Trash, MapPin, TrendUp, TrendDown } from '@phosphor-icons/react';
 import { usePricingStore, LocationPriceOverride } from '../../../pricing/store';
 import { useSettingsStore, Location } from '../../store';
 import { toast } from 'sonner';
@@ -140,9 +140,9 @@ export function LocationPricingOverrides({ location }: LocationPricingOverridesP
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {isIncrease ? (
-                          <TrendingUp className="h-4 w-4 text-green-600" />
+                          <TrendUp className="h-4 w-4 text-green-600" />
                         ) : (
-                          <TrendingDown className="h-4 w-4 text-red-600" />
+                          <TrendDown className="h-4 w-4 text-red-600" />
                         )}
                         <Badge variant={isIncrease ? 'default' : 'secondary'}>
                           {isIncrease ? '+' : ''}{percentDiff}%
@@ -164,14 +164,14 @@ export function LocationPricingOverrides({ location }: LocationPricingOverridesP
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <Edit className="h-4 w-4" />
+                          <PencilSimple className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteOverride(override.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -192,7 +192,7 @@ export function LocationPricingOverrides({ location }: LocationPricingOverridesP
         title="Create Price Override"
       />
 
-      {/* Edit Override Dialog */}
+      {/* PencilSimple Override Dialog */}
       {selectedOverride && (
         <OverrideDialog
           open={isEditDialogOpen}
@@ -316,9 +316,9 @@ function OverrideDialog({ open, onOpenChange, onSave, location, initialData, tit
                   <span className="text-muted-foreground">Difference:</span>
                   <div className="flex items-center gap-2">
                     {formData.overridePrice > basePrice ? (
-                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <TrendUp className="h-4 w-4 text-green-600" />
                     ) : (
-                      <TrendingDown className="h-4 w-4 text-red-600" />
+                      <TrendDown className="h-4 w-4 text-red-600" />
                     )}
                     <span className="font-medium">
                       £{Math.abs(formData.overridePrice - basePrice).toFixed(2)} 

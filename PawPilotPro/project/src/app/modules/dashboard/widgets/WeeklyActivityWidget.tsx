@@ -1,7 +1,7 @@
-// Weekly Activity Widget - Bar chart showing activity over the week
+// Weekly Pulse Widget - Bar chart showing activity over the week
 import React, { useState, useEffect } from 'react';
 import { WidgetCard } from './WidgetCard';
-import { TrendingUp } from 'lucide-react';
+import { TrendUp } from '@phosphor-icons/react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
 import { useDaycareStore } from '../../daycare/store';
 import { useDashboardStore } from '../store';
@@ -108,7 +108,7 @@ export function WeeklyActivityWidget() {
   const yAxisMax = Math.ceil(maxCount / 8) * 8; // Round up to nearest 8
 
   return (
-    <WidgetCard title="Weekly Activity" icon={TrendingUp}>
+    <WidgetCard title="Weekly Pulse" icon={TrendUp}>
       <div className="flex flex-col h-full">
         {isLoading ? (
           <div className="flex items-center justify-center h-[200px]">

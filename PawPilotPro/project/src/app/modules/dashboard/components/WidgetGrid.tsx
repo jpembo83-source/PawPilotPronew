@@ -10,13 +10,12 @@ import { WeeklyActivityWidget } from '../widgets/WeeklyActivityWidget';
 import { AlertsFlagsWidget } from '../widgets/AlertsFlagsWidget';
 import { GroomingTodayWidget } from '../widgets/GroomingTodayWidget';
 import { OvernightsTodayWidget } from '../widgets/OvernightsTodayWidget';
-import { VaccinationExpiryWidget } from '../widgets/VaccinationExpiryWidget';
 import { CapacityWidget } from '../widgets/CapacityWidget';
 import { ReportingWidget } from '../widgets/ReportingWidget';
 import { useAuth } from '../../../context/AuthContext';
 import { useBetaFeatures } from '../../../hooks/useBetaFeatures';
 import { WidgetCard } from '../widgets/WidgetCard';
-import { GripVertical, EyeOff, Eye } from 'lucide-react';
+import { DotsSixVertical, EyeSlash, Eye } from '@phosphor-icons/react';
 import { useDrag, useDrop } from 'react-dnd';
 import { cn } from '../../../components/ui/utils';
 
@@ -29,7 +28,6 @@ const COMPONENT_MAP: Record<string, React.ElementType> = {
   documents: AlertsFlagsWidget,
   grooming_today: GroomingTodayWidget,
   overnights_today: OvernightsTodayWidget,
-  vaccination_alerts: VaccinationExpiryWidget,
   capacity: CapacityWidget,
   reporting: ReportingWidget,
 };
@@ -102,7 +100,7 @@ const DraggableWidget = ({ id, index, isCustomizing, moveWidget, toggleVisibilit
             className="bg-card p-1.5 rounded-xl shadow-md border border-border/60 hover:text-destructive hover:border-destructive/30 transition-colors"
             title="Hide Widget"
           >
-            <EyeOff className="h-3.5 w-3.5" />
+            <EyeSlash className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
@@ -112,7 +110,7 @@ const DraggableWidget = ({ id, index, isCustomizing, moveWidget, toggleVisibilit
       {isCustomizing && (
         <div className="absolute inset-0 bg-primary/[0.03] rounded-2xl flex items-center justify-center pointer-events-none">
           <div className="bg-card px-3 py-1.5 rounded-full shadow-md border border-border/60 text-xs font-medium text-muted-foreground flex items-center gap-2">
-            <GripVertical className="h-3 w-3 text-primary" />
+            <DotsSixVertical className="h-3 w-3 text-primary" />
             Drag to Reorder
           </div>
         </div>

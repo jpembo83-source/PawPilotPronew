@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, AlertTriangle, History, Upload, X, Image } from 'lucide-react';
+import { FloppyDisk, Warning, ClockCounterClockwise, UploadSimple, X, Image } from '@phosphor-icons/react';
 import { useSettingsStore, OrganisationSettings as OrgSettingsType } from '../store';
 import { toast } from 'sonner';
 
@@ -111,7 +111,7 @@ export function OrganisationSettings() {
         {isDirty && (
           <div className="flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-200">
             <span className="text-sm text-amber-600 font-medium flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-200">
-              <AlertTriangle className="h-3.5 w-3.5" />
+              <Warning className="h-3.5 w-3.5" />
               Unsaved Changes
             </span>
             <button
@@ -124,8 +124,8 @@ export function OrganisationSettings() {
               onClick={handleSave}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-md shadow-sm transition-colors"
             >
-              <Save className="h-4 w-4" />
-              Save Changes
+              <FloppyDisk className="h-4 w-4" />
+              FloppyDisk Changes
             </button>
           </div>
         )}
@@ -242,7 +242,7 @@ export function OrganisationSettings() {
 
       <SettingCard title="Brand Configuration" description="Customize how the platform looks to your staff and customers.">
         <div className="space-y-6">
-          {/* Logo Upload */}
+          {/* Logo UploadSimple */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Organisation Logo</label>
             <div className="flex items-start gap-4">
@@ -260,7 +260,7 @@ export function OrganisationSettings() {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50 transition-colors">
-                    <Upload className="h-4 w-4" />
+                    <UploadSimple className="h-4 w-4" />
                     Upload Logo
                     <input
                       type="file"
@@ -362,7 +362,7 @@ export function OrganisationSettings() {
       
       <div className="flex justify-end pt-4">
         <div className="text-xs text-slate-400 flex items-center gap-1">
-          <History className="h-3 w-3" />
+          <ClockCounterClockwise className="h-3 w-3" />
           Last audited change: 2 days ago by Sarah Admin
         </div>
       </div>

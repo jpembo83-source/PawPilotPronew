@@ -9,7 +9,7 @@ import { Label } from '../../../../components/ui/label';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Switch } from '../../../../components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
-import { Plus, Edit, Trash2, CreditCard, Package as PackageIcon } from 'lucide-react';
+import { Plus, PencilSimple, Trash, CreditCard, Package as PackageIcon } from '@phosphor-icons/react';
 import { usePricingStore, Membership, Package } from '../../../pricing/store';
 import { toast } from 'sonner';
 
@@ -141,14 +141,14 @@ function MembershipsTab() {
                           setIsEditDialogOpen(true);
                         }}
                       >
-                        <Edit className="h-4 w-4" />
+                        <PencilSimple className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(membership.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -167,7 +167,7 @@ function MembershipsTab() {
         title="Create Membership"
       />
 
-      {/* Edit Dialog */}
+      {/* PencilSimple Dialog */}
       {selectedMembership && (
         <MembershipDialog
           open={isEditDialogOpen}
@@ -292,14 +292,14 @@ function PackagesTab() {
                           setIsEditDialogOpen(true);
                         }}
                       >
-                        <Edit className="h-4 w-4" />
+                        <PencilSimple className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDelete(pkg.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -318,7 +318,7 @@ function PackagesTab() {
         title="Create Package"
       />
 
-      {/* Edit Dialog */}
+      {/* PencilSimple Dialog */}
       {selectedPackage && (
         <PackageDialog
           open={isEditDialogOpen}

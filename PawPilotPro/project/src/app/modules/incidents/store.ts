@@ -67,7 +67,7 @@ export interface Incident {
   assigned_to_id?: string;
   assigned_to_name?: string;
   
-  // Workflow
+  // GitBranch
   needs_follow_up: boolean;
   due_date?: string;
   escalated: boolean;
@@ -663,7 +663,6 @@ export const useIncidentsStore = create<IncidentsState>((set, get) => ({
         constructorName: error.constructor?.name
       });
       set({ error: error.message || 'Failed to fetch stats', isLoading: false });
-      throw error;
     }
   },
   

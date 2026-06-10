@@ -1,7 +1,7 @@
 import React from 'react';
 import { useUserStore } from '../../stores/userStore';
 import { format } from 'date-fns';
-import { History, User } from 'lucide-react';
+import { ClockCounterClockwise, User } from '@phosphor-icons/react';
 
 export function AccessAudit() {
   const { auditLog } = useUserStore();
@@ -10,7 +10,7 @@ export function AccessAudit() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
-          <History className="h-5 w-5" />
+          <ClockCounterClockwise className="h-5 w-5" />
         </div>
         <div>
           <h3 className="text-lg font-medium text-slate-900">Access Audit Log</h3>

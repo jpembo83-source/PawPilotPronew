@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { AlertCircle, Plus, Search, Filter, Download, Eye, ChevronRight } from 'lucide-react';
+import { Warning, Plus, MagnifyingGlass, Funnel, DownloadSimple, Eye, CaretRight } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { CreateIncidentModal } from '../components/CreateIncidentModal';
 import {
@@ -121,7 +121,7 @@ export function IncidentsListPage() {
         ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
       ].join('\n');
       
-      // Download
+      // DownloadSimple
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -158,7 +158,7 @@ export function IncidentsListPage() {
         <div className="flex items-center gap-2">
           {canExport && (
             <Button variant="outline" onClick={handleExport} disabled={isLoading || incidents.length === 0}>
-              <Download className="h-4 w-4 mr-2" />
+              <DownloadSimple className="h-4 w-4 mr-2" />
               Export
             </Button>
           )}
@@ -225,11 +225,11 @@ export function IncidentsListPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Search */}
+            {/* MagnifyingGlass */}
             <div className="lg:col-span-2">
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search incidents..."
                     value={searchQuery}
@@ -329,7 +329,7 @@ export function IncidentsListPage() {
             <div className="text-center py-8 text-slate-500">Loading incidents...</div>
           ) : incidents.length === 0 ? (
             <div className="text-center py-8">
-              <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <Warning className="h-12 w-12 text-slate-300 mx-auto mb-4" />
               <p className="text-slate-500">No incidents found</p>
             </div>
           ) : (

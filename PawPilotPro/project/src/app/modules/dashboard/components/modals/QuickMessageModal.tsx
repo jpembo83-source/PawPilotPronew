@@ -4,7 +4,7 @@ import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Textarea } from '../../../../components/ui/textarea';
-import { Search, MessageSquare, Send } from 'lucide-react';
+import { MagnifyingGlass, ChatTeardrop, PaperPlaneTilt } from '@phosphor-icons/react';
 import { useCustomerStore } from '../../../customers/store';
 import { useDashboardStore } from '../../store';
 import { toast } from 'sonner';
@@ -81,7 +81,7 @@ export function QuickMessageModal({ open, onClose }: QuickMessageModalProps) {
       // Close modal
       onClose();
     } catch (error: any) {
-      console.error('Send message error:', error);
+      console.error('PaperPlaneTilt message error:', error);
       toast.error(error.message || 'Failed to send message');
     } finally {
       setIsSending(false);
@@ -93,22 +93,22 @@ export function QuickMessageModal({ open, onClose }: QuickMessageModalProps) {
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Send Message
+            <ChatTeardrop className="h-5 w-5" />
+            PaperPlaneTilt Message
           </DialogTitle>
           <DialogDescription>
-            Send a message to a customer household
+            PaperPlaneTilt a message to a customer household
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4">
-          {/* Search Households */}
+          {/* MagnifyingGlass Households */}
           {!selectedHousehold && (
             <>
               <div>
                 <Label>Search Household</Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Type household name, contact name, or email..."
                     value={searchQuery}
@@ -119,7 +119,7 @@ export function QuickMessageModal({ open, onClose }: QuickMessageModalProps) {
                 </div>
               </div>
 
-              {/* Search Results */}
+              {/* MagnifyingGlass Results */}
               {searchQuery && (
                 <div className="border rounded-lg max-h-64 overflow-y-auto">
                   {filteredHouseholds.length === 0 ? (
@@ -227,8 +227,8 @@ export function QuickMessageModal({ open, onClose }: QuickMessageModalProps) {
                 </>
               ) : (
                 <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Message
+                  <PaperPlaneTilt className="h-4 w-4 mr-2" />
+                  PaperPlaneTilt Message
                 </>
               )}
             </Button>

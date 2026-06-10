@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Play, Clock } from 'lucide-react';
+import { Play, Clock } from '@phosphor-icons/react';
 import { useDataComplianceStore } from '../store';
 import { toast } from 'sonner';
 

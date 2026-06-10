@@ -7,15 +7,15 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { Plus, Search, Edit2, Trash2, Mail, Phone, MessageSquare, FileText } from 'lucide-react';
+import { Plus, MagnifyingGlass, PencilSimple, Trash, EnvelopeSimple, Phone, ChatTeardrop, FileText } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { TemplateBuilderDialog } from './modals/TemplateBuilderDialog';
 import type { CommunicationTemplate } from '../types';
 
 const channelIcons = {
-  email: Mail,
+  email: EnvelopeSimple,
   sms: Phone,
-  whatsapp: MessageSquare,
+  whatsapp: ChatTeardrop,
 };
 
 const statusColors = {
@@ -83,7 +83,7 @@ export function TemplatesSection() {
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              <MagnifyingGlass className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search templates..."
                 value={templateFilters.search || ''}
@@ -209,10 +209,10 @@ export function TemplatesSection() {
                   
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(template)}>
-                      <Edit2 className="h-3.5 w-3.5" />
+                      <PencilSimple className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(template.id)}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      <Trash className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>
                 </div>

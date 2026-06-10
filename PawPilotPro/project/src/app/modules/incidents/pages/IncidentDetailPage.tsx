@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Separator } from '../../../components/ui/separator';
-import { AlertCircle, ArrowLeft, Edit, CheckCircle, RotateCcw, UserPlus } from 'lucide-react';
+import { Warning, ArrowLeft, PencilSimple, CheckCircle, ArrowCounterClockwise, UserPlus } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import {
   INCIDENT_CATEGORIES,
@@ -137,7 +137,7 @@ export function IncidentDetailPage() {
             )}
             {showReopenButton && (
               <Button variant="outline" onClick={() => setShowReopenDialog(true)}>
-                <RotateCcw className="h-4 w-4 mr-2" />
+                <ArrowCounterClockwise className="h-4 w-4 mr-2" />
                 Reopen
               </Button>
             )}

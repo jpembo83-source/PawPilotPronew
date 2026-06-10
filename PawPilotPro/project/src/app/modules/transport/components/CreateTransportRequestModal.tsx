@@ -6,13 +6,17 @@ import { Label } from '../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Textarea } from '../../../components/ui/textarea';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
-import { AlertCircle, Loader2, MapPin, User, Dog } from 'lucide-react';
+import { Warning, CircleNotch, MapPin, User, Dog } from '@phosphor-icons/react';
 import { ContactSelector } from '../../../components/shared/ContactSelector';
 import { useCustomerStore } from '../../customers/store';
 import { useTransportStore } from '../store';
+import { useDashboardStore } from '../../dashboard/store';
 import { toast } from 'sonner';
 import type { HouseholdContact } from '../../customers/types';
-import type { TransportType, TransportReason } from '../store';
+import type { TransportDirection } from '../types';
+
+type TransportType = 'pickup' | 'dropoff';
+type TransportReason = 'daycare' | 'grooming' | 'both';
 
 interface CreateTransportRequestModalProps {
   open: boolean;
@@ -64,7 +68,8 @@ export function CreateTransportRequestModal({
   const [selectedContact, setSelectedContact] = useState<HouseholdContact | undefined>();
   
   const { households, currentHouseholdDetail, fetchHouseholdDetail } = useCustomerStore();
-  // const { createTransportRequest } = useTransportStore(); // Will be implemented
+  const { createJob } = useTransportStore();
+  const { selectedLocationId } = useDashboardStore();
 
   const handleChange = (field: keyof TransportRequestFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -100,6 +105,10 @@ export function CreateTransportRequestModal({
   };
 
   const validateForm = (): boolean => {
+    if (selectedLocationId === 'ALL') {
+      setError('Please select a specific location before creating a transport request');
+      return false;
+    }
     if (!formData.householdId) {
       setError('Please select a household');
       return false;
@@ -164,9 +173,29 @@ export function CreateTransportRequestModal({
         status: 'pending' as const,
       };
 
-      // TODO: Call API to create transport request
-      console.log('Creating transport request:', requestData);
-      
+      // Parse "07:00 - 08:30" style time window into start/end
+      const twParts = formData.timeWindow.split('-').map(s => s.trim());
+      const timeWindowStart = twParts[0] || undefined;
+      const timeWindowEnd = twParts[1] || undefined;
+
+      await createJob({
+        location_id: selectedLocationId,
+        service_date: formData.date,
+        direction: formData.type as TransportDirection,
+        household_id: formData.householdId,
+        pet_id: formData.petId,
+        address_pickup: formData.type === 'pickup' ? formData.pickupAddress : '',
+        address_dropoff: formData.type === 'dropoff' ? formData.pickupAddress : '',
+        time_window_start: timeWindowStart,
+        time_window_end: timeWindowEnd,
+        notes: [
+          formData.notes,
+          `Contact: ${requestData.ownerName}`,
+          requestData.contactPhone ? `Phone: ${requestData.contactPhone}` : '',
+        ].filter(Boolean).join(' | ') || undefined,
+        booking_type: formData.reason === 'grooming' ? 'grooming' : 'daycare',
+      });
+
       toast.success(`Transport request created for ${pet.name}`);
       
       // Reset form
@@ -216,7 +245,7 @@ export function CreateTransportRequestModal({
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+              <Warning className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -418,7 +447,7 @@ export function CreateTransportRequestModal({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isSubmitting && <CircleNotch className="h-4 w-4 mr-2 animate-spin" />}
               {isSubmitting ? 'Creating Request...' : 'Create Request'}
             </Button>
           </div>

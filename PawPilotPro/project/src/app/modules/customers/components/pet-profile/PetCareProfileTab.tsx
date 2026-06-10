@@ -1,17 +1,11 @@
 import React from 'react';
 import { Pet } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
-import { Button } from '../../../../components/ui/button';
-import { Badge } from '../../../../components/ui/badge';
-import { 
-  Utensils, 
-  Pill, 
-  AlertTriangle, 
-  Heart,
-  AlertOctagon,
+import {
+  ForkKnife,
+  Warning,
   FileText
-} from 'lucide-react';
-import { VaccinationManager } from './VaccinationManager';
+} from '@phosphor-icons/react';
 
 interface PetCareProfileTabProps {
   pet: Pet;
@@ -36,7 +30,7 @@ export function PetCareProfileTab({ pet }: PetCareProfileTabProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Utensils className="h-5 w-5" />
+                <ForkKnife className="h-5 w-5" />
                 <CardTitle>Feeding</CardTitle>
               </div>
             </div>
@@ -52,7 +46,7 @@ export function PetCareProfileTab({ pet }: PetCareProfileTabProps) {
         <Card className="border-amber-200 bg-amber-50">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <Warning className="h-5 w-5 text-amber-600" />
               <CardTitle className="text-amber-900">Allergies</CardTitle>
             </div>
           </CardHeader>
@@ -67,7 +61,7 @@ export function PetCareProfileTab({ pet }: PetCareProfileTabProps) {
         <Card className="border-blue-200 bg-blue-50">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <AlertOctagon className="h-5 w-5 text-blue-600" />
+              <Warning className="h-5 w-5 text-blue-600" />
               <CardTitle className="text-blue-900">Medical Notes</CardTitle>
             </div>
           </CardHeader>
@@ -91,9 +85,6 @@ export function PetCareProfileTab({ pet }: PetCareProfileTabProps) {
           </CardContent>
         </Card>
       )}
-      
-      {/* Vaccination Manager - Swiss standard vaccination checklist */}
-      <VaccinationManager petId={pet.id} pet={pet} />
       
       {/* Empty State */}
       {!pet.feeding_instructions && !pet.allergies && !pet.medical_notes && !pet.behaviour_notes && (

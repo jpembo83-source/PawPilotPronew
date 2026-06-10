@@ -9,10 +9,6 @@ export interface Dog {
   size: 'small' | 'large';
   ownerId: string;
   notes: string;
-  vaccinations: {
-    name: string;
-    expiryDate: string;
-  }[];
   alerts: string[]; // 'aggressive', 'medication', etc.
   photoUrl?: string;
 }

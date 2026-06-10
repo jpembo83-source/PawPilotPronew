@@ -11,18 +11,18 @@ import { Badge } from '../../../../components/ui/badge';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
 import { 
-  Search, 
-  AlertTriangle, 
-  CheckCircle2, 
+  MagnifyingGlass, 
+  Warning, 
+  CheckCircle, 
   XCircle, 
-  AlertCircle, 
-  LogIn, 
+  Warning, 
+  SignIn, 
   FileText, 
   Syringe,
-  Users,
+  UsersThree,
   Check,
-  Loader2
-} from 'lucide-react';
+  CircleNotch
+} from '@phosphor-icons/react';
 import { useDaycareStore } from '../../../daycare/store';
 import { useDashboardStore } from '../../store';
 import { toast } from 'sonner';
@@ -332,7 +332,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
         {validation.warnings && validation.warnings.length > 0 && (
           <div className="border-l-4 border-orange-500 bg-orange-50 p-4 rounded">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+              <Warning className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
                 <h4 className="font-semibold text-orange-900">Warnings</h4>
                 <ul className="mt-2 space-y-1 text-sm text-orange-800">
@@ -340,8 +340,8 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
                     <li key={`warning-${idx}-${warning.category}`} className="flex items-start gap-2">
                       {warning.category === 'waiver' && <FileText className="h-4 w-4 mt-0.5 flex-shrink-0" />}
                       {warning.category === 'vaccination' && <Syringe className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                      {warning.category === 'behaviour' && <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />}
-                      {warning.category === 'medical' && <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+                      {warning.category === 'behaviour' && <Warning className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+                      {warning.category === 'medical' && <Warning className="h-4 w-4 mt-0.5 flex-shrink-0" />}
                       <span>{warning.message}</span>
                     </li>
                   ))}
@@ -370,7 +370,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
         {validation.can_check_in && validation.warnings.length === 0 && (
           <div className="border-l-4 border-green-500 bg-green-50 p-4 rounded">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
               <div className="flex-1">
                 <h4 className="font-semibold text-green-900">Ready for Check-in</h4>
                 <p className="mt-1 text-sm text-green-800">No issues detected</p>
@@ -398,7 +398,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <LogIn className="h-5 w-5" />
+            <SignIn className="h-5 w-5" />
             Quick Check-in
           </DialogTitle>
           <DialogDescription>
@@ -409,11 +409,11 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
         <Tabs value={mode} onValueChange={(v) => setMode(v as 'single' | 'batch')} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="single" className="flex items-center gap-2">
-              <LogIn className="h-4 w-4" />
+              <SignIn className="h-4 w-4" />
               Single Check-in
             </TabsTrigger>
             <TabsTrigger value="batch" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
+              <UsersThree className="h-4 w-4" />
               Batch Check-in
             </TabsTrigger>
           </TabsList>
@@ -423,7 +423,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
             <div>
               <Label>Search Bookings</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Type pet name or household name..."
                   value={searchQuery}
@@ -441,7 +441,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
               <div className="border rounded-lg max-h-64 overflow-y-auto">
                 {filteredBookings.length === 0 ? (
                   <div className="p-8 text-center text-slate-500">
-                    <LogIn className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                    <SignIn className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                     <p className="font-medium">No bookings found</p>
                     <p className="text-sm mt-1">
                       {searchQuery ? `No matches for "${searchQuery}"` : 'No pending check-ins for today'}
@@ -507,7 +507,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
 
                 {isValidating ? (
                   <div className="flex items-center justify-center p-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <CircleNotch className="h-8 w-8 animate-spin text-blue-500" />
                     <p className="ml-3 text-sm text-slate-600">Validating...</p>
                   </div>
                 ) : (
@@ -536,7 +536,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
             <div>
               <Label>Search & Select Multiple</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Search by pet or household..."
                   value={searchQuery}
@@ -556,7 +556,7 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
               <div className="border rounded-lg max-h-64 overflow-y-auto">
                 {Object.entries(bookingsByHousehold).length === 0 ? (
                   <div className="p-8 text-center text-slate-500">
-                    <Users className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                    <UsersThree className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                     <p className="font-medium">No bookings found</p>
                   </div>
                 ) : (
@@ -639,11 +639,11 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
                     <div key={booking.id} className="p-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {isCheckedIn ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          <CheckCircle className="h-5 w-5 text-green-500" />
                         ) : isValidating ? (
-                          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                          <CircleNotch className="h-5 w-5 animate-spin text-blue-500" />
                         ) : validation?.can_check_in ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          <CheckCircle className="h-5 w-5 text-green-500" />
                         ) : (
                           <XCircle className="h-5 w-5 text-red-500" />
                         )}
@@ -720,9 +720,9 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
               disabled={isChecking || (validation.warnings.length > 0 && !warningsAcknowledged)}
             >
               {isChecking ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Checking in...</>
+                <><CircleNotch className="h-4 w-4 mr-2 animate-spin" />Checking in...</>
               ) : (
-                <><LogIn className="h-4 w-4 mr-2" />Check In</>
+                <><SignIn className="h-4 w-4 mr-2" />Check In</>
               )}
             </Button>
           )}
@@ -740,9 +740,9 @@ export function QuickCheckInModal({ open, onClose }: QuickCheckInModalProps) {
               disabled={isBatchChecking || (batchSummary().hasWarnings && !batchWarningsAcknowledged)}
             >
               {isBatchChecking ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processing...</>
+                <><CircleNotch className="h-4 w-4 mr-2 animate-spin" />Processing...</>
               ) : (
-                <><Users className="h-4 w-4 mr-2" />Check In {batchSummary().canCheckIn} Pet{batchSummary().canCheckIn > 1 ? 's' : ''}</>
+                <><UsersThree className="h-4 w-4 mr-2" />Check In {batchSummary().canCheckIn} Pet{batchSummary().canCheckIn > 1 ? 's' : ''}</>
               )}
             </Button>
           )}

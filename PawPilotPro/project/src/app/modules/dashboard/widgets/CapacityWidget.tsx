@@ -1,21 +1,25 @@
+// Capacity Widget - Shows available spots for today with overbooking protection
+// At-a-glance view of "we have X spots left today"
+
 import React, { useEffect, useState } from 'react';
-import { projectId } from '../../../../../utils/supabase/info';
-import { WidgetCard } from './WidgetCard';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
+import { Skeleton } from '../../../components/ui/skeleton';
+import { Progress } from '../../../components/ui/progress';
 import { 
-  Gauge, 
-  AlertTriangle,
-  CheckCircle2,
+  UsersThree, 
+  Warning,
+  CheckCircle,
   XCircle,
-  Calendar,
+  TrendUp,
+  CalendarBlank,
   Plus
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useDashboardStore } from '../store';
 import { useAuth } from '../../../context/AuthContext';
 import { supabase } from '../../../../utils/supabase/client';
-import { publicAnonKey } from '../../../../../utils/supabase/info';
 
 interface CapacityData {
   date: string;
@@ -62,17 +66,18 @@ export function CapacityWidget() {
       }
 
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/capacity?${params}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/make-server-fc003b23/daycare/capacity?${params}`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${session.access_token}`,
+            'X-User-Token': session.access_token,
             'Content-Type': 'application/json'
           }
         }
       );
 
       if (!response.ok) {
+        // No mock data - show empty state until API is implemented
         setCapacity(null);
         return;
       }
@@ -94,7 +99,7 @@ export function CapacityWidget() {
           color: 'text-green-600',
           bgColor: 'bg-green-50',
           borderColor: 'border-green-200',
-          icon: CheckCircle2,
+          icon: CheckCircle,
           label: 'Spots Available',
           progressColor: 'bg-green-500'
         };
@@ -103,7 +108,7 @@ export function CapacityWidget() {
           color: 'text-orange-600',
           bgColor: 'bg-orange-50',
           borderColor: 'border-orange-200',
-          icon: AlertTriangle,
+          icon: Warning,
           label: 'Limited Spots',
           progressColor: 'bg-orange-500'
         };
@@ -121,7 +126,7 @@ export function CapacityWidget() {
           color: 'text-red-700',
           bgColor: 'bg-red-100',
           borderColor: 'border-red-300',
-          icon: AlertTriangle,
+          icon: Warning,
           label: 'Overbooked!',
           progressColor: 'bg-red-600'
         };
@@ -132,24 +137,35 @@ export function CapacityWidget() {
 
   if (isLoading) {
     return (
-      <WidgetCard title="Daily Capacity" icon={Gauge} description="Available spots today">
-        <div className="space-y-3 animate-pulse">
-          <div className="h-24 bg-slate-100 rounded-xl" />
-          <div className="h-4 bg-slate-100 rounded w-full" />
-          <div className="h-16 bg-slate-100 rounded-xl" />
-        </div>
-      </WidgetCard>
+      <Card className="h-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UsersThree className="h-4 w-4" />
+            Today's Capacity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-24 w-full mb-4" />
+          <Skeleton className="h-4 w-full mb-2" />
+          <Skeleton className="h-16 w-full" />
+        </CardContent>
+      </Card>
     );
   }
 
   if (!capacity) {
     return (
-      <WidgetCard title="Daily Capacity" icon={Gauge} description="Available spots today">
-        <div className="text-center py-8">
-          <Gauge className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+      <Card className="h-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UsersThree className="h-4 w-4" />
+            Today's Capacity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <p className="text-sm text-slate-500">Unable to load capacity data</p>
-        </div>
-      </WidgetCard>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -157,21 +173,26 @@ export function CapacityWidget() {
   const StatusIcon = statusConfig.icon;
 
   return (
-    <WidgetCard
-      title="Daily Capacity"
-      icon={Gauge}
-      actions={
-        <Badge 
-          variant="outline" 
-          className={`${statusConfig.color} ${statusConfig.borderColor} text-xs`}
-        >
-          <StatusIcon className="h-3 w-3 mr-1" />
-          {statusConfig.label}
-        </Badge>
-      }
-    >
-      <div className="space-y-4">
-        <div className={`rounded-xl p-4 ${statusConfig.bgColor} ${statusConfig.borderColor} border`}>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UsersThree className="h-4 w-4" />
+            Today's Capacity
+          </CardTitle>
+          <Badge 
+            variant="outline" 
+            className={`${statusConfig.color} ${statusConfig.borderColor}`}
+          >
+            <StatusIcon className="h-3 w-3 mr-1" />
+            {statusConfig.label}
+          </Badge>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="flex-1">
+        {/* Main capacity display */}
+        <div className={`rounded-xl p-4 ${statusConfig.bgColor} ${statusConfig.borderColor} border mb-4`}>
           <div className="text-center">
             <div className={`text-4xl font-bold ${statusConfig.color}`}>
               {capacity.available}
@@ -185,7 +206,8 @@ export function CapacityWidget() {
           </div>
         </div>
 
-        <div>
+        {/* Progress bar */}
+        <div className="mb-4">
           <div className="flex justify-between text-xs text-slate-600 mb-1">
             <span>{capacity.checked_in} checked in</span>
             <span>{capacity.booked} booked</span>
@@ -197,15 +219,16 @@ export function CapacityWidget() {
             />
           </div>
           <div className="text-xs text-slate-500 mt-1 text-center">
-            {capacity.utilization_percent}% utilisation
+            {capacity.utilization_percent}% utilization
           </div>
         </div>
 
+        {/* Tomorrow preview */}
         {capacity.tomorrow && (
-          <div className="bg-slate-50 rounded-lg p-3">
+          <div className="bg-slate-50 rounded-lg p-3 mb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-400" />
+                <CalendarBlank className="h-4 w-4 text-slate-400" />
                 <span className="text-sm font-medium text-slate-700">Tomorrow</span>
               </div>
               <div className="text-right">
@@ -222,6 +245,7 @@ export function CapacityWidget() {
           </div>
         )}
 
+        {/* Quick action */}
         {canBook && capacity.available > 0 && (
           <Button 
             className="w-full" 
@@ -248,7 +272,7 @@ export function CapacityWidget() {
             </Button>
           </div>
         )}
-      </div>
-    </WidgetCard>
+      </CardContent>
+    </Card>
   );
 }

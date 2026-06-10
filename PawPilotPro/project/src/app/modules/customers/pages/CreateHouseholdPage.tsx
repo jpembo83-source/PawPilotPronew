@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Plus, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, CircleNotch } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useCustomerStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
@@ -234,7 +234,7 @@ export function CreateHouseholdPage() {
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                 Creating...
               </>
             ) : (

@@ -10,3 +10,4 @@
 **/.netlify/
 **/supabase/.temp/
 *.bin
+zipFile.zip

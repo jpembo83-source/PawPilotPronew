@@ -3,7 +3,7 @@
 // Can be used as a banner or inline alert throughout the application
 
 import React from 'react';
-import { AlertTriangle, FileText, Clock, ExternalLink } from 'lucide-react';
+import { Warning, FileText, Clock, ArrowSquareOut } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { usePolicyCompliance } from '../hooks/usePolicyCompliance';
 
@@ -35,7 +35,7 @@ export function BlockingPolicyWarning({
   if (variant === 'compact') {
     return (
       <div className={`flex items-center gap-2 text-red-600 ${className}`}>
-        <AlertTriangle className="w-4 h-4" />
+        <Warning className="w-4 h-4" />
         <span className="text-sm font-medium">
           {blockingCount} blocking {blockingCount === 1 ? 'policy' : 'policies'} overdue
         </span>
@@ -55,7 +55,7 @@ export function BlockingPolicyWarning({
     return (
       <div className={`bg-red-50 border border-red-200 rounded-lg p-4 ${className}`}>
         <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+          <Warning className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <h4 className="font-semibold text-red-900">
               Action Required: Overdue Policies
@@ -70,7 +70,7 @@ export function BlockingPolicyWarning({
                 className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-red-700 hover:text-red-800"
               >
                 Go to My Policies
-                <ExternalLink className="w-3 h-3" />
+                <ArrowSquareOut className="w-3 h-3" />
               </button>
             )}
           </div>
@@ -85,7 +85,7 @@ export function BlockingPolicyWarning({
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            <Warning className="w-5 h-5 flex-shrink-0" />
             <div>
               <p className="font-semibold">
                 ⚠️ Compliance Action Required
@@ -141,7 +141,7 @@ export function BlockingPolicyBadge({ userId }: { userId: string }) {
 
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-medium">
-      <AlertTriangle className="w-3 h-3" />
+      <Warning className="w-3 h-3" />
       {blockingCount} blocking
     </span>
   );
@@ -184,7 +184,7 @@ export function BlockingPolicyWidget() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <Warning className="w-5 h-5 text-red-600" />
           </div>
           <div>
             <p className="text-sm text-red-600">Blocking Policies Overdue</p>

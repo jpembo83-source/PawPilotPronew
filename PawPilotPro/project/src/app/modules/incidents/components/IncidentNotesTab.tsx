@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Textarea } from '../../../components/ui/textarea';
-import { MessageSquare } from 'lucide-react';
+import { ChatTeardrop } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useIncidentsStore } from '../store';
 import type { Incident } from '../types';
@@ -51,7 +51,7 @@ export function IncidentNotesTab({ incident, onUpdate }: IncidentNotesTabProps) 
               rows={4}
             />
             <Button onClick={handleAddNote} disabled={isLoading}>
-              <MessageSquare className="h-4 w-4 mr-2" />
+              <ChatTeardrop className="h-4 w-4 mr-2" />
               Add Note
             </Button>
           </CardContent>

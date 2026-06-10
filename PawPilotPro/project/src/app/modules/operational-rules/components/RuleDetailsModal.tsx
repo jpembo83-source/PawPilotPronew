@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Separator } from '../../../components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Edit2, Trash2, Power, PowerOff } from 'lucide-react';
+import { PencilSimple, Trash, Power, Power } from '@phosphor-icons/react';
 import { useAuth } from '../../../context/AuthContext';
 import { useOperationalRulesStore } from '../store';
 import { updateRule, deleteRule } from '../api';
@@ -109,7 +109,7 @@ export function RuleDetailsModal({ rule, onClose, onSuccess }: RuleDetailsModalP
                 >
                   {rule.status === 'active' ? (
                     <>
-                      <PowerOff className="h-4 w-4 mr-2" />
+                      <Power className="h-4 w-4 mr-2" />
                       Disable
                     </>
                   ) : (
@@ -129,7 +129,7 @@ export function RuleDetailsModal({ rule, onClose, onSuccess }: RuleDetailsModalP
                   disabled={isUpdating}
                   className="text-red-600 hover:text-red-700"
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash className="h-4 w-4 mr-2" />
                   Delete
                 </Button>
               )}

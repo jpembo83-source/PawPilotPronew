@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MapPin, MoreHorizontal, Power, Edit3, Trash2 } from 'lucide-react';
+import { Plus, MagnifyingGlass, MapPin, DotsThree, Power, PencilSimple, Trash } from '@phosphor-icons/react';
 import { useSettingsStore, Location } from '../store';
 import { MODULES } from '../constants/modules';
 import { toast } from 'sonner';
@@ -186,7 +186,7 @@ export function LocationSettings() {
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
         <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
               placeholder="Search locations..."
@@ -267,7 +267,7 @@ export function LocationSettings() {
                           handleOpenEdit(loc);
                         }}
                       >
-                        <Edit3 className="h-4 w-4 mr-1" />
+                        <PencilSimple className="h-4 w-4 mr-1" />
                         Edit
                       </Button>
                       <Button 
@@ -279,7 +279,7 @@ export function LocationSettings() {
                           handleOpenDelete(loc);
                         }}
                       >
-                        <Trash2 className="h-4 w-4 mr-1" />
+                        <Trash className="h-4 w-4 mr-1" />
                         Delete
                       </Button>
                     </td>

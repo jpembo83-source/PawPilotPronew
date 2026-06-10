@@ -5,7 +5,7 @@ import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Badge } from '../../../../components/ui/badge';
-import { Search, LogOut, Clock } from 'lucide-react';
+import { MagnifyingGlass, SignOut, Clock } from '@phosphor-icons/react';
 import { useDaycareStore } from '../../../daycare/store';
 import { useDashboardStore } from '../../store';
 import { toast } from 'sonner';
@@ -100,7 +100,7 @@ export function QuickCheckOutModal({ open, onClose }: QuickCheckOutModalProps) {
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <LogOut className="h-5 w-5" />
+            <SignOut className="h-5 w-5" />
             Quick Check-out
           </DialogTitle>
           <DialogDescription>
@@ -109,11 +109,11 @@ export function QuickCheckOutModal({ open, onClose }: QuickCheckOutModalProps) {
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4">
-          {/* Search */}
+          {/* MagnifyingGlass */}
           <div>
             <Label>Search Currently in Daycare</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Type pet name or household name..."
                 value={searchQuery}
@@ -132,7 +132,7 @@ export function QuickCheckOutModal({ open, onClose }: QuickCheckOutModalProps) {
             <div className="border rounded-lg max-h-96 overflow-y-auto">
               {filteredAttendance.length === 0 ? (
                 <div className="p-8 text-center text-slate-500">
-                  <LogOut className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                  <SignOut className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                   <p className="font-medium">No pets in daycare</p>
                   <p className="text-sm mt-1">
                     {searchQuery ? `No matches for "${searchQuery}"` : 'No pets currently checked in'}
@@ -294,7 +294,7 @@ export function QuickCheckOutModal({ open, onClose }: QuickCheckOutModalProps) {
                 </>
               ) : (
                 <>
-                  <LogOut className="h-4 w-4 mr-2" />
+                  <SignOut className="h-4 w-4 mr-2" />
                   Check Out
                 </>
               )}

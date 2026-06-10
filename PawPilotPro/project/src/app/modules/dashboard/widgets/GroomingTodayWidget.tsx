@@ -1,7 +1,7 @@
 // Today's Grooming Widget - Shows grooming appointments for today
 import React, { useEffect, useState } from 'react';
 import { WidgetCard } from './WidgetCard';
-import { Scissors, Clock, RefreshCw, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react';
+import { Scissors, Clock, ArrowClockwise, CheckCircle, Warning, CaretRight } from '@phosphor-icons/react';
 import { useDashboardStore } from '../store';
 import { useGroomingStore } from '../../grooming/store';
 import { useNavigate } from 'react-router';
@@ -98,7 +98,7 @@ export function GroomingTodayWidget() {
             className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
             title="Refresh"
           >
-            <RefreshCw className={cn("h-4 w-4", localLoading && "animate-spin")} />
+            <ArrowClockwise className={cn("h-4 w-4", localLoading && "animate-spin")} />
           </button>
         </div>
 
@@ -106,12 +106,12 @@ export function GroomingTodayWidget() {
         <div className="flex-1 overflow-y-auto -mx-4 px-4">
           {localLoading && sortedAppointments.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 text-slate-300 animate-spin" />
+              <ArrowClockwise className="h-6 w-6 text-slate-300 animate-spin" />
             </div>
           ) : error ? (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
               <div className="flex items-center gap-2 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4" />
+                <Warning className="h-4 w-4" />
                 <span>Failed to load appointments</span>
               </div>
             </div>
@@ -156,7 +156,7 @@ export function GroomingTodayWidget() {
                       </div>
                     </div>
 
-                    <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+                    <CaretRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
                   </div>
                 </button>
               ))}
@@ -181,7 +181,7 @@ export function GroomingTodayWidget() {
               className="w-full flex items-center justify-center gap-2 text-sm text-slate-600 hover:text-slate-900 py-2"
             >
               <span>Manage Grooming</span>
-              <ChevronRight className="h-4 w-4" />
+              <CaretRight className="h-4 w-4" />
             </button>
           </div>
         )}

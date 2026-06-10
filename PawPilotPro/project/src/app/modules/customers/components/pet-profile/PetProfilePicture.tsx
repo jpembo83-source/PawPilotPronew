@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Pet } from '../../types';
 import { Card, CardContent } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
-import { Camera, Upload, X, Loader2 } from 'lucide-react';
+import { Camera, UploadSimple, X, CircleNotch } from '@phosphor-icons/react';
 import { projectId, publicAnonKey } from '../../../../../../utils/supabase/info';
 
 interface PetProfilePictureProps {
@@ -34,7 +34,7 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
     setUploading(true);
     
     try {
-      // Upload via backend (bypasses RLS)
+      // UploadSimple via backend (bypasses RLS)
       const formData = new FormData();
       formData.append('file', file);
       formData.append('petId', pet.id);
@@ -64,7 +64,7 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
       onUpdate(data.url);
       
     } catch (error: any) {
-      console.error('Upload error:', error);
+      console.error('UploadSimple error:', error);
       alert(`Failed to upload photo: ${error.message}`);
     } finally {
       setUploading(false);
@@ -112,12 +112,12 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
             
             {uploading && (
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 text-white animate-spin" />
+                <CircleNotch className="h-8 w-8 text-white animate-spin" />
               </div>
             )}
           </div>
           
-          {/* Upload Button */}
+          {/* UploadSimple Button */}
           <input
             ref={fileInputRef}
             type="file"
@@ -134,12 +134,12 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
           >
             {uploading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                 Uploading...
               </>
             ) : (
               <>
-                <Upload className="h-4 w-4 mr-2" />
+                <UploadSimple className="h-4 w-4 mr-2" />
                 {previewUrl ? 'Change Photo' : 'Upload Photo'}
               </>
             )}

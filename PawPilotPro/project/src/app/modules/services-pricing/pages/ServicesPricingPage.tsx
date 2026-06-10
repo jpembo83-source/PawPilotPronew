@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, DollarSign, Users, MapPin, Receipt, CheckSquare } from 'lucide-react';
+import { Package, CurrencyDollar, UsersThree, MapPin, Receipt, CheckSquare } from '@phosphor-icons/react';
 import { useServicesPricingStore } from '../store';
 import { ServicesTab } from './tabs/ServicesTab';
 
@@ -13,8 +13,8 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: 'services', label: 'Services', icon: Package },
-  { id: 'price-books', label: 'Price Books', icon: DollarSign },
-  { id: 'memberships', label: 'Memberships & Packages', icon: Users },
+  { id: 'price-books', label: 'Price Books', icon: CurrencyDollar },
+  { id: 'memberships', label: 'Memberships & Packages', icon: UsersThree },
   { id: 'location-pricing', label: 'Location Pricing', icon: MapPin },
   { id: 'fees-discounts', label: 'Discounts & Fees', icon: Receipt },
   { id: 'approvals', label: 'Approvals', icon: CheckSquare },
@@ -95,7 +95,7 @@ export function ServicesPricingPage() {
           <div className="bg-white border border-slate-200 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-emerald-600" />
+                <CurrencyDollar className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-slate-900">{summary.priceBooks}</p>
@@ -106,7 +106,7 @@ export function ServicesPricingPage() {
           <div className="bg-white border border-slate-200 rounded-lg p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center">
-                <Users className="h-5 w-5 text-purple-600" />
+                <UsersThree className="h-5 w-5 text-purple-600" />
               </div>
               <div>
                 <p className="text-2xl font-semibold text-slate-900">{summary.memberships}</p>

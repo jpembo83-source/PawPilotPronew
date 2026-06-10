@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BedDouble, Moon, ArrowLeft, Settings, Save, AlertTriangle } from 'lucide-react';
+import { Bed, Moon, ArrowLeft, Gear, FloppyDisk, Warning } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
@@ -101,7 +101,7 @@ export function OvernightCapacityPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
-              <BedDouble className="h-6 w-6 text-indigo-600" />
+              <Bed className="h-6 w-6 text-indigo-600" />
               Capacity Management
             </h1>
             <p className="text-sm text-slate-500 mt-1">
@@ -111,8 +111,8 @@ export function OvernightCapacityPage() {
         </div>
         {!isEditing && (
           <Button variant="outline" onClick={() => setIsEditing(true)}>
-            <Settings className="h-4 w-4 mr-1" />
-            Edit Settings
+            <Gear className="h-4 w-4 mr-1" />
+            Edit Gear
           </Button>
         )}
       </div>
@@ -127,7 +127,7 @@ export function OvernightCapacityPage() {
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center">
-              <BedDouble className="h-5 w-5 text-indigo-600" />
+              <Bed className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{maxCap}</p>
@@ -139,7 +139,7 @@ export function OvernightCapacityPage() {
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-amber-50 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <Warning className="h-5 w-5 text-amber-600" />
             </div>
             <div>
               <p className="text-2xl font-semibold text-slate-900">{bufferSlots}</p>
@@ -168,7 +168,7 @@ export function OvernightCapacityPage() {
             <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
               availableSlots > 0 ? 'bg-emerald-50' : 'bg-rose-50'
             }`}>
-              <BedDouble className={`h-5 w-5 ${availableSlots > 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
+              <Bed className={`h-5 w-5 ${availableSlots > 0 ? 'text-emerald-600' : 'text-rose-600'}`} />
             </div>
             <div>
               <p className={`text-2xl font-semibold ${availableSlots > 0 ? 'text-slate-900' : 'text-rose-600'}`}>
@@ -203,8 +203,8 @@ export function OvernightCapacityPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-slate-600" />
-              Capacity Settings
+              <Gear className="h-5 w-5 text-slate-600" />
+              Capacity Gear
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -248,7 +248,7 @@ export function OvernightCapacityPage() {
                 Cancel
               </Button>
               <Button onClick={handleSave} disabled={isLoading}>
-                <Save className="h-4 w-4 mr-1" />
+                <FloppyDisk className="h-4 w-4 mr-1" />
                 {isLoading ? 'Saving...' : 'Save Settings'}
               </Button>
             </div>
@@ -259,7 +259,7 @@ export function OvernightCapacityPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BedDouble className="h-5 w-5 text-indigo-600" />
+            <Bed className="h-5 w-5 text-indigo-600" />
             14-Day Occupancy Forecast
           </CardTitle>
         </CardHeader>

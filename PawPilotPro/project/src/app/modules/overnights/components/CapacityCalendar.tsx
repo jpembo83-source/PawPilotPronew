@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, BedDouble, AlertTriangle } from 'lucide-react';
+import { CaretLeft, CaretRight, Bed, Warning } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
@@ -117,13 +117,13 @@ export function CapacityCalendar({ locationId, maxCapacity }: CapacityCalendarPr
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handlePrevious}>
-            <ChevronLeft className="h-4 w-4" />
+            <CaretLeft className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={handleToday}>
             Today
           </Button>
           <Button variant="outline" size="sm" onClick={handleNext}>
-            <ChevronRight className="h-4 w-4" />
+            <CaretRight className="h-4 w-4" />
           </Button>
         </div>
         <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -194,7 +194,7 @@ export function CapacityCalendar({ locationId, maxCapacity }: CapacityCalendarPr
                       {available > 0 ? `${available} free` : 'Full'}
                     </span>
                     {pct >= 90 && (
-                      <AlertTriangle className="h-3 w-3 text-rose-500" />
+                      <Warning className="h-3 w-3 text-rose-500" />
                     )}
                   </div>
                 </>

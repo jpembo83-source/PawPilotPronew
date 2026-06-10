@@ -5,15 +5,15 @@ import { useCurrency } from '../../../utils/currency';
 import {
   ArrowLeft,
   Dog,
-  Pencil,
+  PencilSimple,
   Check,
   X,
-  AlertCircle,
-  Calendar,
-  Activity,
+  Warning,
+  CalendarBlank,
+  Pulse,
   FileText,
   Stethoscope,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -53,7 +53,7 @@ export function PetDetailPage() {
       <div className="p-6">
         <Card>
           <CardContent className="py-12 text-center">
-            <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <Warning className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <h3 className="font-semibold text-slate-900 mb-2">Pet not found</h3>
             <p className="text-slate-600 mb-4">
               This pet doesn't exist or you don't have permission to view it.
@@ -113,7 +113,7 @@ export function PetDetailPage() {
         {/* Quick Actions */}
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
-            <Pencil className="h-4 w-4 mr-2" />
+            <PencilSimple className="h-4 w-4 mr-2" />
             Edit Pet
           </Button>
         </div>
@@ -130,7 +130,7 @@ export function PetDetailPage() {
                   {pet.weight_kg ? `${pet.weight_kg}kg` : '—'}
                 </p>
               </div>
-              <Activity className="h-8 w-8 text-slate-400" />
+              <Pulse className="h-8 w-8 text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -156,7 +156,7 @@ export function PetDetailPage() {
                 <p className="text-sm text-slate-600 mb-1">Bookings</p>
                 <p className="text-2xl font-bold">0</p>
               </div>
-              <Calendar className="h-8 w-8 text-slate-400" />
+              <CalendarBlank className="h-8 w-8 text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -166,16 +166,8 @@ export function PetDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Vaccinations</p>
-                <p className={`text-sm font-medium capitalize ${
-                  pet.vaccination_status === 'up_to_date' ? 'text-green-600' :
-                  pet.vaccination_status === 'expiring_soon' ? 'text-orange-600' :
-                  pet.vaccination_status === 'expired' ? 'text-red-600' :
-                  'text-slate-500'
-                }`}>
-                  {pet.vaccination_status === 'up_to_date' ? 'Up to Date' :
-                   pet.vaccination_status === 'expiring_soon' ? 'Expiring Soon' :
-                   pet.vaccination_status === 'expired' ? 'Expired' :
-                   'Not Recorded'}
+                <p className="text-sm font-medium capitalize">
+                  {pet.vaccination_status || 'Unknown'}
                 </p>
               </div>
               <Stethoscope className="h-8 w-8 text-slate-400" />
@@ -191,7 +183,7 @@ export function PetDetailPage() {
           <TabsTrigger value="care">Care Instructions</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="activity">Pulse</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -414,11 +406,11 @@ export function PetDetailPage() {
         <TabsContent value="bookings">
           <Card>
             <CardHeader>
-              <CardTitle>Booking History</CardTitle>
+              <CardTitle>Booking ClockCounterClockwise</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-center py-12 text-slate-400">
-                <Calendar className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+                <CalendarBlank className="h-12 w-12 mx-auto mb-2 text-slate-300" />
                 <p>No bookings yet</p>
               </div>
             </CardContent>
@@ -428,11 +420,11 @@ export function PetDetailPage() {
         <TabsContent value="activity">
           <Card>
             <CardHeader>
-              <CardTitle>Activity Timeline</CardTitle>
+              <CardTitle>Pulse Timeline</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-center py-12 text-slate-400">
-                <Activity className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+                <Pulse className="h-12 w-12 mx-auto mb-2 text-slate-300" />
                 <p>No activity yet</p>
               </div>
             </CardContent>

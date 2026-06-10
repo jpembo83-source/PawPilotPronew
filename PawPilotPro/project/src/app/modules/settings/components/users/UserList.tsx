@@ -4,9 +4,10 @@ import { useSettingsStore } from '../../store';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, Search, Filter, MoreHorizontal, User as UserIcon, Shield, MapPin, Loader2 } from 'lucide-react';
+import { Plus, MagnifyingGlass, Funnel, DotsThree, User as UserIcon, Shield, MapPin, CircleNotch } from '@phosphor-icons/react';
 import { UserDialog } from './UserDialog';
 import { ViewAsButton } from '../../../../modules/view-as/ViewAsButton';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +16,7 @@ import {
 } from '../../../../components/ui/dropdown-menu';
 
 export function UserList() {
-  const { users, templates, addUser, updateUser, toggleUserStatus, fetchUsers, isLoading } = useUserStore();
+  const { users, templates, addUser, updateUser, toggleUserStatus, fetchUsers, sendPasswordReset, isLoading } = useUserStore();
   const { locations } = useSettingsStore();
 
   useEffect(() => {
@@ -60,12 +61,22 @@ export function UserList() {
     return templates.find(t => t.id === id)?.name || 'Unknown Template';
   };
 
+  const handleSendReset = async (user: User) => {
+    const toastId = toast.loading(`Sending password reset link to ${user.email}…`);
+    try {
+      await sendPasswordReset(user.email, 'Current Admin');
+      toast.success(`Password reset link sent to ${user.email}`, { id: toastId });
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send password reset email', { id: toastId });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div className="flex gap-2 flex-1 max-w-lg">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
               placeholder="Search users..." 
               className="pl-9" 
@@ -93,7 +104,7 @@ export function UserList() {
       <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm relative">
         {isLoading && (
           <div className="absolute inset-0 bg-white/80 z-10 flex items-center justify-center">
-             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             <CircleNotch className="h-8 w-8 animate-spin text-primary" />
           </div>
         )}
         <div className="overflow-x-auto">
@@ -181,17 +192,14 @@ export function UserList() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
+                              <DotsThree className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleEdit(user)}>
                               Edit User
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                               // Mock sending reset
-                               alert(`Reset link sent to ${user.email}`);
-                            }}>
+                            <DropdownMenuItem onClick={() => handleSendReset(user)}>
                               Send Password Reset
                             </DropdownMenuItem>
                             <DropdownMenuItem 

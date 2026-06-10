@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router';
 import { useStaffStore } from '../../staff/store';
 import { useAuth } from '../../../context/AuthContext';
 import { useBetaFeatures } from '../../../hooks/useBetaFeatures';
-import { AlertTriangle, X, Shield, FileText, ExternalLink, Clock } from 'lucide-react';
+import { Warning, X, Shield, FileText, ArrowSquareOut, Clock } from '@phosphor-icons/react';
 
 export function PoliciesAlertBanner() {
   const navigate = useNavigate();
@@ -116,7 +116,7 @@ export function PoliciesAlertBanner() {
               >
                 <Shield className="w-4 h-4" />
                 Acknowledge Blocking Policies Now
-                <ExternalLink className="w-4 h-4" />
+                <ArrowSquareOut className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -148,7 +148,7 @@ export function PoliciesAlertBanner() {
         </button>
         
         <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+          <Warning className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
           
           <div className="flex-1">
             <h3 className="font-semibold text-red-900">

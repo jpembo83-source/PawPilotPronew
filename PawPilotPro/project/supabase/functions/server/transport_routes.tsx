@@ -662,12 +662,11 @@ app.post('/jobs/:id/assign', async (c) => {
       return c.json({ error: 'Transport job not found' }, 404);
     }
     
-    const shouldTransitionStatus = job.status === 'pending_assignment' && driver_user_id;
+    // Update assignment
     const updatedJob = {
       ...job,
       assigned_driver_user_id: driver_user_id,
       assigned_vehicle_id: vehicle_id,
-      ...(shouldTransitionStatus ? { status: 'scheduled', requires_assignment: false } : {}),
       updated_at: new Date().toISOString()
     };
     

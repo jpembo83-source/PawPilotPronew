@@ -7,14 +7,15 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Loader2, AlertTriangle, CheckCircle2, Server, Users, Package, Settings, Shield, Clock, Activity, FileText, Zap } from 'lucide-react';
+import { CircleNotch, Warning, CheckCircle, HardDrives, UsersThree, Package, Gear, Shield, Clock, Pulse, FileText, Lightning } from '@phosphor-icons/react';
 import { useSystemStore } from './store';
 import { toast } from 'sonner';
 import { SupabaseConnectivityCheck } from './components/SupabaseConnectivityCheck';
+import { UATSeedPanel } from './components/UATSeedPanel';
 
 export function SystemPage() {
   const { 
-    loadAll, isLoading, overview, organisations, featureFlags, modules, 
+    loadAll, seedData, isLoading, overview, organisations, featureFlags, modules, 
     environment, jobs, health, logs, auditLogs, suspendOrganisation, reactivateOrganisation,
     updateFeatureFlag, pauseJob, resumeJob, setMaintenanceMode, forceLogoutAll
   } = useSystemStore();
@@ -23,6 +24,13 @@ export function SystemPage() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  const handleSeed = async () => {
+    if (confirm('This will create sample system data. Continue?')) {
+      await seedData();
+      toast.success('System data seeded successfully');
+    }
+  };
 
   const handleSuspendOrg = async (id: string, name: string) => {
     const reason = prompt(`Suspend organisation "${name}"?\n\nReason:`);
@@ -56,7 +64,7 @@ export function SystemPage() {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <Server className="h-6 w-6 text-destructive" />
+              <HardDrives className="h-6 w-6 text-destructive" />
               <h1 className="text-2xl">System Control</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
@@ -69,6 +77,9 @@ export function SystemPage() {
                 MAINTENANCE MODE
               </Badge>
             )}
+            <Button onClick={handleSeed} variant="outline" size="sm">
+              Seed Data
+            </Button>
           </div>
         </div>
       </div>
@@ -77,7 +88,7 @@ export function SystemPage() {
       <div className="flex-1 overflow-auto p-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <CircleNotch className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -90,6 +101,7 @@ export function SystemPage() {
               <TabsTrigger value="jobs">Jobs</TabsTrigger>
               <TabsTrigger value="health">Health</TabsTrigger>
               <TabsTrigger value="logs">Logs</TabsTrigger>
+              <TabsTrigger value="uat">UAT</TabsTrigger>
               <TabsTrigger value="actions">Actions</TabsTrigger>
             </TabsList>
 
@@ -99,7 +111,7 @@ export function SystemPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Active Organisations</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <UsersThree className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{overview?.active_organisations || 0}</div>
@@ -112,7 +124,7 @@ export function SystemPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <UsersThree className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{overview?.total_users || 0}</div>
@@ -125,7 +137,7 @@ export function SystemPage() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Integration Health</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
+                    <Pulse className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{overview?.integration_health.healthy || 0}/{overview?.integration_health.total || 0}</div>
@@ -432,9 +444,9 @@ export function SystemPage() {
                           <div className="border rounded p-4">
                             <div className="flex items-center gap-2 mb-2">
                               {health.api_availability === 'healthy' ? (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-5 w-5 text-green-600" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                <Warning className="h-5 w-5 text-destructive" />
                               )}
                               <span className="font-medium">API</span>
                             </div>
@@ -443,9 +455,9 @@ export function SystemPage() {
                           <div className="border rounded p-4">
                             <div className="flex items-center gap-2 mb-2">
                               {health.database_health === 'healthy' ? (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-5 w-5 text-green-600" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                <Warning className="h-5 w-5 text-destructive" />
                               )}
                               <span className="font-medium">Database</span>
                             </div>
@@ -456,9 +468,9 @@ export function SystemPage() {
                           <div className="border rounded p-4">
                             <div className="flex items-center gap-2 mb-2">
                               {health.integration_health === 'healthy' ? (
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <CheckCircle className="h-5 w-5 text-green-600" />
                               ) : (
-                                <AlertTriangle className="h-5 w-5 text-destructive" />
+                                <Warning className="h-5 w-5 text-destructive" />
                               )}
                               <span className="font-medium">Integrations</span>
                             </div>
@@ -509,6 +521,34 @@ export function SystemPage() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="uat">
+              <div className="grid grid-cols-2 gap-6">
+                <UATSeedPanel />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Automated Tests</CardTitle>
+                    <CardDescription>Run Playwright E2E tests</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Run automated tests from the command line:
+                    </p>
+                    <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-sm space-y-2">
+                      <p># Run all tests</p>
+                      <p className="text-green-400">npm test</p>
+                      <p className="mt-2"># Run with UI</p>
+                      <p className="text-green-400">npm run test:ui</p>
+                      <p className="mt-2"># View report</p>
+                      <p className="text-green-400">npm run test:report</p>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-4">
+                      See tests/README.md for full documentation
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
             <TabsContent value="actions">
               <Card>
                 <CardHeader>
@@ -519,7 +559,7 @@ export function SystemPage() {
                   <div className="space-y-4">
                     <div className="border border-destructive rounded p-4">
                       <div className="flex items-start gap-3">
-                        <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+                        <Warning className="h-5 w-5 text-destructive mt-0.5" />
                         <div className="flex-1">
                           <h4 className="font-medium">Maintenance Mode</h4>
                           <p className="text-sm text-muted-foreground mb-3">
@@ -539,7 +579,7 @@ export function SystemPage() {
 
                     <div className="border border-destructive rounded p-4">
                       <div className="flex items-start gap-3">
-                        <Zap className="h-5 w-5 text-destructive mt-0.5" />
+                        <Lightning className="h-5 w-5 text-destructive mt-0.5" />
                         <div className="flex-1">
                           <h4 className="font-medium">Force Logout All Users</h4>
                           <p className="text-sm text-muted-foreground mb-3">

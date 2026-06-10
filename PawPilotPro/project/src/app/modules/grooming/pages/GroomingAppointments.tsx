@@ -1,12 +1,11 @@
 // Grooming Appointments - MDC Operations Centre
 // List and manage grooming appointments
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useGroomingStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useAuth } from '../../../context/AuthContext';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -36,15 +35,15 @@ import {
 } from '../../../components/ui/dialog';
 import { 
   Plus,
-  Search,
-  Filter,
-  Calendar,
+  MagnifyingGlass,
+  Funnel,
+  CalendarBlank,
   Clock,
-  AlertTriangle,
+  Warning,
   X,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+  CaretLeft,
+  CaretRight,
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { 
@@ -88,7 +87,7 @@ export function GroomingAppointments() {
     }
   }, [error]);
   
-  const loadAppointments = useCallback(async () => {
+  const loadAppointments = async () => {
     const filters: any = {
       date: selectedDate,
     };
@@ -106,10 +105,7 @@ export function GroomingAppointments() {
     }
     
     await fetchAppointments(filters);
-  }, [selectedDate, selectedLocationId, statusFilter, serviceFilter]);
-
-  const locationFilter = selectedLocationId && selectedLocationId !== 'ALL' ? [selectedLocationId] : undefined;
-  useModuleRealtimeSync('grooming', loadAppointments, true, locationFilter);
+  };
   
   const filteredAppointments = appointments.filter(apt => {
     if (!searchQuery) return true;
@@ -172,10 +168,10 @@ export function GroomingAppointments() {
         <CardContent className="py-4">
           <div className="flex items-center justify-center gap-4">
             <Button variant="outline" size="icon" onClick={() => handleDateChange('prev')}>
-              <ChevronLeft className="h-4 w-4" />
+              <CaretLeft className="h-4 w-4" />
             </Button>
             <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-slate-500" />
+              <CalendarBlank className="h-5 w-5 text-slate-500" />
               <Input
                 type="date"
                 value={selectedDate}
@@ -184,7 +180,7 @@ export function GroomingAppointments() {
               />
             </div>
             <Button variant="outline" size="icon" onClick={() => handleDateChange('next')}>
-              <ChevronRight className="h-4 w-4" />
+              <CaretRight className="h-4 w-4" />
             </Button>
             <Button 
               variant="ghost" 
@@ -202,7 +198,7 @@ export function GroomingAppointments() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Search pet or customer..."
                   value={searchQuery}

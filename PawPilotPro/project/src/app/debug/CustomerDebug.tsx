@@ -2,7 +2,7 @@
 // Diagnostic tool to check backend data and troubleshoot visibility issues
 
 import React, { useState } from 'react';
-import { RefreshCw, AlertCircle, CheckCircle, Database, Users } from 'lucide-react';
+import { ArrowClockwise, Warning, CheckCircle, Database, UsersThree } from '@phosphor-icons/react';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import { supabase } from '../../utils/supabase/client';
 
@@ -224,7 +224,7 @@ export function CustomerDebug() {
               disabled={isLoading}
               className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <AlertCircle className="w-4 h-4" />
+              <Warning className="w-4 h-4" />
               Clear All Data
             </button>
             
@@ -233,7 +233,7 @@ export function CustomerDebug() {
               disabled={isLoading}
               className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <Users className="w-4 h-4" />
+              <UsersThree className="w-4 h-4" />
               Create Test Household
             </button>
             
@@ -242,7 +242,7 @@ export function CustomerDebug() {
               disabled={isLoading}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <ArrowClockwise className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               {isLoading ? 'Running...' : 'Run Diagnostics'}
             </button>
           </div>
@@ -250,7 +250,7 @@ export function CustomerDebug() {
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <Warning className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-red-900">Error</p>
               <p className="text-sm text-red-700 mt-1">{error}</p>

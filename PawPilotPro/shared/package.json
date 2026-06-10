@@ -1,0 +1,25 @@
+{
+  "name": "@pawpilot/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./types/index.ts",
+  "exports": {
+    "./types": "./types/index.ts",
+    "./types/*": "./types/*.ts",
+    "./schemas/*": "./schemas/*.ts",
+    "./api/*": "./api/*.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}

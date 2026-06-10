@@ -1,15 +1,14 @@
 // Team Directory Tab
 // Comprehensive staff roster with inline editing and filtering
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../../context/AuthContext';
 import { useStaffStore } from '../store';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import { Input } from '../../../components/ui/input';
-import { Search, UserPlus, AlertTriangle, CheckCircle2, Loader2, Users } from 'lucide-react';
+import { MagnifyingGlass, UserPlus, Warning, CheckCircle, CircleNotch, UsersThree } from '@phosphor-icons/react';
 import type { StaffMember } from '../types';
 
 export function TeamDirectoryTab() {
@@ -20,12 +19,6 @@ export function TeamDirectoryTab() {
   useEffect(() => {
     fetchStaff();
   }, []);
-
-  const refetchStaff = useCallback(() => {
-    fetchStaff();
-  }, [fetchStaff]);
-
-  useModuleRealtimeSync('staff', refetchStaff);
   
   const handleSearch = () => {
     setStaffFilters({ ...staffFilters, search: searchInput });
@@ -40,11 +33,11 @@ export function TeamDirectoryTab() {
   
   return (
     <div className="space-y-6">
-      {/* Header & Search */}
+      {/* Header & MagnifyingGlass */}
       <div className="flex items-center justify-between">
         <div className="flex-1 max-w-md">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               placeholder="Search by name, email..."
               value={searchInput}
@@ -95,12 +88,12 @@ export function TeamDirectoryTab() {
       {/* Staff List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          <CircleNotch className="h-8 w-8 animate-spin text-slate-400" />
         </div>
       ) : staff.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Users className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+            <UsersThree className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-slate-900 mb-2">No Staff Members Found</h3>
             <p className="text-slate-600 mb-4">
               Staff members are automatically pulled from Settings → Users & Access.
@@ -162,9 +155,9 @@ export function TeamDirectoryTab() {
                       </div>
                       
                       {member.overdue_policies_count > 0 ? (
-                        <AlertTriangle className="h-5 w-5 text-amber-500" />
+                        <Warning className="h-5 w-5 text-amber-500" />
                       ) : member.compliance_rate === 100 ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <CheckCircle className="h-5 w-5 text-green-500" />
                       ) : null}
                     </div>
                   </div>

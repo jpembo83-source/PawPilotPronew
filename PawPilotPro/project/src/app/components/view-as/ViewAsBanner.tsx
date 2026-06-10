@@ -1,7 +1,7 @@
 // View As Banner - MDC Operations Centre
 // Persistent, non-dismissable banner when in View As mode
 
-import { AlertTriangle, Eye, X } from 'lucide-react';
+import { Warning, Eye, X } from '@phosphor-icons/react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useViewAs } from '../../context/ViewAsContext';
@@ -38,7 +38,7 @@ export function ViewAsBanner() {
           </div>
 
           <div className="flex items-center gap-2 text-sm opacity-90">
-            <AlertTriangle className="h-4 w-4" />
+            <Warning className="h-4 w-4" />
             <span>All actions are disabled</span>
           </div>
         </div>

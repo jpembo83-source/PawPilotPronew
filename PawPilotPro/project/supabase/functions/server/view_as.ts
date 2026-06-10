@@ -63,7 +63,11 @@ async function canViewAsUser(viewerRole: string, targetUserId: string, viewerLoc
 
 app.post('/start', async (c) => {
   const data = await c.req.json();
-  const { viewer_user_id, view_as_user_id, reason } = data;
+  const { view_as_user_id, reason } = data;
+
+  // Identity always comes from the verified JWT, never from the request body
+  const jwtUser = c.get('user') as { id: string };
+  const viewer_user_id = jwtUser.id;
 
   // Get viewer details
   const viewer = await kv.get(`user:${viewer_user_id}`);
@@ -135,7 +139,11 @@ app.post('/start', async (c) => {
 
 app.post('/end', async (c) => {
   const data = await c.req.json();
-  const { viewer_user_id, session_id } = data;
+  const { session_id } = data;
+
+  // Identity always comes from the verified JWT
+  const jwtUser = c.get('user') as { id: string };
+  const viewer_user_id = jwtUser.id;
 
   const session = await kv.get(`view_as:session:${session_id}`);
   if (!session) {
@@ -165,7 +173,9 @@ app.post('/end', async (c) => {
 // --- Get Active Session ---
 
 app.get('/active/:viewer_user_id', async (c) => {
-  const viewerId = c.req.param('viewer_user_id');
+  // Always use the authenticated user's identity; ignore the path param to prevent IDOR
+  const jwtUser = c.get('user') as { id: string };
+  const viewerId = jwtUser.id;
   const sessions = await kv.getByPrefix(`view_as:session:active:${viewerId}:`);
   
   if (!sessions || sessions.length === 0) {

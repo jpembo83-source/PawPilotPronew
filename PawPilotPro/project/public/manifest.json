@@ -4,8 +4,8 @@
   "description": "Dog daycare management system",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFFCFB",
-  "theme_color": "#BA7E74",
+  "background_color": "#F4F3EF",
+  "theme_color": "#177C5E",
   "orientation": "portrait-primary",
   "icons": [
     {

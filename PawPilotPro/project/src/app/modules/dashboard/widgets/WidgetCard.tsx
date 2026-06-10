@@ -1,5 +1,5 @@
 import React from 'react';
-import { GripVertical } from 'lucide-react';
+import { DotsSixVertical } from '@phosphor-icons/react';
 import { cn } from '../../../components/ui/utils';
 
 interface WidgetCardProps {
@@ -35,7 +35,7 @@ export function WidgetCard({
               {...dragHandleProps} 
               className="cursor-grab hover:text-foreground text-muted-foreground/40 -ml-1"
             >
-              <GripVertical className="h-4 w-4" />
+              <DotsSixVertical className="h-4 w-4" />
             </div>
           )}
           {Icon && (

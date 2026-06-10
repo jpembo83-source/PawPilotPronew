@@ -46,19 +46,14 @@ app.get('/households', async (c) => {
     // Get all households for tenant
     const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
     
-    console.log('[List Households] Raw records from KV:', allHouseholds.length);
+    console.log('[List Households] Raw households from KV:', allHouseholds.length);
+    console.log('[List Households] First household type:', typeof allHouseholds[0]);
+    if (allHouseholds.length > 0) {
+      console.log('[List Households] First household:', JSON.stringify(allHouseholds[0]).substring(0, 200));
+    }
     
-    // Filter to only actual household records — exclude sub-resources (flags, notes, etc.)
-    // that share the same key prefix (e.g. customer:{tenant}:household:{id}:flag:{flagId}).
-    let households = allHouseholds.filter((h: any) => {
-      if (!h || typeof h !== 'object') return false;
-      const id = h.id;
-      if (!id || typeof id !== 'string') return false;
-      if (id.startsWith('flag-') || id.startsWith('note-') || id.startsWith('activity-')) return false;
-      return true;
-    });
-    
-    console.log('[List Households] Filtered households:', households.length);
+    // KV store returns already-parsed objects, not JSON strings
+    let households = allHouseholds;
     
     // Fetch ALL contacts and pets for this tenant in bulk (optimization to avoid N+1 queries)
     const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`);
@@ -803,6 +798,8 @@ app.get('/households/:household_id/documents', async (c) => {
     const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
     
+    console.log('[List Documents] Searching with tenant:', tenantId, 'household:', householdId);
+    
     // DEBUG: Check if documents exist with different tenant IDs
     const allDocs = await kv.getByPrefix(`customer:`);
     const householdDocs = allDocs.filter((d: any) => {
@@ -943,10 +940,7 @@ app.get('/document-alerts', async (c) => {
     const tenantId = user.tenantId;
     
     const documents = await kv.getByPrefix(`customer:${tenantId}:document:`);
-    const allHouseholdsRaw = await kv.getByPrefix(`customer:${tenantId}:household:`);
-    const households = allHouseholdsRaw.filter((h: any) =>
-      h && h.id && typeof h.id === 'string' && !h.id.startsWith('flag-') && !h.id.startsWith('note-') && !h.id.startsWith('activity-')
-    );
+    const households = await kv.getByPrefix(`customer:${tenantId}:household:`);
     const pets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
     
     const householdMap = new Map(households.map((h: any) => {
@@ -1018,11 +1012,8 @@ app.post('/seed-data', async (c) => {
     const forceReseed = body.force === true;
     console.log('[Seed] Body:', JSON.stringify(body), 'Force:', forceReseed);
     
-    // Check if data already exists (filter out sub-resources like flags/notes)
-    const existingRaw = await kv.getByPrefix(`customer:${tenantId}:household:`);
-    const existing = existingRaw.filter((h: any) =>
-      h && h.id && typeof h.id === 'string' && !h.id.startsWith('flag-') && !h.id.startsWith('note-') && !h.id.startsWith('activity-')
-    );
+    // Check if data already exists
+    const existing = await kv.getByPrefix(`customer:${tenantId}:household:`);
     console.log('[Seed] Existing households:', existing.length);
     if (existing && existing.length > 0 && !forceReseed) {
       return c.json({ message: 'Sample data already exists', count: existing.length, hint: 'Pass { "force": true } to clear and reseed' });
@@ -1187,20 +1178,16 @@ app.post('/seed-data', async (c) => {
             id: generateId('bkg'),
             tenant_id: tenantId,
             household_id: household.id,
-            household_name: household.name,
             pet_id: pet.id,
             pet_name: pet.name,
-            service_id: 'service-daycare-full',
-            service_name: 'Daycare (Full Day)',
             service_type: 'full_day',
             booking_date: bookingDate.toISOString().split('T')[0],
-            date: bookingDate.toISOString().split('T')[0],
+            date: bookingDate.toISOString().split('T')[0], // Keep both for compatibility
             planned_start_time: '08:00',
             planned_end_time: '18:00',
             booking_status: 'confirmed',
             check_in_status: 'not_checked_in',
-            location_id: 'f862d341-1a82-4d5e-9a74-deb3d4aa8695',
-            location_name: 'Seefeld',
+            location_id: 'default',
             created_by: userId,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -1301,10 +1288,9 @@ app.get('/export', async (c) => {
     const includePets = c.req.query('includePets') === 'true';
     const includeDocuments = c.req.query('includeDocuments') === 'true';
     
-    // Fetch all households (filter out sub-resources like flags/notes that share the prefix)
-    const allHouseholdsRaw2 = await kv.getByPrefix(`customer:${tenantId}:household:`);
-    let households = allHouseholdsRaw2
-      .filter((h: any) => h && h.id && typeof h.id === 'string' && !h.id.startsWith('flag-') && !h.id.startsWith('note-') && !h.id.startsWith('activity-'))
+    // Fetch all households
+    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    let households = allHouseholds
       .filter((item: any) => !item.deleted_at);
     
     // Apply filters
@@ -2085,12 +2071,12 @@ app.delete('/clear-timeline-data', async (c) => {
       console.log(`[Clear Timeline Data] Deleted ${noteKeys.length} notes`);
     }
     
-    // Reset VIP and payment_hold flags on all households (filter out sub-resources)
-    const allHouseholdsRaw3 = await kv.getByPrefix(`customer:${tenantId}:household:`);
-    const actualHouseholds = allHouseholdsRaw3.filter((h: any) =>
-      h && h.id && typeof h.id === 'string' && !h.id.startsWith('flag-') && !h.id.startsWith('note-') && !h.id.startsWith('activity-')
-    );
-    for (const household of actualHouseholds) {
+    // Reset VIP and payment_hold flags on all households
+    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    for (const householdObjObj of allHouseholds) {
+      // KV store returns already-parsed objects, not JSON strings
+      // KV store returns already-parsed objects, not JSON strings
+      const household = householdObjObj;
       if (household.vip || household.payment_hold) {
         household.vip = false;
         household.payment_hold = false;
@@ -2344,6 +2330,104 @@ app.get('/debug/kv-keys', async (c) => {
     });
   } catch (error: any) {
     console.error('[Debug KV] Error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// New comprehensive debug route that shows ALL customer data
+app.get('/debug/all-customers', async (c) => {
+  try {
+    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
+    if (!token) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    const user = await getUserFromToken(token);
+    const tenantId = getTenantId(user);
+    
+    console.log('[Debug All Customers] Checking ALL data for tenant:', tenantId);
+    
+    // Get all customer-related keys
+    const allCustomerData = await kv.getByPrefix(`customer:${tenantId}:`);
+    
+    console.log('[Debug All Customers] Total items:', allCustomerData.length);
+    console.log('[Debug All Customers] Raw data:', JSON.stringify(allCustomerData, null, 2));
+    
+    return c.json({
+      tenant: tenantId,
+      total_items: allCustomerData.length,
+      all_data: allCustomerData,
+    });
+  } catch (error: any) {
+    console.error('[Debug All Customers] Error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Delete all customer data (for fixing corrupted data)
+app.delete('/debug/delete-all', async (c) => {
+  try {
+    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
+    if (!token) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    const user = await getUserFromToken(token);
+    const tenantId = getTenantId(user);
+    
+    console.log('[Delete All] Deleting ALL customer data for tenant:', tenantId);
+    
+    // Get all customer-related keys
+    const allKeys = await kv.getByPrefix(`customer:${tenantId}:`);
+    const vaccinationKeys = await kv.getByPrefix(`vaccination:${tenantId}:`);
+    
+    console.log('[Delete All] Found keys:', {
+      customer_keys: allKeys.length,
+      vaccination_keys: vaccinationKeys.length,
+    });
+    
+    // Delete all customer data
+    for (const item of allKeys) {
+      // Extract key from the item (KV returns objects with keys)
+      const keys = await kv.getByPrefix(`customer:${tenantId}:`);
+      // Since we need to delete by key, we'll need to construct the keys
+      // For now, let's use a different approach
+    }
+    
+    // Since getByPrefix returns values not keys, we need to use a different strategy
+    // We'll call the SQL function directly via Supabase client
+    const supabase = getServiceClient();
+    
+    // Delete using pattern matching on the key column
+    const { error: deleteError } = await supabase
+      .from('kv_store_fc003b23')
+      .delete()
+      .like('key', `customer:${tenantId}:%`);
+    
+    if (deleteError) {
+      throw new Error(`Failed to delete customer data: ${deleteError.message}`);
+    }
+    
+    const { error: deleteVacError } = await supabase
+      .from('kv_store_fc003b23')
+      .delete()
+      .like('key', `vaccination:${tenantId}:%`);
+    
+    if (deleteVacError) {
+      throw new Error(`Failed to delete vaccination data: ${deleteVacError.message}`);
+    }
+    
+    console.log('[Delete All] Successfully deleted all data');
+    
+    return c.json({
+      message: 'All customer data deleted successfully',
+      deleted: {
+        customer_prefix: `customer:${tenantId}:`,
+        vaccination_prefix: `vaccination:${tenantId}:`,
+      },
+    });
+  } catch (error: any) {
+    console.error('[Delete All] Error:', error);
     return c.json({ error: error.message }, 500);
   }
 });

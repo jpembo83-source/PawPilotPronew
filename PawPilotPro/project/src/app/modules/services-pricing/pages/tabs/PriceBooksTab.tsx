@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Receipt, CheckCircle2, Calendar, MapPin } from 'lucide-react';
+import { Receipt, CheckCircle, CalendarBlank, MapPin } from '@phosphor-icons/react';
 import { useServicesPricingStore } from '../../store';
 import { PriceBook } from '../../types';
 import { Button } from '../../../../components/ui/button';
@@ -65,7 +65,7 @@ export function PriceBooksTab() {
                   <h3 className="font-semibold text-slate-900">{priceBook.name}</h3>
                   {priceBook.isActive && (
                     <Badge className="bg-emerald-500 hover:bg-emerald-600">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      <CheckCircle className="h-3 w-3 mr-1" />
                       Active
                     </Badge>
                   )}
@@ -80,7 +80,7 @@ export function PriceBooksTab() {
                 
                 <div className="flex flex-wrap gap-4 text-xs text-slate-500">
                   <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
+                    <CalendarBlank className="h-3 w-3" />
                     Effective from {formatDate(priceBook.effectiveFrom)}
                     {priceBook.effectiveTo && ` until ${formatDate(priceBook.effectiveTo)}`}
                   </div>
@@ -121,7 +121,7 @@ export function PriceBooksTab() {
               {selectedPriceBook?.name}
               {selectedPriceBook?.isActive && (
                 <Badge className="bg-emerald-500 hover:bg-emerald-600">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  <CheckCircle className="h-3 w-3 mr-1" />
                   Active
                 </Badge>
               )}

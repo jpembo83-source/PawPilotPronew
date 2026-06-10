@@ -7,7 +7,7 @@ import React from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { hasSettingsPermission } from '../utils/rbac';
 import { SettingsSection, SettingsAction } from '../types/permissions';
-import { ShieldOff, Info } from 'lucide-react';
+import { ShieldSlash, Info } from '@phosphor-icons/react';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 
 interface PermissionGuardProps {
@@ -54,7 +54,7 @@ export function PermissionGuard({
     if (showMessage) {
       return (
         <Alert variant="default" className="border-amber-200 bg-amber-50">
-          <ShieldOff className="h-4 w-4 text-amber-600" />
+          <ShieldSlash className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
             You don't have permission to {action} {section}. Contact your administrator if you need access.
           </AlertDescription>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Switch } from '../../../components/ui/switch';
 import { Label } from '../../../components/ui/label';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
-import { ShieldCheck, AlertCircle, Lock } from 'lucide-react';
+import { ShieldCheck, Warning, Lock } from '@phosphor-icons/react';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';

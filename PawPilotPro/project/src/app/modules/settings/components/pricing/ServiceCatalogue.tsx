@@ -9,7 +9,7 @@ import { Label } from '../../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Switch } from '../../../../components/ui/switch';
-import { Plus, Edit, Trash2, Dog, Scissors, ShoppingBag, Car } from 'lucide-react';
+import { Plus, PencilSimple, Trash, Dog, Scissors, ShoppingBag, Car } from '@phosphor-icons/react';
 import { usePricingStore, Service, ServiceType } from '../../../pricing/store';
 import { toast } from 'sonner';
 import { MODULES } from '../../constants/modules';
@@ -214,14 +214,14 @@ export function ServiceCatalogue() {
                                     setIsEditDialogOpen(true);
                                   }}
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <PencilSimple className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleDeleteService(service.id)}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash className="h-4 w-4" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -251,7 +251,7 @@ export function ServiceCatalogue() {
         title="Create Service"
       />
 
-      {/* Edit Service Dialog */}
+      {/* PencilSimple Service Dialog */}
       {selectedService && (
         <ServiceDialog
           open={isEditDialogOpen}

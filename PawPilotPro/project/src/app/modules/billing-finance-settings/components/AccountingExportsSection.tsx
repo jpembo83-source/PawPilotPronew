@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Download } from 'lucide-react';
+import { DownloadSimple } from '@phosphor-icons/react';
 import { useBillingFinanceSettingsStore } from '../store';
 
 export function AccountingExportsSection() {
@@ -88,8 +88,8 @@ export function AccountingExportsSection() {
                   <TableCell>{exp.generated_by}</TableCell>
                   <TableCell>
                     <Button size="sm" variant="outline">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
+                      <DownloadSimple className="h-4 w-4 mr-2" />
+                      DownloadSimple
                     </Button>
                   </TableCell>
                 </TableRow>

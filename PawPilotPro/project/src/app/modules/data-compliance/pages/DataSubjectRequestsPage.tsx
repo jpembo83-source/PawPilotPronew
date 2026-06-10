@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Plus } from 'lucide-react';
+import { Plus } from '@phosphor-icons/react';
 import { useDataComplianceStore } from '../store';
 import { CreateRequestDialog } from '../components/CreateRequestDialog';
 import { RequestDetailsDialog } from '../components/RequestDetailsDialog';

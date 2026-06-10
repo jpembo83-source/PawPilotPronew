@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { Mail, Phone, Star, AlertCircle as AlertIcon } from 'lucide-react';
+import { EnvelopeSimple, Phone, Star, Warning as AlertIcon } from '@phosphor-icons/react';
 import { useCustomerStore } from '../../modules/customers/store';
 import { formatContactName, getContactInitials } from '../../utils/contactHelpers';
 import type { HouseholdContact } from '../../modules/customers/types';
@@ -160,7 +160,7 @@ export function ContactSelector({
           <div className="space-y-1 text-sm">
             {selectedContact.email && (
               <div className="flex items-center gap-2 text-slate-600">
-                <Mail className="h-3 w-3" />
+                <EnvelopeSimple className="h-3 w-3" />
                 <span>{selectedContact.email}</span>
                 {selectedContact.preferred_contact_method === 'email' && (
                   <Badge variant="outline" className="text-xs">Preferred</Badge>

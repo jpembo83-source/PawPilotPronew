@@ -1,0 +1,185 @@
+import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Info, PawPrint, ArrowRight } from "lucide-react";
+import { getSupabase } from "@/lib/supabase";
+import { useBranding } from "@/lib/branding";
+
+// Hero photo. Forest-teal gradient sits behind as graceful fallback.
+const HERO_PHOTO =
+  "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?q=80&w=1400&auto=format&fit=crop";
+
+export function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [photoOk, setPhotoOk] = useState(true);
+  const nav = useNavigate();
+  const [params] = useSearchParams();
+  const next = params.get("next") ?? "/";
+  const reused = params.get("reused") === "1";
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setBusy(true);
+    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    nav(next, { replace: true });
+  }
+
+  return (
+    <main className="relative min-h-dvh w-full overflow-hidden flex flex-col">
+      {/* Photographic background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary" aria-hidden="true">
+        {photoOk && (
+          <img
+            src={HERO_PHOTO}
+            alt=""
+            onError={() => setPhotoOk(false)}
+            className="absolute inset-0 w-full h-full object-cover anim-fade-in"
+            style={{ animationDuration: "1.2s" }}
+          />
+        )}
+        {/* Editorial scrim — strong at top for wordmark, dramatic vertical gradient
+            for the headline, soft fade into the card. Three stops for an art-direction feel. */}
+        <div className="absolute inset-0" style={{
+          background: `
+            linear-gradient(180deg,
+              rgba(28,25,22,0.55) 0%,
+              rgba(28,25,22,0.05) 20%,
+              rgba(28,25,22,0.0) 38%,
+              rgba(28,25,22,0.0) 50%,
+              rgba(28,25,22,0.55) 78%,
+              rgba(28,25,22,0.78) 100%
+            )
+          `,
+        }} />
+      </div>
+
+      <BrandWordmark />
+
+      {/* Editorial headline — anchored to the lower-middle of the photo */}
+      <section
+        className="relative z-10 px-6 mt-auto mb-6 text-white anim-fade-in"
+        style={{ animationDelay: "200ms", animationDuration: "900ms" }}
+      >
+        <p className="text-[10px] tracking-[0.32em] uppercase font-medium opacity-80 mb-3">
+          Welcome
+        </p>
+        <h1
+          className="font-display leading-[0.95] tracking-[-0.02em]"
+          style={{ fontSize: "clamp(48px, 13vw, 64px)" }}
+        >
+          Your dog,
+          <br/>
+          <span className="italic font-display opacity-90">considered.</span>
+        </h1>
+        <p className="text-[13px] mt-4 max-w-[26ch] opacity-85 leading-relaxed">
+          Sign in to see how they are today — heart, paws, and every moment in between.
+        </p>
+      </section>
+
+      {/* Card */}
+      <div
+        className="relative z-10 mx-3 anim-slide-up"
+        style={{ marginBottom: "calc(0.75rem + var(--safe-bottom))" }}
+      >
+        <div
+          className="bg-card rounded-3xl p-7 max-w-sm mx-auto w-full"
+          style={{ boxShadow: "var(--shadow-lg)" }}
+        >
+          <form onSubmit={submit} className="space-y-3.5">
+            {reused && (
+              <div
+                role="status"
+                className="flex items-start gap-2.5 rounded-xl bg-secondary text-secondary-foreground text-[13px] p-3.5 border border-primary/20"
+              >
+                <Info size={16} strokeWidth={2.2} className="shrink-0 mt-px" />
+                <p className="leading-relaxed">
+                  Your account already exists — portal access has been added. Sign in with your existing password.
+                </p>
+              </div>
+            )}
+
+            <label htmlFor="email" className="block">
+              <span className="text-[10px] tracking-[0.18em] uppercase font-medium text-muted-foreground block mb-1.5">
+                Email address
+              </span>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
+                autoComplete="email"
+                placeholder="you@dogday.com"
+              />
+            </label>
+
+            <label htmlFor="password" className="block">
+              <span className="text-[10px] tracking-[0.18em] uppercase font-medium text-muted-foreground block mb-1.5">
+                Password
+              </span>
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
+                autoComplete="current-password"
+              />
+            </label>
+
+            {err && (
+              <p role="alert" className="text-[13px] text-destructive font-medium anim-fade-in">
+                {err}
+              </p>
+            )}
+
+            <button
+              disabled={busy}
+              type="submit"
+              className="press group relative flex items-center justify-center gap-2 w-full h-12 mt-1 rounded-xl bg-foreground text-background font-medium disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+              style={{ boxShadow: "var(--shadow-sm)" }}
+            >
+              <span className="absolute inset-x-0 top-0 h-px bg-white/10 pointer-events-none" aria-hidden="true" />
+              <span className="tracking-[-0.005em]">{busy ? "Signing in…" : "Sign in"}</span>
+              {!busy && <ArrowRight size={16} strokeWidth={2.2} className="opacity-70 transition-transform group-hover:translate-x-0.5" />}
+            </button>
+
+            <Link
+              to="/forgot-password"
+              className="press block mx-auto text-center text-[12px] text-muted-foreground hover:text-foreground tracking-wide pt-1"
+            >
+              Forgot password?
+            </Link>
+          </form>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function BrandWordmark() {
+  const brand = useBranding((s) => s.brand);
+  const name = brand.name?.trim() || "PawPilotPro";
+  return (
+    <header
+      className="relative z-10 px-6 flex items-center gap-2.5 text-white anim-fade-in"
+      style={{ paddingTop: "calc(1.25rem + var(--safe-top))" }}
+    >
+      <span className="size-8 rounded-full bg-white grid place-items-center overflow-hidden ring-1 ring-white/30 shadow-[var(--shadow-sm)]">
+        {brand.logoUrl ? (
+          <img src={brand.logoUrl} alt="" className="w-full h-full object-contain p-0.5" />
+        ) : (
+          <PawPrint size={15} strokeWidth={2.2} className="text-foreground/70" />
+        )}
+      </span>
+      <span className="font-medium tracking-tight text-[14px] drop-shadow-sm">{name}</span>
+    </header>
+  );
+}

@@ -4,30 +4,30 @@
  * British English throughout, production-grade, no mock data
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { useAuth } from '@/app/context/AuthContext';
-import { useModuleRealtimeSync } from '@/app/hooks/useModuleRealtimeSync';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
-  Calendar, 
+  CalendarBlank, 
   MapPin, 
   Truck, 
   Plus, 
-  AlertCircle, 
-  Loader2,
+  Warning, 
+  CircleNotch,
   Clock,
-  CheckCircle2,
+  CheckCircle,
   Circle,
-  Navigation,
+  NavigationArrow,
   ArrowRight,
-  Users
-} from 'lucide-react';
+  UsersThree
+} from '@phosphor-icons/react';
 import { format, startOfToday } from 'date-fns';
 import { CreateTransportJobDialog } from '../components/CreateTransportJobDialog';
+import { CreateFromBookingsDialog } from '../components/CreateFromBookingsDialog';
 import type { TransportJobWithDetails } from '../types';
 
 export function TransportDashboard() {
@@ -39,6 +39,7 @@ export function TransportDashboard() {
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showFromBookingsDialog, setShowFromBookingsDialog] = useState(false);
   
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   
@@ -52,21 +53,20 @@ export function TransportDashboard() {
   // Fetch data when filters change
   useEffect(() => {
     if (selectedLocation) {
-      fetchJobs({
-        location_id: selectedLocation,
-        service_date: dateStr
-      });
+      fetchJobs({ location_id: selectedLocation, service_date: dateStr });
     }
   }, [selectedLocation, dateStr, fetchJobs]);
 
-  const refetchJobs = useCallback(() => {
-    if (selectedLocation) {
-      fetchJobs({ location_id: selectedLocation, service_date: dateStr });
-    }
-  }, [fetchJobs, selectedLocation, dateStr]);
-
-  const locationFilter = selectedLocation ? [selectedLocation] : undefined;
-  useModuleRealtimeSync('transport', refetchJobs, true, locationFilter);
+  // Auto-refresh every 30 seconds so the dispatcher sees live status updates
+  useEffect(() => {
+    if (!selectedLocation) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState !== 'hidden') {
+        fetchJobs({ location_id: selectedLocation, service_date: dateStr });
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [selectedLocation, dateStr, fetchJobs]);
   
   // Calculate KPIs
   const todaysJobs = jobs;
@@ -74,8 +74,7 @@ export function TransportDashboard() {
   const dropoffJobs = jobs.filter(j => j.direction === 'dropoff' || j.direction === 'roundtrip');
   const inProgressJobs = jobs.filter(j => j.status === 'in_progress');
   const completedJobs = jobs.filter(j => j.status === 'completed');
-  const pendingAssignmentJobs = jobs.filter(j => j.status === 'pending_assignment' || (!j.assigned_driver_user_id && j.status === 'scheduled'));
-  const unassignedJobs = pendingAssignmentJobs;
+  const unassignedJobs = jobs.filter(j => !j.assigned_driver_user_id && j.status === 'scheduled');
   
   const handleJobClick = (jobId: string) => {
     navigate(`/transport/jobs/${jobId}`);
@@ -93,13 +92,20 @@ export function TransportDashboard() {
   
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col gap-6">
-      {/* Create Transport Job Dialog */}
+      {/* Dialogs */}
       <CreateTransportJobDialog
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         defaultDate={selectedDate}
         defaultLocationId={selectedLocation}
         onJobCreated={handleCreateSuccess}
+      />
+      <CreateFromBookingsDialog
+        open={showFromBookingsDialog}
+        onOpenChange={setShowFromBookingsDialog}
+        date={selectedDate}
+        locationId={selectedLocation}
+        onCreated={handleCreateSuccess}
       />
 
       {/* Header */}
@@ -109,16 +115,27 @@ export function TransportDashboard() {
             <h2 className="text-2xl font-bold text-slate-900">Transport Dashboard</h2>
             <p className="text-slate-500 mt-1">Manage daily transport operations</p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)} size="lg">
-            <Plus className="h-4 w-4 mr-2" />
-            New Transport Job
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowFromBookingsDialog(true)}
+              disabled={!selectedLocation}
+              title="Batch-create jobs from today's confirmed bookings that require transport"
+            >
+              <CalendarBlank className="h-4 w-4 mr-2" />
+              From Bookings
+            </Button>
+            <Button onClick={() => setShowCreateDialog(true)} size="lg">
+              <Plus className="h-4 w-4 mr-2" />
+              New Transport Job
+            </Button>
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
           {/* Date Selector */}
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-slate-500" />
+            <CalendarBlank className="h-4 w-4 text-slate-500" />
             <input
               type="date"
               value={dateStr}
@@ -144,7 +161,7 @@ export function TransportDashboard() {
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <Warning className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-medium text-red-900">Error Loading Transport Data</h4>
             <p className="text-sm text-red-700 mt-1">{error}</p>
@@ -156,7 +173,7 @@ export function TransportDashboard() {
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <Loader2 className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
+            <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
             <p className="text-slate-500">Loading transport jobs...</p>
           </div>
         </div>
@@ -188,19 +205,19 @@ export function TransportDashboard() {
             <KPICard 
               title="In Progress" 
               value={inProgressJobs.length} 
-              icon={<Navigation className="h-4 w-4" />}
+              icon={<NavigationArrow className="h-4 w-4" />}
               color="purple"
             />
             <KPICard 
               title="Completed" 
               value={completedJobs.length} 
-              icon={<CheckCircle2 className="h-4 w-4" />}
+              icon={<CheckCircle className="h-4 w-4" />}
               color="teal"
             />
             <KPICard 
               title="Unassigned" 
               value={unassignedJobs.length} 
-              icon={<AlertCircle className="h-4 w-4" />}
+              icon={<Warning className="h-4 w-4" />}
               color="red"
               highlight={unassignedJobs.length > 0}
             />
@@ -210,7 +227,7 @@ export function TransportDashboard() {
           {unassignedJobs.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 shrink-0">
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <Warning className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-amber-900">
                     {unassignedJobs.length} job{unassignedJobs.length !== 1 ? 's' : ''} awaiting driver assignment
@@ -310,9 +327,8 @@ function KPICard({
 
 // Job Row Component
 function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () => void }) {
-  const statusColors: Record<string, string> = {
+  const statusColors = {
     scheduled: 'bg-slate-100 text-slate-700',
-    pending_assignment: 'bg-amber-100 text-amber-700',
     in_progress: 'bg-green-100 text-green-700',
     completed: 'bg-teal-100 text-teal-700',
     cancelled: 'bg-red-100 text-red-700'
@@ -373,7 +389,7 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       <div className="col-span-2">
         {job.assigned_driver_user_id ? (
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-slate-400" />
+            <UsersThree className="h-4 w-4 text-slate-400" />
             <span className="text-sm text-slate-600">
               {job.vehicle_name || 'Assigned'}
             </span>
@@ -386,15 +402,13 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       </div>
       
       <div className="col-span-1">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant={!job.assigned_driver_user_id && job.status === 'scheduled' ? 'default' : 'ghost'}
           size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
+          onClick={(e) => { e.stopPropagation(); onClick(); }}
+          className={!job.assigned_driver_user_id && job.status === 'scheduled' ? 'text-xs' : ''}
         >
-          View
+          {!job.assigned_driver_user_id && job.status === 'scheduled' ? 'Assign' : 'View'}
         </Button>
       </div>
     </div>

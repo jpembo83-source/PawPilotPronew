@@ -1,5 +1,5 @@
 import React from 'react';
-import { Receipt, AlertCircle, Tag } from 'lucide-react';
+import { Receipt, Warning, Tag } from '@phosphor-icons/react';
 import { useServicesPricingStore } from '../../store';
 
 export function FeesDiscountsTab() {
@@ -88,7 +88,7 @@ export function FeesDiscountsTab() {
       {/* Info Box */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
         <div className="flex gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <Warning className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="font-medium text-amber-900 mb-1">Fees & Discounts Management</p>
             <p className="text-amber-700">

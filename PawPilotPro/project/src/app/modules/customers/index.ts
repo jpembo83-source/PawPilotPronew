@@ -8,6 +8,8 @@ export { PetProfilePage } from './pages/PetProfilePage';
 export { BulkImportPage } from './pages/BulkImportPage';
 export { ExportPage } from './pages/ExportPage';
 export { ClearDataPage } from './pages/ClearDataPage';
+export { VaxReviewPage } from './pages/VaxReviewPage';
+export { PendingRequestsPage } from './pages/PendingRequestsPage';
 
 export { useCustomerStore } from './store';
 export type {

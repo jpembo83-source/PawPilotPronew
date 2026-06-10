@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { 
-  LogIn, 
-  Calendar, 
+  SignIn, 
+  CalendarBlank, 
   Truck, 
-  LogOut, 
+  SignOut, 
   Clock
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
@@ -35,7 +35,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'check-in',
     label: 'Check-in',
-    icon: LogIn,
+    icon: SignIn,
     color: 'text-green-600 bg-green-50 hover:bg-green-100',
     category: 'operations',
     requiredModule: 'daycare',
@@ -45,7 +45,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'book',
     label: 'Book',
-    icon: Calendar,
+    icon: CalendarBlank,
     color: 'text-blue-600 bg-blue-50 hover:bg-blue-100',
     category: 'operations',
     requiredPermission: { module: 'bookings', action: 'create' },
@@ -64,7 +64,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     id: 'check-out',
     label: 'Check-out',
-    icon: LogOut,
+    icon: SignOut,
     color: 'text-orange-600 bg-orange-50 hover:bg-orange-100',
     category: 'operations',
     requiredPermission: { module: 'daycare', action: 'update' },

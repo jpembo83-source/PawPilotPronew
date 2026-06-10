@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { Warning } from '@phosphor-icons/react';
 
 interface RuleBuilderModalProps {
   open: boolean;
@@ -21,7 +21,7 @@ export function RuleBuilderModal({ open, onClose, onSuccess }: RuleBuilderModalP
         </DialogHeader>
 
         <Alert>
-          <AlertCircle className="h-4 w-4" />
+          <Warning className="h-4 w-4" />
           <AlertDescription>
             Rule Builder UI - Phase 2 implementation. This will include a step-by-step wizard for creating rules with:
             <ul className="list-disc ml-6 mt-2 space-y-1">

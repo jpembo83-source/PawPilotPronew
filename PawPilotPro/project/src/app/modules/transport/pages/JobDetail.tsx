@@ -14,20 +14,20 @@ import { Badge } from '@/app/components/ui/badge';
 import { 
   ArrowLeft,
   MapPin,
-  Calendar,
+  CalendarBlank,
   Clock,
   Truck,
   User,
   Phone,
-  Mail,
-  Navigation,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Edit,
-  Trash2,
-  MessageSquare
-} from 'lucide-react';
+  EnvelopeSimple,
+  NavigationArrow,
+  CheckCircle,
+  Warning,
+  CircleNotch,
+  PencilSimple,
+  Trash,
+  ChatTeardrop
+} from '@phosphor-icons/react';
 import { format } from 'date-fns';
 import type { TransportJobWithDetails } from '../types';
 
@@ -128,7 +128,7 @@ export function JobDetail() {
     return (
       <div className="h-[calc(100vh-100px)] flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
+          <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
           <p className="text-slate-500">Loading job details...</p>
         </div>
       </div>
@@ -139,7 +139,7 @@ export function JobDetail() {
     return (
       <div className="h-[calc(100vh-100px)] flex items-center justify-center">
         <div className="text-center max-w-md">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <Warning className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-900 mb-2">Job Not Found</h3>
           <p className="text-slate-500 mb-4">
             {error || 'The transport job you\'re looking for could not be found.'}
@@ -154,9 +154,8 @@ export function JobDetail() {
   }
   
   const location = locations.find(l => l.id === job.location_id);
-  const statusColors: Record<string, string> = {
+  const statusColors = {
     scheduled: 'bg-slate-100 text-slate-700',
-    pending_assignment: 'bg-amber-100 text-amber-700',
     in_progress: 'bg-green-100 text-green-700',
     completed: 'bg-teal-100 text-teal-700',
     cancelled: 'bg-red-100 text-red-700'
@@ -195,7 +194,7 @@ export function JobDetail() {
                 size="sm"
                 onClick={handleDeleteJob}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash className="h-4 w-4 mr-2" />
                 Delete
               </Button>
             )}
@@ -212,7 +211,7 @@ export function JobDetail() {
               <div className="space-y-4">
                 {/* Date & Time */}
                 <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-slate-400 mt-0.5" />
+                  <CalendarBlank className="h-5 w-5 text-slate-400 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium text-slate-900">
                       {format(new Date(job.service_date), 'EEEE, MMMM d, yyyy')}
@@ -227,7 +226,7 @@ export function JobDetail() {
                 
                 {/* Direction */}
                 <div className="flex items-start gap-3">
-                  <Navigation className="h-5 w-5 text-slate-400 mt-0.5" />
+                  <NavigationArrow className="h-5 w-5 text-slate-400 mt-0.5" />
                   <div>
                     <div className="text-sm font-medium text-slate-900 capitalize">
                       {job.direction === 'roundtrip' ? 'Round Trip' : job.direction}
@@ -303,7 +302,7 @@ export function JobDetail() {
                     
                     {job.contact_email && (
                       <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-slate-400" />
+                        <EnvelopeSimple className="h-4 w-4 text-slate-400" />
                         <a href={`mailto:${job.contact_email}`} className="text-sm text-blue-600 hover:underline">
                           {job.contact_email}
                         </a>
@@ -418,7 +417,7 @@ export function JobDetail() {
                 /* Loading state - activeDriverCount is null */
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 text-slate-400 animate-spin" />
+                    <CircleNotch className="h-4 w-4 text-slate-400 animate-spin" />
                     <p className="text-sm text-slate-600">Loading driver information...</p>
                   </div>
                 </div>
@@ -496,7 +495,7 @@ export function JobDetail() {
                     className="w-full"
                     onClick={() => handleStatusUpdate('started')}
                   >
-                    <Navigation className="h-4 w-4 mr-2" />
+                    <NavigationArrow className="h-4 w-4 mr-2" />
                     Start Job
                   </Button>
                 )}
@@ -518,7 +517,7 @@ export function JobDetail() {
                         className="w-full"
                         onClick={() => handleStatusUpdate('picked_up')}
                       >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        <CheckCircle className="h-4 w-4 mr-2" />
                         Mark Picked Up
                       </Button>
                     )}
@@ -529,7 +528,7 @@ export function JobDetail() {
                         className="w-full"
                         onClick={() => handleStatusUpdate('dropped_off')}
                       >
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        <CheckCircle className="h-4 w-4 mr-2" />
                         Mark Dropped Off
                       </Button>
                     )}
@@ -541,7 +540,7 @@ export function JobDetail() {
                     className="w-full bg-green-600 hover:bg-green-700"
                     onClick={() => handleStatusUpdate('completed')}
                   >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    <CheckCircle className="h-4 w-4 mr-2" />
                     Complete Job
                   </Button>
                 )}
@@ -568,7 +567,7 @@ export function JobDetail() {
                     className="w-full"
                     onClick={() => navigate(`/messages?household=${job.household_id}`)}
                   >
-                    <MessageSquare className="h-4 w-4 mr-2" />
+                    <ChatTeardrop className="h-4 w-4 mr-2" />
                     Message Household
                   </Button>
                 </div>

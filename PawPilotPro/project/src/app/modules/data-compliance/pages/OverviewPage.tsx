@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
-import { AlertTriangle, FileText, Eye, Clock, Shield, Activity } from 'lucide-react';
+import { Warning, FileText, Eye, Clock, Shield, Pulse } from '@phosphor-icons/react';
 import { useDataComplianceStore } from '../store';
 
 export function OverviewPage() {
@@ -83,7 +83,7 @@ export function OverviewPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Open Breaches</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <Warning className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.open_breaches}</div>
@@ -94,7 +94,7 @@ export function OverviewPage() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
+      {/* Recent Pulse */}
       <div className="grid grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -174,7 +174,7 @@ export function OverviewPage() {
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <Warning className="h-5 w-5 text-destructive" />
               Active Data Breaches Requiring Attention
             </CardTitle>
           </CardHeader>
@@ -219,7 +219,7 @@ export function OverviewPage() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-green-600" />
+                <Pulse className="h-4 w-4 text-green-600" />
                 <span>Access Monitoring</span>
               </div>
               <Badge variant="success">Active</Badge>

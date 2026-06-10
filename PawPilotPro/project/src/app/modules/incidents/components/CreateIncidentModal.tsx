@@ -8,7 +8,7 @@ import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Switch } from '../../../components/ui/switch';
-import { AlertTriangle, Calendar } from 'lucide-react';
+import { Warning, CalendarBlank } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useIncidentsStore } from '../store';
 import { useAuth } from '../../../context/AuthContext';
@@ -252,7 +252,7 @@ export function CreateIncidentModal({ open, onClose, onSuccess, prefilledData }:
           {/* High Severity Warning */}
           {(severity === 'high' || severity === 'critical') && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+              <Warning className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-red-800">
                 <p className="font-medium">High-severity incident</p>
                 <p>This will trigger immediate escalation to management and create an urgent alert.</p>
@@ -264,7 +264,7 @@ export function CreateIncidentModal({ open, onClose, onSuccess, prefilledData }:
           <div>
             <Label>Date & Time of Incident *</Label>
             <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <CalendarBlank className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 type="datetime-local"
                 value={occurredAt}

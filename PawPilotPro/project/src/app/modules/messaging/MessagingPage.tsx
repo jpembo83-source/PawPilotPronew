@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  MessageSquare, 
-  Search, 
-  Filter,
-  Mail,
+  ChatTeardrop, 
+  MagnifyingGlass, 
+  Funnel,
+  EnvelopeSimple,
   Phone,
-  Send,
+  PaperPlaneTilt,
   Plus,
-  AlertCircle,
+  Warning,
   Clock,
-  CheckCircle2,
+  CheckCircle,
   XCircle
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -107,13 +107,13 @@ export function MessagingPage() {
   const getChannelIcon = (channel: string) => {
     switch (channel) {
       case 'email':
-        return <Mail className="h-4 w-4" />;
+        return <EnvelopeSimple className="h-4 w-4" />;
       case 'sms':
         return <Phone className="h-4 w-4" />;
       case 'whatsapp':
-        return <Send className="h-4 w-4" />;
+        return <PaperPlaneTilt className="h-4 w-4" />;
       default:
-        return <MessageSquare className="h-4 w-4" />;
+        return <ChatTeardrop className="h-4 w-4" />;
     }
   };
 
@@ -138,7 +138,7 @@ export function MessagingPage() {
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
-              <AlertCircle className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+              <Warning className="h-12 w-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Access</h3>
               <p className="text-slate-600">
                 You don't have permission to view messaging.
@@ -157,7 +157,7 @@ export function MessagingPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <MessageSquare className="h-6 w-6 text-slate-600" />
+              <ChatTeardrop className="h-6 w-6 text-slate-600" />
               Messaging
             </h1>
             <p className="text-sm text-slate-600 mt-1">
@@ -197,10 +197,10 @@ export function MessagingPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Inbox sidebar */}
         <div className="w-96 border-r bg-slate-50 flex flex-col">
-          {/* Search and filters */}
+          {/* MagnifyingGlass and filters */}
           <div className="p-4 space-y-3 bg-white border-b">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search conversations..."
                 value={searchQuery}
@@ -215,7 +215,7 @@ export function MessagingPage() {
               onClick={() => setShowFilters(!showFilters)}
               className="w-full"
             >
-              <Filter className="h-4 w-4 mr-2" />
+              <Funnel className="h-4 w-4 mr-2" />
               Filters
               {Object.keys(filters).length > 0 && (
                 <Badge variant="secondary" className="ml-auto">
@@ -235,7 +235,7 @@ export function MessagingPage() {
               </div>
             ) : threads.length === 0 ? (
               <div className="p-8 text-center">
-                <MessageSquare className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                <ChatTeardrop className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm text-slate-600">No conversations found</p>
               </div>
             ) : (
@@ -262,7 +262,7 @@ export function MessagingPage() {
                       <div className="flex items-center gap-1">
                         {getChannelIcon(thread.lastMessageChannel)}
                         {thread.slaBreached && (
-                          <AlertCircle className="h-4 w-4 text-red-500" />
+                          <Warning className="h-4 w-4 text-red-500" />
                         )}
                       </div>
                     </div>
@@ -315,7 +315,7 @@ export function MessagingPage() {
           ) : (
             <div className="flex-1 flex items-center justify-center bg-slate-50">
               <div className="text-center">
-                <MessageSquare className="h-16 w-16 text-slate-300 mx-auto mb-4" />
+                <ChatTeardrop className="h-16 w-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
                 <p className="text-sm text-slate-600">
                   Choose a conversation from the list to view messages

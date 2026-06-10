@@ -10,7 +10,7 @@ import { useSettingsStore } from '../../settings/store';
 import { useAuth } from '@/app/context/AuthContext';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { Calendar, MapPin, Truck, Plus, AlertCircle, Loader2, Trash2 } from 'lucide-react';
+import { CalendarBlank, MapPin, Truck, Plus, Warning, CircleNotch, Trash } from '@phosphor-icons/react';
 import { format, startOfToday } from 'date-fns';
 import { CreateTransportJobDialog } from '../components/CreateTransportJobDialog';
 
@@ -106,7 +106,7 @@ export function RoutePlanner() {
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-semibold text-slate-900">Transport Planner</h2>
           <div className="flex items-center bg-slate-100 rounded-md px-3 py-1 text-sm text-slate-700">
-            <Calendar className="h-4 w-4 mr-2 text-slate-500" />
+            <CalendarBlank className="h-4 w-4 mr-2 text-slate-500" />
             {format(selectedDate, 'EEE, MMM d, yyyy')}
           </div>
           
@@ -133,7 +133,7 @@ export function RoutePlanner() {
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <Warning className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
           <div>
             <h4 className="font-medium text-red-900">Error Loading Transport Data</h4>
             <p className="text-sm text-red-700 mt-1">{error}</p>
@@ -145,7 +145,7 @@ export function RoutePlanner() {
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <Loader2 className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
+            <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
             <p className="text-slate-500">Loading transport jobs...</p>
           </div>
         </div>
@@ -255,7 +255,7 @@ function TransportJobCard({ job, onDelete }: { job: any, onDelete?: (jobId: stri
               onClick={() => onDelete(job.id)}
               className="h-7 w-7 p-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash className="h-4 w-4" />
             </Button>
           )}
         </div>

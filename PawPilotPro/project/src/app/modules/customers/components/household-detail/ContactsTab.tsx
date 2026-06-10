@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../../components
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../../../components/ui/avatar';
-import { Plus, Mail, Phone, Star } from 'lucide-react';
+import { Plus, EnvelopeSimple, Phone, Star } from '@phosphor-icons/react';
 import { AddContactModal } from '../modals/AddContactModal';
 import { EditContactModal } from '../modals/EditContactModal';
 import { useCustomerStore } from '../../store';
@@ -95,7 +95,7 @@ export function ContactsTab({ household }: ContactsTabProps) {
                     <div className="space-y-1 text-sm text-slate-600">
                       {contact.email && (
                         <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
+                          <EnvelopeSimple className="h-4 w-4" />
                           {contact.email}
                         </div>
                       )}

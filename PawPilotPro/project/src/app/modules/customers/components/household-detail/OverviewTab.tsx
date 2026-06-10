@@ -13,15 +13,15 @@ import { Badge } from '../../../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../../../components/ui/avatar';
 import {
   Dog,
-  Mail,
+  EnvelopeSimple,
   Phone,
   MapPin,
-  AlertCircle,
-  FileWarning,
+  Warning,
+  FileDashed,
   Plus,
-  ExternalLink,
+  ArrowSquareOut,
   Star
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 
 interface OverviewTabProps {
   household: Household & { 
@@ -90,7 +90,7 @@ export function OverviewTab({ household }: OverviewTabProps) {
                   <p className="text-sm text-slate-600 capitalize">{contact.relationship}</p>
                   <div className="flex items-center gap-3 mt-2 text-sm text-slate-600">
                     <div className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
+                      <EnvelopeSimple className="h-3 w-3" />
                       {contact.email}
                     </div>
                   </div>
@@ -160,7 +160,7 @@ export function OverviewTab({ household }: OverviewTabProps) {
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold">{pet.name}</h3>
                           {hasAlerts && (
-                            <AlertCircle className="h-4 w-4 text-red-500" />
+                            <Warning className="h-4 w-4 text-red-500" />
                           )}
                         </div>
                         <p className="text-sm text-slate-600">{pet.breed}</p>
@@ -187,7 +187,7 @@ export function OverviewTab({ household }: OverviewTabProps) {
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-red-600" />
+              <Warning className="h-5 w-5 text-red-600" />
               <CardTitle className="text-red-900">Active Alerts</CardTitle>
             </div>
           </CardHeader>
@@ -208,7 +208,7 @@ export function OverviewTab({ household }: OverviewTabProps) {
                       size="sm"
                       onClick={() => navigate(`/customers/pets/${pet.id}`)}
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <ArrowSquareOut className="h-4 w-4" />
                     </Button>
                   </div>
                 );

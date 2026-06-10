@@ -8,7 +8,7 @@ import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
 import { Switch } from '../../../../components/ui/switch';
-import { Plus, Edit, Trash2, FileText, DollarSign } from 'lucide-react';
+import { Plus, PencilSimple, Trash, FileText, CurrencyDollar } from '@phosphor-icons/react';
 import { usePricingStore, PriceBook, PriceBookEntry, PriceBookStatus, PriceBookScope } from '../../../pricing/store';
 import { useSettingsStore } from '../../store';
 import { toast } from 'sonner';
@@ -128,7 +128,7 @@ export function PriceBooks() {
                           size="sm"
                           onClick={() => setSelectedBookForEntries(book)}
                         >
-                          <DollarSign className="h-4 w-4" />
+                          <CurrencyDollar className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -138,14 +138,14 @@ export function PriceBooks() {
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          <Edit className="h-4 w-4" />
+                          <PencilSimple className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeletePriceBook(book.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -165,7 +165,7 @@ export function PriceBooks() {
         title="Create Price Book"
       />
 
-      {/* Edit Price Book Dialog */}
+      {/* PencilSimple Price Book Dialog */}
       {selectedBook && (
         <PriceBookDialog
           open={isEditDialogOpen}
@@ -447,14 +447,14 @@ function PriceBookEntriesDialog({ book, onClose }: PriceBookEntriesDialogProps) 
                             size="sm"
                             onClick={() => setEditingEntry(entry)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <PencilSimple className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDeleteEntry(entry.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -480,7 +480,7 @@ function PriceBookEntriesDialog({ book, onClose }: PriceBookEntriesDialogProps) 
         />
       )}
 
-      {/* Edit Entry Dialog */}
+      {/* PencilSimple Entry Dialog */}
       {editingEntry && (
         <PriceEntryDialog
           book={book}

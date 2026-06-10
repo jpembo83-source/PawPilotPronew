@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Button } from '../../components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { CircleNotch } from '@phosphor-icons/react';
 import { useDataComplianceStore } from './store';
 import { OverviewPage } from './pages/OverviewPage';
 import { DataSubjectRequestsPage } from './pages/DataSubjectRequestsPage';
@@ -48,7 +48,7 @@ export function DataCompliancePage() {
       <div className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <CircleNotch className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">

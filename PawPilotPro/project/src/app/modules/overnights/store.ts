@@ -125,7 +125,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       }
       const newReservation = await res.json();
       set(state => ({ reservations: [...state.reservations, newReservation], isLoading: false }));
-      broadcastMutation('overnights', 'reservation', 'created', newReservation.id, undefined, newReservation.location_id);
       return newReservation;
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
@@ -151,7 +150,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         reservations: state.reservations.map(r => r.id === id ? updated : r),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'reservation', 'updated', id, undefined, updated.location_id);
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -184,7 +182,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         reservations: state.reservations.map(r => r.id === request.reservationId ? updated : r),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'reservation', 'updated', request.reservationId, { action: 'check-in' }, updated.location_id);
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -209,7 +206,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         reservations: state.reservations.map(r => r.id === request.reservationId ? updated : r),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'reservation', 'updated', request.reservationId, { action: 'check-out' }, updated.location_id);
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -234,7 +230,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         reservations: [...state.reservations, newReservation],
         isLoading: false
       }));
-      broadcastMutation('overnights', 'reservation', 'created', newReservation.id, { action: 'transition-from-daycare' });
       return newReservation;
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
@@ -260,7 +255,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         reservations: state.reservations.map(r => r.id === reservationId ? updated : r),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'reservation', 'updated', reservationId, { action: 'transition-to-daycare' });
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -320,7 +314,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         reservations: state.reservations.map(r => r.id === stayId ? updated : r),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'reservation', 'updated', stayId, { action: 'carer-assigned' });
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -377,7 +370,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       }
       const newLog = await res.json();
       set(state => ({ careLogs: [...state.careLogs, newLog], isLoading: false }));
-      broadcastMutation('overnights', 'care-log', 'created', newLog.id, undefined, newLog.location_id);
       return newLog;
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
@@ -403,7 +395,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         careLogs: state.careLogs.map(cl => cl.id === id ? updated : cl),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'care-log', 'updated', id, undefined, updated.location_id);
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -441,7 +432,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       }
       const newArea = await res.json();
       set(state => ({ sleepingAreas: [...state.sleepingAreas, newArea], isLoading: false }));
-      broadcastMutation('overnights', 'sleeping-area', 'created', newArea.id);
       return newArea;
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
@@ -467,7 +457,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         sleepingAreas: state.sleepingAreas.map(sa => sa.id === id ? updated : sa),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'sleeping-area', 'updated', id);
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -508,7 +497,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       }
       const newHandover = await res.json();
       set(state => ({ handovers: [...state.handovers, newHandover], isLoading: false }));
-      broadcastMutation('overnights', 'handover', 'created', newHandover.id);
       return newHandover;
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
@@ -533,7 +521,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         handovers: state.handovers.map(h => h.id === id ? updated : h),
         isLoading: false
       }));
-      broadcastMutation('overnights', 'handover', 'updated', id);
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;
@@ -574,7 +561,6 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       }
       const updated = await res.json();
       set({ capacities: [updated], isLoading: false });
-      broadcastMutation('overnights', 'capacity', 'updated', locationId);
     } catch (e: any) {
       set({ error: e.message, isLoading: false });
       throw e;

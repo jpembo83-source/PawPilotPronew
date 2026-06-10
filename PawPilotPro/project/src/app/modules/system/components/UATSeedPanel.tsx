@@ -6,13 +6,13 @@ import { Checkbox } from '../../../components/ui/checkbox';
 import { Label } from '../../../components/ui/label';
 import { 
   Database, 
-  Users, 
+  UsersThree, 
   Dog, 
-  Calendar, 
-  Loader2, 
-  CheckCircle2,
-  AlertTriangle,
-} from 'lucide-react';
+  CalendarBlank, 
+  CircleNotch, 
+  CheckCircle,
+  Warning,
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../utils/supabase/info';
@@ -266,9 +266,9 @@ export function UATSeedPanel() {
 
   const StatusIcon = ({ status }: { status: 'pending' | 'running' | 'done' | 'error' }) => {
     switch (status) {
-      case 'running': return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
-      case 'done': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case 'error': return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      case 'running': return <CircleNotch className="h-4 w-4 animate-spin text-blue-500" />;
+      case 'done': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'error': return <Warning className="h-4 w-4 text-red-500" />;
       default: return <div className="h-4 w-4 rounded-full bg-slate-200" />;
     }
   };
@@ -297,7 +297,7 @@ export function UATSeedPanel() {
                 disabled={isSeeding}
               />
               <label htmlFor="seed-customers" className="text-sm flex items-center gap-2">
-                <Users className="h-4 w-4 text-slate-500" />
+                <UsersThree className="h-4 w-4 text-slate-500" />
                 5 Test Customers with 7 Pets
               </label>
             </div>
@@ -309,7 +309,7 @@ export function UATSeedPanel() {
                 disabled={isSeeding}
               />
               <label htmlFor="seed-bookings" className="text-sm flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-slate-500" />
+                <CalendarBlank className="h-4 w-4 text-slate-500" />
                 Daycare Bookings (this week)
               </label>
             </div>
@@ -365,7 +365,7 @@ export function UATSeedPanel() {
           >
             {isSeeding ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                 Seeding...
               </>
             ) : (

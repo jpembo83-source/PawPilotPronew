@@ -7,11 +7,10 @@ import { Switch } from '../../../../components/ui/switch';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { Warning, CircleNotch } from '@phosphor-icons/react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';
-import { registerActiveEdit } from '../../../../components/ConflictNotification';
 import type { Pet, PetSex } from '../../types';
 import {
   AlertDialog,
@@ -118,12 +117,6 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
     setFormData(newFormData);
     setInitialFormData(newFormData);
   }, [pet]);
-
-  useEffect(() => {
-    if (open) {
-      return registerActiveEdit('customers', 'pet', pet.id);
-    }
-  }, [open, pet.id]);
 
   // Check if form has been modified
   const hasUnsavedChanges = (): boolean => {
@@ -243,7 +236,7 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+              <Warning className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -491,7 +484,7 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isSubmitting && <CircleNotch className="h-4 w-4 mr-2 animate-spin" />}
               {isSubmitting ? 'Updating Pet...' : 'Update Pet'}
             </Button>
           </div>

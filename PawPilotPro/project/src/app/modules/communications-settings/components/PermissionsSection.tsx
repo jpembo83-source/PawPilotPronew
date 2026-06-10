@@ -6,14 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Switch } from '../../../components/ui/switch';
 import { Badge } from '../../../components/ui/badge';
 import { Label } from '../../../components/ui/label';
-import { ShieldCheck, Mail, Phone, MessageSquare } from 'lucide-react';
+import { ShieldCheck, EnvelopeSimple, Phone, ChatTeardrop } from '@phosphor-icons/react';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'sonner';
 
 const channelIcons = {
-  email: Mail,
+  email: EnvelopeSimple,
   sms: Phone,
-  whatsapp: MessageSquare,
+  whatsapp: ChatTeardrop,
 };
 
 export function PermissionsSection() {

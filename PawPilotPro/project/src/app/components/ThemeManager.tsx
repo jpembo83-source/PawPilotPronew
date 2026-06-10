@@ -1,31 +1,31 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '../modules/settings/store';
 
+function isValidHex(hex: string | undefined): boolean {
+  if (!hex) return false;
+  return /^#[0-9a-fA-F]{6}$/.test(hex);
+}
+
 export function ThemeManager() {
   const { organisation } = useSettingsStore();
 
   useEffect(() => {
     const root = document.documentElement;
-    
-    // Update Primary Brand Color
-    if (organisation.primaryColor) {
-      root.style.setProperty('--primary', organisation.primaryColor);
-      root.style.setProperty('--ring', organisation.primaryColor);
-      root.style.setProperty('--sidebar-primary', organisation.primaryColor);
-      root.style.setProperty('--sidebar-ring', organisation.primaryColor);
-      
-      // Simple logic to keep foreground readable (optional, but good practice)
-      // This assumes if user picks a color, they might need to stick with white/black contrast
-      // For now, we leave foreground as defined in CSS (usually white for primary)
+
+    // Always reset to design system defaults first so a cleared brand color
+    // returns the UI to teal rather than persisting the last applied value.
+    root.style.removeProperty('--primary');
+    root.style.removeProperty('--ring');
+    root.style.removeProperty('--secondary');
+
+    if (isValidHex(organisation.primaryColor)) {
+      root.style.setProperty('--primary', organisation.primaryColor!);
+      root.style.setProperty('--ring', organisation.primaryColor!);
     }
 
-    // Update Secondary Brand Color
-    if (organisation.secondaryColor) {
-      root.style.setProperty('--secondary', organisation.secondaryColor);
-      // Secondary foreground usually dark, assuming secondary is light/pastel
-      // root.style.setProperty('--secondary-foreground', '#4A3B39'); 
+    if (isValidHex(organisation.secondaryColor)) {
+      root.style.setProperty('--secondary', organisation.secondaryColor!);
     }
-
   }, [organisation.primaryColor, organisation.secondaryColor]);
 
   return null;

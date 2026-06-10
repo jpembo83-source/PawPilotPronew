@@ -1,7 +1,7 @@
 // Today's Dogs Widget - Simple check-in/out management
 import React, { useState, useEffect } from 'react';
 import { WidgetCard } from './WidgetCard';
-import { Dog, LogOut } from 'lucide-react';
+import { Dog, SignOut } from '@phosphor-icons/react';
 import { useDaycareStore } from '../../daycare/store';
 import { useDashboardStore } from '../store';
 import { cn } from '../../../components/ui/utils';
@@ -91,7 +91,7 @@ export function TodaysDogsWidget() {
                   disabled={isLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-md hover:bg-slate-100 transition-colors disabled:opacity-50"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
+                  <SignOut className="h-3.5 w-3.5" />
                   Out
                 </button>
               </div>

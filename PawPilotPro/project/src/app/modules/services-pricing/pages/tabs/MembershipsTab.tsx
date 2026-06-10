@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Infinity, Calendar, CheckCircle2, Award } from 'lucide-react';
+import { CreditCard, Infinity, CalendarBlank, CheckCircle, Award } from '@phosphor-icons/react';
 import { useServicesPricingStore } from '../../store';
 import { MembershipPlan } from '../../types';
 import { Badge } from '../../../../components/ui/badge';
@@ -83,7 +83,7 @@ export function MembershipsTab() {
                 <div className="space-y-2 text-sm">
                   {plan.accessType === 'credits' ? (
                     <div className="flex items-center gap-2 text-slate-700">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
                       <span>
                         {plan.creditsPerMonth} {plan.creditUnit?.replace('_', ' ')} {plan.creditsPerMonth === 1 ? 'credit' : 'credits'}
                       </span>
@@ -104,21 +104,21 @@ export function MembershipsTab() {
                   
                   {plan.minimumTermMonths && plan.minimumTermMonths > 1 && (
                     <div className="flex items-center gap-2 text-slate-700">
-                      <Calendar className="h-4 w-4 text-purple-500 shrink-0" />
+                      <CalendarBlank className="h-4 w-4 text-purple-500 shrink-0" />
                       <span>{plan.minimumTermMonths} month minimum</span>
                     </div>
                   )}
                   
                   {plan.allowPause && (
                     <div className="flex items-center gap-2 text-slate-700">
-                      <CheckCircle2 className="h-4 w-4 text-slate-400 shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-slate-400 shrink-0" />
                       <span>Pause allowed</span>
                     </div>
                   )}
                   
                   {plan.allowProration && (
                     <div className="flex items-center gap-2 text-slate-700">
-                      <CheckCircle2 className="h-4 w-4 text-slate-400 shrink-0" />
+                      <CheckCircle className="h-4 w-4 text-slate-400 shrink-0" />
                       <span>Pro-rated billing</span>
                     </div>
                   )}

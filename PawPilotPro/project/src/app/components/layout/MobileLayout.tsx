@@ -1,321 +1,533 @@
 /**
  * Mobile App Layout
- * 
+ *
  * A dedicated mobile experience with:
  * - Bottom navigation bar (like native apps)
  * - Full-screen content area
- * - Swipe gestures
+ * - Slide-out drawer
  * - No sidebar wasted space
  */
 
 import React, { useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router';
-import { 
-  LayoutDashboard, 
-  Users, 
+import {
+  Gauge,
+  UsersThree,
   Dog,
   Truck,
-  Settings,
-  Menu,
+  Gear,
+  List,
   X,
-  ChevronRight,
-  Building2,
-  LogOut,
+  Buildings,
+  SignOut,
   Bell,
   Scissors,
   Receipt,
-  AlertTriangle,
-  MessageSquare,
+  Warning,
+  ChatTeardrop,
   Moon,
-  UserCog
-} from 'lucide-react';
+  UserGear,
+  DotsThree,
+  CaretRight,
+} from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboardStore } from '../../modules/dashboard/store';
 import { useSettingsStore } from '../../modules/settings/store';
 import { usePermissions } from '../../hooks/usePermissions';
 import defaultLogo from '../../../assets/logo.svg';
 
-// Bottom nav items - most important 5 for mobile
-const getBottomNavItems = (permissions: ReturnType<typeof usePermissions>) => {
-  const items = [
-    { path: '/', icon: LayoutDashboard, label: 'Home', module: 'dashboard' },
-  ];
-  
-  // Add based on permissions - most relevant for the user's role
-  if (permissions.canAccessModule('daycare')) {
-    items.push({ path: '/daycare', icon: Dog, label: 'Daycare', module: 'daycare' });
-  }
-  if (permissions.canAccessModule('transport')) {
-    items.push({ path: '/transport', icon: Truck, label: 'Transport', module: 'transport' });
-  }
-  if (permissions.canAccessModule('grooming')) {
-    items.push({ path: '/grooming', icon: Scissors, label: 'Grooming', module: 'grooming' });
-  }
-  if (permissions.canAccessModule('customers')) {
-    items.push({ path: '/customers', icon: Users, label: 'Customers', module: 'customers' });
-  }
-  
-  // Limit to 5 items max for bottom nav
-  return items.slice(0, 5);
+// Section groupings for drawer
+const SECTION_LABELS: Record<string, string> = {
+  dashboard: 'Operations',
+  daycare: 'Operations',
+  grooming: 'Operations',
+  transport: 'Operations',
+  overnights: 'Operations',
+  customers: 'Business',
+  billing: 'Business',
+  messages: 'Business',
+  incidents: 'Team',
+  staff: 'Team',
+  settings: 'Admin',
 };
 
-// All menu items for the slide-out menu
-const getAllMenuItems = (permissions: ReturnType<typeof usePermissions>) => {
-  const items: Array<{ path: string; icon: any; label: string; module: string }> = [];
-  
-  if (permissions.canAccessModule('dashboard')) {
-    items.push({ path: '/', icon: LayoutDashboard, label: 'Dashboard', module: 'dashboard' });
-  }
-  if (permissions.canAccessModule('daycare')) {
+// Optional modules gated by globalEnabledModules
+const OPTIONAL_MODULES = new Set(['grooming', 'transport', 'overnights', 'boutique']);
+
+const isModuleVisible = (moduleId: string, globalEnabledModules: string[]) =>
+  !OPTIONAL_MODULES.has(moduleId) || globalEnabledModules.includes(moduleId);
+
+// Bottom nav items — most important 4 for mobile + More tab
+const getBottomNavItems = (
+  permissions: ReturnType<typeof usePermissions>,
+  globalEnabledModules: string[],
+) => {
+  const items: Array<{ path: string; icon: any; label: string; module: string }> = [
+    { path: '/', icon: Gauge, label: 'Home', module: 'dashboard' },
+  ];
+
+  if (permissions.canAccessModule('daycare') && isModuleVisible('daycare', globalEnabledModules)) {
     items.push({ path: '/daycare', icon: Dog, label: 'Daycare', module: 'daycare' });
   }
-  if (permissions.canAccessModule('grooming')) {
-    items.push({ path: '/grooming', icon: Scissors, label: 'Grooming', module: 'grooming' });
-  }
-  if (permissions.canAccessModule('transport')) {
+  if (permissions.canAccessModule('transport') && isModuleVisible('transport', globalEnabledModules)) {
     items.push({ path: '/transport', icon: Truck, label: 'Transport', module: 'transport' });
   }
-  if (permissions.canAccessModule('overnights')) {
+  if (permissions.canAccessModule('grooming') && isModuleVisible('grooming', globalEnabledModules)) {
+    items.push({ path: '/grooming', icon: Scissors, label: 'Grooming', module: 'grooming' });
+  }
+  if (permissions.canAccessModule('customers') && isModuleVisible('customers', globalEnabledModules)) {
+    items.push({ path: '/customers', icon: UsersThree, label: 'Customers', module: 'customers' });
+  }
+
+  // Limit to 4 items — 5th slot is always "More"
+  return items.slice(0, 4);
+};
+
+// All menu items for the slide-out drawer
+const getAllMenuItems = (
+  permissions: ReturnType<typeof usePermissions>,
+  globalEnabledModules: string[],
+) => {
+  const items: Array<{ path: string; icon: any; label: string; module: string }> = [];
+
+  if (permissions.canAccessModule('dashboard')) {
+    items.push({ path: '/', icon: Gauge, label: 'Dashboard', module: 'dashboard' });
+  }
+  if (permissions.canAccessModule('daycare') && isModuleVisible('daycare', globalEnabledModules)) {
+    items.push({ path: '/daycare', icon: Dog, label: 'Daycare', module: 'daycare' });
+  }
+  if (permissions.canAccessModule('grooming') && isModuleVisible('grooming', globalEnabledModules)) {
+    items.push({ path: '/grooming', icon: Scissors, label: 'Grooming', module: 'grooming' });
+  }
+  if (permissions.canAccessModule('transport') && isModuleVisible('transport', globalEnabledModules)) {
+    items.push({ path: '/transport', icon: Truck, label: 'Transport', module: 'transport' });
+  }
+  if (permissions.canAccessModule('overnights') && isModuleVisible('overnights', globalEnabledModules)) {
     items.push({ path: '/overnights', icon: Moon, label: 'Overnights', module: 'overnights' });
   }
   if (permissions.canAccessModule('customers')) {
-    items.push({ path: '/customers', icon: Users, label: 'Customers', module: 'customers' });
+    items.push({ path: '/customers', icon: UsersThree, label: 'Customers', module: 'customers' });
   }
   if (permissions.canAccessModule('billing')) {
     items.push({ path: '/billing', icon: Receipt, label: 'Billing', module: 'billing' });
   }
   if (permissions.canAccessModule('messages')) {
-    items.push({ path: '/messages', icon: MessageSquare, label: 'Messages', module: 'messages' });
+    items.push({ path: '/messages', icon: ChatTeardrop, label: 'Messages', module: 'messages' });
   }
   if (permissions.canAccessModule('incidents')) {
-    items.push({ path: '/incidents', icon: AlertTriangle, label: 'Incidents', module: 'incidents' });
+    items.push({ path: '/incidents', icon: Warning, label: 'Incidents', module: 'incidents' });
   }
   if (permissions.canAccessModule('staff')) {
-    items.push({ path: '/staff', icon: UserCog, label: 'Staff', module: 'staff' });
+    items.push({ path: '/staff', icon: UserGear, label: 'Staff', module: 'staff' });
   }
   if (permissions.canAccessModule('settings')) {
-    items.push({ path: '/settings', icon: Settings, label: 'Settings', module: 'settings' });
+    items.push({ path: '/settings', icon: Gear, label: 'Gear', module: 'settings' });
   }
-  
+
   return items;
 };
+
+// Group items by section label
+function groupBySection(items: Array<{ path: string; icon: any; label: string; module: string }>) {
+  const groups: Record<string, typeof items> = {};
+  const order: string[] = [];
+
+  for (const item of items) {
+    const section = SECTION_LABELS[item.module] || 'Other';
+    if (!groups[section]) {
+      groups[section] = [];
+      order.push(section);
+    }
+    groups[section].push(item);
+  }
+
+  return order.map((section) => ({ section, items: groups[section] }));
+}
 
 export function MobileLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const permissions = usePermissions();
   const { selectedLocationId, setLocation } = useDashboardStore();
-  const { locations, organisation } = useSettingsStore();
-  
+  const { locations, organisation, globalEnabledModules } = useSettingsStore();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
-  
+
   const logo = organisation.logoUrl || defaultLogo;
-  const orgName = organisation.tradingName || organisation.name || 'Paw Pilot Pro';
-  
-  const bottomNavItems = getBottomNavItems(permissions);
-  const allMenuItems = getAllMenuItems(permissions);
-  
-  const activeLocationName = selectedLocationId === 'ALL' 
-    ? 'All Locations' 
-    : locations.find(l => l && l.id === selectedLocationId)?.name || 'Select Location';
+  const orgName = organisation.tradingName || organisation.name || 'PawPilot Pro';
+
+  const bottomNavItems = getBottomNavItems(permissions, globalEnabledModules || []);
+  const allMenuItems = getAllMenuItems(permissions, globalEnabledModules || []);
+  const groupedMenuItems = groupBySection(allMenuItems);
+
+  const activeLocationName =
+    selectedLocationId === 'ALL'
+      ? 'All Locations'
+      : locations.find((l) => l && l.id === selectedLocationId)?.name || 'Select Location';
+
+  // Check if current path is "More" (i.e. not in bottom nav)
+  const isMoreActive = !bottomNavItems.some(
+    (item) =>
+      location.pathname === item.path ||
+      (item.path !== '/' && location.pathname.startsWith(item.path)),
+  );
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-slate-50 overflow-hidden">
-      {/* Top Header - Slim */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0 safe-area-top">
-        <button 
+    <div
+      className="h-[100dvh] flex flex-col overflow-hidden"
+      style={{ background: '#F4F3EF', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+    >
+      {/* ── Top Header ─────────────────────────────────────────── */}
+      <header
+        className="bg-white border-b flex items-center justify-between px-4 shrink-0"
+        style={{
+          borderColor: '#E2DED8',
+          height: 56,
+          paddingTop: 'env(safe-area-inset-top)',
+        }}
+      >
+        {/* Hamburger */}
+        <button
           onClick={() => setMenuOpen(true)}
-          className="p-2 -ml-2 text-slate-600 active:bg-slate-100 rounded-lg"
+          className="p-2 -ml-2 rounded-lg transition-colors"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+          aria-label="Open menu"
+          onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+          onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
+          onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+          onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          <Menu className="h-6 w-6" />
+          <List className="h-6 w-6" style={{ color: '#6B6762' }} />
         </button>
-        
-        <button 
+
+        {/* Org pill — tapping opens location picker */}
+        <button
           onClick={() => setLocationPickerOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full text-sm font-medium text-slate-700 active:bg-slate-200"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-opacity"
+          style={{ background: '#F4F3EF', WebkitTapHighlightColor: 'transparent' }}
         >
-          <Building2 className="h-4 w-4 text-primary" />
-          <span className="max-w-[120px] truncate">{activeLocationName}</span>
+          <img src={logo} alt={orgName} className="h-5 w-5 object-contain rounded-sm shrink-0" />
+          <span
+            className="text-sm font-semibold max-w-[140px] truncate"
+            style={{ color: '#1C1916' }}
+          >
+            {orgName}
+          </span>
         </button>
-        
-        <button className="p-2 -mr-2 text-slate-600 active:bg-slate-100 rounded-lg relative">
-          <Bell className="h-6 w-6" />
-          {/* Notification dot */}
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full" />
+
+        {/* Bell */}
+        <button
+          className="p-2 -mr-2 rounded-lg transition-colors relative"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+          aria-label="Notifications"
+          onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+          onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
+          onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+          onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
+        >
+          <Bell className="h-6 w-6" style={{ color: '#6B6762' }} />
+          {/* Brand dot — visible when there are notifications */}
+          <span
+            className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
+            style={{ background: 'var(--primary)' }}
+          />
         </button>
       </header>
 
-      {/* Main Content - Full screen with scroll */}
+      {/* ── Main Content ───────────────────────────────────────── */}
       <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
 
-      {/* Bottom Navigation - Fixed */}
-      <nav className="bg-white border-t border-slate-200 px-2 py-2 shrink-0 safe-area-bottom">
-        <div className="flex justify-around items-center">
+      {/* ── Bottom Navigation ──────────────────────────────────── */}
+      <nav
+        className="bg-white border-t shrink-0"
+        style={{
+          borderColor: '#E2DED8',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <div className="flex justify-around items-stretch" style={{ height: 60 }}>
+          {/* Regular nav items */}
           {bottomNavItems.map((item) => {
-            const isActive = location.pathname === item.path || 
+            const isActive =
+              location.pathname === item.path ||
               (item.path !== '/' && location.pathname.startsWith(item.path));
-            
+
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
-                className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl min-w-[64px] active:bg-slate-100"
+                className="relative flex flex-col items-center justify-center flex-1 pt-1 transition-colors"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <item.icon 
-                  className={`h-6 w-6 ${isActive ? 'text-primary' : 'text-slate-400'}`} 
+                {/* Active indicator — 3px rounded line at top of tab */}
+                {isActive && (
+                  <span
+                    className="absolute top-0 left-1/2 -translate-x-1/2 rounded-b-full"
+                    style={{ width: 28, height: 3, background: 'var(--primary)' }}
+                  />
+                )}
+                <item.icon
+                  className="h-5 w-5 mb-1"
+                  style={{ color: isActive ? 'var(--primary)' : '#9E9B97' }}
                 />
-                <span 
-                  className={`text-xs font-medium ${isActive ? 'text-primary' : 'text-slate-500'}`}
+                <span
+                  className="text-[10px] font-semibold leading-none"
+                  style={{ color: isActive ? 'var(--primary)' : '#9E9B97' }}
                 >
                   {item.label}
                 </span>
               </NavLink>
             );
           })}
+
+          {/* More tab */}
+          <button
+            onClick={() => setMenuOpen(true)}
+            className="relative flex flex-col items-center justify-center flex-1 pt-1 transition-colors"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            {isMoreActive && (
+              <span
+                className="absolute top-0 left-1/2 -translate-x-1/2 rounded-b-full"
+                style={{ width: 28, height: 3, background: 'var(--primary)' }}
+              />
+            )}
+            <DotsThree
+              className="h-5 w-5 mb-1"
+              style={{ color: isMoreActive ? 'var(--primary)' : '#9E9B97' }}
+            />
+            <span
+              className="text-[10px] font-semibold leading-none"
+              style={{ color: isMoreActive ? 'var(--primary)' : '#9E9B97' }}
+            >
+              More
+            </span>
+          </button>
         </div>
       </nav>
 
-      {/* Slide-out Menu */}
+      {/* ── Slide-out Drawer ───────────────────────────────────── */}
       {menuOpen && (
         <div className="fixed inset-0 z-50 flex">
           {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/50"
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             onClick={() => setMenuOpen(false)}
           />
-          
-          {/* Menu Panel */}
-          <div className="relative w-[280px] max-w-[80vw] bg-white h-full flex flex-col shadow-xl animate-slide-in-left">
-            {/* Menu Header */}
-            <div className="p-4 border-b border-slate-200 flex items-center gap-3 safe-area-top">
-              <div className="h-12 w-12 rounded-xl bg-slate-100 p-2 flex items-center justify-center">
-                <img src={logo} alt="Logo" className="h-full w-full object-contain" />
+
+          {/* Drawer panel */}
+          <div
+            className="relative bg-white h-full flex flex-col shadow-2xl animate-slide-in-left"
+            style={{ width: 300, maxWidth: '85vw' }}
+          >
+            {/* Drawer header */}
+            <div
+              className="flex items-center gap-3 px-4 py-4 border-b shrink-0"
+              style={{
+                borderColor: '#E2DED8',
+                paddingTop: 'calc(env(safe-area-inset-top) + 16px)',
+              }}
+            >
+              <div
+                className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'var(--primary-tint)' }}
+              >
+                <img src={logo} alt={orgName} className="h-7 w-7 object-contain" />
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="font-bold text-slate-900 truncate">{orgName}</h2>
-                <p className="text-sm text-slate-500 truncate">{user?.email}</p>
+                <p className="font-bold text-sm truncate" style={{ color: '#1C1916' }}>
+                  {orgName}
+                </p>
+                <p className="text-xs truncate" style={{ color: '#6B6762' }}>
+                  {activeLocationName}
+                </p>
               </div>
-              <button 
+              <button
                 onClick={() => setMenuOpen(false)}
-                className="p-2 text-slate-400 active:bg-slate-100 rounded-lg"
+                className="p-1.5 rounded-lg transition-colors shrink-0"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+                aria-label="Close menu"
+                onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+                onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
+                onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+                onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" style={{ color: '#6B6762' }} />
               </button>
             </div>
-            
-            {/* Menu Items */}
-            <div className="flex-1 overflow-auto py-2">
-              {allMenuItems.map((item) => {
-                const isActive = location.pathname === item.path || 
-                  (item.path !== '/' && location.pathname.startsWith(item.path));
-                
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 mx-2 rounded-xl ${
-                      isActive 
-                        ? 'bg-primary text-white' 
-                        : 'text-slate-700 active:bg-slate-100'
-                    }`}
+
+            {/* Nav groups */}
+            <div className="flex-1 overflow-auto py-3">
+              {groupedMenuItems.map(({ section, items }) => (
+                <div key={section} className="mb-3">
+                  {/* Section label */}
+                  <p
+                    className="px-5 pb-1.5 text-[10px] font-bold uppercase tracking-widest"
+                    style={{ color: '#9E9B97' }}
                   >
-                    <item.icon className="h-5 w-5" />
-                    <span className="font-medium">{item.label}</span>
-                  </NavLink>
-                );
-              })}
+                    {section}
+                  </p>
+                  {items.map((item) => {
+                    const isActive =
+                      location.pathname === item.path ||
+                      (item.path !== '/' && location.pathname.startsWith(item.path));
+
+                    return (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 mx-2 rounded-xl transition-colors"
+                        style={
+                          isActive
+                            ? { background: 'var(--primary-tint)', color: 'var(--primary)' }
+                            : { color: '#1C1916' }
+                        }
+                      >
+                        <item.icon
+                          className="h-5 w-5 shrink-0"
+                          style={{ color: isActive ? 'var(--primary)' : '#6B6762' }}
+                        />
+                        <span
+                          className="font-medium text-sm"
+                          style={{ color: isActive ? 'var(--primary)' : '#1C1916' }}
+                        >
+                          {item.label}
+                        </span>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
-            
-            {/* User Section */}
-            <div className="p-4 border-t border-slate-200 safe-area-bottom">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  {user?.name?.charAt(0) || 'U'}
+
+            {/* User section at bottom */}
+            <div
+              className="px-4 py-4 border-t shrink-0"
+              style={{
+                borderColor: '#E2DED8',
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)',
+              }}
+            >
+              {/* User info row */}
+              <div className="flex items-center gap-3 mb-3">
+                <div
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                  style={{ background: 'var(--primary-tint)', color: 'var(--primary)' }}
+                >
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900 truncate">{user?.name}</p>
-                  <p className="text-sm text-slate-500 capitalize">{user?.role}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: '#1C1916' }}>
+                    {user?.name || user?.email}
+                  </p>
+                  <p className="text-xs capitalize truncate" style={{ color: '#6B6762' }}>
+                    {user?.role}
+                  </p>
                 </div>
               </div>
+
+              {/* Sign out button */}
               <button
                 onClick={() => {
                   setMenuOpen(false);
                   logout();
                 }}
-                className="flex items-center gap-2 w-full px-4 py-3 text-red-600 bg-red-50 rounded-xl font-medium active:bg-red-100"
+                className="flex items-center gap-2 w-full px-4 py-2.5 rounded-xl transition-colors"
+                style={{ background: '#FEF2F2' }}
               >
-                <LogOut className="h-5 w-5" />
-                Sign Out
+                <SignOut className="h-4 w-4" style={{ color: '#DC2626' }} />
+                <span className="text-sm font-semibold" style={{ color: '#DC2626' }}>
+                  Sign Out
+                </span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Location Picker Bottom Sheet */}
+      {/* ── Location Picker Bottom Sheet ───────────────────────── */}
       {locationPickerOpen && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/50"
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             onClick={() => setLocationPickerOpen(false)}
           />
-          
-          {/* Bottom Sheet */}
-          <div className="relative bg-white rounded-t-3xl max-h-[70vh] flex flex-col animate-slide-up">
-            {/* Handle */}
-            <div className="flex justify-center py-3">
-              <div className="w-10 h-1 bg-slate-300 rounded-full" />
+
+          {/* Sheet */}
+          <div
+            className="relative bg-white rounded-t-3xl max-h-[70vh] flex flex-col shadow-2xl animate-slide-up"
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full" style={{ background: '#E2DED8' }} />
             </div>
-            
-            <h3 className="px-4 pb-3 text-lg font-bold text-slate-900">Select Location</h3>
-            
-            <div className="overflow-auto px-4 pb-4 safe-area-bottom">
+
+            <h3
+              className="px-5 pt-2 pb-4 text-base font-bold shrink-0"
+              style={{ color: '#1C1916' }}
+            >
+              Select Location
+            </h3>
+
+            <div
+              className="overflow-auto px-4 pb-6 space-y-2"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
+            >
+              {/* All Locations — admin only */}
               {permissions.isAdmin && (
                 <button
                   onClick={() => {
                     setLocation('ALL');
                     setLocationPickerOpen(false);
                   }}
-                  className={`flex items-center justify-between w-full p-4 rounded-xl mb-2 ${
-                    selectedLocationId === 'ALL' 
-                      ? 'bg-primary text-white' 
-                      : 'bg-slate-100 text-slate-900 active:bg-slate-200'
-                  }`}
+                  className="flex items-center justify-between w-full p-4 rounded-xl border transition-colors"
+                  style={
+                    selectedLocationId === 'ALL'
+                      ? { background: 'var(--primary-tint)', borderColor: 'var(--primary)', color: 'var(--primary)' }
+                      : { background: '#FFFFFF', borderColor: '#E2DED8', color: '#1C1916' }
+                  }
                 >
                   <div className="flex items-center gap-3">
-                    <Building2 className="h-5 w-5" />
-                    <span className="font-medium">All Locations</span>
+                    <Buildings
+                      className="h-5 w-5"
+                      style={{ color: selectedLocationId === 'ALL' ? 'var(--primary)' : '#6B6762' }}
+                    />
+                    <span className="font-semibold text-sm">All Locations</span>
                   </div>
                   {selectedLocationId === 'ALL' && (
-                    <ChevronRight className="h-5 w-5" />
+                    <CaretRight className="h-4 w-4" style={{ color: 'var(--primary)' }} />
                   )}
                 </button>
               )}
-              
-              {locations.filter(l => l != null).map((loc) => (
+
+              {locations.filter((l) => l != null).map((loc) => (
                 <button
                   key={loc.id}
                   onClick={() => {
                     setLocation(loc.id);
                     setLocationPickerOpen(false);
                   }}
-                  className={`flex items-center justify-between w-full p-4 rounded-xl mb-2 ${
-                    selectedLocationId === loc.id 
-                      ? 'bg-primary text-white' 
-                      : 'bg-slate-100 text-slate-900 active:bg-slate-200'
-                  }`}
+                  className="flex items-center justify-between w-full p-4 rounded-xl border transition-colors"
+                  style={
+                    selectedLocationId === loc.id
+                      ? { background: 'var(--primary-tint)', borderColor: 'var(--primary)', color: 'var(--primary)' }
+                      : { background: '#FFFFFF', borderColor: '#E2DED8', color: '#1C1916' }
+                  }
                 >
                   <div className="flex items-center gap-3">
-                    <Building2 className="h-5 w-5" />
-                    <span className="font-medium">{loc.name}</span>
+                    <Buildings
+                      className="h-5 w-5"
+                      style={{ color: selectedLocationId === loc.id ? 'var(--primary)' : '#6B6762' }}
+                    />
+                    <span className="font-semibold text-sm">{loc.name}</span>
                   </div>
                   {selectedLocationId === loc.id && (
-                    <ChevronRight className="h-5 w-5" />
+                    <CaretRight className="h-4 w-4" style={{ color: 'var(--primary)' }} />
                   )}
                 </button>
               ))}

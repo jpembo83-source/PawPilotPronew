@@ -2,7 +2,7 @@
 // All types reference real households and pets - NO seed/mock data
 
 export type TransportDirection = 'pickup' | 'dropoff' | 'roundtrip';
-export type TransportJobStatus = 'scheduled' | 'pending_assignment' | 'in_progress' | 'completed' | 'cancelled';
+export type TransportJobStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type TransportEventType = 
   | 'created' 
   | 'assigned' 
@@ -43,11 +43,11 @@ export interface TransportJob {
   assigned_driver_user_id?: string; // FK to auth.users
   assigned_vehicle_id?: string;
   
+  // Optional link to booking that generated this transport
   booking_id?: string;
   booking_type?: 'daycare' | 'grooming' | 'overnight';
   
-  requires_assignment?: boolean;
-  
+  // Notes
   notes?: string;
   
   // Audit

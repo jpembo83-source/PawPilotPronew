@@ -1,15 +1,14 @@
 // Billing Overview - MDC Operations Centre
 // Dashboard for billing and financial overview
 
-import { useEffect, useState, useCallback } from 'react';
-import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { 
-  TrendingUp, TrendingDown, AlertCircle, Clock, 
-  CreditCard, Users, FileText, RefreshCw 
-} from 'lucide-react';
+  TrendUp, TrendDown, Warning, Clock, 
+  CreditCard, UsersThree, FileText, ArrowClockwise 
+} from '@phosphor-icons/react';
 import { useBillingStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { BackendStatus } from '../../../components/BackendStatus';
@@ -24,12 +23,6 @@ export function BillingOverview() {
     fetchOverview(selectedLocationId);
   }, [selectedLocationId, fetchOverview]);
 
-  const refetchOverview = useCallback(() => {
-    fetchOverview(selectedLocationId);
-  }, [fetchOverview, selectedLocationId]);
-
-  useModuleRealtimeSync('billing', refetchOverview);
-
   const handleRefresh = () => {
     fetchOverview(selectedLocationId);
   };
@@ -37,7 +30,7 @@ export function BillingOverview() {
   if (loading && !overview) {
     return (
       <div className="flex items-center justify-center h-96">
-        <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
+        <ArrowClockwise className="h-8 w-8 animate-spin text-slate-400" />
       </div>
     );
   }
@@ -47,7 +40,7 @@ export function BillingOverview() {
       <div className="space-y-4">
         <BackendStatus />
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+          <Warning className="h-4 w-4" />
           <AlertDescription>
             <div className="space-y-2">
               <p className="font-medium">Unable to load billing data</p>
@@ -90,7 +83,7 @@ export function BillingOverview() {
           </p>
         </div>
         <Button onClick={handleRefresh} variant="outline" size="sm">
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          <ArrowClockwise className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
@@ -154,7 +147,7 @@ export function BillingOverview() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-500">
-              <AlertCircle className="h-4 w-4 inline mr-1" />
+              <Warning className="h-4 w-4 inline mr-1" />
               Failed Payments
             </CardTitle>
           </CardHeader>
@@ -173,7 +166,7 @@ export function BillingOverview() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-slate-500">
-              <Users className="h-4 w-4 inline mr-1" />
+              <UsersThree className="h-4 w-4 inline mr-1" />
               Active Memberships
             </CardTitle>
           </CardHeader>
@@ -203,7 +196,7 @@ export function BillingOverview() {
               <p className="text-2xl font-semibold text-green-600">
                 {formatCurrency(overview.payments.today)}
               </p>
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TrendUp className="h-5 w-5 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -219,7 +212,7 @@ export function BillingOverview() {
               <p className="text-2xl font-semibold text-green-600">
                 {formatCurrency(overview.payments.week)}
               </p>
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TrendUp className="h-5 w-5 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -235,7 +228,7 @@ export function BillingOverview() {
               <p className="text-2xl font-semibold text-green-600">
                 {formatCurrency(overview.payments.month)}
               </p>
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TrendUp className="h-5 w-5 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -255,7 +248,7 @@ export function BillingOverview() {
               <p className="text-2xl font-semibold text-slate-900">
                 {formatCurrency(overview.credits_month)}
               </p>
-              <TrendingDown className="h-5 w-5 text-slate-400" />
+              <TrendDown className="h-5 w-5 text-slate-400" />
             </div>
           </CardContent>
         </Card>
@@ -272,7 +265,7 @@ export function BillingOverview() {
               <p className="text-2xl font-semibold text-slate-900">
                 {formatCurrency(overview.refunds_month)}
               </p>
-              <TrendingDown className="h-5 w-5 text-slate-400" />
+              <TrendDown className="h-5 w-5 text-slate-400" />
             </div>
           </CardContent>
         </Card>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings, Plus, Filter, Shield, History, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Gear, Plus, Funnel, Shield, ClockCounterClockwise, Warning, CheckCircle, XCircle, Clock } from '@phosphor-icons/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -88,7 +88,7 @@ export function OperationalRulesPage() {
   const getStatusIcon = (status: RuleStatus) => {
     switch (status) {
       case 'active':
-        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
       case 'disabled':
         return <XCircle className="h-4 w-4 text-slate-400" />;
       case 'draft':
@@ -102,7 +102,7 @@ export function OperationalRulesPage() {
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="text-center">
-              <AlertTriangle className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+              <Warning className="h-12 w-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Access</h3>
               <p className="text-slate-600">
                 You don't have permission to view operational rules.
@@ -135,7 +135,7 @@ export function OperationalRulesPage() {
               size="sm"
               onClick={() => setShowAuditLog(true)}
             >
-              <History className="h-4 w-4 mr-2" />
+              <ClockCounterClockwise className="h-4 w-4 mr-2" />
               Audit Log
             </Button>
 
@@ -167,7 +167,7 @@ export function OperationalRulesPage() {
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
               >
-                <Filter className="h-4 w-4 mr-2" />
+                <Funnel className="h-4 w-4 mr-2" />
                 Filters
                 {Object.keys(filters).length > 0 && (
                   <Badge variant="secondary" className="ml-2">
@@ -266,7 +266,7 @@ export function OperationalRulesPage() {
             </div>
           ) : rules.length === 0 ? (
             <div className="text-center py-12">
-              <Settings className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <Gear className="h-12 w-12 text-slate-300 mx-auto mb-3" />
               <p className="text-sm text-slate-600 mb-4">No rules found</p>
               {canManageRules && (
                 <Button size="sm" onClick={() => openBuilder()}>

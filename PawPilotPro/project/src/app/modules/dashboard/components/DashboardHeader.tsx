@@ -1,20 +1,29 @@
 import React from 'react';
-import { Calendar as CalendarIcon, LayoutTemplate, RotateCcw, Sparkles } from 'lucide-react';
+import { CalendarBlank as CalendarIcon } from '@phosphor-icons/react';
 import { useDashboardStore, DateRange } from '../store';
 import { useAuth } from '../../../context/AuthContext';
 import { useSettingsStore } from '../../settings/store';
-import { Button } from "../../../components/ui/button";
+import { Button } from '../../../components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../../components/ui/dropdown-menu";
+} from '../../../components/ui/dropdown-menu';
 
-interface DashboardHeaderProps {
-  isCustomizing: boolean;
-  setIsCustomizing: (val: boolean) => void;
-}
+/**
+ * Previously rendered a Customise button + customise-mode header swap
+ * that toggled an `isCustomizing` flag. The dashboard body (Dashboard.tsx)
+ * was rebuilt around hardcoded tiles and never consumed the flag — the
+ * button only swapped its own heading + button labels and otherwise did
+ * nothing. WidgetGrid.tsx + the widget-layout slice of dashboardStore are
+ * leftovers from the older widget-based design.
+ *
+ * Honest fix: remove the misleading control. If a real customise surface
+ * comes back later it needs a parallel rebuild of the body (per-tile
+ * IDs, draggable wrapper, hide-from-store integration). Until then the
+ * header is just date-range + greeting.
+ */
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -32,119 +41,86 @@ function getFormattedDate(): string {
   });
 }
 
-export function DashboardHeader({ isCustomizing, setIsCustomizing }: DashboardHeaderProps) {
-  const { dateRange, setDateRange, resetUserLayout, selectedLocationId } = useDashboardStore();
+export function DashboardHeader() {
+  const { dateRange, setDateRange, selectedLocationId } = useDashboardStore();
   const { user } = useAuth();
   const { locations } = useSettingsStore();
 
-  const selectedLocation = locations.find(l => l.id === selectedLocationId);
-  const locationLabel = selectedLocationId === 'ALL' || !selectedLocationId
-    ? 'All Locations'
-    : selectedLocation?.name || 'Unknown';
-
-  const handleReset = () => {
-    if (confirm('Reset dashboard layout to default?')) {
-      if (user) resetUserLayout(user.id, user.role);
-    }
-  };
+  const selectedLocation = locations.find((l) => l.id === selectedLocationId);
+  const locationLabel =
+    selectedLocationId === 'ALL' || !selectedLocationId
+      ? 'All Locations'
+      : selectedLocation?.name || 'Unknown';
 
   const getRangeLabel = (range: DateRange) => {
-    switch(range) {
-      case 'today': return 'Today';
-      case 'yesterday': return 'Yesterday';
-      case '7d': return 'Last 7 Days';
-      case '30d': return 'Last 30 Days';
-      case 'custom': return 'Custom Range';
-      default: return 'Today';
+    switch (range) {
+      case 'today':
+        return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
+      case '7d':
+        return 'Last 7 Days';
+      case '30d':
+        return 'Last 30 Days';
+      case 'custom':
+        return 'Custom Range';
+      default:
+        return 'Today';
     }
   };
 
-  const firstName = user?.user_metadata?.name?.split(' ')[0]
-    || user?.user_metadata?.full_name?.split(' ')[0]
-    || '';
+  const firstName =
+    user?.user_metadata?.name?.split(' ')[0] ||
+    user?.user_metadata?.full_name?.split(' ')[0] ||
+    '';
 
   return (
-    <div className="relative overflow-hidden border-b border-border/40">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-secondary/30 to-accent/20" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/40 rounded-full translate-y-1/2 -translate-x-1/4 blur-3xl" />
+    <div className="bg-white border-b border-[#E2DED8] px-6 md:px-8 py-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 
-      <div className="relative px-6 md:px-8 py-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground tracking-wide uppercase">
-            <span>{getFormattedDate()}</span>
-            <span className="text-border">|</span>
-            <span className="inline-flex items-center gap-1 text-primary">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+        {/* Left: greeting + meta */}
+        <div className="space-y-0.5">
+
+          {/* Date + location breadcrumb */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-[#9E9B97] uppercase tracking-wide">
+              {getFormattedDate()}
+            </span>
+            <span className="text-[#E2DED8] text-xs">·</span>
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-primary-tint text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
               {locationLabel}
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-            {isCustomizing ? (
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-primary" />
-                Customise Dashboard
-              </span>
-            ) : (
-              <>
-                {getGreeting()}{firstName ? `, ${firstName}` : ''}
-              </>
-            )}
+
+          <h1 className="text-2xl font-bold text-[#1C1916]">
+            {getGreeting()}{firstName ? `, ${firstName} 👋` : ' 👋'}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {isCustomizing
-              ? 'Drag widgets to reorder or toggle visibility'
-              : 'Your operational overview at a glance'
-            }
+
+          <p className="text-sm text-[#6B6762]">
+            Here's what's happening today.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right: date range only */}
+        <div className="flex items-center gap-2 shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="w-[150px] justify-start text-left font-normal bg-card/80 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow"
+                className="h-9 gap-2 text-sm font-medium border-[#E2DED8] text-[#44403C] hover:bg-[#F4F3EF]"
               >
-                <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                <CalendarIcon className="h-4 w-4 text-primary" />
                 {getRangeLabel(dateRange)}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[150px]">
+            <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setDateRange('today')}>Today</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDateRange('yesterday')}>Yesterday</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDateRange('7d')}>Last 7 Days</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDateRange('30d')}>Last 30 Days</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {isCustomizing ? (
-            <>
-              <Button
-                variant="ghost"
-                onClick={handleReset}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Reset
-              </Button>
-              <Button
-                onClick={() => setIsCustomizing(false)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
-              >
-                Done
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => setIsCustomizing(true)}
-              className="gap-2 bg-card/80 backdrop-blur-sm border-border/60 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <LayoutTemplate className="h-4 w-4" />
-              Customise
-            </Button>
-          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Utensils, Pill, Dog, Moon, Heart, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
+import { ForkKnife, Pill, Dog, Moon, Heart, Warning, Clock, CheckCircle } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
@@ -8,7 +8,6 @@ import { Checkbox } from '../../../components/ui/checkbox';
 import { Badge } from '../../../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { NightlyCareLog } from '../types';
-import { registerActiveEdit } from '../../../components/ConflictNotification';
 
 interface CareLogFormProps {
   reservationId: string;
@@ -50,12 +49,6 @@ export function CareLogForm({
   const [healthObservations, setHealthObservations] = useState(existingLog?.healthObservations ?? '');
 
   const [hasIncident, setHasIncident] = useState(existingLog?.hasIncident ?? false);
-
-  useEffect(() => {
-    if (existingLog?.id) {
-      return registerActiveEdit('overnights', 'care_log', existingLog.id);
-    }
-  }, [existingLog?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +103,7 @@ export function CareLogForm({
 
       <div className="space-y-4 border border-slate-200 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
-          <Utensils className="h-4 w-4 text-orange-600" />
+          <ForkKnife className="h-4 w-4 text-orange-600" />
           <h4 className="font-medium text-slate-900">Feeding</h4>
         </div>
         <div className="flex items-center gap-3">
@@ -265,7 +258,7 @@ export function CareLogForm({
 
       <div className="space-y-4 border border-amber-200 rounded-lg p-4 bg-amber-50">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <Warning className="h-4 w-4 text-amber-600" />
           <h4 className="font-medium text-amber-800">Incident</h4>
         </div>
         <div className="flex items-center gap-3">

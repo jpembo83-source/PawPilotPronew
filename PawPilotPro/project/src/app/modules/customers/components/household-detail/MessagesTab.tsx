@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
-import { Plus, MessageSquare } from 'lucide-react';
+import { Plus, ChatTeardrop } from '@phosphor-icons/react';
 
 interface MessagesTabProps {
   householdId: string;
@@ -26,7 +26,7 @@ export function MessagesTab({ householdId }: MessagesTabProps) {
       </CardHeader>
       <CardContent>
         <div className="text-center py-12 text-slate-400">
-          <MessageSquare className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+          <ChatTeardrop className="h-12 w-12 mx-auto mb-2 text-slate-300" />
           <p>Message history will appear here</p>
           <p className="text-sm mt-1">Integration with Communications module</p>
         </div>

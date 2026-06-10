@@ -1,0 +1,5 @@
+-- Placeholder. The real migration is already applied on the remote MDC DB
+-- (predates local migration history). Kept so the Supabase CLI's local-vs-
+-- remote consistency check passes for future db push calls. Real content
+-- can be pulled later via `supabase db pull --linked` after this is
+-- registered with `supabase migration repair --status applied`.

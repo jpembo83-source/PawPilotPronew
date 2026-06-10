@@ -57,6 +57,7 @@ interface UserState {
   addUser: (user: Omit<User, 'id'>, actorName: string) => Promise<void>;
   updateUser: (id: string, updates: Partial<User>, actorName: string) => Promise<void>;
   toggleUserStatus: (id: string, actorName: string) => Promise<void>;
+  sendPasswordReset: (email: string, actorName: string) => Promise<void>;
   
   addTemplate: (template: Omit<PermissionTemplate, 'id'>, actorName: string) => void;
   updateTemplate: (id: string, updates: Partial<PermissionTemplate>, actorName: string) => void;
@@ -308,6 +309,26 @@ export const useUserStore = create<UserState>()(
            set({ error: e.message, isLoading: false });
            throw e;
         }
+      },
+
+      sendPasswordReset: async (email, actorName) => {
+        // Sends a real Supabase password-recovery email. The link returns the
+        // user to /reset-password where they set a new password.
+        const redirectTo = `${window.location.origin}/reset-password`;
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) {
+          throw new Error(error.message || 'Failed to send password reset email');
+        }
+        set((state) => ({
+          auditLog: [{
+            id: Math.random().toString(36).substr(2, 9),
+            timestamp: new Date().toISOString(),
+            actorName,
+            action: 'SEND_PASSWORD_RESET',
+            targetName: email,
+            details: 'Password reset email sent',
+          }, ...state.auditLog],
+        }));
       },
 
       addTemplate: (template, actorName) => set((state) => ({

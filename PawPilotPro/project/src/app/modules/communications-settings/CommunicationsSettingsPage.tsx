@@ -7,16 +7,16 @@ import { Card } from '../../components/ui/card';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { 
   Radio, 
-  Mail, 
-  MessageSquare, 
+  EnvelopeSimple, 
+  ChatTeardrop, 
   FileText, 
-  Zap, 
+  Lightning, 
   Clock, 
   ShieldCheck, 
-  FileSearch,
-  Loader2,
-  AlertCircle
-} from 'lucide-react';
+  MagnifyingGlass,
+  CircleNotch,
+  Warning
+} from '@phosphor-icons/react';
 import { ChannelsSection } from './components/ChannelsSection';
 import { SenderIdentitySection } from './components/SenderIdentitySection';
 import { ConsentSection } from './components/ConsentSection';
@@ -28,13 +28,13 @@ import { AuditLogsSection } from './components/AuditLogsSection';
 
 const sections = [
   { id: 'channels', label: 'Channels', icon: Radio, description: 'Enable/disable communication channels' },
-  { id: 'sender-identity', label: 'Sender Identity', icon: Mail, description: 'Configure sender details' },
+  { id: 'sender-identity', label: 'Sender Identity', icon: EnvelopeSimple, description: 'Configure sender details' },
   { id: 'consent', label: 'Consent', icon: ShieldCheck, description: 'Manage consent policies' },
   { id: 'templates', label: 'Templates', icon: FileText, description: 'Message templates' },
-  { id: 'automation', label: 'Automation', icon: Zap, description: 'Automated messages' },
+  { id: 'automation', label: 'Automation', icon: Lightning, description: 'Automated messages' },
   { id: 'slas', label: 'Response SLAs', icon: Clock, description: 'Response time targets' },
-  { id: 'permissions', label: 'Permissions', icon: MessageSquare, description: 'Who can communicate' },
-  { id: 'audit', label: 'Audit & Logs', icon: FileSearch, description: 'Changes and delivery logs' },
+  { id: 'permissions', label: 'Permissions', icon: ChatTeardrop, description: 'Who can communicate' },
+  { id: 'audit', label: 'Audit & Logs', icon: MagnifyingGlass, description: 'Changes and delivery logs' },
 ];
 
 export function CommunicationsSettingsPage() {
@@ -48,7 +48,7 @@ export function CommunicationsSettingsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <CircleNotch className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function CommunicationsSettingsPage() {
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+          <Warning className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
             <span>{error}</span>
             <button onClick={clearError} className="underline text-sm">Dismiss</button>
@@ -76,7 +76,7 @@ export function CommunicationsSettingsPage() {
 
       {/* Info Alert */}
       <Alert>
-        <AlertCircle className="h-4 w-4" />
+        <Warning className="h-4 w-4" />
         <AlertDescription>
           All settings here directly control behavior in Messaging, Dashboard widgets, and automated communications.
           Changes are audited and enforced server-side.

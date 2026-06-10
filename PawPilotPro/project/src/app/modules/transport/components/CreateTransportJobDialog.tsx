@@ -24,21 +24,21 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import {
-  Search,
-  ChevronRight,
-  ChevronLeft,
+  MagnifyingGlass,
+  CaretRight,
+  CaretLeft,
   Dog,
-  Home,
+  House,
   MapPin,
-  Calendar,
+  CalendarBlank,
   Clock,
   User,
-  AlertCircle,
-  Loader2,
+  Warning,
+  CircleNotch,
   CheckCircle,
   ArrowRight,
   Truck
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 
 interface CreateTransportJobDialogProps {
   open: boolean;
@@ -95,7 +95,7 @@ export function CreateTransportJobDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Search state
+  // MagnifyingGlass state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Household[]>([]);
 
@@ -401,7 +401,7 @@ export function CreateTransportJobDialog({
                 {step}
               </span>
               {index < STEPS.length - 1 && (
-                <ChevronRight className="h-4 w-4 text-slate-300 ml-2" />
+                <CaretRight className="h-4 w-4 text-slate-300 ml-2" />
               )}
             </div>
           ))}
@@ -410,7 +410,7 @@ export function CreateTransportJobDialog({
         {/* Error Display */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+            <Warning className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
             <div className="text-sm text-red-700">{error}</div>
           </div>
         )}
@@ -423,7 +423,7 @@ export function CreateTransportJobDialog({
               <div>
                 <Label>Search for Household</Label>
                 <div className="relative mt-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -432,12 +432,12 @@ export function CreateTransportJobDialog({
                     autoFocus
                   />
                   {isSearching && (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
+                    <CircleNotch className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
                   )}
                 </div>
               </div>
 
-              {/* Search Results */}
+              {/* MagnifyingGlass Results */}
               {searchResults.length > 0 && (
                 <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 max-h-96 overflow-auto">
                   {searchResults.map((household) => (
@@ -449,7 +449,7 @@ export function CreateTransportJobDialog({
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <Home className="h-4 w-4 text-slate-400" />
+                            <House className="h-4 w-4 text-slate-400" />
                             <h4 className="font-semibold text-slate-900">{household.name}</h4>
                           </div>
                           
@@ -484,7 +484,7 @@ export function CreateTransportJobDialog({
                             </div>
                           )}
                         </div>
-                        <ChevronRight className="h-5 w-5 text-slate-300 shrink-0" />
+                        <CaretRight className="h-5 w-5 text-slate-300 shrink-0" />
                       </div>
                     </button>
                   ))}
@@ -500,7 +500,7 @@ export function CreateTransportJobDialog({
 
               {!searchQuery && (
                 <div className="text-center py-8 text-slate-500">
-                  <Search className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                  <MagnifyingGlass className="h-8 w-8 mx-auto mb-2 text-slate-300" />
                   <p className="text-sm">Start typing to search for a household</p>
                 </div>
               )}
@@ -566,7 +566,7 @@ export function CreateTransportJobDialog({
                               </p>
                             )}
                           </div>
-                          <ChevronRight className="h-5 w-5 text-slate-300 shrink-0" />
+                          <CaretRight className="h-5 w-5 text-slate-300 shrink-0" />
                         </div>
                       </button>
                     ))
@@ -609,7 +609,7 @@ export function CreateTransportJobDialog({
               <div>
                 <Label htmlFor="serviceDate">Service Date</Label>
                 <div className="relative mt-1">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <CalendarBlank className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     id="serviceDate"
                     type="date"
@@ -818,7 +818,7 @@ export function CreateTransportJobDialog({
               {activeDriverCount === 0 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <Warning className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <div className="font-semibold text-amber-900 mb-1">No Drivers Configured</div>
                       <p className="text-sm text-amber-700">
@@ -848,7 +848,7 @@ export function CreateTransportJobDialog({
               {activeDriverCount && activeDriverCount >= 2 && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <Warning className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
                       <div className="font-semibold text-amber-900 mb-1">Driver Assignment Required</div>
                       <p className="text-sm text-amber-700">
@@ -956,7 +956,7 @@ export function CreateTransportJobDialog({
                 onClick={() => setCurrentStep(currentStep - 1)}
                 disabled={isSubmitting}
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
+                <CaretLeft className="h-4 w-4 mr-1" />
                 Back
               </Button>
             )}
@@ -976,7 +976,7 @@ export function CreateTransportJobDialog({
                 onClick={() => setCurrentStep(currentStep + 1)}
               >
                 Next
-                <ChevronRight className="h-4 w-4 ml-1" />
+                <CaretRight className="h-4 w-4 ml-1" />
               </Button>
             )}
 
@@ -994,7 +994,7 @@ export function CreateTransportJobDialog({
               <Button onClick={handleSubmit} disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
                     Creating...
                   </>
                 ) : (

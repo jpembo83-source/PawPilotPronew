@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { FileText } from 'lucide-react';
+import { FileText } from '@phosphor-icons/react';
 import { useDataComplianceStore } from '../store';
 
 export function AuditLogPage() {

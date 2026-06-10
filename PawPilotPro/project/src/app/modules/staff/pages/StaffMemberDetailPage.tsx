@@ -7,7 +7,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useStaffStore } from '../store';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, CheckCircle2, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, EnvelopeSimple, Phone, MapPin, CalendarBlank, CheckCircle, Warning, XCircle, CircleNotch } from '@phosphor-icons/react';
 import type { StaffMember } from '../types';
 
 export function StaffMemberDetailPage() {
@@ -34,7 +34,7 @@ export function StaffMemberDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        <CircleNotch className="h-8 w-8 animate-spin text-slate-400" />
       </div>
     );
   }
@@ -128,7 +128,7 @@ export function StaffMemberDetailPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2 text-slate-600">
-                  <Mail className="h-4 w-4" />
+                  <EnvelopeSimple className="h-4 w-4" />
                   <span className="text-sm">{member.email}</span>
                 </div>
                 
@@ -150,7 +150,7 @@ export function StaffMemberDetailPage() {
                 
                 {member.created_at && (
                   <div className="flex items-center gap-2 text-slate-600">
-                    <Calendar className="h-4 w-4" />
+                    <CalendarBlank className="h-4 w-4" />
                     <span className="text-sm">
                       Joined {new Date(member.created_at).toLocaleDateString('en-GB')}
                     </span>
@@ -171,7 +171,7 @@ export function StaffMemberDetailPage() {
             </div>
             <div className="text-sm text-slate-600">Compliance Rate</div>
             {complianceRate === 100 && (
-              <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto mt-2" />
+              <CheckCircle className="h-5 w-5 text-green-500 mx-auto mt-2" />
             )}
           </CardContent>
         </Card>
@@ -192,7 +192,7 @@ export function StaffMemberDetailPage() {
             </div>
             <div className="text-sm text-slate-600">Overdue</div>
             {overdueCount > 0 && (
-              <AlertTriangle className="h-5 w-5 text-amber-500 mx-auto mt-2" />
+              <Warning className="h-5 w-5 text-amber-500 mx-auto mt-2" />
             )}
           </CardContent>
         </Card>
@@ -221,7 +221,7 @@ export function StaffMemberDetailPage() {
         </CardContent>
       </Card>
       
-      {/* Shift History */}
+      {/* Shift ClockCounterClockwise */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Shifts</CardTitle>

@@ -4,13 +4,12 @@
  * British English throughout with strict permission enforcement
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTransportStore } from '../store';
 import { useAuth } from '@/app/context/AuthContext';
-import { useModuleRealtimeSync } from '@/app/hooks/useModuleRealtimeSync';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { MapPin, Navigation, AlertTriangle, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { MapPin, NavigationArrow, Warning, CheckCircle, CircleNotch } from '@phosphor-icons/react';
 import { format } from 'date-fns';
 import {
   Dialog,
@@ -40,14 +39,6 @@ export function DriverDashboard() {
       });
     }
   }, [session, user, today]);
-
-  const refetchDriverJobs = useCallback(() => {
-    if (session && user) {
-      fetchJobs({ driver_user_id: user.id, service_date: today });
-    }
-  }, [fetchJobs, session, user, today]);
-
-  useModuleRealtimeSync('transport', refetchDriverJobs);
   
   // Get my route (jobs assigned to me for today)
   const myJobs = jobs.filter(j => j.assigned_driver_user_id === user?.id);
@@ -96,7 +87,7 @@ export function DriverDashboard() {
     return (
       <div className="flex items-center justify-center h-[80vh]">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
+          <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
           <p className="text-slate-500">Loading your route...</p>
         </div>
       </div>
@@ -108,7 +99,7 @@ export function DriverDashboard() {
     return (
       <div className="flex flex-col items-center justify-center h-[80vh] text-slate-500 p-6 text-center">
         <div className="bg-slate-100 p-4 rounded-full mb-4">
-          <Navigation className="h-8 w-8 text-slate-400" />
+          <NavigationArrow className="h-8 w-8 text-slate-400" />
         </div>
         <h2 className="text-xl font-semibold text-slate-900 mb-2">No Active Route</h2>
         <p>You don't have any transport jobs assigned for today yet.</p>
@@ -150,7 +141,7 @@ export function DriverDashboard() {
         
         {!activeRoute && nextJob && (
           <Button className="w-full py-6 text-lg" onClick={handleStartRoute}>
-            <Navigation className="mr-2 h-5 w-5" /> Start Route
+            <NavigationArrow className="mr-2 h-5 w-5" /> Start Route
           </Button>
         )}
 
@@ -159,7 +150,7 @@ export function DriverDashboard() {
           <div className="bg-white rounded-xl border border-blue-100 shadow-md overflow-hidden ring-2 ring-blue-500 ring-offset-2">
             <div className="bg-blue-600 px-4 py-2 text-white text-sm font-medium flex justify-between items-center">
               <span>Next Stop #{currentJobIndex + 1}</span>
-              <Navigation className="h-4 w-4" />
+              <NavigationArrow className="h-4 w-4" />
             </div>
             <div className="p-5">
               <div className="mb-4">
@@ -197,7 +188,7 @@ export function DriverDashboard() {
                 
                 {nextJob.notes && (
                   <div className="bg-amber-50 text-amber-800 p-3 rounded-md text-sm flex gap-2">
-                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <Warning className="h-4 w-4 shrink-0 mt-0.5" />
                     {nextJob.notes}
                   </div>
                 )}
@@ -241,7 +232,7 @@ export function DriverDashboard() {
                       isCancelled ? 'bg-red-100 text-red-700 border-red-200' :
                       'bg-slate-100 text-slate-500 border-slate-200'
                     }`}>
-                      {isDone ? <CheckCircle2 className="h-3 w-3" /> : idx + 1}
+                      {isDone ? <CheckCircle className="h-3 w-3" /> : idx + 1}
                     </div>
                     <div>
                       <p className="font-medium text-slate-900">{job.pet_name}</p>
@@ -282,7 +273,7 @@ export function DriverDashboard() {
               onClick={confirmAction}
               disabled={isLoading}
             >
-              {isLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {isLoading ? <CircleNotch className="h-4 w-4 mr-2 animate-spin" /> : null}
               Confirm
             </Button>
           </DialogFooter>
