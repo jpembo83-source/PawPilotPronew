@@ -12,8 +12,8 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import ErrorBoundary from '../../../components/ErrorBoundary';
-import { supabase } from '@/utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 import { 
   POLICY_CATEGORY_LABELS, 
   REPEAT_CYCLE_LABELS,
@@ -105,16 +105,10 @@ export function MyPoliciesPage() {
     
     // Fetch the document URL and open in new tab
     try {
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/${assignment.policy_id}/versions/${assignment.version_id}/download`,
         {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${accessToken}`,
-          },
+          headers: await getAuthHeaders(),
         }
       );
       
@@ -138,16 +132,10 @@ export function MyPoliciesPage() {
   
   const handleDownload = async (assignment: MyPolicyAssignment) => {
     try {
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff/policies/${assignment.policy_id}/versions/${assignment.version_id}/download`,
         {
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${accessToken}`,
-          },
+          headers: await getAuthHeaders(),
         }
       );
       

@@ -1,4 +1,5 @@
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import type {
   OperationalRule,
   RuleAudit,
@@ -10,11 +11,6 @@ import type {
 } from './types';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/operational-rules`;
-
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${publicAnonKey}`
-});
 
 // ============================================================================
 // RULES CRUD
@@ -30,7 +26,7 @@ export async function fetchRules(filters?: RulesFilters): Promise<{ rules: Opera
   if (filters?.search) params.append('search', filters.search);
   
   const url = `${API_BASE}?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getAuthHeaders() });
   
   if (!response.ok) {
     const error = await response.json();
@@ -42,7 +38,7 @@ export async function fetchRules(filters?: RulesFilters): Promise<{ rules: Opera
 
 export async function fetchRule(ruleId: string): Promise<OperationalRule> {
   const response = await fetch(`${API_BASE}/${ruleId}`, {
-    headers: getHeaders()
+    headers: await getAuthHeaders()
   });
   
   if (!response.ok) {
@@ -78,7 +74,7 @@ export async function createRule(data: {
 }): Promise<OperationalRule> {
   const response = await fetch(API_BASE, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data)
   });
   
@@ -101,7 +97,7 @@ export async function updateRule(
 ): Promise<OperationalRule> {
   const response = await fetch(`${API_BASE}/${ruleId}`, {
     method: 'PATCH',
-    headers: getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(updates)
   });
   
@@ -121,7 +117,7 @@ export async function deleteRule(
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/${ruleId}`, {
     method: 'DELETE',
-    headers: getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify({ deletedBy, deletedByName, reason })
   });
   
@@ -138,7 +134,7 @@ export async function deleteRule(
 export async function evaluateRules(context: RuleEvaluationContext): Promise<RuleEvaluationResponse> {
   const response = await fetch(`${API_BASE}/evaluate`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(context)
   });
   
@@ -156,7 +152,7 @@ export async function evaluateRules(context: RuleEvaluationContext): Promise<Rul
 
 export async function fetchLocationOverrides(locationId: string): Promise<{ configs: LocationOverrideConfig[] }> {
   const response = await fetch(`${API_BASE}/overrides/${locationId}`, {
-    headers: getHeaders()
+    headers: await getAuthHeaders()
   });
   
   if (!response.ok) {
@@ -184,7 +180,7 @@ export async function fetchAuditLog(filters?: {
   if (filters?.limit) params.append('limit', filters.limit.toString());
   
   const url = `${API_BASE}/audit?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getAuthHeaders() });
   
   if (!response.ok) {
     const error = await response.json();
@@ -207,7 +203,7 @@ export async function fetchTemplates(filters?: {
   if (filters?.category) params.append('category', filters.category);
   
   const url = `${API_BASE}/templates?${params.toString()}`;
-  const response = await fetch(url, { headers: getHeaders() });
+  const response = await fetch(url, { headers: await getAuthHeaders() });
   
   if (!response.ok) {
     const error = await response.json();

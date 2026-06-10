@@ -3,8 +3,9 @@
 
 import React, { useState } from 'react';
 import { ArrowClockwise, Warning, CheckCircle, Database, UsersThree } from '@phosphor-icons/react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId } from '../../../utils/supabase/info';
 import { supabase } from '../../utils/supabase/client';
+import { getAuthHeaders } from '../../utils/supabase/authHeaders';
 
 export function CustomerDebug() {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,11 +27,7 @@ export function CustomerDebug() {
         return;
       }
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-        'X-User-Token': `Bearer ${session.access_token}`,
-      };
+      const headers = await getAuthHeaders();
 
       const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
@@ -111,11 +108,7 @@ export function CustomerDebug() {
         return;
       }
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-        'X-User-Token': `Bearer ${session.access_token}`,
-      };
+      const headers = await getAuthHeaders();
 
       const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
@@ -166,11 +159,7 @@ export function CustomerDebug() {
         return;
       }
 
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-        'X-User-Token': `Bearer ${session.access_token}`,
-      };
+      const headers = await getAuthHeaders();
 
       const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 

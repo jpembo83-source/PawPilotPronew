@@ -1,7 +1,7 @@
 // Communications Settings API - MDC Operations Centre
 
-import { projectId, publicAnonKey } from '../../../../utils/supabase/info';
-import { supabase } from '../../../utils/supabase/client';
+import { projectId } from '../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import type {
   ChannelConfig,
   SenderIdentity,
@@ -17,20 +17,10 @@ import type {
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/communications`;
 
-// Get auth headers dynamically
-async function getHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session?.access_token || ''}`,
-  };
-}
-
 // --- Channels ---
 
 export async function getChannels(): Promise<ChannelConfig[]> {
-  const response = await fetch(`${BASE_URL}/channels`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/channels`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch channels');
   return response.json();
 }
@@ -38,7 +28,7 @@ export async function getChannels(): Promise<ChannelConfig[]> {
 export async function updateChannel(id: string, data: Partial<ChannelConfig>): Promise<ChannelConfig> {
   const response = await fetch(`${BASE_URL}/channels/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update channel');
@@ -48,7 +38,7 @@ export async function updateChannel(id: string, data: Partial<ChannelConfig>): P
 // --- Sender Identities ---
 
 export async function getSenderIdentities(): Promise<SenderIdentity[]> {
-  const response = await fetch(`${BASE_URL}/sender-identities`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/sender-identities`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch sender identities');
   return response.json();
 }
@@ -56,7 +46,7 @@ export async function getSenderIdentities(): Promise<SenderIdentity[]> {
 export async function createSenderIdentity(data: Partial<SenderIdentity>): Promise<SenderIdentity> {
   const response = await fetch(`${BASE_URL}/sender-identities`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create sender identity');
@@ -66,7 +56,7 @@ export async function createSenderIdentity(data: Partial<SenderIdentity>): Promi
 export async function updateSenderIdentity(id: string, data: Partial<SenderIdentity>): Promise<SenderIdentity> {
   const response = await fetch(`${BASE_URL}/sender-identities/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update sender identity');
@@ -76,7 +66,7 @@ export async function updateSenderIdentity(id: string, data: Partial<SenderIdent
 export async function deleteSenderIdentity(id: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/sender-identities/${id}`, {
     method: 'DELETE',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to delete sender identity');
 }
@@ -84,7 +74,7 @@ export async function deleteSenderIdentity(id: string): Promise<void> {
 // --- Consent Policy ---
 
 export async function getConsentPolicy(): Promise<ConsentPolicy> {
-  const response = await fetch(`${BASE_URL}/consent-policy`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/consent-policy`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch consent policy');
   return response.json();
 }
@@ -92,7 +82,7 @@ export async function getConsentPolicy(): Promise<ConsentPolicy> {
 export async function updateConsentPolicy(data: Partial<ConsentPolicy>): Promise<ConsentPolicy> {
   const response = await fetch(`${BASE_URL}/consent-policy`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update consent policy');
@@ -102,13 +92,13 @@ export async function updateConsentPolicy(data: Partial<ConsentPolicy>): Promise
 // --- Templates ---
 
 export async function getTemplates(): Promise<CommunicationTemplate[]> {
-  const response = await fetch(`${BASE_URL}/templates`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/templates`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch templates');
   return response.json();
 }
 
 export async function getTemplate(id: string): Promise<CommunicationTemplate> {
-  const response = await fetch(`${BASE_URL}/templates/${id}`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/templates/${id}`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch template');
   return response.json();
 }
@@ -116,7 +106,7 @@ export async function getTemplate(id: string): Promise<CommunicationTemplate> {
 export async function createTemplate(data: Partial<CommunicationTemplate>): Promise<CommunicationTemplate> {
   const response = await fetch(`${BASE_URL}/templates`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create template');
@@ -126,7 +116,7 @@ export async function createTemplate(data: Partial<CommunicationTemplate>): Prom
 export async function updateTemplate(id: string, data: Partial<CommunicationTemplate>): Promise<CommunicationTemplate> {
   const response = await fetch(`${BASE_URL}/templates/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update template');
@@ -136,7 +126,7 @@ export async function updateTemplate(id: string, data: Partial<CommunicationTemp
 export async function deleteTemplate(id: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/templates/${id}`, {
     method: 'DELETE',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to delete template');
 }
@@ -144,13 +134,13 @@ export async function deleteTemplate(id: string): Promise<void> {
 // --- Automation Rules ---
 
 export async function getAutomationRules(): Promise<AutomationRule[]> {
-  const response = await fetch(`${BASE_URL}/automation`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/automation`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch automation rules');
   return response.json();
 }
 
 export async function getAutomationRule(id: string): Promise<AutomationRule> {
-  const response = await fetch(`${BASE_URL}/automation/${id}`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/automation/${id}`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch automation rule');
   return response.json();
 }
@@ -158,7 +148,7 @@ export async function getAutomationRule(id: string): Promise<AutomationRule> {
 export async function createAutomationRule(data: Partial<AutomationRule>): Promise<AutomationRule> {
   const response = await fetch(`${BASE_URL}/automation`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create automation rule');
@@ -168,7 +158,7 @@ export async function createAutomationRule(data: Partial<AutomationRule>): Promi
 export async function updateAutomationRule(id: string, data: Partial<AutomationRule>): Promise<AutomationRule> {
   const response = await fetch(`${BASE_URL}/automation/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update automation rule');
@@ -178,7 +168,7 @@ export async function updateAutomationRule(id: string, data: Partial<AutomationR
 export async function deleteAutomationRule(id: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/automation/${id}`, {
     method: 'DELETE',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to delete automation rule');
 }
@@ -186,7 +176,7 @@ export async function deleteAutomationRule(id: string): Promise<void> {
 // --- SLA Definitions ---
 
 export async function getSLADefinitions(): Promise<SLADefinition[]> {
-  const response = await fetch(`${BASE_URL}/slas`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/slas`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch SLA definitions');
   return response.json();
 }
@@ -194,7 +184,7 @@ export async function getSLADefinitions(): Promise<SLADefinition[]> {
 export async function createSLADefinition(data: Partial<SLADefinition>): Promise<SLADefinition> {
   const response = await fetch(`${BASE_URL}/slas`, {
     method: 'POST',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to create SLA definition');
@@ -204,7 +194,7 @@ export async function createSLADefinition(data: Partial<SLADefinition>): Promise
 export async function updateSLADefinition(id: string, data: Partial<SLADefinition>): Promise<SLADefinition> {
   const response = await fetch(`${BASE_URL}/slas/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update SLA definition');
@@ -214,7 +204,7 @@ export async function updateSLADefinition(id: string, data: Partial<SLADefinitio
 export async function deleteSLADefinition(id: string): Promise<void> {
   const response = await fetch(`${BASE_URL}/slas/${id}`, {
     method: 'DELETE',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
   });
   if (!response.ok) throw new Error('Failed to delete SLA definition');
 }
@@ -222,7 +212,7 @@ export async function deleteSLADefinition(id: string): Promise<void> {
 // --- Permissions ---
 
 export async function getPermissions(): Promise<CommunicationPermission[]> {
-  const response = await fetch(`${BASE_URL}/permissions`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/permissions`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch permissions');
   return response.json();
 }
@@ -230,7 +220,7 @@ export async function getPermissions(): Promise<CommunicationPermission[]> {
 export async function updatePermission(id: string, data: Partial<CommunicationPermission>): Promise<CommunicationPermission> {
   const response = await fetch(`${BASE_URL}/permissions/${id}`, {
     method: 'PUT',
-    headers: await getHeaders(),
+    headers: await getAuthHeaders(),
     body: JSON.stringify(data),
   });
   if (!response.ok) throw new Error('Failed to update permission');
@@ -240,7 +230,7 @@ export async function updatePermission(id: string, data: Partial<CommunicationPe
 // --- Delivery Logs ---
 
 export async function getDeliveryLogs(): Promise<CommunicationDeliveryLog[]> {
-  const response = await fetch(`${BASE_URL}/delivery-logs`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/delivery-logs`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch delivery logs');
   return response.json();
 }
@@ -248,7 +238,7 @@ export async function getDeliveryLogs(): Promise<CommunicationDeliveryLog[]> {
 // --- Audit Logs ---
 
 export async function getAuditLogs(): Promise<CommunicationAuditLog[]> {
-  const response = await fetch(`${BASE_URL}/audit-logs`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/audit-logs`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch audit logs');
   return response.json();
 }
@@ -256,7 +246,7 @@ export async function getAuditLogs(): Promise<CommunicationAuditLog[]> {
 // --- Statistics ---
 
 export async function getStats(): Promise<CommunicationStats> {
-  const response = await fetch(`${BASE_URL}/stats`, { headers: await getHeaders() });
+  const response = await fetch(`${BASE_URL}/stats`, { headers: await getAuthHeaders() });
   if (!response.ok) throw new Error('Failed to fetch statistics');
   return response.json();
 }

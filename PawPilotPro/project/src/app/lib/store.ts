@@ -1,4 +1,5 @@
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { projectId } from '../../../utils/supabase/info';
+import { getAuthHeaders } from '../../utils/supabase/authHeaders';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
@@ -35,7 +36,7 @@ export interface Booking {
 // Helper for API calls
 const fetchApi = async (path: string, options: RequestInit = {}) => {
   // Validate configuration
-  if (!projectId || !publicAnonKey) {
+  if (!projectId) {
     throw new Error('Supabase configuration not available');
   }
 
@@ -43,8 +44,7 @@ const fetchApi = async (path: string, options: RequestInit = {}) => {
     const res = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${publicAnonKey}`,
-        'Content-Type': 'application/json',
+        ...(await getAuthHeaders()),
         ...options.headers,
       }
     });

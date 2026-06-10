@@ -8,8 +8,8 @@ import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '../../../../utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 
 interface ImportResult {
   success: boolean;
@@ -53,18 +53,11 @@ export function BulkImportPage() {
   
   const handleDownloadTemplate = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error('Not authenticated — please log in again');
-        return;
-      }
-      
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/import/template`,
         {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`,
+            ...(await getAuthHeaders()),
             'X-Tenant-Id': activeTenantId || '',
           },
         }
@@ -110,24 +103,20 @@ export function BulkImportPage() {
     setIsProcessing(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error('Not authenticated — please log in again');
-        setIsProcessing(false);
-        return;
-      }
-      
       const formData = new FormData();
       formData.append('file', file);
       formData.append('dry_run', isDryRun.toString());
-      
+
+      // FormData posts must not send the JSON Content-Type the shared util adds —
+      // the browser has to set the multipart boundary itself.
+      const { 'Content-Type': _ct, ...auth } = await getAuthHeaders();
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/import`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`,
+            ...auth,
             'X-Tenant-Id': activeTenantId || '',
           },
           body: formData,

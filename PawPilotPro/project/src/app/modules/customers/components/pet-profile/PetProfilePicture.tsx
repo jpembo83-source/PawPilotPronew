@@ -3,7 +3,8 @@ import { Pet } from '../../types';
 import { Card, CardContent } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Camera, UploadSimple, X, CircleNotch } from '@phosphor-icons/react';
-import { projectId, publicAnonKey } from '../../../../../../utils/supabase/info';
+import { projectId } from '../../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../../utils/supabase/authHeaders';
 
 interface PetProfilePictureProps {
   pet: Pet;
@@ -39,13 +40,14 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
       formData.append('file', file);
       formData.append('petId', pet.id);
       
+      // FormData posts must not send the JSON Content-Type the shared util
+      // adds — the browser sets the multipart boundary itself.
+      const { 'Content-Type': _ct, ...auth } = await getAuthHeaders();
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/pet-photo-upload/upload`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
+          headers: auth,
           body: formData,
         }
       );

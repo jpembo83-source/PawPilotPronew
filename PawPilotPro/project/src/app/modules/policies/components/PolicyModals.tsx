@@ -6,7 +6,8 @@ import { PolicyDocument } from '../store';
 import { X, UploadSimple, Warning, ArrowClockwise, Bell, CalendarBlank, Info } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { supabase } from '../../../../utils/supabase/client';
-import { publicAnonKey, projectId } from '../../../../../utils/supabase/info';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 
 // ============================================================================
 // TYPES
@@ -335,14 +336,12 @@ export function AssignPolicyModal({ policy, onClose, onAssign }: AssignPolicyMod
     const fetchUsers = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
         const tenantId = session?.user?.user_metadata?.tenant_id || session?.user?.user_metadata?.tenantId;
-        
+
         // Try the staff endpoint first
         const staffResponse = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff`, {
           headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${token}`,
+            ...(await getAuthHeaders()),
             'X-Tenant-Id': tenantId || '',
           },
         });

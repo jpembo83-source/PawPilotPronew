@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '../../../../utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { useAuth } from '../../../context/AuthContext';
 import { useDashboardStore } from '../../dashboard/store';
 import { exportToXlsx } from '../utils/exportXlsx';
@@ -53,16 +53,7 @@ export function ReportsPage() {
     setData(null);
 
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      const accessToken = currentSession?.access_token;
-
-      const reqHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-      };
-      if (accessToken) {
-        reqHeaders['X-User-Token'] = `Bearer ${accessToken}`;
-      }
+      const reqHeaders = await getAuthHeaders();
 
       let url = `${BASE_URL}/${tab}?`;
       if (locationParam) url += `location_id=${locationParam}&`;

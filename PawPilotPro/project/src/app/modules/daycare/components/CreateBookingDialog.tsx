@@ -4,8 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useDaycareStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
-import { supabase } from '../../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import { projectId } from '../../../../../utils/supabase/info';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -111,16 +111,10 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
     const checkMembership = async () => {
       setCheckingMembership(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) return;
-
         const res = await fetch(
           `${API_URL}/customer-packages?customer_id=${selectedHousehold.household_id}&status=active`,
           {
-            headers: {
-              'Authorization': `Bearer ${publicAnonKey}`,
-              'X-User-Token': `Bearer ${session.access_token}`,
-            },
+            headers: await getAuthHeaders(),
           }
         );
         if (!res.ok) return;

@@ -6,8 +6,8 @@ import {
   Mail, Copy, ShieldOff, CheckCircle2, Clock, Send, RefreshCw, KeyRound, PauseCircle, PlayCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '../../../../../utils/supabase/client';
-import { projectId, publicAnonKey } from '../../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../../utils/supabase/authHeaders';
+import { projectId } from '../../../../../../utils/supabase/info';
 
 interface PortalActivityTabProps {
   householdId: string;
@@ -48,17 +48,8 @@ const PORTAL_BASE_URL = (
 );
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 
-async function authHeaders() {
-  const { data: { session } } = await supabase.auth.getSession();
-  return {
-    Authorization: `Bearer ${publicAnonKey}`,
-    'X-User-Token': `Bearer ${session?.access_token ?? ''}`,
-    'Content-Type': 'application/json',
-  };
-}
-
 async function callAdmin(path: string, opts: RequestInit = {}) {
-  const headers = await authHeaders();
+  const headers = await getAuthHeaders();
   const res = await fetch(`${FN_BASE}${path}`, { ...opts, headers: { ...headers, ...(opts.headers ?? {}) } });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -73,7 +64,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const headers = await authHeaders();
+      const headers = await getAuthHeaders();
       const res = await fetch(`${FN_BASE}/customers/${householdId}/portal-activity`, { headers });
       if (res.ok) setData(await res.json());
       else setData({ link: null, pendingInvites: [] });

@@ -21,8 +21,8 @@ import {
   CardContent,
 } from '../../../components/ui/card';
 import { Skeleton } from '../../../components/ui/skeleton';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '@/utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -86,11 +86,7 @@ export function PetProfilePage() {
     const loadSummary = async () => {
       setSummaryLoading(true);
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const headers = {
-          'Authorization': `Bearer ${publicAnonKey}`,
-          'X-User-Token': `Bearer ${session?.access_token ?? ''}`,
-        };
+        const headers = await getAuthHeaders();
 
         const [docsRes, vaxRes, visitsRes] = await Promise.allSettled([
           fetch(`${API_BASE}/customers/households/${householdId}/documents`, { headers }),
@@ -185,14 +181,14 @@ export function PetProfilePage() {
       formData.append('file', file);
       formData.append('petId', currentPetProfile!.id);
       
-      // Upload to backend
+      // Upload to backend. FormData posts must not send the JSON Content-Type
+      // the shared util adds — the browser sets the multipart boundary itself.
+      const { 'Content-Type': _ct, ...auth } = await getAuthHeaders();
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/pet-photo-upload/upload`,
         {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
+          headers: auth,
           body: formData,
         }
       );

@@ -1,7 +1,7 @@
 // Debug page to inspect KV store
 import React, { useState } from 'react';
-import { projectId, publicAnonKey } from '../../../utils/supabase/info';
-import { supabase } from '../../utils/supabase/client';
+import { projectId } from '../../../utils/supabase/info';
+import { getAuthHeaders } from '../../utils/supabase/authHeaders';
 
 export function KVDebug() {
   const [data, setData] = useState<any>(null);
@@ -12,20 +12,10 @@ export function KVDebug() {
     setLoading(true);
     setError(null);
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/debug/kv-keys`,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`,
-          },
+          headers: await getAuthHeaders(),
         }
       );
 
@@ -49,20 +39,10 @@ export function KVDebug() {
     setLoading(true);
     setError(null);
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/debug/all-customers`,
         {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`,
-            'X-User-Token': `Bearer ${session.access_token}`,
-          },
+          headers: await getAuthHeaders(),
         }
       );
 

@@ -9,8 +9,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useCustomerStore } from '../store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import { projectId, publicAnonKey } from '../../../../../utils/supabase/info';
-import { supabase } from '../../../../utils/supabase/client';
+import { projectId } from '../../../../../utils/supabase/info';
+import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import * as XLSX from 'xlsx';
 import type { CustomerFilters } from '../types';
 
@@ -32,16 +32,7 @@ export function ExportPage() {
     setIsExporting(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Not authenticated — please log in again');
-      }
-      
-      const authHeaders = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-        'X-User-Token': `Bearer ${session.access_token}`,
-      };
+      const authHeaders = await getAuthHeaders();
       
       // Fetch all households
       const params = new URLSearchParams();

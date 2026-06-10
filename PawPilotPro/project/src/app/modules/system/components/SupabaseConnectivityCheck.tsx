@@ -153,6 +153,10 @@ export function SupabaseConnectivityCheck() {
           throw new Error('No access token for edge functions test');
         }
 
+        // DELIBERATE anon-key usage: /health is an unauthenticated endpoint
+        // (no requireAuth); the anon key only satisfies the functions gateway.
+        // Do NOT copy this pattern for authenticated routes — use
+        // getAuthHeaders() from utils/supabase/authHeaders instead.
         const healthResponse = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/health`,
           {
@@ -201,6 +205,8 @@ export function SupabaseConnectivityCheck() {
         }
 
         const pingStart = performance.now();
+        // DELIBERATE anon-key usage: latency ping against the unauthenticated
+        // /health endpoint — see comment on the Edge Functions check above.
         const pingResponse = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/health`,
           {
