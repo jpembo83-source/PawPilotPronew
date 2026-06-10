@@ -22,6 +22,10 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
+  /** Tenant the session operates within. Sourced from user_metadata for now
+   * (transitional — moves to app_metadata in remediation phase 1.2). Pages
+   * like BulkImport/Export send it as X-Tenant-Id. */
+  activeTenantId: string | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
@@ -32,6 +36,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -71,8 +76,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         initialSessionResolved = true;
         if (session?.user) {
           setUser(mapSupabaseUser(session.user));
+        setActiveTenantId(tenantOf(session.user));
         } else {
           setUser(null);
+        setActiveTenantId(null);
         }
         setIsLoading(false);
       }
@@ -80,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!initialSessionResolved) {
         initialSessionResolved = true;
         setUser(null);
+        setActiveTenantId(null);
         setIsLoading(false);
       }
     });
@@ -88,8 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       initialSessionResolved = true;
       if (session?.user) {
         setUser(mapSupabaseUser(session.user));
+        setActiveTenantId(tenantOf(session.user));
       } else {
         setUser(null);
+        setActiveTenantId(null);
       }
       setIsLoading(false);
     });
@@ -128,7 +138,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('mdc-temp-login-flag');
     await supabase.auth.signOut();
     setUser(null);
+        setActiveTenantId(null);
   };
+
+  const tenantOf = (sbUser: SupabaseUser): string | null =>
+    sbUser.user_metadata?.tenant_id ?? sbUser.user_metadata?.tenantId ?? null;
 
   const mapSupabaseUser = (sbUser: SupabaseUser): User => {
     const metadata = sbUser.user_metadata || {};
@@ -196,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, hasPermission }}>
+    <AuthContext.Provider value={{ user, activeTenantId, login, logout, isLoading, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );
