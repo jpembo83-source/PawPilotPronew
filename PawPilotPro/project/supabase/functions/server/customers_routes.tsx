@@ -4,6 +4,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -48,10 +49,6 @@ app.get('/households', async (c) => {
     
     console.log('[List Households] Raw households from KV:', allHouseholds.length);
     console.log('[List Households] First household type:', typeof allHouseholds[0]);
-    if (allHouseholds.length > 0) {
-      console.log('[List Households] First household:', JSON.stringify(allHouseholds[0]).substring(0, 200));
-    }
-    
     // KV store returns already-parsed objects, not JSON strings
     let households = allHouseholds;
     
@@ -159,8 +156,7 @@ app.get('/households', async (c) => {
     
     return c.json(enriched);
   } catch (error: any) {
-    console.error('List households error:', error);
-    return c.json({ error: error.message || 'Failed to list households' }, 500);
+    return internalError(c, 'customers.listHouseholds', error);
   }
 });
 
@@ -193,8 +189,7 @@ app.get('/households/:id', async (c) => {
       documents: documents,
     });
   } catch (error: any) {
-    console.error('Get household error:', error);
-    return c.json({ error: error.message || 'Failed to get household' }, 500);
+    return internalError(c, 'customers.getHousehold', error);
   }
 });
 
@@ -245,8 +240,7 @@ app.post('/households', async (c) => {
     
     return c.json(household);
   } catch (error: any) {
-    console.error('Create household error:', error);
-    return c.json({ error: error.message || 'Failed to create household' }, 500);
+    return internalError(c, 'customers.createHousehold', error);
   }
 });
 
@@ -293,8 +287,7 @@ app.put('/households/:id', async (c) => {
     
     return c.json(updated);
   } catch (error: any) {
-    console.error('Update household error:', error);
-    return c.json({ error: error.message || 'Failed to update household' }, 500);
+    return internalError(c, 'customers.updateHousehold', error);
   }
 });
 
@@ -395,8 +388,7 @@ app.delete('/households/:id', async (c) => {
     
     return c.json({ message: `Household "${householdData.name}" deleted successfully` });
   } catch (error: any) {
-    console.error('Delete household error:', error);
-    return c.json({ error: error.message || 'Failed to delete household' }, 500);
+    return internalError(c, 'customers.deleteHousehold', error);
   }
 });
 
@@ -416,8 +408,7 @@ app.get('/households/:household_id/contacts', async (c) => {
     // KV store returns already-parsed objects, not JSON strings
     return c.json(contacts);
   } catch (error: any) {
-    console.error('List contacts error:', error);
-    return c.json({ error: error.message || 'Failed to list contacts' }, 500);
+    return internalError(c, 'customers.listContacts', error);
   }
 });
 
@@ -482,8 +473,7 @@ app.post('/households/:household_id/contacts', async (c) => {
     
     return c.json(contact);
   } catch (error: any) {
-    console.error('Create contact error:', error);
-    return c.json({ error: error.message || 'Failed to create contact' }, 500);
+    return internalError(c, 'customers.createContact', error);
   }
 });
 
@@ -551,8 +541,7 @@ app.put('/contacts/:id', async (c) => {
     
     return c.json(updated);
   } catch (error: any) {
-    console.error('Update contact error:', error);
-    return c.json({ error: error.message || 'Failed to update contact' }, 500);
+    return internalError(c, 'customers.updateContact', error);
   }
 });
 
@@ -587,8 +576,7 @@ app.delete('/contacts/:id', async (c) => {
     
     return c.json({ success: true });
   } catch (error: any) {
-    console.error('Delete contact error:', error);
-    return c.json({ error: error.message || 'Failed to delete contact' }, 500);
+    return internalError(c, 'customers.deleteContact', error);
   }
 });
 
@@ -608,8 +596,7 @@ app.get('/households/:household_id/pets', async (c) => {
     // KV store returns already-parsed objects, not JSON strings
     return c.json(pets);
   } catch (error: any) {
-    console.error('List pets error:', error);
-    return c.json({ error: error.message || 'Failed to list pets' }, 500);
+    return internalError(c, 'customers.listPets', error);
   }
 });
 
@@ -632,8 +619,7 @@ app.get('/pets/:id', async (c) => {
     
     return c.json(existingPet);
   } catch (error: any) {
-    console.error('Get pet error:', error);
-    return c.json({ error: error.message || 'Failed to get pet' }, 500);
+    return internalError(c, 'customers.getPet', error);
   }
 });
 
@@ -701,8 +687,7 @@ app.post('/households/:household_id/pets', async (c) => {
     
     return c.json(pet);
   } catch (error: any) {
-    console.error('Create pet error:', error);
-    return c.json({ error: error.message || 'Failed to create pet' }, 500);
+    return internalError(c, 'customers.createPet', error);
   }
 });
 
@@ -758,8 +743,7 @@ app.put('/pets/:id', async (c) => {
     
     return c.json(updated);
   } catch (error: any) {
-    console.error('Update pet error:', error);
-    return c.json({ error: error.message || 'Failed to update pet' }, 500);
+    return internalError(c, 'customers.updatePet', error);
   }
 });
 
@@ -782,8 +766,7 @@ app.get('/households/:household_id/activity', async (c) => {
     
     return c.json(activities);
   } catch (error: any) {
-    console.error('Get activity timeline error:', error);
-    return c.json({ error: error.message || 'Failed to get activity timeline' }, 500);
+    return internalError(c, 'customers.activityTimeline', error);
   }
 });
 
@@ -821,8 +804,7 @@ app.get('/households/:household_id/documents', async (c) => {
     
     return c.json({ documents });
   } catch (error: any) {
-    console.error('List documents error:', error);
-    return c.json({ error: error.message || 'Failed to list documents' }, 500);
+    return internalError(c, 'customers.listDocuments', error);
   }
 });
 
@@ -905,8 +887,7 @@ app.post('/households/:household_id/documents', async (c) => {
     
     return c.json({ document }, 201);
   } catch (error: any) {
-    console.error('Create document error:', error);
-    return c.json({ error: error.message || 'Failed to create document' }, 500);
+    return internalError(c, 'customers.createDocument', error);
   }
 });
 
@@ -925,8 +906,7 @@ app.delete('/households/:household_id/documents/:id', async (c) => {
     
     return c.json({ success: true });
   } catch (error: any) {
-    console.error('Delete document error:', error);
-    return c.json({ error: error.message || 'Failed to delete document' }, 500);
+    return internalError(c, 'customers.deleteDocument', error);
   }
 });
 
@@ -991,8 +971,7 @@ app.get('/document-alerts', async (c) => {
     
     return c.json(alerts);
   } catch (error: any) {
-    console.error('Get document alerts error:', error);
-    return c.json({ error: error.message || 'Failed to get document alerts' }, 500);
+    return internalError(c, 'customers.documentAlerts', error);
   }
 });
 
@@ -1005,12 +984,12 @@ app.post('/seed-data', async (c) => {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
     const userId = user.id;
-    console.log('[Seed] User:', user.email, 'TenantId:', tenantId, 'UserId:', userId);
+    console.log('[Seed] TenantId:', tenantId, 'UserId:', userId);
     
     // Check if force reseed requested (clears existing test data)
     const body = await c.req.json().catch(() => ({}));
     const forceReseed = body.force === true;
-    console.log('[Seed] Body:', JSON.stringify(body), 'Force:', forceReseed);
+    console.log('[Seed] Force:', forceReseed);
     
     // Check if data already exists
     const existing = await kv.getByPrefix(`customer:${tenantId}:household:`);
@@ -1213,8 +1192,7 @@ app.post('/seed-data', async (c) => {
       tenantId: tenantId,
     });
   } catch (error: any) {
-    console.error('Seed data error:', error);
-    return c.json({ error: error.message || 'Failed to create seed data' }, 500);
+    return internalError(c, 'customers.seedData', error);
   }
 });
 
@@ -1235,8 +1213,7 @@ app.get('/import/template', async (c) => {
       note: 'This will return an Excel file with columns: household_name, external_id, contact_first_name, contact_last_name, contact_email, contact_phone, pet_name, pet_breed, pet_species, etc.'
     });
   } catch (error: any) {
-    console.error('Template download error:', error);
-    return c.json({ error: error.message || 'Failed to download template' }, 500);
+    return internalError(c, 'customers.templateDownload', error);
   }
 });
 
@@ -1265,8 +1242,7 @@ app.post('/import', async (c) => {
       message: 'Import functionality not yet implemented. This will parse Excel files and create/update customer records.'
     });
   } catch (error: any) {
-    console.error('Import error:', error);
-    return c.json({ error: error.message || 'Import failed' }, 500);
+    return internalError(c, 'customers.importCustomers', error);
   }
 });
 
@@ -1447,8 +1423,7 @@ app.get('/export', async (c) => {
       },
     });
   } catch (error: any) {
-    console.error('Export error:', error);
-    return c.json({ error: error.message || 'Export failed' }, 500);
+    return internalError(c, 'customers.exportCustomers', error);
   }
 });
 
@@ -1490,8 +1465,7 @@ app.get('/households/:id/notes', async (c) => {
     
     return c.json(notesWithPets);
   } catch (error: any) {
-    console.error('List notes error:', error);
-    return c.json({ error: error.message || 'Failed to list notes' }, 500);
+    return internalError(c, 'customers.listNotes', error);
   }
 });
 
@@ -1570,8 +1544,7 @@ app.post('/households/:id/notes', async (c) => {
     
     return c.json(noteWithPets, 201);
   } catch (error: any) {
-    console.error('Create note error:', error);
-    return c.json({ error: error.message || 'Failed to create note' }, 500);
+    return internalError(c, 'customers.createNote', error);
   }
 });
 
@@ -1658,8 +1631,7 @@ app.patch('/notes/:id', async (c) => {
     
     return c.json({ ...note, pet_ids: currentPetIds });
   } catch (error: any) {
-    console.error('Update note error:', error);
-    return c.json({ error: error.message || 'Failed to update note' }, 500);
+    return internalError(c, 'customers.updateNote', error);
   }
 });
 
@@ -1696,8 +1668,7 @@ app.delete('/notes/:id', async (c) => {
     
     return c.json({ message: 'Note deleted successfully' });
   } catch (error: any) {
-    console.error('Delete note error:', error);
-    return c.json({ error: error.message || 'Failed to delete note' }, 500);
+    return internalError(c, 'customers.deleteNote', error);
   }
 });
 
@@ -1726,8 +1697,7 @@ app.get('/households/:id/flags', async (c) => {
     
     return c.json(allFlags);
   } catch (error: any) {
-    console.error('List flags error:', error);
-    return c.json({ error: error.message || 'Failed to list flags' }, 500);
+    return internalError(c, 'customers.listFlags', error);
   }
 });
 
@@ -1748,7 +1718,6 @@ app.post('/households/:id/flags', async (c) => {
     const body = await c.req.json();
     const { flag_key, severity, is_active = true, reason, pet_id } = body;
     
-    console.log('Create flag request body:', JSON.stringify(body, null, 2));
     console.log('Extracted pet_id:', pet_id, 'Type:', typeof pet_id, 'Truthy:', !!pet_id);
     
     // Validate required fields
@@ -1778,7 +1747,6 @@ app.post('/households/:id/flags', async (c) => {
         console.error(`Pet not found for pet_id: ${pet_id}`);
         return c.json({ error: 'Pet not found' }, 404);
       }
-      console.log(`Found pet:`, pet);
       if (pet.household_id !== householdId) {
         return c.json({ error: 'Pet does not belong to this household' }, 400);
       }
@@ -1842,8 +1810,7 @@ app.post('/households/:id/flags', async (c) => {
     
     return c.json(flag, 201);
   } catch (error: any) {
-    console.error('Create flag error:', error);
-    return c.json({ error: error.message || 'Failed to create flag' }, 500);
+    return internalError(c, 'customers.createFlag', error);
   }
 });
 
@@ -1929,8 +1896,7 @@ app.patch('/flags/:id', async (c) => {
     
     return c.json(flag);
   } catch (error: any) {
-    console.error('Update flag error:', error);
-    return c.json({ error: error.message || 'Failed to update flag' }, 500);
+    return internalError(c, 'customers.updateFlag', error);
   }
 });
 
@@ -2005,8 +1971,7 @@ app.delete('/flags/:id', async (c) => {
     
     return c.json({ message: 'Flag deleted successfully' });
   } catch (error: any) {
-    console.error('Delete flag error:', error);
-    return c.json({ error: error.message || 'Failed to delete flag' }, 500);
+    return internalError(c, 'customers.deleteFlag', error);
   }
 });
 
@@ -2093,8 +2058,7 @@ app.delete('/clear-timeline-data', async (c) => {
       }
     });
   } catch (error: any) {
-    console.error('Clear timeline data error:', error);
-    return c.json({ error: error.message || 'Failed to clear timeline data' }, 500);
+    return internalError(c, 'customers.clearTimelineData', error);
   }
 });
 
@@ -2193,8 +2157,7 @@ app.get('/pets/:petId/timeline', async (c) => {
     
     return c.json(timelineItems);
   } catch (error: any) {
-    console.error('Get pet timeline error:', error);
-    return c.json({ error: error.message || 'Failed to fetch timeline' }, 500);
+    return internalError(c, 'customers.petTimeline', error);
   }
 });
 
@@ -2268,8 +2231,7 @@ app.post('/activity', async (c) => {
     
     return c.json(activity, 201);
   } catch (error: any) {
-    console.error('Create activity error:', error);
-    return c.json({ error: error.message || 'Failed to create activity' }, 500);
+    return internalError(c, 'customers.createActivity', error);
   }
 });
 
@@ -2329,106 +2291,7 @@ app.get('/debug/kv-keys', async (c) => {
       })),
     });
   } catch (error: any) {
-    console.error('[Debug KV] Error:', error);
-    return c.json({ error: error.message }, 500);
-  }
-});
-
-// New comprehensive debug route that shows ALL customer data
-app.get('/debug/all-customers', async (c) => {
-  try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    
-    console.log('[Debug All Customers] Checking ALL data for tenant:', tenantId);
-    
-    // Get all customer-related keys
-    const allCustomerData = await kv.getByPrefix(`customer:${tenantId}:`);
-    
-    console.log('[Debug All Customers] Total items:', allCustomerData.length);
-    console.log('[Debug All Customers] Raw data:', JSON.stringify(allCustomerData, null, 2));
-    
-    return c.json({
-      tenant: tenantId,
-      total_items: allCustomerData.length,
-      all_data: allCustomerData,
-    });
-  } catch (error: any) {
-    console.error('[Debug All Customers] Error:', error);
-    return c.json({ error: error.message }, 500);
-  }
-});
-
-// Delete all customer data (for fixing corrupted data)
-app.delete('/debug/delete-all', async (c) => {
-  try {
-    const token = c.req.header('X-User-Token')?.replace('Bearer ', '');
-    if (!token) {
-      return c.json({ error: 'Unauthorized' }, 401);
-    }
-    
-    const user = await getUserFromToken(token);
-    const tenantId = getTenantId(user);
-    
-    console.log('[Delete All] Deleting ALL customer data for tenant:', tenantId);
-    
-    // Get all customer-related keys
-    const allKeys = await kv.getByPrefix(`customer:${tenantId}:`);
-    const vaccinationKeys = await kv.getByPrefix(`vaccination:${tenantId}:`);
-    
-    console.log('[Delete All] Found keys:', {
-      customer_keys: allKeys.length,
-      vaccination_keys: vaccinationKeys.length,
-    });
-    
-    // Delete all customer data
-    for (const item of allKeys) {
-      // Extract key from the item (KV returns objects with keys)
-      const keys = await kv.getByPrefix(`customer:${tenantId}:`);
-      // Since we need to delete by key, we'll need to construct the keys
-      // For now, let's use a different approach
-    }
-    
-    // Since getByPrefix returns values not keys, we need to use a different strategy
-    // We'll call the SQL function directly via Supabase client
-    const supabase = getServiceClient();
-    
-    // Delete using pattern matching on the key column
-    const { error: deleteError } = await supabase
-      .from('kv_store_fc003b23')
-      .delete()
-      .like('key', `customer:${tenantId}:%`);
-    
-    if (deleteError) {
-      throw new Error(`Failed to delete customer data: ${deleteError.message}`);
-    }
-    
-    const { error: deleteVacError } = await supabase
-      .from('kv_store_fc003b23')
-      .delete()
-      .like('key', `vaccination:${tenantId}:%`);
-    
-    if (deleteVacError) {
-      throw new Error(`Failed to delete vaccination data: ${deleteVacError.message}`);
-    }
-    
-    console.log('[Delete All] Successfully deleted all data');
-    
-    return c.json({
-      message: 'All customer data deleted successfully',
-      deleted: {
-        customer_prefix: `customer:${tenantId}:`,
-        vaccination_prefix: `vaccination:${tenantId}:`,
-      },
-    });
-  } catch (error: any) {
-    console.error('[Delete All] Error:', error);
-    return c.json({ error: error.message }, 500);
+    return internalError(c, 'customers.debugKv', error);
   }
 });
 

@@ -7,6 +7,7 @@ import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -198,7 +199,7 @@ app.get('/', async (c) => {
     return c.json(enriched);
   } catch (error: any) {
     console.error('List staff error:', error);
-    return c.json({ error: error.message || 'Failed to list staff' }, 500);
+    return internalError(c, 'staff.getRoot', error);
   }
 });
 
@@ -274,7 +275,7 @@ app.get('/policies', async (c) => {
   } catch (error: any) {
     console.error('[List Policies] ERROR:', error);
     console.error('[List Policies] Error stack:', error.stack);
-    return c.json({ error: error.message || 'Failed to list policies' }, 500);
+    return internalError(c, 'staff.getPolicies', error);
   }
 });
 
@@ -291,11 +292,9 @@ app.post('/policies', async (c) => {
     let body;
     try {
       body = await c.req.json();
-      console.log('[Create Policy] Parsed body:', body);
     } catch (parseError: any) {
       console.error('[Create Policy] JSON parse error:', parseError);
-      console.error('[Create Policy] Raw body:', await c.req.text());
-      return c.json({ error: `Invalid JSON: ${parseError.message}` }, 400);
+      return c.json({ error: 'Invalid JSON' }, 400);
     }
     
     const policyId = generateId('pol');
@@ -314,7 +313,6 @@ app.post('/policies', async (c) => {
     };
     
     console.log('[Create Policy] Saving policy with key:', `staff:${tenantId}:policy:${policyId}`);
-    console.log('[Create Policy] Policy object:', policy);
     
     await kv.set(`staff:${tenantId}:policy:${policyId}`, policy);
     
@@ -324,7 +322,7 @@ app.post('/policies', async (c) => {
   } catch (error: any) {
     console.error('[Create Policy] Error:', error);
     console.error('[Create Policy] Error stack:', error.stack);
-    return c.json({ error: error.message || 'Failed to create policy' }, 500);
+    return internalError(c, 'staff.postPolicies', error);
   }
 });
 
@@ -360,7 +358,7 @@ app.get('/policies/:id', async (c) => {
     });
   } catch (error: any) {
     console.error('Get policy error:', error);
-    return c.json({ error: error.message || 'Failed to get policy' }, 500);
+    return internalError(c, 'staff.getPoliciesId', error);
   }
 });
 
@@ -390,7 +388,7 @@ app.post('/policies/:id/publish', async (c) => {
     return c.json(policy);
   } catch (error: any) {
     console.error('Publish policy error:', error);
-    return c.json({ error: error.message || 'Failed to publish policy' }, 500);
+    return internalError(c, 'staff.postPoliciesIdPublish', error);
   }
 });
 
@@ -415,7 +413,7 @@ app.post('/policies/:id/archive', async (c) => {
     return c.json(policy);
   } catch (error: any) {
     console.error('Archive policy error:', error);
-    return c.json({ error: error.message || 'Failed to archive policy' }, 500);
+    return internalError(c, 'staff.postPoliciesIdArchive', error);
   }
 });
 
@@ -438,12 +436,9 @@ app.post('/policies/:id/versions', async (c) => {
     let body;
     try {
       body = await c.req.json();
-      console.log('[Create Policy Version] Parsed body:', body);
     } catch (parseError: any) {
       console.error('[Create Policy Version] JSON parse error:', parseError);
-      const rawText = await c.req.text();
-      console.error('[Create Policy Version] Raw body:', rawText);
-      return c.json({ error: `Invalid JSON: ${parseError.message}` }, 400);
+      return c.json({ error: 'Invalid JSON' }, 400);
     }
     
     const versionId = generateId('pv');
@@ -519,7 +514,7 @@ app.post('/policies/:id/versions', async (c) => {
   } catch (error: any) {
     console.error('[Create Policy Version] Error:', error);
     console.error('[Create Policy Version] Error stack:', error.stack);
-    return c.json({ error: error.message || 'Failed to create policy version' }, 500);
+    return internalError(c, 'staff.postPoliciesIdVersions', error);
   }
 });
 
@@ -582,7 +577,7 @@ app.get('/policies/:id/versions/:versionId/download', async (c) => {
     });
   } catch (error: any) {
     console.error('Get download URL error:', error);
-    return c.json({ error: error.message || 'Failed to get download URL' }, 500);
+    return internalError(c, 'staff.getPoliciesIdVersionsVersionIdDownload', error);
   }
 });
 
@@ -638,7 +633,7 @@ app.delete('/policies/:id', async (c) => {
     return c.json({ success: true });
   } catch (error: any) {
     console.error('[Delete Policy] Error:', error);
-    return c.json({ error: error.message || 'Failed to delete policy' }, 500);
+    return internalError(c, 'staff.deletePoliciesId', error);
   }
 });
 
@@ -649,12 +644,7 @@ app.get('/my-policies', async (c) => {
     const tenantId = user.tenantId;
     const userId = user.id;
     
-    console.log('[/my-policies] Fetching policies for user:', {
-      tenantId,
-      userId,
-      userEmail: user.email,
-      userName: user.user_metadata?.name,
-    });
+    console.log('[/my-policies] Fetching policies for user:', { tenantId, userId });
     
     const prefix = `staff:${tenantId}:assignment:user:${userId}:`;
     console.log('[/my-policies] Searching with prefix:', prefix);
@@ -805,7 +795,7 @@ app.get('/my-policies', async (c) => {
     return c.json(enrichedAssignments);
   } catch (error: any) {
     console.error('[/my-policies] Error:', error);
-    return c.json({ error: error.message || 'Failed to fetch policies' }, 500);
+    return internalError(c, 'staff.getMyPolicies', error);
   }
 });
 
@@ -897,7 +887,7 @@ app.get('/:id', async (c) => {
     return c.json(staffProfile);
   } catch (error: any) {
     console.error('Fetch staff member error:', error);
-    return c.json({ error: error.message || 'Failed to fetch staff member' }, 500);
+    return internalError(c, 'staff.getId', error);
   }
 });
 
@@ -957,7 +947,7 @@ app.get('/policies/assignments', async (c) => {
     return c.json(assignments);
   } catch (error: any) {
     console.error('List assignments error:', error);
-    return c.json({ error: error.message || 'Failed to list assignments' }, 500);
+    return internalError(c, 'staff.getPoliciesAssignments', error);
   }
 });
 
@@ -973,10 +963,9 @@ app.post('/policies/assign', async (c) => {
     let body;
     try {
       body = await c.req.json();
-      console.log('[Assign Policy] Request body:', JSON.stringify(body, null, 2));
     } catch (parseError: any) {
       console.error('[Assign Policy] JSON parse error:', parseError);
-      return c.json({ error: `Invalid JSON: ${parseError.message}` }, 400);
+      return c.json({ error: 'Invalid JSON' }, 400);
     }
     
     // Validate required fields
@@ -1114,7 +1103,7 @@ app.post('/policies/assign', async (c) => {
     });
   } catch (error: any) {
     console.error('Assign policy error:', error);
-    return c.json({ error: error.message || 'Failed to assign policy' }, 500);
+    return internalError(c, 'staff.postPoliciesAssign', error);
   }
 });
 
@@ -1134,7 +1123,7 @@ app.get('/policies/assignments/:id', async (c) => {
     return c.json(assignment);
   } catch (error: any) {
     console.error('Get assignment error:', error);
-    return c.json({ error: error.message || 'Failed to get assignment' }, 500);
+    return internalError(c, 'staff.getPoliciesAssignmentsId', error);
   }
 });
 
@@ -1257,7 +1246,7 @@ app.post('/policies/acknowledge', async (c) => {
     });
   } catch (error: any) {
     console.error('Acknowledge policy error:', error);
-    return c.json({ error: error.message || 'Failed to acknowledge policy' }, 500);
+    return internalError(c, 'staff.postPoliciesAcknowledge', error);
   }
 });
 
@@ -1307,7 +1296,7 @@ app.get('/rotas', async (c) => {
     return c.json(rotas);
   } catch (error: any) {
     console.error('List rotas error:', error);
-    return c.json({ error: error.message || 'Failed to list rotas' }, 500);
+    return internalError(c, 'staff.getRotas', error);
   }
 });
 
@@ -1340,7 +1329,7 @@ app.post('/rotas', async (c) => {
     return c.json(rota);
   } catch (error: any) {
     console.error('Create rota error:', error);
-    return c.json({ error: error.message || 'Failed to create rota' }, 500);
+    return internalError(c, 'staff.postRotas', error);
   }
 });
 
@@ -1373,7 +1362,7 @@ app.get('/rotas/:id', async (c) => {
     });
   } catch (error: any) {
     console.error('Get rota error:', error);
-    return c.json({ error: error.message || 'Failed to get rota' }, 500);
+    return internalError(c, 'staff.getRotasId', error);
   }
 });
 
@@ -1402,7 +1391,7 @@ app.post('/rotas/:id/publish', async (c) => {
     return c.json(rota);
   } catch (error: any) {
     console.error('Publish rota error:', error);
-    return c.json({ error: error.message || 'Failed to publish rota' }, 500);
+    return internalError(c, 'staff.postRotasIdPublish', error);
   }
 });
 
@@ -1446,7 +1435,7 @@ app.post('/rotas/:id/shifts', async (c) => {
     return c.json(shift);
   } catch (error: any) {
     console.error('Create shift error:', error);
-    return c.json({ error: error.message || 'Failed to create shift' }, 500);
+    return internalError(c, 'staff.postRotasIdShifts', error);
   }
 });
 
@@ -1486,7 +1475,7 @@ app.put('/rotas/:rotaId/shifts/:shiftId', async (c) => {
     return c.json(updated);
   } catch (error: any) {
     console.error('Update shift error:', error);
-    return c.json({ error: error.message || 'Failed to update shift' }, 500);
+    return internalError(c, 'staff.putRotasRotaIdShiftsShiftId', error);
   }
 });
 
@@ -1517,7 +1506,7 @@ app.delete('/rotas/:rotaId/shifts/:shiftId', async (c) => {
     return c.json({ success: true });
   } catch (error: any) {
     console.error('Delete shift error:', error);
-    return c.json({ error: error.message || 'Failed to delete shift' }, 500);
+    return internalError(c, 'staff.deleteRotasRotaIdShiftsShiftId', error);
   }
 });
 
@@ -1540,7 +1529,7 @@ app.get('/my-rota', async (c) => {
     return c.json(shifts);
   } catch (error: any) {
     console.error('Fetch my rota error:', error);
-    return c.json({ error: error.message || 'Failed to fetch rota' }, 500);
+    return internalError(c, 'staff.getMyRota', error);
   }
 });
 
@@ -1605,7 +1594,7 @@ app.get('/policies/compliance/stats', async (c) => {
     return c.json(stats);
   } catch (error: any) {
     console.error('Compliance stats error:', error);
-    return c.json({ error: error.message || 'Failed to get compliance stats' }, 500);
+    return internalError(c, 'staff.getPoliciesComplianceStats', error);
   }
 });
 
@@ -1650,7 +1639,7 @@ app.get('/policies/blocking/:userId', async (c) => {
     });
   } catch (error: any) {
     console.error('Check blocking policies error:', error);
-    return c.json({ error: error.message || 'Failed to check blocking policies' }, 500);
+    return internalError(c, 'staff.getPoliciesBlockingUserId', error);
   }
 });
 
@@ -1701,7 +1690,7 @@ app.get('/policies/compliance/by-policy', async (c) => {
     return c.json(complianceByPolicy);
   } catch (error: any) {
     console.error('Compliance by policy error:', error);
-    return c.json({ error: error.message || 'Failed to get compliance by policy' }, 500);
+    return internalError(c, 'staff.getPoliciesComplianceByPolicy', error);
   }
 });
 
@@ -1750,7 +1739,7 @@ app.get('/policies/export/acknowledgements', async (c) => {
     });
   } catch (error: any) {
     console.error('Export acknowledgements error:', error);
-    return c.json({ error: error.message || 'Failed to export acknowledgements' }, 500);
+    return internalError(c, 'staff.getPoliciesExportAcknowledgements', error);
   }
 });
 
@@ -1777,7 +1766,7 @@ app.get('/policies/audit', async (c) => {
     return c.json(auditEvents);
   } catch (error: any) {
     console.error('Get audit trail error:', error);
-    return c.json({ error: error.message || 'Failed to get audit trail' }, 500);
+    return internalError(c, 'staff.getPoliciesAudit', error);
   }
 });
 
@@ -1822,7 +1811,7 @@ app.delete('/cleanup-demo', async (c) => {
     });
   } catch (error: any) {
     console.error('Cleanup demo error:', error);
-    return c.json({ error: error.message || 'Failed to cleanup demo data' }, 500);
+    return internalError(c, 'staff.deleteCleanupDemo', error);
   }
 });
 

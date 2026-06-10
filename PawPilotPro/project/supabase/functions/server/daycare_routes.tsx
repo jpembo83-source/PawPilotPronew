@@ -6,6 +6,7 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -458,8 +459,7 @@ app.get('/search-customers', async (c) => {
     
     return c.json(results.slice(0, 20)); // Limit to 20 results
   } catch (error: any) {
-    console.error('Search customers error:', error);
-    return c.json({ error: error.message || 'Failed to search customers' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.searchCustomers', error);
   }
 });
 
@@ -673,8 +673,7 @@ app.get('/capacity', async (c) => {
       }
     });
   } catch (error: any) {
-    console.error('Get capacity error:', error);
-    return c.json({ error: error.message || 'Failed to get capacity' }, 500);
+    return internalError(c, 'daycare.getCapacity', error);
   }
 });
 
@@ -769,8 +768,7 @@ app.get('/bookings', async (c) => {
     
     return c.json(bookings);
   } catch (error: any) {
-    console.error('Get bookings error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve bookings' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.listBookings', error);
   }
 });
 
@@ -798,8 +796,7 @@ app.get('/bookings/:id', async (c) => {
     
     return c.json(booking);
   } catch (error: any) {
-    console.error('Get booking error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve booking' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.getBooking', error);
   }
 });
 
@@ -1010,8 +1007,7 @@ app.post('/bookings', async (c) => {
     
     return c.json(booking, 201);
   } catch (error: any) {
-    console.error('Create booking error:', error);
-    return c.json({ error: error.message || 'Failed to create booking' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.createBooking', error);
   }
 });
 
@@ -1079,8 +1075,7 @@ app.post('/bookings/:id/cancel', async (c) => {
     
     return c.json(booking);
   } catch (error: any) {
-    console.error('Cancel booking error:', error);
-    return c.json({ error: error.message || 'Failed to cancel booking' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.cancelBooking', error);
   }
 });
 
@@ -1124,8 +1119,7 @@ app.post('/bookings/:id/validate-checkin', async (c) => {
     
     return c.json(validation);
   } catch (error: any) {
-    console.error('Validate check-in error:', error);
-    return c.json({ error: error.message || 'Failed to validate check-in' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.validateCheckIn', error);
   }
 });
 
@@ -1218,8 +1212,7 @@ app.post('/bookings/:id/checkin', async (c) => {
     
     return c.json({ booking, attendance });
   } catch (error: any) {
-    console.error('Check-in error:', error);
-    return c.json({ error: error.message || 'Failed to check in' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.checkIn', error);
   }
 });
 
@@ -1310,8 +1303,7 @@ app.post('/bookings/:id/checkout', async (c) => {
     
     return c.json(booking);
   } catch (error: any) {
-    console.error('Check-out error:', error);
-    return c.json({ error: error.message || 'Failed to check out' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.checkOut', error);
   }
 });
 
@@ -1403,8 +1395,7 @@ app.get('/attendance/today', async (c) => {
     
     return c.json({ attendance });
   } catch (error: any) {
-    console.error('Get today attendance error:', error);
-    return c.json({ error: error.message || 'Failed to get attendance' }, 500);
+    return internalError(c, 'daycare.todayAttendance', error);
   }
 });
 
@@ -1460,8 +1451,7 @@ app.get('/attendance/active', async (c) => {
     
     return c.json(attendance);
   } catch (error: any) {
-    console.error('Get active attendance error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve attendance' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.activeAttendance', error);
   }
 });
 
@@ -1542,8 +1532,7 @@ app.get('/stats', async (c) => {
     
     return c.json(stats);
   } catch (error: any) {
-    console.error('Get stats error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve statistics' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.stats', error);
   }
 });
 
@@ -1606,8 +1595,7 @@ app.get('/events', async (c) => {
     
     return c.json(validEvents);
   } catch (error: any) {
-    console.error('Get events error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve events' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'daycare.events', error);
   }
 });
 

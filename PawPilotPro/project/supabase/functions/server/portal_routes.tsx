@@ -8,6 +8,7 @@ import { Hono } from "npm:hono";
 import { z } from "npm:zod";
 import { createClient } from "npm:@supabase/supabase-js";
 import * as kv from "./kv_store.tsx";
+import { internalError } from "./_shared/log.ts";
 import { notify, PortalNotificationType } from "./lib/notify.ts";
 
 const portal = new Hono();
@@ -141,7 +142,7 @@ portal.post("/auth/accept-invite", async (c) => {
       let page = 1;
       while (page < 20) {
         const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-        if (listErr) return c.json({ error: listErr.message }, 500);
+        if (listErr) return internalError(c, 'portal.acceptInvite', listErr);
         const match = list.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
         if (match) {
           isExistingUser = true;
@@ -167,7 +168,7 @@ portal.post("/auth/accept-invite", async (c) => {
             user_metadata: mergedMeta,
             email_confirm: true,
           });
-          if (updErr) return c.json({ error: `Could not attach portal access to existing account: ${updErr.message}` }, 500);
+          if (updErr) return internalError(c, 'portal.acceptInvite', updErr);
           break;
         }
         if (!list.users || list.users.length < 200) break;
@@ -175,7 +176,7 @@ portal.post("/auth/accept-invite", async (c) => {
       }
       if (!authUserId) return c.json({ error: "Email already registered but user record could not be located" }, 500);
     } else {
-      return c.json({ error: error?.message ?? "Account creation failed" }, 500);
+      return internalError(c, 'portal.acceptInvite', error);
     }
   }
 
@@ -1497,8 +1498,7 @@ portal.post("/pets/:id/photo", async (c) => {
       upsert: true,
     });
   if (upErr) {
-    console.error("[portal] photo upload failed", upErr);
-    return c.json({ error: upErr.message }, 500);
+    return internalError(c, 'portal.petPhotoUpload', upErr);
   }
 
   const { data: { publicUrl } } = admin.storage
@@ -1557,7 +1557,7 @@ portal.post("/pets/:id/tracker/ble", async (c) => {
 
   let body: z.infer<typeof blePacketSchema>;
   try { body = blePacketSchema.parse(await c.req.json()); }
-  catch (e: any) { return c.json({ error: "Invalid payload", detail: e?.message }, 400); }
+  catch { return c.json({ error: "Invalid payload" }, 400); }
 
   if (body.packets.length === 0) return c.json({ ok: true, inserted: 0 });
 
@@ -1578,7 +1578,7 @@ portal.post("/pets/:id/tracker/ble", async (c) => {
   const { error, count } = await admin
     .schema("invoxia").from("ble_packets")
     .insert(rows, { count: "exact" });
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return internalError(c, 'portal.trackerBle', error);
   return c.json({ ok: true, inserted: count ?? rows.length });
 });
 
@@ -1600,7 +1600,7 @@ portal.get("/pets/:id/tracker/status", async (c) => {
     .select("*")
     .eq("pet_id", petId)
     .maybeSingle();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return internalError(c, 'portal.trackerStatus', error);
   return c.json({ pet_id: petId, status: data ?? null });
 });
 
@@ -1824,7 +1824,7 @@ portal.post("/vax", async (c) => {
     contentType: file.type,
     upsert: false,
   });
-  if (upErr) return c.json({ error: `Upload failed: ${upErr.message}` }, 500);
+  if (upErr) return internalError(c, 'portal.vaxUpload', upErr);
 
   await kv.set(`vax_review_queue:${tenantId}:${id}`, {
     id,
@@ -2290,7 +2290,7 @@ portal.get("/documents/:id/download", async (c) => {
   const { data: signed, error } = await admin.storage
     .from(DOCS_BUCKET)
     .createSignedUrl(doc.storage_path, 60 * 30); // 30 min — long enough to view, short enough to expire
-  if (error || !signed?.signedUrl) return c.json({ error: error?.message ?? "Could not sign URL" }, 500);
+  if (error || !signed?.signedUrl) return internalError(c, 'portal.documentSignUrl', error ?? new Error('missing signed URL'));
   return c.json({ url: signed.signedUrl, expiresIn: 60 * 30 });
 });
 
@@ -2343,7 +2343,7 @@ portal.post("/documents", async (c) => {
     contentType: file.type,
     upsert: false,
   });
-  if (upErr) return c.json({ error: `Upload failed: ${upErr.message}` }, 500);
+  if (upErr) return internalError(c, 'portal.documentUpload', upErr);
 
   const now = new Date().toISOString();
   const doc = {

@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -151,7 +152,7 @@ app.get('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
     return c.json({ vaccinations });
   } catch (error: any) {
     console.error('Error fetching vaccinations:', error);
-    return c.json({ error: 'Failed to fetch vaccinations', details: error.message }, 500);
+    return internalError(c, 'vaccinations.getPetsPetIdVaccinations', error);
   }
 });
 
@@ -246,7 +247,7 @@ app.post('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
     return c.json({ vaccination }, 201);
   } catch (error: any) {
     console.error('Error creating vaccination:', error);
-    return c.json({ error: 'Failed to create vaccination', details: error.message }, 500);
+    return internalError(c, 'vaccinations.postPetsPetIdVaccinations', error);
   }
 });
 
@@ -331,7 +332,7 @@ app.put('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', async (
     return c.json({ vaccination: updated });
   } catch (error: any) {
     console.error('Error updating vaccination:', error);
-    return c.json({ error: 'Failed to update vaccination', details: error.message }, 500);
+    return internalError(c, 'vaccinations.putPetsPetIdVaccinationsVaccinationId', error);
   }
 });
 
@@ -399,7 +400,7 @@ app.delete('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', asyn
     return c.json({ success: true });
   } catch (error: any) {
     console.error('Error deleting vaccination:', error);
-    return c.json({ error: 'Failed to delete vaccination', details: error.message }, 500);
+    return internalError(c, 'vaccinations.deletePetsPetIdVaccinationsVaccinationId', error);
   }
 });
 

@@ -1,6 +1,7 @@
 import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
 import { requireAuth } from "./_shared/auth.ts";
+import { internalError } from "./_shared/log.ts";
 
 const routes = new Hono();
 
@@ -47,7 +48,7 @@ routes.get("/services", async (c) => {
     const services = await kv.getByPrefix("service:");
     return c.json(services);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getServices', e);
   }
 });
 
@@ -58,7 +59,7 @@ routes.post("/services", async (c) => {
     await kv.set(`service:${service.id}`, service);
     return c.json(service);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postServices', e);
   }
 });
 
@@ -73,7 +74,7 @@ routes.put("/services/:id", async (c) => {
     await kv.set(`service:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.putServicesId', e);
   }
 });
 
@@ -83,7 +84,7 @@ routes.delete("/services/:id", async (c) => {
     await kv.del(`service:${id}`);
     return c.json({ success: true });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.deleteServicesId', e);
   }
 });
 
@@ -96,7 +97,7 @@ routes.get("/price-books", async (c) => {
     const priceBooks = await kv.getByPrefix("price-book:");
     return c.json(priceBooks);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getPriceBooks', e);
   }
 });
 
@@ -107,7 +108,7 @@ routes.post("/price-books", async (c) => {
     await kv.set(`price-book:${priceBook.id}`, priceBook);
     return c.json(priceBook);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postPriceBooks', e);
   }
 });
 
@@ -122,7 +123,7 @@ routes.put("/price-books/:id", async (c) => {
     await kv.set(`price-book:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.putPriceBooksId', e);
   }
 });
 
@@ -135,7 +136,7 @@ routes.get("/memberships", async (c) => {
     const memberships = await kv.getByPrefix("membership:");
     return c.json(memberships);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getMemberships', e);
   }
 });
 
@@ -146,7 +147,7 @@ routes.post("/memberships", async (c) => {
     await kv.set(`membership:${membership.id}`, membership);
     return c.json(membership);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postMemberships', e);
   }
 });
 
@@ -161,7 +162,7 @@ routes.put("/memberships/:id", async (c) => {
     await kv.set(`membership:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.putMembershipsId', e);
   }
 });
 
@@ -181,7 +182,7 @@ routes.get("/location-overrides", async (c) => {
     
     return c.json(allOverrides);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getLocationOverrides', e);
   }
 });
 
@@ -192,7 +193,7 @@ routes.post("/location-overrides", async (c) => {
     await kv.set(`location-override:${override.id}`, override);
     return c.json(override);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postLocationOverrides', e);
   }
 });
 
@@ -207,7 +208,7 @@ routes.put("/location-overrides/:id", async (c) => {
     await kv.set(`location-override:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.putLocationOverridesId', e);
   }
 });
 
@@ -217,7 +218,7 @@ routes.delete("/location-overrides/:id", async (c) => {
     await kv.del(`location-override:${id}`);
     return c.json({ success: true });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.deleteLocationOverridesId', e);
   }
 });
 
@@ -230,7 +231,7 @@ routes.get("/multi-dog-rules", async (c) => {
     const rules = await kv.getByPrefix("multi-dog-rule:");
     return c.json(rules);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getMultiDogRules', e);
   }
 });
 
@@ -241,7 +242,7 @@ routes.post("/multi-dog-rules", async (c) => {
     await kv.set(`multi-dog-rule:${rule.id}`, rule);
     return c.json(rule);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postMultiDogRules', e);
   }
 });
 
@@ -256,7 +257,7 @@ routes.put("/multi-dog-rules/:id", async (c) => {
     await kv.set(`multi-dog-rule:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.putMultiDogRulesId', e);
   }
 });
 
@@ -269,7 +270,7 @@ routes.get("/packages", async (c) => {
     const packages = await kv.getByPrefix("package:");
     return c.json(packages);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getPackages', e);
   }
 });
 
@@ -280,7 +281,7 @@ routes.post("/packages", async (c) => {
     await kv.set(`package:${pkg.id}`, pkg);
     return c.json(pkg);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postPackages', e);
   }
 });
 
@@ -293,7 +294,7 @@ routes.get("/fee-rules", async (c) => {
     const rules = await kv.getByPrefix("fee-rule:");
     return c.json(rules);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getFeeRules', e);
   }
 });
 
@@ -304,7 +305,7 @@ routes.post("/fee-rules", async (c) => {
     await kv.set(`fee-rule:${rule.id}`, rule);
     return c.json(rule);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postFeeRules', e);
   }
 });
 
@@ -319,7 +320,7 @@ routes.put("/fee-rules/:id", async (c) => {
     await kv.set(`fee-rule:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.putFeeRulesId', e);
   }
 });
 
@@ -332,7 +333,7 @@ routes.get("/discount-rules", async (c) => {
     const rules = await kv.getByPrefix("discount-rule:");
     return c.json(rules);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.getDiscountRules', e);
   }
 });
 
@@ -343,7 +344,7 @@ routes.post("/discount-rules", async (c) => {
     await kv.set(`discount-rule:${rule.id}`, rule);
     return c.json(rule);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postDiscountRules', e);
   }
 });
 
@@ -358,7 +359,7 @@ routes.put("/discount-rules/:id", async (c) => {
     await kv.set(`discount-rule:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.putDiscountRulesId', e);
   }
 });
 
@@ -476,7 +477,7 @@ routes.post("/resolve", async (c) => {
     });
   } catch (e: any) {
     console.error("Price resolution error:", e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing.postResolve', e);
   }
 });
 

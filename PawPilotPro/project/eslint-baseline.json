@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 5376,
-  "warnings": 620
+  "errors": 5308,
+  "warnings": 612
  },
  "files": {
   "eslint.config.js": {
@@ -95,14 +95,6 @@
   "src/app/context/ViewAsContext.tsx": {
    "errors": 1,
    "warnings": 0
-  },
-  "src/app/debug/CustomerDebug.tsx": {
-   "errors": 38,
-   "warnings": 5
-  },
-  "src/app/debug/KVDebug.tsx": {
-   "errors": 30,
-   "warnings": 3
   },
   "src/app/hooks/useModuleRealtimeSync.ts": {
    "errors": 1,

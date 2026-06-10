@@ -1,6 +1,7 @@
 import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
 import { requireAuth } from "./_shared/auth.ts";
+import { internalError } from "./_shared/log.ts";
 
 const routes = new Hono();
 
@@ -130,7 +131,7 @@ routes.post("/price-book/activate", async (c) => {
     return c.json({ version: updated });
   } catch (e: any) {
     console.error('Activate price book error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postPriceBookActivate', e);
   }
 });
 
@@ -185,7 +186,7 @@ routes.post("/price-book/submit", async (c) => {
     return c.json({ version: updated, approval });
   } catch (e: any) {
     console.error('Submit price book error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postPriceBookSubmit', e);
   }
 });
 
@@ -270,7 +271,7 @@ routes.post("/price-book/approve", async (c) => {
     return c.json({ version: updated });
   } catch (e: any) {
     console.error('Approve price book error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postPriceBookApprove', e);
   }
 });
 
@@ -328,7 +329,7 @@ routes.post("/price-book/reject", async (c) => {
     return c.json({ version: updated });
   } catch (e: any) {
     console.error('Reject price book error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postPriceBookReject', e);
   }
 });
 
@@ -393,7 +394,7 @@ routes.post("/location-override/activate", async (c) => {
     return c.json({ override });
   } catch (e: any) {
     console.error('Activate location override error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postLocationOverrideActivate', e);
   }
 });
 
@@ -462,7 +463,7 @@ routes.post("/location-override/propose", async (c) => {
     return c.json({ proposal, approval });
   } catch (e: any) {
     console.error('Propose location override error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postLocationOverridePropose', e);
   }
 });
 
@@ -536,7 +537,7 @@ routes.post("/location-override/approve", async (c) => {
     return c.json({ proposal: updated, override });
   } catch (e: any) {
     console.error('Approve location override error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postLocationOverrideApprove', e);
   }
 });
 
@@ -593,7 +594,7 @@ routes.post("/location-override/reject", async (c) => {
     return c.json({ proposal: updated });
   } catch (e: any) {
     console.error('Reject location override error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postLocationOverrideReject', e);
   }
 });
 
@@ -695,7 +696,7 @@ routes.post("/impact-preview", async (c) => {
     return c.json(impactPreview);
   } catch (e: any) {
     console.error('Impact preview error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.postImpactPreview', e);
   }
 });
 
@@ -733,7 +734,7 @@ routes.get("/approvals/pending", async (c) => {
     return c.json(enriched);
   } catch (e: any) {
     console.error('Fetch pending approvals error:', e);
-    return c.json({ error: `Failed to fetch pending approvals: ${e.message}` }, 500);
+    return internalError(c, 'pricing_approvals.getApprovalsPending', e);
   }
 });
 
@@ -758,7 +759,7 @@ routes.get("/approvals/history", async (c) => {
     return c.json(history);
   } catch (e: any) {
     console.error('Fetch approval history error:', e);
-    return c.json({ error: `Failed to fetch approval history: ${e.message}` }, 500);
+    return internalError(c, 'pricing_approvals.getApprovalsHistory', e);
   }
 });
 
@@ -792,7 +793,7 @@ routes.get("/audit-log", async (c) => {
     return c.json(logs);
   } catch (e: any) {
     console.error('Fetch audit log error:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'pricing_approvals.getAuditLog', e);
   }
 });
 

@@ -10,6 +10,7 @@ import { inviteEmail } from "./lib/email_templates/invite.ts";
 import { notify, getOwnerEmail, getOwnerName } from "./lib/notify.ts";
 import { vaxApprovedEmail } from "./lib/email_templates/vax_approved.ts";
 import { vaxRejectedEmail } from "./lib/email_templates/vax_rejected.ts";
+import { internalError, logError } from "./_shared/log.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -105,7 +106,7 @@ invites.post("/customers/:customerId/portal-invite", async (c) => {
     });
     await getEmailSender().send({ to: contact.email, subject, html, text });
   } catch (e) {
-    console.error("Invite email failed", e);
+    logError("portal_invites.inviteEmail.failed", e, { householdId });
     return c.json(
       { ok: true, expiresAt, emailWarning: "Email delivery skipped — share the link manually.", acceptUrl },
       200,
@@ -390,7 +391,7 @@ invites.post("/customers/:customerId/portal-pause", async (c) => {
   const appMeta = { ...(u.user.app_metadata ?? {}), portal_suspended: true };
   const meta = { ...(u.user.user_metadata ?? {}), portal_suspended: true };
   const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta, user_metadata: meta });
-  if (upErr) return c.json({ error: upErr.message }, 500);
+  if (upErr) return internalError(c, "portal_invites.portalPause", upErr);
   return c.json({ ok: true, suspended: true });
 });
 
@@ -417,7 +418,7 @@ invites.post("/customers/:customerId/portal-resume", async (c) => {
   const meta = { ...(u.user.user_metadata ?? {}) };
   delete (meta as any).portal_suspended;
   const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta, user_metadata: meta });
-  if (upErr) return c.json({ error: upErr.message }, 500);
+  if (upErr) return internalError(c, "portal_invites.portalResume", upErr);
   return c.json({ ok: true, suspended: false });
 });
 
@@ -497,7 +498,7 @@ invites.post("/customers/:customerId/portal-invite/resend", async (c) => {
     });
     await getEmailSender().send({ to: contact.email, subject, html, text });
   } catch (e) {
-    console.error("Resend invite email failed", e);
+    logError("portal_invites.resendInviteEmail.failed", e, { householdId });
     return c.json(
       { ok: true, expiresAt: inviteRecord.expiresAt, emailWarning: "Email delivery skipped — share the link manually.", acceptUrl },
       200,
@@ -538,7 +539,7 @@ invites.post("/customers/:customerId/portal-reset-password", async (c) => {
     email: u.user.email,
     options: { redirectTo: `${portalBase}/reset-password` },
   });
-  if (linkErr) return c.json({ error: linkErr.message }, 500);
+  if (linkErr) return internalError(c, "portal_invites.portalResetPassword", linkErr);
   // Supabase delivers the recovery email itself when SMTP is configured
   // on the project; if not, the link is returned in the response — for
   // the MVP we don't surface that to staff (security). Tell them we sent

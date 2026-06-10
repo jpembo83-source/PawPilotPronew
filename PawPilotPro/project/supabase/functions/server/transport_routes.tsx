@@ -9,6 +9,7 @@ import { cors } from 'npm:hono/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -73,11 +74,6 @@ async function getActiveDrivers(tenantId: string, locationId?: string) {
     }
     
     console.log(`[getActiveDrivers] Found ${users?.length || 0} total users`);
-    
-    // Debug: Log first few users' metadata
-    users.slice(0, 3).forEach((user: any) => {
-      console.log(`[getActiveDrivers] User ${user.email} metadata:`, JSON.stringify(user.user_metadata));
-    });
     
     // Filter for active drivers with the Driver template
     const activeDrivers = users.filter((user: any) => {
@@ -181,7 +177,7 @@ app.get('/active-drivers', async (c) => {
     
   } catch (error) {
     console.error('Error getting active drivers:', error);
-    return c.json({ error: 'Internal server error', details: error.message }, 500);
+    return internalError(c, 'transport.getActiveDrivers', error);
   }
 });
 
@@ -230,7 +226,7 @@ app.post('/jobs', async (c) => {
       return c.json({ error: 'Household not found or access denied' }, 404);
     }
     
-    console.log('[Transport Job Create] Household found:', household);
+    console.log('[Transport Job Create] Household found');
     
     const petKey = `customer:${auth.tenant_id}:pet:${household_id}:${pet_id}`;
     console.log('[Transport Job Create] Looking for pet with key:', petKey);
@@ -239,11 +235,11 @@ app.post('/jobs', async (c) => {
     if (!pet) {
       console.log('[Transport Job Create] Pet not found. Searching for all pets in household...');
       const allPets = await kv.getByPrefix(`customer:${auth.tenant_id}:pet:${household_id}:`);
-      console.log('[Transport Job Create] All pets found:', allPets);
+      console.log('[Transport Job Create] Pets in household:', allPets.length);
       return c.json({ error: 'Pet not found or access denied' }, 404);
     }
     
-    console.log('[Transport Job Create] Pet found:', pet);
+    console.log('[Transport Job Create] Pet found');
     
     // Parse if needed (KV store may return strings)
     const householdData = typeof household === 'string' ? JSON.parse(household) : household;
@@ -365,7 +361,7 @@ app.post('/jobs', async (c) => {
     
   } catch (error) {
     console.error('Error creating transport job:', error);
-    return c.json({ error: 'Internal server error while creating transport job', details: error.message }, 500);
+    return internalError(c, 'transport.postJobs', error);
   }
 });
 
@@ -466,7 +462,7 @@ app.get('/jobs', async (c) => {
     
   } catch (error) {
     console.error('Error listing transport jobs:', error);
-    return c.json({ error: 'Internal server error while listing transport jobs', details: error.message }, 500);
+    return internalError(c, 'transport.getJobs', error);
   }
 });
 
@@ -524,7 +520,7 @@ app.get('/jobs/:id', async (c) => {
     
   } catch (error) {
     console.error('Error fetching transport job:', error);
-    return c.json({ error: 'Internal server error while fetching transport job', details: error.message }, 500);
+    return internalError(c, 'transport.getJobsId', error);
   }
 });
 
@@ -596,7 +592,7 @@ app.patch('/jobs/:id', async (c) => {
     
   } catch (error) {
     console.error('Error updating transport job:', error);
-    return c.json({ error: 'Internal server error while updating transport job', details: error.message }, 500);
+    return internalError(c, 'transport.patchJobsId', error);
   }
 });
 
@@ -645,7 +641,7 @@ app.delete('/jobs/:id', async (c) => {
     
   } catch (error) {
     console.error('Error deleting transport job:', error);
-    return c.json({ error: 'Internal server error while deleting transport job', details: error.message }, 500);
+    return internalError(c, 'transport.deleteJobsId', error);
   }
 });
 
@@ -696,7 +692,7 @@ app.post('/jobs/:id/assign', async (c) => {
     
   } catch (error) {
     console.error('Error assigning transport job:', error);
-    return c.json({ error: 'Internal server error while assigning transport job', details: error.message }, 500);
+    return internalError(c, 'transport.postJobsIdAssign', error);
   }
 });
 
@@ -769,7 +765,7 @@ app.post('/jobs/:id/status', async (c) => {
     
   } catch (error) {
     console.error('Error updating transport job status:', error);
-    return c.json({ error: 'Internal server error while updating status', details: error.message }, 500);
+    return internalError(c, 'transport.postJobsIdStatus', error);
   }
 });
 
@@ -817,7 +813,7 @@ app.post('/vehicles', async (c) => {
     
   } catch (error) {
     console.error('Error creating vehicle:', error);
-    return c.json({ error: 'Internal server error while creating vehicle', details: error.message }, 500);
+    return internalError(c, 'transport.postVehicles', error);
   }
 });
 
@@ -858,7 +854,7 @@ app.get('/vehicles', async (c) => {
     
   } catch (error) {
     console.error('Error listing vehicles:', error);
-    return c.json({ error: 'Internal server error while listing vehicles', details: error.message }, 500);
+    return internalError(c, 'transport.getVehicles', error);
   }
 });
 
@@ -892,7 +888,7 @@ app.patch('/vehicles/:id', async (c) => {
     
   } catch (error) {
     console.error('Error updating vehicle:', error);
-    return c.json({ error: 'Internal server error while updating vehicle', details: error.message }, 500);
+    return internalError(c, 'transport.patchVehiclesId', error);
   }
 });
 
@@ -924,7 +920,7 @@ app.delete('/vehicles/:id', async (c) => {
     
   } catch (error) {
     console.error('Error deleting vehicle:', error);
-    return c.json({ error: 'Internal server error while deleting vehicle', details: error.message }, 500);
+    return internalError(c, 'transport.deleteVehiclesId', error);
   }
 });
 

@@ -4,6 +4,7 @@
 
 import * as kv from "../kv_store.tsx";
 import { getEmailSender } from "./email.ts";
+import { logError } from "../_shared/log.ts";
 
 export type PortalNotificationType =
   | "booking.received"
@@ -65,7 +66,7 @@ export async function notify(args: NotifyArgs) {
     try {
       await getEmailSender().send(args.email);
     } catch (e) {
-      console.error("notify: email send failed", e);
+      logError("notify.emailSend.failed", e, { tenantId: args.tenantId, householdId: args.householdId, type: args.type });
     }
   }
 }

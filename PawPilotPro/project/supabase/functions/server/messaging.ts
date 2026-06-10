@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -99,7 +100,7 @@ app.get(`${PREFIX}/threads`, async (c) => {
     });
   } catch (error) {
     console.error('Error fetching message threads:', error);
-    return c.json({ error: 'Failed to fetch message threads', details: error.message }, 500);
+    return internalError(c, 'messaging.getPREFIXThreads', error);
   }
 });
 
@@ -116,7 +117,7 @@ app.get(`${PREFIX}/threads/:threadId`, async (c) => {
     return c.json(thread);
   } catch (error) {
     console.error('Error fetching message thread:', error);
-    return c.json({ error: 'Failed to fetch message thread', details: error.message }, 500);
+    return internalError(c, 'messaging.getPREFIXThreadsThreadId', error);
   }
 });
 
@@ -170,7 +171,7 @@ app.post(`${PREFIX}/threads`, async (c) => {
     return c.json(thread, 201);
   } catch (error) {
     console.error('Error creating message thread:', error);
-    return c.json({ error: 'Failed to create message thread', details: error.message }, 500);
+    return internalError(c, 'messaging.postPREFIXThreads', error);
   }
 });
 
@@ -196,7 +197,7 @@ app.patch(`${PREFIX}/threads/:threadId`, async (c) => {
     return c.json(updatedThread);
   } catch (error) {
     console.error('Error updating message thread:', error);
-    return c.json({ error: 'Failed to update message thread', details: error.message }, 500);
+    return internalError(c, 'messaging.patchPREFIXThreadsThreadId', error);
   }
 });
 
@@ -227,7 +228,7 @@ app.get(`${PREFIX}/threads/:threadId/messages`, async (c) => {
     return c.json({ messages: validMessages });
   } catch (error) {
     console.error('Error fetching messages:', error);
-    return c.json({ error: 'Failed to fetch messages', details: error.message }, 500);
+    return internalError(c, 'messaging.getPREFIXThreadsThreadIdMessages', error);
   }
 });
 
@@ -335,7 +336,7 @@ app.post(`${PREFIX}/threads/:threadId/messages`, async (c) => {
     return c.json(message, 201);
   } catch (error) {
     console.error('Error sending message:', error);
-    return c.json({ error: 'Failed to send message', details: error.message }, 500);
+    return internalError(c, 'messaging.postPREFIXThreadsThreadIdMessages', error);
   }
 });
 
@@ -371,7 +372,7 @@ app.get(`${PREFIX}/templates`, async (c) => {
     return c.json({ templates });
   } catch (error) {
     console.error('Error fetching templates:', error);
-    return c.json({ error: 'Failed to fetch templates', details: error.message }, 500);
+    return internalError(c, 'messaging.getPREFIXTemplates', error);
   }
 });
 
@@ -408,7 +409,7 @@ app.post(`${PREFIX}/templates`, async (c) => {
     return c.json(template, 201);
   } catch (error) {
     console.error('Error creating template:', error);
-    return c.json({ error: 'Failed to create template', details: error.message }, 500);
+    return internalError(c, 'messaging.postPREFIXTemplates', error);
   }
 });
 
@@ -435,7 +436,7 @@ app.patch(`${PREFIX}/templates/:templateId`, async (c) => {
     return c.json(updatedTemplate);
   } catch (error) {
     console.error('Error updating template:', error);
-    return c.json({ error: 'Failed to update template', details: error.message }, 500);
+    return internalError(c, 'messaging.patchPREFIXTemplatesTemplateId', error);
   }
 });
 
@@ -456,7 +457,7 @@ app.get(`${PREFIX}/consent/:contactId`, async (c) => {
     return c.json(consent);
   } catch (error) {
     console.error('Error fetching consent:', error);
-    return c.json({ error: 'Failed to fetch consent', details: error.message }, 500);
+    return internalError(c, 'messaging.getPREFIXConsentContactId', error);
   }
 });
 
@@ -514,7 +515,7 @@ app.put(`${PREFIX}/consent/:contactId`, async (c) => {
     return c.json(updatedConsent);
   } catch (error) {
     console.error('Error updating consent:', error);
-    return c.json({ error: 'Failed to update consent', details: error.message }, 500);
+    return internalError(c, 'messaging.putPREFIXConsentContactId', error);
   }
 });
 
@@ -555,7 +556,7 @@ app.get(`${PREFIX}/stats`, async (c) => {
     return c.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);
-    return c.json({ error: 'Failed to fetch stats', details: error.message }, 500);
+    return internalError(c, 'messaging.getPREFIXStats', error);
   }
 });
 

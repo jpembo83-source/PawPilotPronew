@@ -6,6 +6,7 @@
 import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
 import { requireAuth, AuthenticatedUser } from "./_shared/auth.ts";
+import { internalError } from "./_shared/log.ts";
 
 const routes = new Hono();
 
@@ -106,7 +107,7 @@ routes.get("/reservations", async (c) => {
     
     return c.json(reservations);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getReservations', e);
   }
 });
 
@@ -148,7 +149,7 @@ routes.post("/reservations", async (c) => {
     
     return c.json(reservation);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postReservations', e);
   }
 });
 
@@ -173,7 +174,7 @@ routes.put("/reservations/:id", async (c) => {
     await kv.set(`overnight:${tenantId}:reservation:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.putReservationsId', e);
   }
 });
 
@@ -241,7 +242,7 @@ routes.post("/check-in", async (c) => {
     return c.json(updated);
   } catch (e: any) {
     console.error("Check-in error:", e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postCheckIn', e);
   }
 });
 
@@ -298,7 +299,7 @@ routes.post("/check-out", async (c) => {
     return c.json(updated);
   } catch (e: any) {
     console.error("Check-out error:", e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postCheckOut', e);
   }
 });
 
@@ -325,7 +326,7 @@ routes.get("/care-logs", async (c) => {
     
     return c.json(careLogs);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getCareLogs', e);
   }
 });
 
@@ -350,7 +351,7 @@ routes.post("/care-logs", async (c) => {
     
     return c.json(careLog);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postCareLogs', e);
   }
 });
 
@@ -375,7 +376,7 @@ routes.put("/care-logs/:id", async (c) => {
     await kv.set(`overnight:${tenantId}:carelog:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.putCareLogsId', e);
   }
 });
 
@@ -397,7 +398,7 @@ routes.get("/sleeping-areas", async (c) => {
     
     return c.json(areas);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getSleepingAreas', e);
   }
 });
 
@@ -422,7 +423,7 @@ routes.post("/sleeping-areas", async (c) => {
     await kv.set(`overnight:${tenantId}:area:${area.id}`, area);
     return c.json(area);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postSleepingAreas', e);
   }
 });
 
@@ -447,7 +448,7 @@ routes.put("/sleeping-areas/:id", async (c) => {
     await kv.set(`overnight:${tenantId}:area:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.putSleepingAreasId', e);
   }
 });
 
@@ -474,7 +475,7 @@ routes.get("/handovers", async (c) => {
     
     return c.json(handovers);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getHandovers', e);
   }
 });
 
@@ -498,7 +499,7 @@ routes.post("/handovers", async (c) => {
     await kv.set(`overnight:${tenantId}:handover:${handover.id}`, handover);
     return c.json(handover);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postHandovers', e);
   }
 });
 
@@ -523,7 +524,7 @@ routes.post("/handovers/:id/acknowledge", async (c) => {
     await kv.set(`overnight:${tenantId}:handover:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postHandoversIdAcknowledge', e);
   }
 });
 
@@ -544,7 +545,7 @@ routes.get("/capacity", async (c) => {
     const capacity = await kv.get(`overnight:${tenantId}:capacity:${locationId}`);
     return c.json(capacity || null);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getCapacity', e);
   }
 });
 
@@ -571,7 +572,7 @@ routes.post("/capacity", async (c) => {
     await kv.set(`overnight:${tenantId}:capacity:${locationId}`, capacity);
     return c.json(capacity);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postCapacity', e);
   }
 });
 
@@ -617,7 +618,7 @@ routes.get("/capacity/snapshot", async (c) => {
     
     return c.json(snapshot);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getCapacitySnapshot', e);
   }
 });
 
@@ -694,7 +695,7 @@ routes.get("/tonights-boarders", async (c) => {
     return c.json(result);
   } catch (e: any) {
     console.error("Tonight's boarders error:", e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getTonightsBoarders', e);
   }
 });
 
@@ -744,7 +745,7 @@ routes.get("/carers", async (c) => {
 
     return c.json(carersWithLoad);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getCarers', e);
   }
 });
 
@@ -810,7 +811,7 @@ routes.post("/assign-carer", async (c) => {
 
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postAssignCarer', e);
   }
 });
 
@@ -878,7 +879,7 @@ routes.put("/assign-carer/:stayId", async (c) => {
 
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.putAssignCarerStayId', e);
   }
 });
 
@@ -981,7 +982,7 @@ routes.post("/calculate-billing", async (c) => {
 
     return c.json(billing);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postCalculateBilling', e);
   }
 });
 
@@ -1096,7 +1097,7 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
     return c.json(overnightReservation);
   } catch (e: any) {
     console.error("Daycare-to-overnight transition error:", e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postTransitionDaycareToOvernight', e);
   }
 });
 
@@ -1165,7 +1166,7 @@ routes.post("/transition/overnight-to-daycare", async (c) => {
     return c.json({ reservation: updatedReservation, daycareBooking });
   } catch (e: any) {
     console.error("Overnight-to-daycare transition error:", e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postTransitionOvernightToDaycare', e);
   }
 });
 
@@ -1189,7 +1190,7 @@ routes.get("/events", async (c) => {
     
     return c.json(events);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getEvents', e);
   }
 });
 
@@ -1209,7 +1210,7 @@ routes.post("/events", async (c) => {
     
     return c.json(event);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.postEvents', e);
   }
 });
 
@@ -1250,7 +1251,7 @@ routes.get("/stats", async (c) => {
     
     return c.json(stats);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'overnights.getStats', e);
   }
 });
 

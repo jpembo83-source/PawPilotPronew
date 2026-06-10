@@ -1,6 +1,7 @@
 import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
 import { requireAuth } from "./_shared/auth.ts";
+import { internalError } from "./_shared/log.ts";
 
 const app = new Hono();
 
@@ -65,8 +66,7 @@ app.get("/make-server-fc003b23/communications/channels", async (c) => {
     
     return c.json(channels);
   } catch (err: any) {
-    console.error("Get channels error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.getChannels', err);
   }
 });
 
@@ -104,8 +104,7 @@ app.put("/make-server-fc003b23/communications/channels/:id", async (c) => {
     
     return c.json(updated);
   } catch (err: any) {
-    console.error("Update channel error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.updateChannel', err);
   }
 });
 
@@ -116,8 +115,7 @@ app.get("/make-server-fc003b23/communications/sender-identities", async (c) => {
     const identities = await kv.getByPrefix(`${PREFIX}:sender_identities:`);
     return c.json(identities || []);
   } catch (err: any) {
-    console.error("Get sender identities error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.listSenderIdentities', err);
   }
 });
 
@@ -150,8 +148,7 @@ app.post("/make-server-fc003b23/communications/sender-identities", async (c) => 
     
     return c.json(identity);
   } catch (err: any) {
-    console.error("Create sender identity error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.createSenderIdentity', err);
   }
 });
 
@@ -189,8 +186,7 @@ app.put("/make-server-fc003b23/communications/sender-identities/:id", async (c) 
     
     return c.json(updated);
   } catch (err: any) {
-    console.error("Update sender identity error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.updateSenderIdentity', err);
   }
 });
 
@@ -220,8 +216,7 @@ app.delete("/make-server-fc003b23/communications/sender-identities/:id", async (
     
     return c.json({ success: true });
   } catch (err: any) {
-    console.error("Delete sender identity error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.deleteSenderIdentity', err);
   }
 });
 
@@ -256,8 +251,7 @@ app.get("/make-server-fc003b23/communications/consent-policy", async (c) => {
     
     return c.json(policy);
   } catch (err: any) {
-    console.error("Get consent policy error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.getConsentPolicy', err);
   }
 });
 
@@ -296,8 +290,7 @@ app.put("/make-server-fc003b23/communications/consent-policy", async (c) => {
     
     return c.json(updated);
   } catch (err: any) {
-    console.error("Update consent policy error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.updateConsentPolicy', err);
   }
 });
 
@@ -308,8 +301,7 @@ app.get("/make-server-fc003b23/communications/templates", async (c) => {
     const templates = await kv.getByPrefix(`${PREFIX}:templates:`);
     return c.json(templates || []);
   } catch (err: any) {
-    console.error("Get templates error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.listTemplates', err);
   }
 });
 
@@ -344,8 +336,7 @@ app.post("/make-server-fc003b23/communications/templates", async (c) => {
     
     return c.json(template);
   } catch (err: any) {
-    console.error("Create template error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.createTemplate', err);
   }
 });
 
@@ -360,8 +351,7 @@ app.get("/make-server-fc003b23/communications/templates/:id", async (c) => {
     
     return c.json(template);
   } catch (err: any) {
-    console.error("Get template error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.getTemplate', err);
   }
 });
 
@@ -399,8 +389,7 @@ app.put("/make-server-fc003b23/communications/templates/:id", async (c) => {
     
     return c.json(updated);
   } catch (err: any) {
-    console.error("Update template error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.updateTemplate', err);
   }
 });
 
@@ -430,8 +419,7 @@ app.delete("/make-server-fc003b23/communications/templates/:id", async (c) => {
     
     return c.json({ success: true });
   } catch (err: any) {
-    console.error("Delete template error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.deleteTemplate', err);
   }
 });
 
@@ -442,8 +430,7 @@ app.get("/make-server-fc003b23/communications/automation", async (c) => {
     const rules = await kv.getByPrefix(`${PREFIX}:automation:`);
     return c.json(rules || []);
   } catch (err: any) {
-    console.error("Get automation rules error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.listAutomation', err);
   }
 });
 
@@ -479,8 +466,7 @@ app.post("/make-server-fc003b23/communications/automation", async (c) => {
     
     return c.json(rule);
   } catch (err: any) {
-    console.error("Create automation rule error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.createAutomation', err);
   }
 });
 
@@ -495,8 +481,7 @@ app.get("/make-server-fc003b23/communications/automation/:id", async (c) => {
     
     return c.json(rule);
   } catch (err: any) {
-    console.error("Get automation rule error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.getAutomation', err);
   }
 });
 
@@ -535,8 +520,7 @@ app.put("/make-server-fc003b23/communications/automation/:id", async (c) => {
     
     return c.json(updated);
   } catch (err: any) {
-    console.error("Update automation rule error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.updateAutomation', err);
   }
 });
 
@@ -566,8 +550,7 @@ app.delete("/make-server-fc003b23/communications/automation/:id", async (c) => {
     
     return c.json({ success: true });
   } catch (err: any) {
-    console.error("Delete automation rule error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.deleteAutomation', err);
   }
 });
 
@@ -578,8 +561,7 @@ app.get("/make-server-fc003b23/communications/slas", async (c) => {
     const slas = await kv.getByPrefix(`${PREFIX}:slas:`);
     return c.json(slas || []);
   } catch (err: any) {
-    console.error("Get SLAs error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.listSlas', err);
   }
 });
 
@@ -612,8 +594,7 @@ app.post("/make-server-fc003b23/communications/slas", async (c) => {
     
     return c.json(sla);
   } catch (err: any) {
-    console.error("Create SLA error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.createSla', err);
   }
 });
 
@@ -651,8 +632,7 @@ app.put("/make-server-fc003b23/communications/slas/:id", async (c) => {
     
     return c.json(updated);
   } catch (err: any) {
-    console.error("Update SLA error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.updateSla', err);
   }
 });
 
@@ -682,8 +662,7 @@ app.delete("/make-server-fc003b23/communications/slas/:id", async (c) => {
     
     return c.json({ success: true });
   } catch (err: any) {
-    console.error("Delete SLA error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.deleteSla', err);
   }
 });
 
@@ -760,8 +739,7 @@ app.get("/make-server-fc003b23/communications/permissions", async (c) => {
     
     return c.json(permissions);
   } catch (err: any) {
-    console.error("Get permissions error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.getPermissions', err);
   }
 });
 
@@ -799,8 +777,7 @@ app.put("/make-server-fc003b23/communications/permissions/:id", async (c) => {
     
     return c.json(updated);
   } catch (err: any) {
-    console.error("Update permission error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.updatePermission', err);
   }
 });
 
@@ -817,8 +794,7 @@ app.get("/make-server-fc003b23/communications/delivery-logs", async (c) => {
     
     return c.json(sorted);
   } catch (err: any) {
-    console.error("Get delivery logs error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.deliveryLogs', err);
   }
 });
 
@@ -835,8 +811,7 @@ app.get("/make-server-fc003b23/communications/audit-logs", async (c) => {
     
     return c.json(sorted);
   } catch (err: any) {
-    console.error("Get audit logs error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.auditLogs', err);
   }
 });
 
@@ -888,8 +863,7 @@ app.get("/make-server-fc003b23/communications/stats", async (c) => {
     
     return c.json(stats);
   } catch (err: any) {
-    console.error("Get stats error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'communications.stats', err);
   }
 });
 

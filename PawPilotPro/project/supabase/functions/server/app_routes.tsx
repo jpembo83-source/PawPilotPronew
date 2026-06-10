@@ -8,6 +8,7 @@ import {
   getAuditLogs,
   UserContext 
 } from "./settings_rbac.ts";
+import { internalError } from "./_shared/log.ts";
 
 const routes = new Hono();
 
@@ -20,9 +21,8 @@ routes.get("/settings/audit-logs", requireAuth, async (c) => {
     
     const logs = await getAuditLogs(section as any, limit);
     return c.json(logs);
-  } catch (e: any) { 
-    console.error('Error fetching audit logs:', e);
-    return c.json({error: e.message}, 500); 
+  } catch (e: any) {
+    return internalError(c, 'app.auditLogs', e);
   }
 });
 
@@ -32,7 +32,7 @@ routes.get("/organisation", requireAuth, requirePermission('organisation', 'view
   try {
     const org = await kv.get("settings:org");
     return c.json(org || {});
-  } catch (e: any) { return c.json({error: e.message}, 500); }
+  } catch (e: any) { return internalError(c, 'app.getOrganisation', e); }
 });
 
 routes.put("/organisation", requireAuth, requirePermission('organisation', 'update'), async (c) => {
@@ -49,9 +49,9 @@ routes.put("/organisation", requireAuth, requirePermission('organisation', 'upda
       after: body,
       metadata: { fields: Object.keys(body) }
     }, c);
-    
+
     return c.json(body);
-  } catch (e: any) { return c.json({error: e.message}, 500); }
+  } catch (e: any) { return internalError(c, 'app.updateOrganisation', e); }
 });
 
 // --- Global Modules ---
@@ -60,7 +60,7 @@ routes.get("/settings/global-modules", requireAuth, requirePermission('modules',
   try {
     const modules = await kv.get("settings:global-modules");
     return c.json(modules || { globalEnabledModules: ['daycare', 'grooming'] });
-  } catch (e: any) { return c.json({error: e.message}, 500); }
+  } catch (e: any) { return internalError(c, 'app.getGlobalModules', e); }
 });
 
 routes.put("/settings/global-modules", requireAuth, requirePermission('modules', 'update'), async (c) => {
@@ -77,9 +77,9 @@ routes.put("/settings/global-modules", requireAuth, requirePermission('modules',
       after: body,
       metadata: { action: 'toggle-global-modules' }
     }, c);
-    
+
     return c.json(body);
-  } catch (e: any) { return c.json({error: e.message}, 500); }
+  } catch (e: any) { return internalError(c, 'app.updateGlobalModules', e); }
 });
 
 // --- Locations ---
@@ -90,10 +90,7 @@ routes.get("/locations", requireAuth, requirePermission('locations', 'view'), as
     console.log('[GET /locations] Request received');
     
     const user = c.get('user') as UserContext;
-    console.log('[GET /locations] User from context:', user);
-    console.log('[GET /locations] User role:', user?.role);
-    console.log('[GET /locations] User email:', user?.email);
-    
+
     const entries = await kv.getByPrefix("location:");
     console.log('[GET /locations] Found', entries.length, 'total locations in DB');
     
@@ -109,10 +106,8 @@ routes.get("/locations", requireAuth, requirePermission('locations', 'view'), as
     
     console.log('[GET /locations] Admin user, returning all', entries.length, 'locations');
     return c.json(entries);
-  } catch (e: any) { 
-    console.error('[GET /locations] Error:', e.message);
-    console.error('[GET /locations] Stack:', e.stack);
-    return c.json({error: e.message}, 500); 
+  } catch (e: any) {
+    return internalError(c, 'app.listLocations', e);
   }
 });
 
@@ -120,9 +115,7 @@ routes.post("/locations", requireAuth, requirePermission('locations', 'create'),
   try {
     console.log('[POST /locations] Request received');
     const user = c.get('user') as UserContext;
-    console.log('[POST /locations] User from context:', user);
     const body = await c.req.json();
-    console.log('[POST /locations] Request body:', body);
     const id = body.id || crypto.randomUUID();
     const item = { ...body, id };
     
@@ -137,9 +130,8 @@ routes.post("/locations", requireAuth, requirePermission('locations', 'create'),
     
     console.log('[POST /locations] Location created successfully:', id);
     return c.json(item);
-  } catch (e: any) { 
-    console.error('[POST /locations] Error:', e.message);
-    return c.json({error: e.message}, 500); 
+  } catch (e: any) {
+    return internalError(c, 'app.createLocation', e);
   }
 });
 
@@ -169,7 +161,7 @@ routes.put("/locations/:id", requireAuth, requirePermission('locations', 'update
     }, c);
     
     return c.json(updated);
-  } catch (e: any) { return c.json({error: e.message}, 500); }
+  } catch (e: any) { return internalError(c, 'app.updateLocation', e); }
 });
 
 routes.delete("/locations/:id", requireAuth, requirePermission('locations', 'delete'), async (c) => {
@@ -188,7 +180,7 @@ routes.delete("/locations/:id", requireAuth, requirePermission('locations', 'del
     }, c);
     
     return c.json({success: true});
-  } catch (e: any) { return c.json({error: e.message}, 500); }
+  } catch (e: any) { return internalError(c, 'app.deleteLocation', e); }
 });
 
 export default routes;

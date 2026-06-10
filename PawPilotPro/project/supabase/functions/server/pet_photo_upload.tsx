@@ -1,6 +1,7 @@
 import { Hono } from "npm:hono";
 import { createClient } from "npm:@supabase/supabase-js";
 import { requireAuth } from "./_shared/auth.ts";
+import { internalError } from "./_shared/log.ts";
 
 const app = new Hono();
 
@@ -63,7 +64,7 @@ app.post("/upload", async (c) => {
     
     if (uploadError) {
       console.error("[Pet Photo Upload] Upload error:", uploadError);
-      return c.json({ error: uploadError.message }, 500);
+      return internalError(c, 'pet_photo.postUpload', uploadError);
     }
     
     // Get public URL
@@ -81,7 +82,7 @@ app.post("/upload", async (c) => {
     
   } catch (error: any) {
     console.error("[Pet Photo Upload] Error:", error);
-    return c.json({ error: error.message }, 500);
+    return internalError(c, 'pet_photo.postUpload', error);
   }
 });
 

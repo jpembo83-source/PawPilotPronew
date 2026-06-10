@@ -5,6 +5,7 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -178,7 +179,8 @@ app.get('/', async (c) => {
     return c.json(filtered);
   } catch (error: any) {
     console.error('Get policies error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve policies' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getRoot', error);
   }
 });
 
@@ -204,7 +206,8 @@ app.get('/my-assignments', async (c) => {
     return c.json(updatedAssignments);
   } catch (error: any) {
     console.error('Get my assignments error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve assignments' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getMyAssignments', error);
   }
 });
 
@@ -253,7 +256,8 @@ app.get('/:id', async (c) => {
     return c.json(policy);
   } catch (error: any) {
     console.error('Get policy error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve policy' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getId', error);
   }
 });
 
@@ -310,7 +314,8 @@ app.post('/', async (c) => {
     return c.json(policy, 201);
   } catch (error: any) {
     console.error('Create policy error:', error);
-    return c.json({ error: error.message || 'Failed to create policy' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.postRoot', error);
   }
 });
 
@@ -353,7 +358,8 @@ app.post('/:id/publish', async (c) => {
     return c.json(policy);
   } catch (error: any) {
     console.error('Publish policy error:', error);
-    return c.json({ error: error.message || 'Failed to publish policy' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.postIdPublish', error);
   }
 });
 
@@ -392,7 +398,8 @@ app.post('/:id/archive', async (c) => {
     return c.json(policy);
   } catch (error: any) {
     console.error('Archive policy error:', error);
-    return c.json({ error: error.message || 'Failed to archive policy' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.postIdArchive', error);
   }
 });
 
@@ -423,7 +430,8 @@ app.get('/assignments', async (c) => {
     return c.json(filtered);
   } catch (error: any) {
     console.error('Get assignments error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve assignments' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getAssignments', error);
   }
 });
 
@@ -442,7 +450,8 @@ app.get('/:policyId/assignments', async (c) => {
     return c.json(assignments);
   } catch (error: any) {
     console.error('Get policy assignments error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve assignments' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getPolicyIdAssignments', error);
   }
 });
 
@@ -529,7 +538,8 @@ app.post('/assignments', async (c) => {
     return c.json(assignments, 201);
   } catch (error: any) {
     console.error('Create assignments error:', error);
-    return c.json({ error: error.message || 'Failed to create assignments' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.postAssignments', error);
   }
 });
 
@@ -552,7 +562,8 @@ app.get('/:policyId/acknowledgements', async (c) => {
     return c.json(acknowledgements);
   } catch (error: any) {
     console.error('Get acknowledgements error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve acknowledgements' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getPolicyIdAcknowledgements', error);
   }
 });
 
@@ -630,7 +641,8 @@ app.post('/assignments/:assignmentId/acknowledge', async (c) => {
     return c.json(acknowledgement, 201);
   } catch (error: any) {
     console.error('Create acknowledgement error:', error);
-    return c.json({ error: error.message || 'Failed to create acknowledgement' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.postAssignmentsAssignmentIdAcknowledge', error);
   }
 });
 
@@ -660,7 +672,8 @@ app.post('/assignments/:assignmentId/view', async (c) => {
     return c.json({ success: true });
   } catch (error: any) {
     console.error('Mark view error:', error);
-    return c.json({ error: error.message || 'Failed to mark as viewed' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.postAssignmentsAssignmentIdView', error);
   }
 });
 
@@ -680,7 +693,6 @@ app.get('/compliance/stats', async (c) => {
     console.log('📊 [BACKEND-POLICIES] Step 2: User authenticated:', { 
       id: user.id, 
       role: user.role, 
-      email: user.email,
       locationIds: user.locationIds 
     });
     
@@ -749,7 +761,8 @@ app.get('/compliance/stats', async (c) => {
     console.error('❌ [BACKEND-POLICIES] Error stack:', error.stack);
     console.error('❌ [BACKEND-POLICIES] Error name:', error.name);
     console.error('❌ [BACKEND-POLICIES] ===============================================');
-    return c.json({ error: error.message || 'Failed to retrieve statistics' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getComplianceStats', error);
   }
 });
 
@@ -788,7 +801,8 @@ app.get('/compliance/by-policy', async (c) => {
     return c.json(complianceByPolicy);
   } catch (error: any) {
     console.error('Get compliance by policy error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve compliance data' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getComplianceByPolicy', error);
   }
 });
 
@@ -816,7 +830,8 @@ app.get('/audit', async (c) => {
     return c.json(actualLogs);
   } catch (error: any) {
     console.error('Get audit logs error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve audit logs' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getAudit', error);
   }
 });
 
@@ -854,7 +869,8 @@ app.get('/export/acknowledgements', async (c) => {
     return c.json(uniqueAcks);
   } catch (error: any) {
     console.error('Export acknowledgements error:', error);
-    return c.json({ error: error.message || 'Failed to export acknowledgements' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getExportAcknowledgements', error);
   }
 });
 
@@ -895,7 +911,8 @@ app.get('/export/assignments', async (c) => {
     return c.json(filtered);
   } catch (error: any) {
     console.error('Export assignments error:', error);
-    return c.json({ error: error.message || 'Failed to export assignments' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getExportAssignments', error);
   }
 });
 
@@ -944,7 +961,8 @@ app.get('/:policyId/download-url', async (c) => {
     return c.json({ url: data.signedUrl });
   } catch (error: any) {
     console.error('Get download URL error:', error);
-    return c.json({ error: error.message || 'Failed to generate download URL' }, error.message.includes('Unauthorized') ? 401 : 500);
+    if (error.message?.includes('Unauthorized')) return c.json({ error: 'Unauthorized' }, 401);
+    return internalError(c, 'policies.getPolicyIdDownloadUrl', error);
   }
 });
 

@@ -5,6 +5,7 @@ import { Hono } from 'npm:hono';
 import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -338,8 +339,7 @@ app.get('/', async (c) => {
     
     return c.json(incidents);
   } catch (error: any) {
-    console.error('Get incidents error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve incidents' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.listIncidents', error);
   }
 });
 
@@ -401,8 +401,7 @@ app.get('/stats', async (c) => {
     
     return c.json(stats);
   } catch (error: any) {
-    console.error('Get stats error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve statistics' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.stats', error);
   }
 });
 
@@ -435,8 +434,7 @@ app.get('/export', async (c) => {
     
     return c.json(incidents);
   } catch (error: any) {
-    console.error('Export incidents error:', error);
-    return c.json({ error: error.message || 'Failed to export incidents' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.exportIncidents', error);
   }
 });
 
@@ -493,8 +491,7 @@ app.get('/:id', async (c) => {
       audit_logs: fullAuditLogs.filter(Boolean),
     });
   } catch (error: any) {
-    console.error('Get incident error:', error);
-    return c.json({ error: error.message || 'Failed to retrieve incident' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.getIncident', error);
   }
 });
 
@@ -624,8 +621,7 @@ app.post('/', async (c) => {
     
     return c.json(incident, 201);
   } catch (error: any) {
-    console.error('Create incident error:', error);
-    return c.json({ error: error.message || 'Failed to create incident' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.createIncident', error);
   }
 });
 
@@ -731,8 +727,7 @@ app.put('/:id', async (c) => {
     
     return c.json(updatedIncident);
   } catch (error: any) {
-    console.error('Update incident error:', error);
-    return c.json({ error: error.message || 'Failed to update incident' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.updateIncident', error);
   }
 });
 
@@ -783,8 +778,7 @@ app.post('/:id/assign', async (c) => {
     
     return c.json(incident);
   } catch (error: any) {
-    console.error('Assign incident error:', error);
-    return c.json({ error: error.message || 'Failed to assign incident' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.assignIncident', error);
   }
 });
 
@@ -842,8 +836,7 @@ app.post('/:id/close', async (c) => {
     
     return c.json(incident);
   } catch (error: any) {
-    console.error('Close incident error:', error);
-    return c.json({ error: error.message || 'Failed to close incident' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.closeIncident', error);
   }
 });
 
@@ -893,8 +886,7 @@ app.post('/:id/reopen', async (c) => {
     
     return c.json(incident);
   } catch (error: any) {
-    console.error('Reopen incident error:', error);
-    return c.json({ error: error.message || 'Failed to reopen incident' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.reopenIncident', error);
   }
 });
 
@@ -952,8 +944,7 @@ app.post('/:id/notes', async (c) => {
     
     return c.json(note, 201);
   } catch (error: any) {
-    console.error('Add note error:', error);
-    return c.json({ error: error.message || 'Failed to add note' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.addNote', error);
   }
 });
 
@@ -1013,8 +1004,7 @@ app.post('/:id/actions', async (c) => {
     
     return c.json(action, 201);
   } catch (error: any) {
-    console.error('Add action error:', error);
-    return c.json({ error: error.message || 'Failed to add action' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.addAction', error);
   }
 });
 
@@ -1065,8 +1055,7 @@ app.put('/:id/actions/:actionId', async (c) => {
     
     return c.json(action);
   } catch (error: any) {
-    console.error('Update action error:', error);
-    return c.json({ error: error.message || 'Failed to update action' }, error.message.includes('Unauthorized') ? 401 : 500);
+    return internalError(c, 'incidents.updateAction', error);
   }
 });
 

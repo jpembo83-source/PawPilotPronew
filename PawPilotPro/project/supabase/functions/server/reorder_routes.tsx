@@ -5,6 +5,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -213,10 +214,8 @@ const createReorderEndpoint = (config: ReorderConfig) => {
 
     } catch (error: any) {
       console.error(`Reorder error (${config.entityType}):`, error);
-      return c.json(
-        { error: error.message || 'Failed to reorder item' },
-        error.message.includes('Unauthorised') ? 401 : 500
-      );
+      if (error.message?.includes('Unauthorised')) return c.json({ error: 'Unauthorised' }, 401);
+      return internalError(c, `reorder.${config.entityType}`, error);
     }
   };
 };
@@ -313,10 +312,8 @@ app.get('/audit', async (c) => {
 
   } catch (error: any) {
     console.error('Audit query error:', error);
-    return c.json(
-      { error: error.message || 'Failed to retrieve audit logs' },
-      error.message.includes('Unauthorised') ? 401 : 500
-    );
+    if (error.message?.includes('Unauthorised')) return c.json({ error: 'Unauthorised' }, 401);
+    return internalError(c, 'reorder.audit', error);
   }
 });
 

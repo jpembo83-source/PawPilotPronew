@@ -37,8 +37,6 @@ import { PolicyPortal } from './modules/policies';
 import { IncidentsListPage, IncidentDetailPage } from './modules/incidents';
 import { RBACDocumentationPage } from './modules/settings/pages/RBACDocumentationPage';
 import { StaffPage, StaffMemberDetailPage } from './modules/staff';
-import { KVDebug } from './debug/KVDebug';
-import { CustomerDebug } from './debug/CustomerDebug';
 import Packages from './modules/packages';
 import CapacityDashboard from './modules/capacity';
 import { BetaRoute } from './components/BetaRoute';
@@ -154,9 +152,6 @@ export default function App() {
                 <Route path="incidents/:id" element={<IncidentDetailPage />} />
                 <Route path="capacity" element={<CapacityDashboard />} />
                 <Route path="reports/*" element={<Reporting />} />
-                <Route path="debug-kv" element={<KVDebug />} />
-                <Route path="debug-customer" element={<CustomerDebug />} />
-                
                 <Route path="settings" element={<SettingsLayout />}>
                   <Route index element={<SettingsOverview />} />
                   <Route path="organisation" element={<OrganisationSettings />} />

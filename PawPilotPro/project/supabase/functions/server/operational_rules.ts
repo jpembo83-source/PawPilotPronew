@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -69,7 +70,7 @@ app.get(`${PREFIX}`, async (c) => {
     return c.json({ rules, total: rules.length });
   } catch (error) {
     console.error('Error fetching operational rules:', error);
-    return c.json({ error: 'Failed to fetch operational rules', details: error.message }, 500);
+    return internalError(c, 'operational_rules.getPREFIX', error);
   }
 });
 
@@ -90,7 +91,7 @@ app.get(`${PREFIX}/templates`, async (c) => {
     return c.json({ templates });
   } catch (error) {
     console.error('Error fetching rule templates:', error);
-    return c.json({ error: 'Failed to fetch rule templates', details: error.message }, 500);
+    return internalError(c, 'operational_rules.getPREFIXTemplates', error);
   }
 });
 
@@ -122,7 +123,7 @@ app.get(`${PREFIX}/audit`, async (c) => {
     return c.json({ audits, total: audits.length });
   } catch (error) {
     console.error('Error fetching audit log:', error);
-    return c.json({ error: 'Failed to fetch audit log', details: error.message }, 500);
+    return internalError(c, 'operational_rules.getPREFIXAudit', error);
   }
 });
 
@@ -155,7 +156,7 @@ app.get(`${PREFIX}/overrides/:locationId`, async (c) => {
     return c.json({ configs });
   } catch (error) {
     console.error('Error fetching location overrides:', error);
-    return c.json({ error: 'Failed to fetch location overrides', details: error.message }, 500);
+    return internalError(c, 'operational_rules.getPREFIXOverridesLocationId', error);
   }
 });
 
@@ -172,7 +173,7 @@ app.get(`${PREFIX}/:ruleId`, async (c) => {
     return c.json(rule);
   } catch (error) {
     console.error('Error fetching operational rule:', error);
-    return c.json({ error: 'Failed to fetch operational rule', details: error.message }, 500);
+    return internalError(c, 'operational_rules.getPREFIXRuleId', error);
   }
 });
 
@@ -236,7 +237,7 @@ app.post(`${PREFIX}`, async (c) => {
     return c.json(rule, 201);
   } catch (error) {
     console.error('Error creating operational rule:', error);
-    return c.json({ error: 'Failed to create operational rule', details: error.message }, 500);
+    return internalError(c, 'operational_rules.postPREFIX', error);
   }
 });
 
@@ -301,7 +302,7 @@ app.patch(`${PREFIX}/:ruleId`, async (c) => {
     return c.json(updatedRule);
   } catch (error) {
     console.error('Error updating operational rule:', error);
-    return c.json({ error: 'Failed to update operational rule', details: error.message }, 500);
+    return internalError(c, 'operational_rules.patchPREFIXRuleId', error);
   }
 });
 
@@ -340,7 +341,7 @@ app.delete(`${PREFIX}/:ruleId`, async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('Error deleting operational rule:', error);
-    return c.json({ error: 'Failed to delete operational rule', details: error.message }, 500);
+    return internalError(c, 'operational_rules.deletePREFIXRuleId', error);
   }
 });
 
@@ -444,7 +445,7 @@ app.post(`${PREFIX}/evaluate`, async (c) => {
     return c.json(response);
   } catch (error) {
     console.error('Error evaluating operational rules:', error);
-    return c.json({ error: 'Failed to evaluate operational rules', details: error.message }, 500);
+    return internalError(c, 'operational_rules.postPREFIXEvaluate', error);
   }
 });
 

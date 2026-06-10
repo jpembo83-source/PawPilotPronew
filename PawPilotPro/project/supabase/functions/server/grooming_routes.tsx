@@ -6,6 +6,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -144,8 +145,7 @@ app.get('/appointments', async (c) => {
     
     return c.json(appointments);
   } catch (e: any) {
-    console.error('Error fetching appointments:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.listAppointments', e);
   }
 });
 
@@ -163,7 +163,7 @@ app.get('/appointments/:id', async (c) => {
     
     return c.json(appointment);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.getAppointment', e);
   }
 });
 
@@ -218,8 +218,7 @@ app.post('/appointments', async (c) => {
     
     return c.json(appointment, 201);
   } catch (e: any) {
-    console.error('Error creating appointment:', e);
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.createAppointment', e);
   }
 });
 
@@ -246,7 +245,7 @@ app.patch('/appointments/:id', async (c) => {
     
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.updateAppointment', e);
   }
 });
 
@@ -278,7 +277,7 @@ app.post('/appointments/:id/cancel', async (c) => {
     
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.cancelAppointment', e);
   }
 });
 
@@ -313,7 +312,7 @@ app.post('/appointments/:id/check-in', async (c) => {
     
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.checkIn', e);
   }
 });
 
@@ -361,7 +360,7 @@ app.post('/appointments/:id/start', async (c) => {
     
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.startAppointment', e);
   }
 });
 
@@ -400,7 +399,7 @@ app.post('/appointments/:id/complete', async (c) => {
     
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.completeAppointment', e);
   }
 });
 
@@ -434,7 +433,7 @@ app.post('/appointments/:id/check-out', async (c) => {
     
     return c.json(updated);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.checkOut', e);
   }
 });
 
@@ -501,7 +500,7 @@ app.get('/appointments/:id/validate-checkin', async (c) => {
       warnings,
     });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.validateCheckIn', e);
   }
 });
 
@@ -557,7 +556,7 @@ app.get('/queue', async (c) => {
     
     return c.json(queue);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.queue', e);
   }
 });
 
@@ -584,7 +583,7 @@ app.get('/groomers', async (c) => {
     
     return c.json(groomers);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.listGroomers', e);
   }
 });
 
@@ -657,7 +656,7 @@ app.post('/groomers/seed', async (c) => {
     
     return c.json({ success: true, count: sampleGroomers.length });
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.seedGroomers', e);
   }
 });
 
@@ -741,7 +740,7 @@ app.get('/stats', async (c) => {
     
     return c.json(stats);
   } catch (e: any) {
-    return c.json({ error: e.message }, 500);
+    return internalError(c, 'grooming.stats', e);
   }
 });
 

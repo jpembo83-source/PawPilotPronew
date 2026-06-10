@@ -226,7 +226,7 @@ export function requirePermission(
     const hasAccess = hasPermission(user.role, section, action, permissionContext);
     
     if (!hasAccess) {
-      console.warn(`Permission denied: ${user.email} (${user.role}) attempted to ${action} ${section}`);
+      console.warn(`Permission denied: user ${user.id} (${user.role}) attempted to ${action} ${section}`);
       return c.json({ 
         error: 'Forbidden', 
         message: `You do not have permission to ${action} ${section}` 
@@ -293,7 +293,7 @@ export async function logAudit(
     const auditKey = `audit:settings:${entry.timestamp}:${entry.id}`;
     await kv.set(auditKey, entry);
     
-    console.log(`[AUDIT] ${user.role} ${user.email} ${action} ${section}`, details);
+    console.log(`[AUDIT] ${user.role} ${user.id} ${action} ${section}`, { resourceId: details.resourceId });
   } catch (error) {
     console.error('Failed to log audit entry:', error);
     // Don't fail the request if audit logging fails

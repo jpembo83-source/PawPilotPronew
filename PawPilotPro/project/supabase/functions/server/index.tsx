@@ -32,6 +32,7 @@ import portalRoutes from "./portal_routes.tsx";
 import portalInvites from "./portal_invites.ts";
 import portalBookings from "./portal_bookings.ts";
 import { requireAuth, requirePermission, UserContext } from "./settings_rbac.ts";
+import { internalError } from "./_shared/log.ts";
 
 const app = new Hono();
 
@@ -152,8 +153,7 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
     // Check if admin already exists
     const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
     if (listError) {
-      console.error("List users error:", listError);
-      return c.json({ error: listError.message }, 500);
+      return internalError(c, 'index.seedAdmin.listUsers', listError);
     }
 
     const existingAdmin = users?.find(u => u.email === seedEmail);
@@ -254,8 +254,7 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
     });
 
     if (error) {
-      console.error("Create admin error:", error);
-      return c.json({ error: error.message }, 400);
+      return internalError(c, 'index.seedAdmin.createUser', error);
     }
     
     // Also save to KV store for staff management integration
@@ -283,8 +282,7 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
       user: data.user
     });
   } catch (err: any) {
-    console.error("Server error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'index.seedAdmin', err);
   }
 });
 
@@ -334,8 +332,7 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
     });
 
     if (error) {
-      console.error("Create User Error:", error);
-      return c.json({ error: error.message }, 400);
+      return internalError(c, 'index.createUser.supabase', error);
     }
     
     // Also save to KV store for staff management integration
@@ -361,8 +358,7 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
 
     return c.json(data.user);
   } catch (err: any) {
-    console.error("Server Error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'index.createUser', err);
   }
 });
 
@@ -415,8 +411,7 @@ app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users
     const { data, error } = await supabase.auth.admin.updateUserById(id, updates);
 
     if (error) {
-      console.error("Update User Error:", error);
-      return c.json({ error: error.message }, 400);
+      return internalError(c, 'index.updateUser.supabase', error);
     }
     
     // Also update KV store for staff management integration
@@ -452,8 +447,7 @@ app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users
 
     return c.json(data.user);
   } catch (err: any) {
-    console.error("Server Error:", err);
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'index.updateUser', err);
   }
 });
 
@@ -472,9 +466,9 @@ app.delete("/make-server-fc003b23/users/:id", requireAuth, requirePermission('us
     const { data, error } = await supabase.auth.admin.deleteUser(id);
     
     if (error) {
-      return c.json({ error: error.message }, 400);
+      return internalError(c, 'index.deleteUser.supabase', error);
     }
-    
+
     // Also delete from KV store
     if (tenantId) {
       await kv.del(`user:${tenantId}:profile:${id}`);
@@ -483,7 +477,7 @@ app.delete("/make-server-fc003b23/users/:id", requireAuth, requirePermission('us
     
     return c.json({ success: true });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'index.deleteUser', err);
   }
 });
 
@@ -493,7 +487,7 @@ app.get("/make-server-fc003b23/users", requireAuth, requirePermission('users', '
     const supabase = getSupabase();
     const { data: { users }, error } = await supabase.auth.admin.listUsers();
     
-    if (error) return c.json({ error: error.message }, 400);
+    if (error) return internalError(c, 'index.listUsers.supabase', error);
     
     const mappedUsers = users.map(u => ({
       id: u.id,
@@ -510,7 +504,7 @@ app.get("/make-server-fc003b23/users", requireAuth, requirePermission('users', '
 
     return c.json(mappedUsers);
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    return internalError(c, 'index.listUsers', err);
   }
 });
 

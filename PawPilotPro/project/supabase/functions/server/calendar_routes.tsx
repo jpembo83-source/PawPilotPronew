@@ -1,6 +1,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
 
@@ -322,8 +323,7 @@ app.get('/events', async (c) => {
 
     return c.json({ events, summary });
   } catch (err: any) {
-    console.error('[Calendar] Error fetching events:', err);
-    return c.json({ error: 'Failed to load calendar events', details: err.message }, 500);
+    return internalError(c, 'calendar.events', err);
   }
 });
 
