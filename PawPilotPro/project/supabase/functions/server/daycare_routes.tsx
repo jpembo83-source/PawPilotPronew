@@ -697,7 +697,11 @@ app.get('/bookings', async (c) => {
     const householdId = c.req.query('household_id');
     const search = c.req.query('search');
     
+    const tenantId = getTenantId(user);
     const bookingsData = await kv.getByPrefix('daycare:booking:');
+    const existingHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    const householdIds = new Set(existingHouseholds.map((h: any) => h.id).filter(Boolean));
+
     // Parse JSON strings into objects
     // Filter to only actual booking records (not index entries like daycare:booking:date:...)
     let bookings: DaycareBooking[] = bookingsData
@@ -713,8 +717,9 @@ app.get('/bookings', async (c) => {
           return null;
         }
       })
-      .filter((b: any) => b !== null);
-    
+      .filter((b: any) => b !== null)
+      .filter((b: any) => householdIds.has(b.household_id));
+
     // Permission filtering
     bookings = filterByLocationPermission(bookings, user);
     
