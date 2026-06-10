@@ -172,7 +172,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         bookings: [booking, ...state.bookings],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('daycare', 'booking', 'created', booking.id, undefined, booking.location_id);
+
       return booking;
     } catch (error: any) {
       console.error('Create booking error:', error);
@@ -202,7 +204,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         selectedBooking: state.selectedBooking?.id === id ? booking : state.selectedBooking,
         isLoading: false,
       }));
-      
+
+      broadcastMutation('daycare', 'booking', 'updated', id, { status: 'cancelled' }, booking.location_id);
+
       return booking;
     } catch (error: any) {
       console.error('Cancel booking error:', error);
@@ -283,7 +287,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         attendance: [result.attendance, ...state.attendance],
         isLoading: false,
       }));
-      
+
+      broadcastMutation('daycare', 'attendance', 'created', bookingId, { action: 'check-in' }, result.booking?.location_id);
+
       return result;
     } catch (error: any) {
       console.error('Check-in error:', error);
@@ -314,7 +320,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         attendance: state.attendance.filter(a => a.booking_id !== bookingId),
         isLoading: false,
       }));
-      
+
+      broadcastMutation('daycare', 'attendance', 'updated', bookingId, { action: 'check-out' }, booking.location_id);
+
       return booking;
     } catch (error: any) {
       console.error('Check-out error:', error);

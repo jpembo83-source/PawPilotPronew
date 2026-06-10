@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { projectId } from '../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
+import { broadcastMutation } from '../../lib/realtimeBroadcast';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/billing`;
 
@@ -363,11 +364,13 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       }
       
       const { invoice } = await response.json();
-      set(state => ({ 
+      set(state => ({
         invoices: [invoice, ...state.invoices],
-        loading: false 
+        loading: false
       }));
-      
+
+      broadcastMutation('billing', 'invoice', 'created');
+
       return invoice;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -398,6 +401,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         selectedInvoice: state.selectedInvoice?.id === id ? invoice : state.selectedInvoice,
         loading: false,
       }));
+      broadcastMutation('billing', 'invoice', 'updated', id);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       set({ error: message, loading: false });
@@ -428,6 +432,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         selectedInvoice: state.selectedInvoice?.id === id ? invoice : state.selectedInvoice,
         loading: false,
       }));
+      broadcastMutation('billing', 'invoice', 'updated', id);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       set({ error: message, loading: false });
@@ -502,9 +507,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const { payment } = await response.json();
       set(state => ({ 
         payments: [payment, ...state.payments],
-        loading: false 
+        loading: false
       }));
-      
+
+      broadcastMutation('billing', 'payment', 'created');
+
       return payment;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -588,9 +595,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const { subscription } = await response.json();
       set(state => ({ 
         subscriptions: [subscription, ...state.subscriptions],
-        loading: false 
+        loading: false
       }));
-      
+
+      broadcastMutation('billing', 'subscription', 'created');
+
       return subscription;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -648,6 +657,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         subscriptions: state.subscriptions.map(sub => sub.id === id ? subscription : sub),
         loading: false,
       }));
+      broadcastMutation('billing', 'subscription', 'updated', id);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       set({ error: message, loading: false });
@@ -699,9 +709,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const { credit } = await response.json();
       set(state => ({ 
         credits: [credit, ...state.credits],
-        loading: false 
+        loading: false
       }));
-      
+
+      broadcastMutation('billing', 'credit', 'created');
+
       return credit;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -753,9 +765,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const { refund } = await response.json();
       set(state => ({ 
         refunds: [refund, ...state.refunds],
-        loading: false 
+        loading: false
       }));
-      
+
+      broadcastMutation('billing', 'refund', 'created');
+
       return refund;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -807,9 +821,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const { fee } = await response.json();
       set(state => ({ 
         fees: [fee, ...state.fees],
-        loading: false 
+        loading: false
       }));
-      
+
+      broadcastMutation('billing', 'fee', 'created');
+
       return fee;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -858,9 +874,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const { export: billingExport } = await response.json();
       set(state => ({ 
         exports: [billingExport, ...state.exports],
-        loading: false 
+        loading: false
       }));
-      
+
+      broadcastMutation('billing', 'export', 'created');
+
       return billingExport;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
