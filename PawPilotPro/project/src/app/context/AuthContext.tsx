@@ -22,9 +22,10 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  /** Tenant the session operates within. Sourced from user_metadata for now
-   * (transitional — moves to app_metadata in remediation phase 1.2). Pages
-   * like BulkImport/Export send it as X-Tenant-Id. */
+  /** Tenant the session operates within. Sourced app_metadata-first
+   * (server-set); the user_metadata fallback is transitional until the
+   * production backfill completes. Pages like BulkImport/Export send it as
+   * X-Tenant-Id. */
   activeTenantId: string | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
@@ -141,11 +142,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setActiveTenantId(null);
   };
 
+  // Security-bearing fields read app_metadata-first (server-set); the
+  // user_metadata fallback is transitional until the production backfill
+  // mirrors them into app_metadata for every user.
   const tenantOf = (sbUser: SupabaseUser): string | null =>
+    sbUser.app_metadata?.tenant_id ?? sbUser.app_metadata?.tenantId ??
     sbUser.user_metadata?.tenant_id ?? sbUser.user_metadata?.tenantId ?? null;
 
   const mapSupabaseUser = (sbUser: SupabaseUser): User => {
     const metadata = sbUser.user_metadata || {};
+    const appMetadata = sbUser.app_metadata || {};
     // Role MUST come from app_metadata. user_metadata is client-writable, so
     // a malicious user could call supabase.auth.updateUser({ data: { role: 'admin' } })
     // and self-promote if we trusted user_metadata.role here. The server-side
@@ -156,9 +162,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: metadata.name || sbUser.email || 'Unknown',
       email: sbUser.email || '',
       role,
-      locationIds: metadata.locationIds || ['loc-1'],
-      templateId: metadata.templateId, // Permission template assignment
-      permissions: metadata.permissions || [] // Per-user overrides
+      // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
+      locationIds: appMetadata.locationIds ?? metadata.locationIds ?? ['loc-1'],
+      templateId: appMetadata.templateId ?? metadata.templateId, // Permission template assignment
+      permissions: appMetadata.permissions ?? metadata.permissions ?? [] // Per-user overrides
     };
   };
 

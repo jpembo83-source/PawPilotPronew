@@ -20,9 +20,10 @@ export interface AuthenticatedUser {
   email: string;
   name: string;
   /**
-   * Tenant the request operates within. Currently sourced from user_metadata,
-   * which is client-writable — a known weakness that 1B.3-style migration
-   * should move to app_metadata. Falls back to user.id when no tenant is set
+   * Tenant the request operates within. Sourced app_metadata-first (server-set,
+   * untamperable) via `metaField`, with a transitional fallback to
+   * user_metadata until the production backfill mirrors every user's
+   * tenant into app_metadata. Falls back to user.id when no tenant is set
    * (matches existing route behaviour). Do NOT use this for cross-tenant
    * authorisation without a server-side check.
    */
@@ -77,6 +78,26 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 /**
+ * Read a security-bearing metadata field app_metadata-first (server-set,
+ * untamperable from the client). The user_metadata fallback is TRANSITIONAL:
+ * it only exists until the production backfill mirrors every user's
+ * security fields into app_metadata, after which it must be removed.
+ */
+export function metaField<T = unknown>(
+  user: {
+    app_metadata?: Record<string, unknown> | null;
+    user_metadata?: Record<string, unknown> | null;
+  },
+  field: string,
+): T | undefined {
+  const appValue = user.app_metadata?.[field];
+  if (appValue !== undefined && appValue !== null) return appValue as T;
+  // Transitional fallback (pre-backfill users only) — remove post-backfill.
+  const userValue = user.user_metadata?.[field];
+  return userValue === null ? undefined : (userValue as T | undefined);
+}
+
+/**
  * Extract the bearer token from the `Authorization` header. The legacy
  * `X-User-Token` header is intentionally NOT read here: the shared client
  * `getAuthHeaders` puts the user's access token in `Authorization`, so there is
@@ -109,15 +130,17 @@ export async function validateUserToken(c: Context): Promise<AuthenticatedUser |
 
   const role: Role = (appMetadata?.role as Role) ?? 'staff';
 
+  // Tenant and locations are authorization-bearing: read app_metadata-first.
+  // metaField's user_metadata fallback is transitional (pre-backfill users).
   const tenantId =
-    (userMetadata?.tenant_id as string | undefined) ??
-    (userMetadata?.tenantId as string | undefined) ??
+    metaField<string>(u, 'tenant_id') ??
+    metaField<string>(u, 'tenantId') ??
     u.id;
 
   return {
     id: u.id,
     role,
-    locationIds: (userMetadata?.locationIds as string[]) ?? [],
+    locationIds: metaField<string[]>(u, 'locationIds') ?? [],
     email: u.email ?? '',
     name: (userMetadata?.name as string) ?? u.email ?? 'Unknown',
     tenantId,

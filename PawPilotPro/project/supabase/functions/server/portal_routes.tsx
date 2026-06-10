@@ -1,6 +1,8 @@
 // Portal routes — public + portal-user-authed.
-// Uses v2 KV schema. The portal user's `user_metadata` carries `tenant_id` (matching v2's
-// staff convention) + `household_id` for owner-scoped reads.
+// Uses v2 KV schema. The portal user's `app_metadata` (server-set) carries
+// `tenant_id` (matching v2's staff convention) + `household_id` for
+// owner-scoped reads; `user_metadata` mirrors them transitionally until the
+// production backfill completes.
 
 import { Hono } from "npm:hono";
 import { z } from "npm:zod";
@@ -36,20 +38,26 @@ async function readPortalUser(c: any): Promise<PortalCtx | { error: string; stat
   let user: any;
   try { user = await getUserFromToken(token); }
   catch { return { error: "Invalid session", status: 401 }; }
-  if (user.user_metadata?.portal_user !== true) return { error: "Not a portal account", status: 403 };
+  // Authorization fields read app_metadata-first (server-set, untamperable);
+  // the user_metadata fallback is transitional until the production backfill
+  // mirrors these fields into app_metadata for every portal user.
+  const portalUser = user.app_metadata?.portal_user ?? user.user_metadata?.portal_user;
+  if (portalUser !== true) return { error: "Not a portal account", status: 403 };
   // Phase E: staff can pause a household's portal access without nuking the
-  // auth user or the portal_users link. The flag lives on user_metadata so
-  // every authed portal endpoint rejects in lockstep — including endpoints
+  // auth user or the portal_users link. The flag is checked here so every
+  // authed portal endpoint rejects in lockstep — including endpoints
   // mounted from portal_bookings.ts which has its own copy of this guard.
-  if (user.user_metadata?.portal_suspended === true) {
+  const suspended = user.app_metadata?.portal_suspended ?? user.user_metadata?.portal_suspended;
+  if (suspended === true) {
     return { error: "Portal access is paused — contact your daycare", status: 403 };
   }
-  const tenantId = user.user_metadata?.tenant_id;
-  const householdId = user.user_metadata?.household_id;
+  const tenantId = user.app_metadata?.tenant_id ?? user.user_metadata?.tenant_id;
+  const householdId = user.app_metadata?.household_id ?? user.user_metadata?.household_id;
   if (!tenantId || !householdId) return { error: "Portal account not linked", status: 403 };
-  // user_metadata is client-writable, so the tenant/household claim must be
-  // confirmed against the server-written portal_users link (created at
-  // accept-invite). A spoofed tenant_id/household_id will not match.
+  // The transitional user_metadata fallback is client-writable, so the
+  // tenant/household claim must be confirmed against the server-written
+  // portal_users link (created at accept-invite) — defense in depth. A
+  // spoofed tenant_id/household_id will not match.
   const link = (await kv.get(`portal_users:${tenantId}:${householdId}`)) as any;
   if (!link || link.authUserId !== user.id) {
     return { error: "Portal account not linked", status: 403 };
@@ -118,6 +126,10 @@ portal.post("/auth/accept-invite", async (c) => {
     email,
     password,
     email_confirm: true,
+    // Security-bearing portal fields live in app_metadata (server-set,
+    // untamperable). user_metadata mirrors them for display compat during
+    // the transition (dropped post-backfill).
+    app_metadata: { portal_user: true, tenant_id: tenantId, household_id: householdId },
     user_metadata: { portal_user: true, tenant_id: tenantId, household_id: householdId },
   });
   if (created?.user) {
@@ -134,7 +146,16 @@ portal.post("/auth/accept-invite", async (c) => {
         if (match) {
           isExistingUser = true;
           authUserId = match.id;
-          // Merge metadata — do NOT overwrite password (preserves staff login)
+          // Merge metadata — do NOT overwrite password (preserves staff login).
+          // Security-bearing portal fields are written to app_metadata
+          // (server-set) and mirrored into user_metadata for display compat
+          // during the transition (dropped post-backfill).
+          const mergedAppMeta = {
+            ...(match.app_metadata ?? {}),
+            portal_user: true,
+            tenant_id: tenantId,
+            household_id: householdId,
+          };
           const mergedMeta = {
             ...(match.user_metadata ?? {}),
             portal_user: true,
@@ -142,6 +163,7 @@ portal.post("/auth/accept-invite", async (c) => {
             household_id: householdId,
           };
           const { error: updErr } = await admin.auth.admin.updateUserById(match.id, {
+            app_metadata: mergedAppMeta,
             user_metadata: mergedMeta,
             email_confirm: true,
           });

@@ -32,7 +32,9 @@ async function getUserFromToken(token: string) {
 }
 
 function getTenantId(user: any): string {
-  return user.user_metadata?.tenant_id || user.id;
+  // app_metadata-first (server-set); the user_metadata fallback is
+  // transitional until the production backfill completes.
+  return user.app_metadata?.tenant_id || user.user_metadata?.tenant_id || user.id;
 }
 
 const STAFF_ROLES = new Set(["admin", "manager", "assistant_manager", "staff"]);
@@ -57,17 +59,23 @@ async function readPortalUser(c: any): Promise<PortalCtx | { error: string; stat
   let user: any;
   try { user = await getUserFromToken(token); }
   catch { return { error: "Invalid session", status: 401 }; }
-  if (user.user_metadata?.portal_user !== true) return { error: "Not a portal account", status: 403 };
+  // Authorization fields read app_metadata-first (server-set, untamperable);
+  // the user_metadata fallback is transitional until the production backfill
+  // mirrors these fields into app_metadata for every portal user.
+  const portalUser = user.app_metadata?.portal_user ?? user.user_metadata?.portal_user;
+  if (portalUser !== true) return { error: "Not a portal account", status: 403 };
   // Phase E: staff-controlled pause. Same guard as portal_routes.tsx.
-  if (user.user_metadata?.portal_suspended === true) {
+  const suspended = user.app_metadata?.portal_suspended ?? user.user_metadata?.portal_suspended;
+  if (suspended === true) {
     return { error: "Portal access is paused — contact your daycare", status: 403 };
   }
-  const tenantId = user.user_metadata?.tenant_id;
-  const householdId = user.user_metadata?.household_id;
+  const tenantId = user.app_metadata?.tenant_id ?? user.user_metadata?.tenant_id;
+  const householdId = user.app_metadata?.household_id ?? user.user_metadata?.household_id;
   if (!tenantId || !householdId) return { error: "Portal account not linked", status: 403 };
-  // user_metadata is client-writable, so the tenant/household claim must be
-  // confirmed against the server-written portal_users link (created at
-  // accept-invite). A spoofed tenant_id/household_id will not match.
+  // The transitional user_metadata fallback is client-writable, so the
+  // tenant/household claim must be confirmed against the server-written
+  // portal_users link (created at accept-invite) — defense in depth. A
+  // spoofed tenant_id/household_id will not match.
   const link = (await kv.get(`portal_users:${tenantId}:${householdId}`)) as any;
   if (!link || link.authUserId !== user.id) {
     return { error: "Portal account not linked", status: 403 };
