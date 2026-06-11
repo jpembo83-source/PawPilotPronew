@@ -160,20 +160,17 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
     if (existingAdmin) {
       console.log("Admin user already exists");
 
-      // Check if admin has tenant_id (app_metadata-first; user_metadata
-      // fallback is transitional until the production backfill completes).
+      // Check if admin has tenant_id (app_metadata only; server-set).
       const existingTenant =
-        existingAdmin.app_metadata?.tenant_id ?? existingAdmin.app_metadata?.tenantId ??
-        existingAdmin.user_metadata?.tenant_id ?? existingAdmin.user_metadata?.tenantId;
+        existingAdmin.app_metadata?.tenant_id ?? existingAdmin.app_metadata?.tenantId;
       if (!existingTenant) {
         console.log("Admin exists but missing tenant_id, updating...");
         const { error: updateError } = await supabase.auth.admin.updateUserById(
           existingAdmin.id,
           {
             // Security-bearing fields (role, tenant, locations, permissions)
-            // live in app_metadata (server-set, untamperable). The
-            // user_metadata mirror is retained as a transitional display
-            // copy and will be dropped once the backfill cleanup completes.
+            // live in app_metadata ONLY (server-set, untamperable).
+            // user_metadata carries display fields like name.
             app_metadata: {
               ...(existingAdmin.app_metadata ?? {}),
               role: 'manager',
@@ -184,12 +181,7 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
             },
             user_metadata: {
               ...existingAdmin.user_metadata,
-              role: 'manager',
-              name: 'System Administrator',
-              tenant_id: 'demo-tenant-001',
-              tenantId: 'demo-tenant-001',
-              locationIds: ['all'],
-              permissions: []
+              name: 'System Administrator'
             }
           }
         );
@@ -207,9 +199,9 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
         email: existingAdmin.email,
         name: existingAdmin.user_metadata?.name || 'System Administrator',
         role: existingAdmin.app_metadata?.role || 'manager',
-        // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-        locationIds: existingAdmin.app_metadata?.locationIds ?? existingAdmin.user_metadata?.locationIds ?? ['all'],
-        permissions: existingAdmin.app_metadata?.permissions ?? existingAdmin.user_metadata?.permissions ?? [],
+        // Security fields come from app_metadata only (server-set).
+        locationIds: existingAdmin.app_metadata?.locationIds ?? ['all'],
+        permissions: existingAdmin.app_metadata?.permissions ?? [],
         isActive: true,
         phone: existingAdmin.user_metadata?.phone || '',
         createdAt: existingAdmin.created_at,
@@ -234,9 +226,8 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
       password: seedPassword,
       email_confirm: true,
       // Security-bearing fields (role, tenant, locations, permissions) live
-      // in app_metadata so the client cannot tamper with them via
-      // supabase.auth.updateUser. user_metadata mirrors them for display
-      // compat during the transition (dropped post-backfill).
+      // in app_metadata ONLY so the client cannot tamper with them via
+      // supabase.auth.updateUser. user_metadata carries display fields.
       app_metadata: {
         role: 'manager',
         tenant_id: 'demo-tenant-001',
@@ -245,11 +236,7 @@ app.post("/make-server-fc003b23/seed-admin", async (c) => {
         permissions: []
       },
       user_metadata: {
-        name: 'System Administrator',
-        tenant_id: 'demo-tenant-001',
-        tenantId: 'demo-tenant-001',
-        locationIds: ['all'],
-        permissions: []
+        name: 'System Administrator'
       }
     });
 
@@ -317,9 +304,8 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
       password,
       email_confirm: true,
       // Security-bearing fields (role, tenant, template, permissions,
-      // locations) live in app_metadata (server-set, untamperable).
-      // user_metadata mirrors them for display compat during the transition
-      // (dropped post-backfill); display-only fields like name stay there.
+      // locations) live in app_metadata ONLY (server-set, untamperable).
+      // user_metadata carries display-only fields like name.
       app_metadata: {
         role: assignedRole,
         tenant_id: finalTenantId,
@@ -328,7 +314,7 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
         permissions,
         locationIds
       },
-      user_metadata: { name, locationIds, permissions, templateId, tenant_id: finalTenantId, tenantId: finalTenantId }
+      user_metadata: { name }
     });
 
     if (error) {
@@ -381,9 +367,9 @@ app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users
     }
 
     // Security-bearing fields (role, locations, permissions, template) are
-    // written to app_metadata so the user cannot tamper with them via
-    // supabase.auth.updateUser on the client. user_metadata mirrors them for
-    // display compat during the transition (dropped post-backfill).
+    // written to app_metadata ONLY so the user cannot tamper with them via
+    // supabase.auth.updateUser on the client. user_metadata carries
+    // display-only fields like name.
     const securityUpdates: any = {};
     if (body.role) securityUpdates.role = body.role;
     if (body.locationIds) securityUpdates.locationIds = body.locationIds;
@@ -398,14 +384,8 @@ app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users
       };
     }
 
-    const metadataUpdates: any = {};
-    if (body.name) metadataUpdates.name = body.name;
-    if (body.locationIds) metadataUpdates.locationIds = body.locationIds;
-    if (body.permissions) metadataUpdates.permissions = body.permissions;
-    if (body.templateId !== undefined) metadataUpdates.templateId = body.templateId;
-
-    if (Object.keys(metadataUpdates).length > 0) {
-      updates.user_metadata = metadataUpdates;
+    if (body.name) {
+      updates.user_metadata = { name: body.name };
     }
 
     const { data, error } = await supabase.auth.admin.updateUserById(id, updates);
@@ -416,9 +396,8 @@ app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users
     
     // Also update KV store for staff management integration
     if (data.user) {
-      // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-      const tenantId = data.user.app_metadata?.tenant_id || data.user.app_metadata?.tenantId
-        || data.user.user_metadata?.tenant_id || data.user.user_metadata?.tenantId;
+      // Tenant comes from app_metadata only (server-set).
+      const tenantId = data.user.app_metadata?.tenant_id || data.user.app_metadata?.tenantId;
       if (tenantId) {
         // Fetch existing profile
         const existingProfile = await kv.get(`user:${tenantId}:profile:${id}`);
@@ -429,10 +408,10 @@ app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users
           email: body.email || data.user.email,
           name: body.name || data.user.user_metadata?.name || data.user.email,
           role: body.role || data.user.app_metadata?.role || 'staff',
-          // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-          locationIds: body.locationIds || data.user.app_metadata?.locationIds || data.user.user_metadata?.locationIds || [],
-          permissions: body.permissions || data.user.app_metadata?.permissions || data.user.user_metadata?.permissions || [],
-          templateId: body.templateId !== undefined ? body.templateId : (data.user.app_metadata?.templateId ?? data.user.user_metadata?.templateId),
+          // Security fields come from app_metadata only (server-set).
+          locationIds: body.locationIds || data.user.app_metadata?.locationIds || [],
+          permissions: body.permissions || data.user.app_metadata?.permissions || [],
+          templateId: body.templateId !== undefined ? body.templateId : data.user.app_metadata?.templateId,
           isActive: body.isActive !== undefined ? body.isActive : !data.user.banned_until,
           phone: body.phone || existingProfile?.phone || '',
           updatedAt: new Date().toISOString(),
@@ -459,9 +438,8 @@ app.delete("/make-server-fc003b23/users/:id", requireAuth, requirePermission('us
     
     // Get user before deleting to get tenant ID
     const { data: userData } = await supabase.auth.admin.getUserById(id);
-    // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-    const tenantId = userData?.user?.app_metadata?.tenant_id || userData?.user?.app_metadata?.tenantId
-      || userData?.user?.user_metadata?.tenant_id || userData?.user?.user_metadata?.tenantId;
+    // Tenant comes from app_metadata only (server-set).
+    const tenantId = userData?.user?.app_metadata?.tenant_id || userData?.user?.app_metadata?.tenantId;
     
     const { data, error } = await supabase.auth.admin.deleteUser(id);
     
@@ -494,10 +472,10 @@ app.get("/make-server-fc003b23/users", requireAuth, requirePermission('users', '
       email: u.email,
       name: u.user_metadata?.name || u.email,
       role: u.app_metadata?.role || 'staff',
-      // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-      locationIds: u.app_metadata?.locationIds ?? u.user_metadata?.locationIds ?? [],
-      permissions: u.app_metadata?.permissions ?? u.user_metadata?.permissions ?? [],
-      templateId: u.app_metadata?.templateId ?? u.user_metadata?.templateId,
+      // Security fields come from app_metadata only (server-set).
+      locationIds: u.app_metadata?.locationIds ?? [],
+      permissions: u.app_metadata?.permissions ?? [],
+      templateId: u.app_metadata?.templateId,
       isActive: !u.banned_until,
       lastLogin: u.last_sign_in_at
     }));

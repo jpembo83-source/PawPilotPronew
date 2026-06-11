@@ -305,32 +305,24 @@ app.post(`${PREFIX}/threads/:threadId/messages`, async (c) => {
     
     // Create delivery log for customer messages
     if (body.recipientContactId && body.type !== 'internal_note') {
+      // Immediate, honest completion — no fake background send. Real
+      // email/SMS delivery is not integrated yet, so the message is marked
+      // sent at record time rather than pretending a provider delivered it.
+      // TODO: real delivery status when a provider integration is implemented.
       const deliveryLog = {
         messageId,
         channel: body.channel,
-        status: 'sending',
+        status: 'sent',
         attempts: 1,
         lastAttemptAt: now,
+        deliveredAt: now,
         metadata: {}
       };
       await kv.set(`delivery_log:${messageId}`, deliveryLog);
-      
-      // Simulate sending (in production, this would integrate with email/SMS services)
-      setTimeout(async () => {
-        const updatedMessage = await kv.get(`message:${messageId}`);
-        if (updatedMessage) {
-          updatedMessage.status = 'sent';
-          updatedMessage.sentAt = new Date().toISOString();
-          await kv.set(`message:${messageId}`, updatedMessage);
-          
-          const log = await kv.get(`delivery_log:${messageId}`);
-          if (log) {
-            log.status = 'sent';
-            log.deliveredAt = new Date().toISOString();
-            await kv.set(`delivery_log:${messageId}`, log);
-          }
-        }
-      }, 1000);
+
+      message.status = 'sent';
+      message.sentAt = now;
+      await kv.set(`message:${messageId}`, message);
     }
     
     return c.json(message, 201);
