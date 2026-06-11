@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 5307,
-  "warnings": 612
+  "errors": 4324,
+  "warnings": 459
  },
  "files": {
   "eslint.config.js": {
@@ -185,8 +185,8 @@
    "warnings": 1
   },
   "src/app/modules/billing/store.ts": {
-   "errors": 95,
-   "warnings": 16
+   "errors": 34,
+   "warnings": 0
   },
   "src/app/modules/calendar/CalendarPage.tsx": {
    "errors": 8,
@@ -213,8 +213,8 @@
    "warnings": 0
   },
   "src/app/modules/capacity/store.ts": {
-   "errors": 14,
-   "warnings": 5
+   "errors": 1,
+   "warnings": 0
   },
   "src/app/modules/communications-settings/CommunicationsSettingsPage.tsx": {
    "errors": 2,
@@ -381,8 +381,8 @@
    "warnings": 2
   },
   "src/app/modules/customers/store.ts": {
-   "errors": 252,
-   "warnings": 31
+   "errors": 18,
+   "warnings": 0
   },
   "src/app/modules/customers/types.ts": {
    "errors": 0,
@@ -585,12 +585,8 @@
    "warnings": 0
   },
   "src/app/modules/daycare/store.ts": {
-   "errors": 100,
-   "warnings": 13
-  },
-  "src/app/modules/daycare/types.ts": {
-   "errors": 0,
-   "warnings": 1
+   "errors": 4,
+   "warnings": 0
   },
   "src/app/modules/grooming/pages/GroomingAppointmentDetail.tsx": {
    "errors": 26,
@@ -613,12 +609,8 @@
    "warnings": 7
   },
   "src/app/modules/grooming/store.ts": {
-   "errors": 108,
-   "warnings": 14
-  },
-  "src/app/modules/grooming/types.ts": {
-   "errors": 0,
-   "warnings": 1
+   "errors": 13,
+   "warnings": 0
   },
   "src/app/modules/incidents/components/AssignIncidentDialog.tsx": {
    "errors": 29,
@@ -781,8 +773,8 @@
    "warnings": 2
   },
   "src/app/modules/overnights/store.ts": {
-   "errors": 181,
-   "warnings": 24
+   "errors": 16,
+   "warnings": 0
   },
   "src/app/modules/overnights/types.ts": {
    "errors": 0,
@@ -795,10 +787,6 @@
   "src/app/modules/packages/pages/PackagesDashboard.tsx": {
    "errors": 5,
    "warnings": 0
-  },
-  "src/app/modules/packages/store.ts": {
-   "errors": 37,
-   "warnings": 10
   },
   "src/app/modules/policies/components/BlockingPolicyWarning.tsx": {
    "errors": 4,
@@ -1005,8 +993,8 @@
    "warnings": 3
   },
   "src/app/modules/staff/store.ts": {
-   "errors": 204,
-   "warnings": 31
+   "errors": 11,
+   "warnings": 0
   },
   "src/app/modules/staff/types.ts": {
    "errors": 1,
@@ -1037,7 +1025,7 @@
    "warnings": 1
   },
   "src/app/modules/transport/components/CreateTransportJobDialog.tsx": {
-   "errors": 63,
+   "errors": 59,
    "warnings": 3
   },
   "src/app/modules/transport/components/CreateTransportRequestModal.tsx": {
@@ -1077,8 +1065,8 @@
    "warnings": 1
   },
   "src/app/modules/transport/store.ts": {
-   "errors": 104,
-   "warnings": 13
+   "errors": 8,
+   "warnings": 0
   },
   "src/app/modules/transport/types.ts": {
    "errors": 0,
@@ -1118,6 +1106,26 @@
   },
   "tests/e2e/workflows.spec.ts": {
    "errors": 2,
+   "warnings": 0
+  },
+  "tests/unit/booking-dedupe.test.ts": {
+   "errors": 3,
+   "warnings": 0
+  },
+  "tests/unit/log.test.ts": {
+   "errors": 3,
+   "warnings": 2
+  },
+  "tests/unit/meta-field.test.ts": {
+   "errors": 3,
+   "warnings": 3
+  },
+  "tests/unit/setup.ts": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "vitest.config.ts": {
+   "errors": 1,
    "warnings": 0
   }
  }

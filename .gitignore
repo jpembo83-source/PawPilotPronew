@@ -11,3 +11,4 @@
 **/supabase/.temp/
 *.bin
 zipFile.zip
+.worktrees/
