@@ -166,3 +166,25 @@ export interface DriverStatusUpdateRequest {
   event_type: 'started' | 'arrived' | 'picked_up' | 'dropped_off' | 'completed';
   notes?: string;
 }
+
+/**
+ * Active driver summary returned by the active-drivers endpoint
+ */
+export interface TransportDriver {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  role: string;
+  location_ids: string[];
+}
+
+/**
+ * Response envelope for the active-drivers endpoint
+ */
+export interface ActiveDriversResponse {
+  driver_count?: number;
+  vehicle_count?: number;
+  drivers?: TransportDriver[];
+  vehicles?: Vehicle[];
+}

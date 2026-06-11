@@ -66,10 +66,10 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
         return;
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as { packages?: Package[] };
       set({ packages: data.packages || [], isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 
@@ -81,10 +81,10 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       
       if (!response.ok) throw new Error('Failed to fetch package');
       
-      const data = await response.json();
+      const data = (await response.json()) as Package;
       set({ selectedPackage: data, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 
@@ -100,14 +100,14 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       
       if (!response.ok) throw new Error('Failed to create package');
       
-      const data = await response.json();
-      set(state => ({ 
+      const data = (await response.json()) as Package;
+      set(state => ({
         packages: [...state.packages, data],
-        isLoading: false 
+        isLoading: false
       }));
       return data;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -124,14 +124,14 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       
       if (!response.ok) throw new Error('Failed to update package');
       
-      const data = await response.json();
-      set(state => ({ 
+      const data = (await response.json()) as Package;
+      set(state => ({
         packages: state.packages.map(p => p.id === id ? data : p),
         selectedPackage: state.selectedPackage?.id === id ? data : state.selectedPackage,
         isLoading: false 
       }));
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -151,8 +151,8 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
         packages: state.packages.filter(p => p.id !== id),
         isLoading: false 
       }));
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -172,10 +172,10 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
         return;
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as { packages?: CustomerPackage[] };
       set({ customerPackages: data.packages || [], isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 
@@ -191,14 +191,14 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       
       if (!response.ok) throw new Error('Failed to purchase package');
       
-      const data = await response.json();
-      set(state => ({ 
+      const data = (await response.json()) as CustomerPackage;
+      set(state => ({
         customerPackages: [...state.customerPackages, data],
-        isLoading: false 
+        isLoading: false
       }));
       return data;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -218,8 +218,8 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       // Refresh customer packages
       await get().fetchCustomerPackages();
       set({ isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -241,8 +241,8 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
         ),
         isLoading: false 
       }));
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -259,10 +259,10 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
         return;
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as PackageStats;
       set({ stats: data, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
 
