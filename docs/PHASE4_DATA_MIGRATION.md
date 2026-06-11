@@ -249,3 +249,25 @@ Rules of engagement (repo CLAUDE.md compliant):
 
 Both files are headed **DRAFT — NOT APPLIED** and live outside
 `supabase/migrations/` precisely so no tooling can pick them up by accident.
+
+---
+
+## 7. RATIFIED DECISIONS (owner, 2026-06-11)
+
+1. **RLS**: Option A — RLS on every migrated table from day one; edge functions
+   remain the sole writer (service-role). `household_id` IS stamped into portal
+   users' `app_metadata` at invite-accept, starting now.
+2. **Tenant**: production is single-tenant; canonical tenant ID stays
+   `demo-tenant-001`, stamped onto unprefixed families at backfill.
+3. **Order**: as §4 — Customers → Portal identity → Bookings → Billing →
+   Audit → remainder.
+4. **Downtime**: hybrid — out-of-hours freeze windows for most entities;
+   full dual-write for daycare check-in and billing.
+5. **Cost**: approved — enable PITR before first backfill; use a Supabase
+   branch database to rehearse each backfill.
+6. **Orphans**: quarantine into `*_orphaned` tables, then VALIDATE constraints.
+7. **Denormalised names**: drop and join.
+8. **Audit**: single append-only `audit_events` table.
+
+Phase 4 execution may begin. First branch: `feat/phase4-customers`
+(stage 0 DDL + household_id stamping + PITR/branch-DB setup checks).
