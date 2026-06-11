@@ -470,12 +470,16 @@ app.post('/sync-jobs/trigger', async (c) => {
   const id = generateId();
   const key = `integration:sync_job:${id}`;
 
+  // Immediate, honest completion — no fake background sync. Real sync
+  // processing is not implemented yet, so the metrics are explicit zeros.
+  // TODO: real metrics when implemented (actual integration sync runner).
   const job = {
     id,
     integration_id: data.integration_id,
     sync_config_id: data.sync_config_id,
-    status: 'running',
+    status: 'completed',
     started_at: getCurrentTimestamp(),
+    completed_at: getCurrentTimestamp(),
     records_processed: 0,
     records_succeeded: 0,
     records_failed: 0,
@@ -484,19 +488,6 @@ app.post('/sync-jobs/trigger', async (c) => {
   };
 
   await kv.set(key, job);
-
-  // Simulate completion
-  setTimeout(async () => {
-    const completed = {
-      ...job,
-      status: 'completed',
-      completed_at: getCurrentTimestamp(),
-      records_processed: Math.floor(Math.random() * 500) + 50,
-      records_succeeded: Math.floor(Math.random() * 450) + 50,
-      records_failed: Math.floor(Math.random() * 10),
-    };
-    await kv.set(key, completed);
-  }, 3000);
 
   // Audit log
   await kv.set(`integration:audit:${generateId()}`, {

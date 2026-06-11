@@ -223,27 +223,21 @@ app.post('/exports', async (c) => {
   // Generate password for secure download
   const password = Math.random().toString(36).slice(-8).toUpperCase();
 
+  // Immediate, honest completion — no fake background job. Real export file
+  // generation is not implemented yet, so the metrics are explicit nulls.
+  // TODO: real metrics when implemented (file generation + storage upload).
   const exportRecord = {
     id,
     ...data,
     file_password: password,
-    status: 'generating',
+    status: 'ready',
+    file_url: null,
+    file_size_bytes: 0,
+    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
     created_at: getCurrentTimestamp(),
   };
 
   await kv.set(key, exportRecord);
-
-  // Simulate export generation (in production, this would be async)
-  setTimeout(async () => {
-    const updated = {
-      ...exportRecord,
-      status: 'ready',
-      file_url: `https://exports.mdc.example/${id}.${data.format}`,
-      file_size_bytes: Math.floor(Math.random() * 1000000) + 10000,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-    };
-    await kv.set(key, updated);
-  }, 2000);
 
   // Audit log
   await kv.set(`compliance:audit:${generateId()}`, {
@@ -374,50 +368,42 @@ app.post('/retention-jobs/:id/execute', async (c) => {
   }
 
   const executionId = generateId();
+  // Immediate, honest completion — no fake background job. Real retention
+  // processing is not implemented yet, so the metrics are explicit zeros.
+  // TODO: real metrics when implemented (actual record purge/anonymisation).
+  const recordsAffected = 0;
   const execution = {
     id: executionId,
     job_id: jobId,
-    status: 'running',
+    status: 'completed',
     started_at: getCurrentTimestamp(),
-    records_affected: 0,
+    completed_at: getCurrentTimestamp(),
+    records_affected: recordsAffected,
     records_failed: 0,
   };
 
   await kv.set(`compliance:job_execution:${executionId}`, execution);
 
-  // Simulate job execution (in production, this would be async)
-  setTimeout(async () => {
-    const recordsAffected = Math.floor(Math.random() * 100) + 10;
-    const completed = {
-      ...execution,
-      status: 'completed',
-      completed_at: getCurrentTimestamp(),
-      records_affected: recordsAffected,
-      records_failed: 0,
-    };
-    await kv.set(`compliance:job_execution:${executionId}`, completed);
+  // Update job
+  await kv.set(`compliance:job:${jobId}`, {
+    ...job,
+    last_run_at: getCurrentTimestamp(),
+    last_run_status: 'completed',
+    last_run_records_affected: recordsAffected,
+    updated_at: getCurrentTimestamp(),
+  });
 
-    // Update job
-    await kv.set(`compliance:job:${jobId}`, {
-      ...job,
-      last_run_at: getCurrentTimestamp(),
-      last_run_status: 'completed',
-      last_run_records_affected: recordsAffected,
-      updated_at: getCurrentTimestamp(),
-    });
-
-    // Audit log
-    await kv.set(`compliance:audit:${generateId()}`, {
-      action_type: 'retention_action',
-      entity_type: 'job',
-      entity_id: jobId,
-      user_id: 'system',
-      user_name: 'System',
-      user_role: 'admin',
-      action_description: `Executed retention job: ${recordsAffected} records affected`,
-      created_at: getCurrentTimestamp(),
-    });
-  }, 3000);
+  // Audit log
+  await kv.set(`compliance:audit:${generateId()}`, {
+    action_type: 'retention_action',
+    entity_type: 'job',
+    entity_id: jobId,
+    user_id: 'system',
+    user_name: 'System',
+    user_role: 'admin',
+    action_description: `Executed retention job: ${recordsAffected} records affected`,
+    created_at: getCurrentTimestamp(),
+  });
 
   return c.json(execution, 201);
 });

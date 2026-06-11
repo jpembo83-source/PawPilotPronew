@@ -20,12 +20,10 @@ export interface AuthenticatedUser {
   email: string;
   name: string;
   /**
-   * Tenant the request operates within. Sourced app_metadata-first (server-set,
-   * untamperable) via `metaField`, with a transitional fallback to
-   * user_metadata until the production backfill mirrors every user's
-   * tenant into app_metadata. Falls back to user.id when no tenant is set
-   * (matches existing route behaviour). Do NOT use this for cross-tenant
-   * authorisation without a server-side check.
+   * Tenant the request operates within. Sourced exclusively from app_metadata
+   * (server-set, untamperable) via `metaField`. Falls back to user.id when no
+   * tenant is set (matches existing route behaviour). Do NOT use this for
+   * cross-tenant authorisation without a server-side check.
    */
   tenantId: string;
   /**
@@ -78,23 +76,19 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 /**
- * Read a security-bearing metadata field app_metadata-first (server-set,
- * untamperable from the client). The user_metadata fallback is TRANSITIONAL:
- * it only exists until the production backfill mirrors every user's
- * security fields into app_metadata, after which it must be removed.
+ * Read a security-bearing metadata field from app_metadata ONLY (server-set,
+ * untamperable from the client). user_metadata is never consulted: the
+ * production backfill mirrored every user's security fields into
+ * app_metadata and all server writers write app_metadata directly.
  */
 export function metaField<T = unknown>(
   user: {
     app_metadata?: Record<string, unknown> | null;
-    user_metadata?: Record<string, unknown> | null;
   },
   field: string,
 ): T | undefined {
   const appValue = user.app_metadata?.[field];
-  if (appValue !== undefined && appValue !== null) return appValue as T;
-  // Transitional fallback (pre-backfill users only) — remove post-backfill.
-  const userValue = user.user_metadata?.[field];
-  return userValue === null ? undefined : (userValue as T | undefined);
+  return appValue === null ? undefined : (appValue as T | undefined);
 }
 
 /**
@@ -130,8 +124,8 @@ export async function validateUserToken(c: Context): Promise<AuthenticatedUser |
 
   const role: Role = (appMetadata?.role as Role) ?? 'staff';
 
-  // Tenant and locations are authorization-bearing: read app_metadata-first.
-  // metaField's user_metadata fallback is transitional (pre-backfill users).
+  // Tenant and locations are authorization-bearing: read from app_metadata
+  // only (via metaField). user_metadata is never consulted.
   const tenantId =
     metaField<string>(u, 'tenant_id') ??
     metaField<string>(u, 'tenantId') ??

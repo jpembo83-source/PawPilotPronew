@@ -31,9 +31,8 @@ async function getUserFromToken(token: string) {
 }
 
 function getTenantId(user: any): string {
-  // app_metadata-first (server-set); the user_metadata fallback is
-  // transitional until the production backfill completes.
-  return user.app_metadata?.tenant_id || user.user_metadata?.tenant_id || user.id;
+  // app_metadata only (server-set, untamperable).
+  return user.app_metadata?.tenant_id || user.id;
 }
 
 const STAFF_ROLES = new Set(["admin", "manager", "assistant_manager", "staff"]);
@@ -140,9 +139,8 @@ invites.get("/customers/:customerId/portal-activity", async (c) => {
       const admin = createClient(supabaseUrl, serviceKey);
       const { data: u } = await admin.auth.admin.getUserById(link.authUserId);
       lastSignInAt = (u?.user as any)?.last_sign_in_at ?? null;
-      // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-      suspended = !!((u?.user as any)?.app_metadata?.portal_suspended
-        ?? (u?.user as any)?.user_metadata?.portal_suspended);
+      // app_metadata only (server-set).
+      suspended = !!(u?.user as any)?.app_metadata?.portal_suspended;
     } catch (e) {
       console.warn("getUserById for portal-activity failed:", e);
     }
@@ -343,18 +341,14 @@ invites.post("/customers/:customerId/portal-revoke", async (c) => {
   try {
     const { data: u } = await admin.auth.admin.getUserById(link.authUserId);
     if (u?.user) {
-      // Clear the portal flags from BOTH app_metadata (authoritative,
-      // server-set) and the transitional user_metadata mirror.
+      // Clear the portal flags from app_metadata (authoritative, server-set).
       const appMeta = { ...(u.user.app_metadata ?? {}) };
       delete (appMeta as any).portal_user;
       delete (appMeta as any).portal_suspended;
-      const meta = { ...(u.user.user_metadata ?? {}) };
-      delete (meta as any).portal_user;
-      delete (meta as any).portal_suspended;
       // Keep tenant_id / household_id in metadata in case they're still
       // useful for staff sessions — they're only meaningful when paired
       // with portal_user:true on this code path.
-      await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta, user_metadata: meta });
+      await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta });
     }
   } catch (e) {
     console.warn("revoke: clearing portal metadata failed:", e);
@@ -386,11 +380,9 @@ invites.post("/customers/:customerId/portal-pause", async (c) => {
   if (getErr || !u?.user) return c.json({ error: "Auth user lookup failed" }, 500);
 
   // Suspension is an authorization flag: write it to app_metadata
-  // (authoritative, server-set) and mirror into the transitional
-  // user_metadata copy (dropped post-backfill).
+  // (authoritative, server-set) only.
   const appMeta = { ...(u.user.app_metadata ?? {}), portal_suspended: true };
-  const meta = { ...(u.user.user_metadata ?? {}), portal_suspended: true };
-  const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta, user_metadata: meta });
+  const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta });
   if (upErr) return internalError(c, "portal_invites.portalPause", upErr);
   return c.json({ ok: true, suspended: true });
 });
@@ -411,13 +403,10 @@ invites.post("/customers/:customerId/portal-resume", async (c) => {
   const { data: u, error: getErr } = await admin.auth.admin.getUserById(link.authUserId);
   if (getErr || !u?.user) return c.json({ error: "Auth user lookup failed" }, 500);
 
-  // Clear the suspension flag from BOTH app_metadata (authoritative,
-  // server-set) and the transitional user_metadata mirror.
+  // Clear the suspension flag from app_metadata (authoritative, server-set).
   const appMeta = { ...(u.user.app_metadata ?? {}) };
   delete (appMeta as any).portal_suspended;
-  const meta = { ...(u.user.user_metadata ?? {}) };
-  delete (meta as any).portal_suspended;
-  const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta, user_metadata: meta });
+  const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta });
   if (upErr) return internalError(c, "portal_invites.portalResume", upErr);
   return c.json({ ok: true, suspended: false });
 });

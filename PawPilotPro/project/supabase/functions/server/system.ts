@@ -415,29 +415,22 @@ app.post('/jobs/:id/execute', async (c) => {
   }
 
   const executionId = generateId();
+  // Immediate, honest completion — no fake background job. Real job
+  // processing is not implemented yet, so the metrics are explicit zeros.
+  // TODO: real metrics when implemented (actual job runner).
   const execution = {
     id: executionId,
     job_id: id,
     job_name: job.job_name,
     started_at: getCurrentTimestamp(),
-    status: 'running',
+    completed_at: getCurrentTimestamp(),
+    status: 'completed',
     records_processed: 0,
     triggered_by: data.triggered_by,
   };
 
   await kv.set(`system:job_execution:${executionId}`, execution);
   await createAuditLog('job_executed', 'job', id, data.triggered_by || 'system', `Manually executed job: ${job.job_name}`);
-
-  // Simulate completion
-  setTimeout(async () => {
-    const completed = {
-      ...execution,
-      status: 'completed',
-      completed_at: getCurrentTimestamp(),
-      records_processed: Math.floor(Math.random() * 1000) + 100,
-    };
-    await kv.set(`system:job_execution:${executionId}`, completed);
-  }, 3000);
 
   return c.json(execution, 201);
 });

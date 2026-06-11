@@ -83,17 +83,16 @@ async function getActiveDrivers(tenantId: string, locationId?: string) {
       }
       
       // Must have the Driver template assigned. This is an AUTHORIZATION
-      // check, so it reads app_metadata-first (server-set); the
-      // user_metadata fallback is transitional (pre-backfill users only).
-      const templateId = user.app_metadata?.templateId ?? user.user_metadata?.templateId;
+      // check, so it reads app_metadata only (server-set, untamperable).
+      const templateId = user.app_metadata?.templateId;
       if (templateId !== 'tpl-driver') {
         return false;
       }
 
       // If location_id specified, check location assignment
-      // (app_metadata-first; user_metadata fallback is transitional).
+      // (app_metadata only; server-set).
       if (locationId) {
-        const locationIds = user.app_metadata?.locationIds ?? user.user_metadata?.locationIds ?? [];
+        const locationIds = user.app_metadata?.locationIds ?? [];
         
         // Check if user has global access ('all') or includes the specific location
         if (!locationIds.includes('all') && !locationIds.includes(locationId)) {
@@ -114,8 +113,8 @@ async function getActiveDrivers(tenantId: string, locationId?: string) {
       email: user.email,
       // Role lives in app_metadata (server-set, untamperable from client).
       role: user.app_metadata?.role || 'staff',
-      // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-      location_ids: user.app_metadata?.locationIds ?? user.user_metadata?.locationIds ?? []
+      // Security fields come from app_metadata only (server-set).
+      location_ids: user.app_metadata?.locationIds ?? []
     }));
     
   } catch (error) {

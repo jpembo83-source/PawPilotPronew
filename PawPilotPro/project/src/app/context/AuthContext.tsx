@@ -22,10 +22,8 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  /** Tenant the session operates within. Sourced app_metadata-first
-   * (server-set); the user_metadata fallback is transitional until the
-   * production backfill completes. Pages like BulkImport/Export send it as
-   * X-Tenant-Id. */
+  /** Tenant the session operates within. Sourced from app_metadata only
+   * (server-set). Pages like BulkImport/Export send it as X-Tenant-Id. */
   activeTenantId: string | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => Promise<void>;
@@ -142,12 +140,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setActiveTenantId(null);
   };
 
-  // Security-bearing fields read app_metadata-first (server-set); the
-  // user_metadata fallback is transitional until the production backfill
-  // mirrors them into app_metadata for every user.
+  // Security-bearing fields read app_metadata only (server-set).
   const tenantOf = (sbUser: SupabaseUser): string | null =>
-    sbUser.app_metadata?.tenant_id ?? sbUser.app_metadata?.tenantId ??
-    sbUser.user_metadata?.tenant_id ?? sbUser.user_metadata?.tenantId ?? null;
+    sbUser.app_metadata?.tenant_id ?? sbUser.app_metadata?.tenantId ?? null;
 
   const mapSupabaseUser = (sbUser: SupabaseUser): User => {
     const metadata = sbUser.user_metadata || {};
@@ -162,10 +157,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: metadata.name || sbUser.email || 'Unknown',
       email: sbUser.email || '',
       role,
-      // app_metadata-first; user_metadata fallback is transitional (pre-backfill).
-      locationIds: appMetadata.locationIds ?? metadata.locationIds ?? ['loc-1'],
-      templateId: appMetadata.templateId ?? metadata.templateId, // Permission template assignment
-      permissions: appMetadata.permissions ?? metadata.permissions ?? [] // Per-user overrides
+      // Security fields come from app_metadata only (server-set).
+      locationIds: appMetadata.locationIds ?? ['loc-1'],
+      templateId: appMetadata.templateId, // Permission template assignment
+      permissions: appMetadata.permissions ?? [] // Per-user overrides
     };
   };
 
