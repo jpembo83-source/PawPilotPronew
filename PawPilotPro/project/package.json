@@ -20,7 +20,8 @@
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
     "test:report": "playwright show-report test-results/html-report",
-    "seed:test": "npx ts-node scripts/seed-test-data.ts"
+    "seed:test": "npx ts-node scripts/seed-test-data.ts",
+    "test:unit": "vitest run --dir tests/unit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -94,7 +95,9 @@
     "tailwindcss": "4.1.12",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.1",
-    "vite": "6.4.1"
+    "vite": "6.4.1",
+    "vitest": "^3.2.0",
+    "hono": "^4.6.0"
   },
   "overrides": {
     "rollup": "4.59.0",

@@ -134,7 +134,7 @@ const newBookingSchema = z.union([
  * Zürich is UTC+1/+2 and a request crossing midnight UTC for them would
  * already be the next day they're actually booking for.
  */
-function dayKeyOf(iso: string): string {
+export function dayKeyOf(iso: string): string {
   return iso.slice(0, 10); // YYYY-MM-DD
 }
 
@@ -147,7 +147,7 @@ function dayKeyOf(iso: string): string {
  * a single bundle submission (the parent and its children share dates
  * with each other) doesn't false-positive against itself.
  */
-function findSameDayConflict(
+export function findSameDayConflict(
   existing: any[],
   incoming: { service: string; petIds: string[]; startAt: string },
   excludeIds: Set<string> = new Set(),
