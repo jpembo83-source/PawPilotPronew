@@ -25,6 +25,10 @@ import type {
   CreateRotaPeriodRequest,
   CreateRotaShiftRequest,
   UpdateRotaShiftRequest,
+  UploadPolicyVersionRequest,
+  ApiErrorResponse,
+  CreatePolicyVersionResponse,
+  PolicyDownloadResponse,
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/staff`;
@@ -77,7 +81,7 @@ interface StaffState {
   fetchPolicies: (filters?: PolicyFilters) => Promise<void>;
   fetchPolicyById: (id: string) => Promise<void>;
   createPolicy: (data: CreatePolicyRequest) => Promise<Policy>;
-  createPolicyVersion: (policyId: string, file: File, data: any) => Promise<PolicyVersion>;
+  createPolicyVersion: (policyId: string, file: File, data: Pick<UploadPolicyVersionRequest, 'effective_date' | 'expiry_date'>) => Promise<PolicyVersion>;
   publishPolicy: (id: string) => Promise<Policy>;
   archivePolicy: (id: string) => Promise<Policy>;
   getPolicyDownloadUrl: (policyId: string, versionId: string) => Promise<string>;
@@ -122,8 +126,8 @@ interface StaffState {
   // UTILITY
   // ============================================================================
   
-  seedDemoData: () => Promise<any>;
-  cleanupAllData: () => Promise<any>;
+  seedDemoData: () => Promise<unknown>;
+  cleanupAllData: () => Promise<unknown>;
   resetAndSeed: () => Promise<void>;
   clearError: () => void;
   reset: () => void;
@@ -182,15 +186,15 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       const response = await fetch(url, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch staff');
       }
       
-      const staff = await response.json();
+      const staff = await response.json() as StaffMember[];
       set({ staff, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch staff error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -207,15 +211,15 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch staff member');
       }
       
-      const staff = await response.json();
+      const staff = await response.json() as StaffProfile;
       set({ selectedStaff: staff, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch staff member error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -252,7 +256,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       console.log('[fetchPolicies] Response status:', response.status);
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         // Don't throw error for 404 - just return empty array
         if (response.status === 404) {
           console.log('[Fetch Policies] No policies found, returning empty array');
@@ -262,18 +266,18 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         throw new Error(error.error || 'Failed to fetch policies');
       }
       
-      const policies = await response.json();
+      const policies = await response.json() as Policy[];
       console.log('[fetchPolicies] Received policies:', policies.length);
-      console.log('[fetchPolicies] Policy IDs:', policies.map((p: any) => p.id));
+      console.log('[fetchPolicies] Policy IDs:', policies.map((p) => p.id));
       
       set({ policies, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch policies error:', error);
       // Don't show error for empty results - just set empty array
-      if (error.message?.includes('not found') || error.message?.includes('Staff member not found')) {
+      if ((error as Error).message?.includes('not found') || (error as Error).message?.includes('Staff member not found')) {
         set({ policies: [], isLoading: false, error: null });
       } else {
-        set({ error: error.message, isLoading: false });
+        set({ error: (error as Error).message, isLoading: false });
       }
     }
   },
@@ -291,19 +295,19 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch policy');
       }
       
-      const policy = await response.json();
-      set({ 
+      const policy = await response.json() as Policy;
+      set({
         selectedPolicy: policy,
         policyVersions: policy.versions || [],
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch policy error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -322,11 +326,11 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create policy');
       }
       
-      const policy = await response.json();
+      const policy = await response.json() as Policy;
       set(state => ({
         policies: [policy, ...state.policies],
         isLoading: false,
@@ -335,9 +339,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       broadcastMutation('staff', 'policy', 'created')
 
       return policy;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create policy error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -356,20 +360,20 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to publish policy');
       }
-      
-      const policy = await response.json();
+
+      const policy = await response.json() as Policy;
       set(state => ({
         policies: state.policies.map(p => p.id === id ? { ...p, ...policy } : p),
         isLoading: false,
       }));
       
       return policy;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Publish policy error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -388,20 +392,20 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to archive policy');
       }
-      
-      const policy = await response.json();
+
+      const policy = await response.json() as Policy;
       set(state => ({
         policies: state.policies.map(p => p.id === id ? { ...p, ...policy } : p),
         isLoading: false,
       }));
       
       return policy;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Archive policy error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -433,12 +437,12 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       console.log('[createPolicyVersion] Create response status:', createResponse.status);
       
       if (!createResponse.ok) {
-        const error = await createResponse.json();
+        const error = await createResponse.json() as ApiErrorResponse;
         console.error('[createPolicyVersion] Create failed:', error);
         throw new Error(error.error || 'Failed to create policy version');
       }
       
-      const { version, upload_url, upload_token, upload_path } = await createResponse.json();
+      const { version, upload_url, upload_token, upload_path } = await createResponse.json() as CreatePolicyVersionResponse;
       console.log('[createPolicyVersion] Version created:', version.id);
       console.log('[createPolicyVersion] Upload URL received');
       
@@ -466,9 +470,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       broadcastMutation('staff', 'policy', 'updated')
 
       return version;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create policy version error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -488,13 +492,13 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       );
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to get download URL');
       }
       
-      const { download_url } = await response.json();
+      const { download_url } = await response.json() as PolicyDownloadResponse;
       return download_url;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Get download URL error:', error);
       throw error;
     }
@@ -514,7 +518,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to delete policy');
       }
       
@@ -523,9 +527,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         isLoading: false,
       }));
       broadcastMutation('staff', 'policy', 'deleted', id);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Delete policy error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -560,7 +564,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       const response = await fetch(url, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         // Don't throw error for 404 - just return empty array
         if (response.status === 404) {
           console.log('[Fetch Assignments] No assignments found, returning empty array');
@@ -570,15 +574,15 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         throw new Error(error.error || 'Failed to fetch assignments');
       }
       
-      const assignments = await response.json();
+      const assignments = await response.json() as PolicyAssignment[];
       set({ assignments, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch assignments error:', error);
       // Don't show error for empty results - just set empty array
-      if (error.message?.includes('not found') || error.message?.includes('Policy not found') || error.message?.includes('Staff member not found')) {
+      if ((error as Error).message?.includes('not found') || (error as Error).message?.includes('Policy not found') || (error as Error).message?.includes('Staff member not found')) {
         set({ assignments: [], isLoading: false, error: null });
       } else {
-        set({ error: error.message, isLoading: false });
+        set({ error: (error as Error).message, isLoading: false });
       }
     }
   },
@@ -591,15 +595,15 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch assignment');
       }
       
-      const assignment = await response.json();
+      const assignment = await response.json() as PolicyAssignment;
       set({ selectedAssignment: assignment, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch assignment error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -627,12 +631,12 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       console.log('[assignPolicy] Response status:', response.status);
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         console.error('[assignPolicy] Error response:', error);
         throw new Error(error.error || 'Failed to assign policy');
       }
       
-      const assignment = await response.json();
+      const assignment = await response.json() as PolicyAssignment;
       console.log('[assignPolicy] Assignment created:', assignment);
       
       set(state => ({
@@ -643,9 +647,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       broadcastMutation('staff', 'policy-assignment', 'created')
 
       return assignment;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Assign policy error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -680,19 +684,19 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       console.log('[fetchMyPolicies] Response status:', response.status);
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         console.error('[fetchMyPolicies] Error response:', error);
         throw new Error(error.error || 'Failed to fetch policies');
       }
       
-      const policies = await response.json();
+      const policies = await response.json() as AssignedPolicyView[];
       console.log('[fetchMyPolicies] Received policies:', policies.length);
-      console.log('[fetchMyPolicies] Policy titles:', policies.map((p: any) => p.policy_title));
+      console.log('[fetchMyPolicies] Policy titles:', policies.map((p) => p.policy_title));
       
       set({ myPolicies: policies, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('[fetchMyPolicies] Error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -707,12 +711,12 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to acknowledge policy');
       }
       
-      const acknowledgement = await response.json();
-      
+      const acknowledgement = await response.json() as PolicyAcknowledgement;
+
       // Update my policies list
       set(state => ({
         myPolicies: state.myPolicies.map(p =>
@@ -726,9 +730,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       broadcastMutation('staff', 'policy', 'updated')
 
       return acknowledgement;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Acknowledge policy error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -760,15 +764,15 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       const response = await fetch(url, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch rotas');
       }
       
-      const rotas = await response.json();
+      const rotas = await response.json() as RotaPeriod[];
       set({ rotas, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch rotas error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -780,19 +784,19 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch rota');
       }
       
-      const rota = await response.json();
-      set({ 
+      const rota = await response.json() as RotaPeriod;
+      set({
         selectedRota: rota,
         rotaShifts: rota.shifts || [],
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch rota error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -806,11 +810,11 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create rota');
       }
       
-      const rota = await response.json();
+      const rota = await response.json() as RotaPeriod;
       set(state => ({
         rotas: [rota, ...state.rotas],
         isLoading: false,
@@ -819,9 +823,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       broadcastMutation('staff', 'rota', 'created')
 
       return rota;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create rota error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -835,11 +839,11 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to publish rota');
       }
       
-      const rota = await response.json();
+      const rota = await response.json() as RotaPeriod;
       set(state => ({
         rotas: state.rotas.map(r => r.id === id ? rota : r),
         selectedRota: state.selectedRota?.id === id ? rota : state.selectedRota,
@@ -847,9 +851,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       }));
       
       return rota;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Publish rota error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -872,11 +876,11 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create shift');
       }
       
-      const shift = await response.json();
+      const shift = await response.json() as RotaShift;
       set(state => ({
         rotaShifts: [...state.rotaShifts, shift],
         isLoading: false,
@@ -885,9 +889,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       broadcastMutation('staff', 'shift', 'created')
 
       return shift;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create shift error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -902,11 +906,11 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update shift');
       }
       
-      const shift = await response.json();
+      const shift = await response.json() as RotaShift;
       set(state => ({
         rotaShifts: state.rotaShifts.map(s => s.id === shiftId ? shift : s),
         isLoading: false,
@@ -915,9 +919,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       broadcastMutation('staff', 'shift', 'updated', shiftId)
 
       return shift;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Update shift error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -931,7 +935,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to delete shift');
       }
       
@@ -940,9 +944,9 @@ export const useStaffStore = create<StaffState>((set, get) => ({
         isLoading: false,
       }));
       broadcastMutation('staff', 'shift', 'deleted', shiftId);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Delete shift error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -959,15 +963,15 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch rota');
       }
       
-      const shifts = await response.json();
+      const shifts = await response.json() as RotaShift[];
       set({ myRota: shifts, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch my rota error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -985,14 +989,14 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to seed demo data');
       }
       
-      const result = await response.json();
+      const result: unknown = await response.json();
       console.log('[Staff Store] Demo data seeded:', result);
       return result;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Seed demo data error:', error);
       throw error;
     }
@@ -1011,11 +1015,11 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to cleanup data');
       }
       
-      const result = await response.json();
+      const result: unknown = await response.json();
       console.log('[Staff Store] Data cleaned up:', result);
       
       // Reset local state
@@ -1029,7 +1033,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       });
       
       return result;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Cleanup error:', error);
       throw error;
     }
@@ -1049,7 +1053,7 @@ export const useStaffStore = create<StaffState>((set, get) => ({
       await get().fetchAssignments();
       
       console.log('[Staff Store] Reset and seed complete');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Reset and seed error:', error);
       throw error;
     }

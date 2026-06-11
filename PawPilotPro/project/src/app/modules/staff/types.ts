@@ -539,6 +539,29 @@ export interface UpdateRotaShiftRequest {
 }
 
 // ============================================================================
+// API PAYLOAD SHAPES (staff edge function)
+// ============================================================================
+
+// Generic error body returned by the staff edge function.
+export interface ApiErrorResponse {
+  error?: string;
+}
+
+// Response payload when creating a policy version — the server returns the
+// new version record plus a signed upload target for the document itself.
+export interface CreatePolicyVersionResponse {
+  version: PolicyVersion;
+  upload_url: string;
+  upload_token?: string;
+  upload_path?: string;
+}
+
+// Response payload for a policy document download link.
+export interface PolicyDownloadResponse {
+  download_url: string;
+}
+
+// ============================================================================
 // EXPORT FORMATS
 // ============================================================================
 

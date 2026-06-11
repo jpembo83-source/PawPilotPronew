@@ -16,6 +16,10 @@ import {
   OvernightCarerInfo,
   TransitionRequest,
   OvernightBillingBreakdown,
+  ApiErrorResponse,
+  OvernightReservationPayload,
+  NightlyCareLogPayload,
+  OvernightStats,
 } from './types';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
@@ -70,7 +74,7 @@ export interface OvernightsState {
 
   fetchTonightsBoarders: (locationId: string, date?: string) => Promise<void>;
 
-  fetchStats: (locationId?: string, date?: string) => Promise<any>;
+  fetchStats: (locationId?: string, date?: string) => Promise<OvernightStats>;
 
   clearError: () => void;
 }
@@ -100,13 +104,13 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
 
       const res = await fetch(`${API_URL}/overnights/reservations?${params}`, { headers });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch reservations');
       }
-      const reservations = await res.json();
+      const reservations = await res.json() as OvernightReservation[];
       set({ reservations, isLoading: false });
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -120,15 +124,15 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(reservation)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create reservation');
       }
-      const newReservation = await res.json();
+      const newReservation = await res.json() as OvernightReservationPayload;
       set(state => ({ reservations: [...state.reservations, newReservation], isLoading: false }));
       broadcastMutation('overnights', 'reservation', 'created', newReservation.id, undefined, newReservation.location_id);
       return newReservation;
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -143,17 +147,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(updates)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update reservation');
       }
-      const updated = await res.json();
+      const updated = await res.json() as OvernightReservationPayload;
       set(state => ({
         reservations: state.reservations.map(r => r.id === id ? updated : r),
         isLoading: false
       }));
       broadcastMutation('overnights', 'reservation', 'updated', id, undefined, updated.location_id);
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -176,17 +180,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(request)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Check-in failed');
       }
-      const updated = await res.json();
+      const updated = await res.json() as OvernightReservationPayload;
       set(state => ({
         reservations: state.reservations.map(r => r.id === request.reservationId ? updated : r),
         isLoading: false
       }));
       broadcastMutation('overnights', 'reservation', 'updated', request.reservationId, { action: 'check-in' }, updated.location_id);
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -201,17 +205,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(request)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Check-out failed');
       }
-      const updated = await res.json();
+      const updated = await res.json() as OvernightReservationPayload;
       set(state => ({
         reservations: state.reservations.map(r => r.id === request.reservationId ? updated : r),
         isLoading: false
       }));
       broadcastMutation('overnights', 'reservation', 'updated', request.reservationId, { action: 'check-out' }, updated.location_id);
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -226,18 +230,18 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(request)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Transition from daycare failed');
       }
-      const newReservation = await res.json();
+      const newReservation = await res.json() as OvernightReservationPayload;
       set(state => ({
         reservations: [...state.reservations, newReservation],
         isLoading: false
       }));
       broadcastMutation('overnights', 'reservation', 'created', newReservation.id, { action: 'transition-from-daycare' });
       return newReservation;
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -252,17 +256,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify({ reservationId })
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Transition to daycare failed');
       }
-      const updated = await res.json();
+      const updated = await res.json() as OvernightReservation;
       set(state => ({
         reservations: state.reservations.map(r => r.id === reservationId ? updated : r),
         isLoading: false
       }));
       broadcastMutation('overnights', 'reservation', 'updated', reservationId, { action: 'transition-to-daycare' });
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -273,13 +277,13 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/overnights/events?stayId=${stayId}`, { headers });
       if (res.ok) {
-        const events = await res.json();
+        const events = await res.json() as OvernightEvent[];
         set({ events, isLoading: false });
       } else {
         set({ isLoading: false });
       }
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -292,13 +296,13 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
 
       const res = await fetch(`${API_URL}/overnights/carers?${params}`, { headers });
       if (res.ok) {
-        const carers = await res.json();
+        const carers = await res.json() as OvernightCarerInfo[];
         set({ carers, isLoading: false });
       } else {
         set({ isLoading: false });
       }
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -312,17 +316,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify({ stayId, carerId })
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to assign carer');
       }
-      const updated = await res.json();
+      const updated = await res.json() as OvernightReservation;
       set(state => ({
         reservations: state.reservations.map(r => r.id === stayId ? updated : r),
         isLoading: false
       }));
       broadcastMutation('overnights', 'reservation', 'updated', stayId, { action: 'carer-assigned' });
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -336,10 +340,10 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       body: JSON.stringify(body)
     });
     if (!res.ok) {
-      const error = await res.json();
+      const error = await res.json() as ApiErrorResponse;
       throw new Error(error.error || 'Failed to calculate billing');
     }
-    return await res.json();
+    return await res.json() as OvernightBillingBreakdown;
   },
 
   fetchCareLogs: async (reservationId?, date?) => {
@@ -352,13 +356,13 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
 
       const res = await fetch(`${API_URL}/overnights/care-logs?${params}`, { headers });
       if (res.ok) {
-        const careLogs = await res.json();
+        const careLogs = await res.json() as NightlyCareLog[];
         set({ careLogs, isLoading: false });
       } else {
         set({ isLoading: false });
       }
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -372,15 +376,15 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(careLog)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create care log');
       }
-      const newLog = await res.json();
+      const newLog = await res.json() as NightlyCareLogPayload;
       set(state => ({ careLogs: [...state.careLogs, newLog], isLoading: false }));
       broadcastMutation('overnights', 'care-log', 'created', newLog.id, undefined, newLog.location_id);
       return newLog;
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -395,17 +399,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(updates)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update care log');
       }
-      const updated = await res.json();
+      const updated = await res.json() as NightlyCareLogPayload;
       set(state => ({
         careLogs: state.careLogs.map(cl => cl.id === id ? updated : cl),
         isLoading: false
       }));
       broadcastMutation('overnights', 'care-log', 'updated', id, undefined, updated.location_id);
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -416,13 +420,13 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/overnights/sleeping-areas?locationId=${locationId}`, { headers });
       if (res.ok) {
-        const sleepingAreas = await res.json();
+        const sleepingAreas = await res.json() as SleepingArea[];
         set({ sleepingAreas, isLoading: false });
       } else {
         set({ isLoading: false });
       }
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -436,15 +440,15 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(area)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create sleeping area');
       }
-      const newArea = await res.json();
+      const newArea = await res.json() as SleepingArea;
       set(state => ({ sleepingAreas: [...state.sleepingAreas, newArea], isLoading: false }));
       broadcastMutation('overnights', 'sleeping-area', 'created', newArea.id);
       return newArea;
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -459,17 +463,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(updates)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update sleeping area');
       }
-      const updated = await res.json();
+      const updated = await res.json() as SleepingArea;
       set(state => ({
         sleepingAreas: state.sleepingAreas.map(sa => sa.id === id ? updated : sa),
         isLoading: false
       }));
       broadcastMutation('overnights', 'sleeping-area', 'updated', id);
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -483,13 +487,13 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
 
       const res = await fetch(`${API_URL}/overnights/handovers?${params}`, { headers });
       if (res.ok) {
-        const handovers = await res.json();
+        const handovers = await res.json() as ShiftHandover[];
         set({ handovers, isLoading: false });
       } else {
         set({ isLoading: false });
       }
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -503,15 +507,15 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify(handover)
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create handover');
       }
-      const newHandover = await res.json();
+      const newHandover = await res.json() as ShiftHandover;
       set(state => ({ handovers: [...state.handovers, newHandover], isLoading: false }));
       broadcastMutation('overnights', 'handover', 'created', newHandover.id);
       return newHandover;
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -525,17 +529,17 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         headers
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to acknowledge handover');
       }
-      const updated = await res.json();
+      const updated = await res.json() as ShiftHandover;
       set(state => ({
         handovers: state.handovers.map(h => h.id === id ? updated : h),
         isLoading: false
       }));
       broadcastMutation('overnights', 'handover', 'updated', id);
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -546,7 +550,7 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/overnights/capacity?locationId=${locationId}`, { headers });
       if (res.ok) {
-        const capacity = await res.json();
+        const capacity = await res.json() as OvernightsCapacity | null;
         set(state => ({
           capacities: capacity ? [capacity] : [],
           isLoading: false
@@ -554,8 +558,8 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       } else {
         set({ isLoading: false });
       }
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -569,14 +573,14 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
         body: JSON.stringify({ locationId, ...capacity })
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update capacity');
       }
-      const updated = await res.json();
+      const updated = await res.json() as OvernightsCapacity;
       set({ capacities: [updated], isLoading: false });
       broadcastMutation('overnights', 'capacity', 'updated', locationId);
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
       throw e;
     }
   },
@@ -585,10 +589,10 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
     const headers = await getAuthHeaders();
     const res = await fetch(`${API_URL}/overnights/capacity/snapshot?locationId=${locationId}&date=${date}`, { headers });
     if (!res.ok) {
-      const error = await res.json();
+      const error = await res.json() as ApiErrorResponse;
       throw new Error(error.error || 'Failed to get capacity snapshot');
     }
-    return await res.json();
+    return await res.json() as CapacitySnapshot;
   },
 
   fetchTonightsBoarders: async (locationId, date?) => {
@@ -598,13 +602,13 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       const targetDate = date || new Date().toISOString().split('T')[0];
       const res = await fetch(`${API_URL}/overnights/tonights-boarders?locationId=${locationId}&date=${targetDate}`, { headers });
       if (res.ok) {
-        const tonightsBoarders = await res.json();
+        const tonightsBoarders = await res.json() as TonightsBoarders;
         set({ tonightsBoarders, isLoading: false });
       } else {
         set({ isLoading: false });
       }
-    } catch (e: any) {
-      set({ error: e.message, isLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, isLoading: false });
     }
   },
 
@@ -617,11 +621,11 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
 
       const res = await fetch(`${API_URL}/overnights/stats?${params}`, { headers });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch stats');
       }
-      return await res.json();
-    } catch (e: any) {
+      return await res.json() as OvernightStats;
+    } catch (e) {
       throw e;
     }
   },

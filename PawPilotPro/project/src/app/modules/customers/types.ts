@@ -359,6 +359,36 @@ export interface HouseholdFlag {
   updated_at: string;
 }
 
+// ============================================================================
+// API payload shapes (customers edge function)
+// ============================================================================
+
+// Generic error body returned by the customers edge function.
+export interface ApiErrorResponse {
+  error?: string;
+}
+
+// Household row as returned by the list endpoint (includes aggregates).
+export interface HouseholdSummary extends Household {
+  contacts_count?: number;
+  pets_count?: number;
+  primary_contact?: HouseholdContact;
+}
+
+// Household as returned by the detail endpoint (includes related records).
+export interface HouseholdDetail extends Household {
+  contacts?: HouseholdContact[];
+  pets?: Pet[];
+  documents?: PetDocument[];
+  activities?: ActivityEvent[];
+  activeFlags?: HouseholdFlag[];
+}
+
+// Response body when deleting a document (storage path for clean-up).
+export interface DocumentDeleteResponse {
+  storage_path: string;
+}
+
 // Household detail view (flattened structure for UI)
 export interface HouseholdDetailView extends Household {
   contacts: HouseholdContact[];

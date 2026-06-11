@@ -16,15 +16,19 @@ import type {
   HouseholdNote,
   HouseholdFlag,
   TimelineItem,
+  ApiErrorResponse,
+  HouseholdSummary,
+  HouseholdDetail,
+  DocumentDeleteResponse,
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 
 interface CustomerState {
   // Data
-  households: Array<Household & { contacts_count?: number; pets_count?: number; primary_contact?: HouseholdContact }>;
-  selectedHousehold: (Household & { contacts?: HouseholdContact[]; pets?: Pet[]; documents?: PetDocument[] }) | null;
-  currentHouseholdDetail: (Household & { contacts?: HouseholdContact[]; pets?: Pet[]; documents?: PetDocument[] }) | null;
+  households: HouseholdSummary[];
+  selectedHousehold: HouseholdDetail | null;
+  currentHouseholdDetail: HouseholdDetail | null;
   currentPetProfile: Pet | null;
   contacts: HouseholdContact[];
   pets: Pet[];
@@ -68,7 +72,7 @@ interface CustomerState {
   // Actions - Pets
   fetchPets: (householdId: string) => Promise<void>;
   fetchPetById: (id: string) => Promise<Pet>;
-  fetchPetProfile: (id: string) => Promise<void>; // Alias
+  fetchPetProfile: (id: string) => Promise<Pet>; // Alias — also returns the fetched pet
   createPet: (householdId: string, data: Partial<Pet>) => Promise<Pet>;
   updatePet: (id: string, data: Partial<Pet>) => Promise<Pet>;
   
@@ -165,20 +169,20 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         console.error('[fetchHouseholds] Error response:', error);
         console.error('[fetchHouseholds] Error response:', error);
         throw new Error(error.error || 'Failed to fetch households');
       }
       
-      const rawHouseholds = await response.json();
-      const households = rawHouseholds.filter((h: any) => h.id && h.id.startsWith('hh-'));
+      const rawHouseholds = await response.json() as HouseholdSummary[];
+      const households = rawHouseholds.filter((h) => h.id && h.id.startsWith('hh-'));
       console.log('[fetchHouseholds] Received households:', households.length, 'households');
       
       set({ households, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch households error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -191,11 +195,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch household');
       }
-      
-      const household = await response.json();
+
+      const household = await response.json() as HouseholdDetail;
       
       set({
         selectedHousehold: household,
@@ -204,9 +208,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         documents: household.documents || [],
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch household error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -219,7 +223,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         
         // Handle 404 gracefully without logging as error
         if (response.status === 404) {
@@ -236,8 +240,8 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         
         throw new Error(error.error || 'Failed to fetch household detail');
       }
-      
-      const household = await response.json();
+
+      const household = await response.json() as HouseholdDetail;
       
       set({
         currentHouseholdDetail: {
@@ -253,10 +257,10 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         documents: household.documents || [],
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch household detail error:', error);
-      set({ 
-        error: error.message, 
+      set({
+        error: (error as Error).message,
         isLoading: false,
         currentHouseholdDetail: null,
         contacts: [],
@@ -276,11 +280,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create household');
       }
-      
-      const household = await response.json();
+
+      const household = await response.json() as HouseholdSummary;
       
       set(state => ({
         households: [household, ...state.households],
@@ -290,9 +294,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'household', 'created', household.id)
 
       return household;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create household error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -307,11 +311,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update household');
       }
-      
-      const household = await response.json();
+
+      const household = await response.json() as Household;
       
       set(state => ({
         households: state.households.map(h => h.id === id ? { ...h, ...household } : h),
@@ -322,9 +326,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'household', 'updated', id)
 
       return household;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Update household error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -338,7 +342,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to delete household');
       }
       
@@ -350,10 +354,10 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
 
       broadcastMutation('customers', 'household', 'deleted', id)
 
-      return await response.json();
-    } catch (error: any) {
+      return await response.json() as Household;
+    } catch (error) {
       console.error('Delete household error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -369,13 +373,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch contacts');
       }
       
-      const contacts = await response.json();
+      const contacts = await response.json() as HouseholdContact[];
       set({ contacts });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch contacts error:', error);
       throw error;
     }
@@ -391,11 +395,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create contact');
       }
-      
-      const contact = await response.json();
+
+      const contact = await response.json() as HouseholdContact;
       
       set(state => ({
         contacts: [...state.contacts, contact],
@@ -405,9 +409,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'contact', 'created', contact.id)
 
       return contact;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create contact error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -422,11 +426,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update contact');
       }
-      
-      const contact = await response.json();
+
+      const contact = await response.json() as HouseholdContact;
       
       set(state => ({
         contacts: state.contacts.map(c => c.id === id ? contact : c),
@@ -436,9 +440,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'contact', 'updated', id)
 
       return contact;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Update contact error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -452,7 +456,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to delete contact');
       }
       
@@ -461,9 +465,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         isLoading: false,
       }));
       broadcastMutation('customers', 'contact', 'deleted', id);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Delete contact error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -479,13 +483,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch pets');
       }
       
-      const pets = await response.json();
+      const pets = await response.json() as Pet[];
       set({ pets });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch pets error:', error);
       throw error;
     }
@@ -498,12 +502,12 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch pet');
       }
-      
-      return await response.json();
-    } catch (error: any) {
+
+      return await response.json() as Pet;
+    } catch (error) {
       console.error('Fetch pet error:', error);
       throw error;
     }
@@ -517,11 +521,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch pet profile');
       }
-      
-      const pet = await response.json();
+
+      const pet = await response.json() as Pet;
       
       // Also fetch the household to get contact information
       const householdResponse = await fetch(`${BASE_URL}/households/${pet.household_id}`, {
@@ -529,7 +533,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (householdResponse.ok) {
-        const household = await householdResponse.json();
+        const household = await householdResponse.json() as HouseholdDetail;
         
         set({
           currentPetProfile: pet,
@@ -545,9 +549,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       }
       
       return pet;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch pet profile error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -562,11 +566,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create pet');
       }
-      
-      const pet = await response.json();
+
+      const pet = await response.json() as Pet;
       
       set(state => ({
         pets: [...state.pets, pet],
@@ -576,9 +580,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'pet', 'created', pet.id)
 
       return pet;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create pet error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -593,11 +597,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update pet');
       }
-      
-      const pet = await response.json();
+
+      const pet = await response.json() as Pet;
       
       set(state => ({
         pets: state.pets.map(p => p.id === id ? pet : p),
@@ -607,9 +611,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'pet', 'updated', id)
 
       return pet;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Update pet error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -625,13 +629,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch documents');
       }
       
-      const documents = await response.json();
+      const documents = await response.json() as PetDocument[];
       set({ documents });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch documents error:', error);
       throw error;
     }
@@ -647,11 +651,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create document');
       }
-      
-      const document = await response.json();
+
+      const document = await response.json() as PetDocument;
       
       set(state => ({
         documents: [...state.documents, document],
@@ -661,9 +665,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'document', 'created')
 
       return document;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create document error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -677,11 +681,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to delete document');
       }
-      
-      const result = await response.json();
+
+      const result = await response.json() as DocumentDeleteResponse;
       
       set(state => ({
         documents: state.documents.filter(d => d.id !== id),
@@ -691,9 +695,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'document', 'deleted', id)
 
       return result.storage_path;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Delete document error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -709,13 +713,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch activity');
       }
       
-      const activity = await response.json();
+      const activity = await response.json() as ActivityEvent[];
       set({ activity });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch activity error:', error);
       throw error;
     }
@@ -728,13 +732,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch pet timeline');
       }
       
-      const timeline = await response.json();
+      const timeline = await response.json() as TimelineItem[];
       return timeline;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch pet timeline error:', error);
       throw error;
     }
@@ -750,11 +754,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create activity');
       }
-      
-      const activity = await response.json();
+
+      const activity = await response.json() as ActivityEvent;
       
       set(state => ({
         activity: [...state.activity, activity],
@@ -764,9 +768,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'activity', 'created')
 
       return activity;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create activity error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -782,13 +786,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch document alerts');
       }
       
-      const alerts = await response.json();
+      const alerts = await response.json() as DocumentAlert[];
       set({ documentAlerts: alerts });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch document alerts error:', error);
       throw error;
     }
@@ -805,13 +809,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch notes');
       }
       
-      const notes = await response.json();
+      const notes = await response.json() as HouseholdNote[];
       set({ notes });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch notes error:', error);
       throw error;
     }
@@ -827,11 +831,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create note');
       }
-      
-      const note = await response.json();
+
+      const note = await response.json() as HouseholdNote;
       
       set(state => ({
         notes: [...state.notes, note],
@@ -841,9 +845,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'note', 'created')
 
       return note;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create note error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -858,11 +862,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update note');
       }
-      
-      const note = await response.json();
+
+      const note = await response.json() as HouseholdNote;
       
       set(state => ({
         notes: state.notes.map(n => n.id === id ? note : n),
@@ -872,9 +876,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'note', 'updated', id)
 
       return note;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Update note error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -888,7 +892,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to delete note');
       }
       
@@ -897,9 +901,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         isLoading: false,
       }));
       broadcastMutation('customers', 'note', 'deleted', id);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Delete note error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -915,13 +919,13 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to fetch flags');
       }
       
-      const flags = await response.json();
+      const flags = await response.json() as HouseholdFlag[];
       set({ flags });
-    } catch (error: any) {
+    } catch (error) {
       // Silently fail - flags might not exist yet or household might be invalid
       // Don't log error to console to avoid cluttering logs
       set({ flags: [] });
@@ -938,11 +942,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to create flag');
       }
-      
-      const flag = await response.json();
+
+      const flag = await response.json() as HouseholdFlag;
       
       set(state => ({
         flags: [...state.flags, flag],
@@ -952,9 +956,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'flag', 'created')
 
       return flag;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create flag error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -969,11 +973,11 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to update flag');
       }
-      
-      const flag = await response.json();
+
+      const flag = await response.json() as HouseholdFlag;
       
       set(state => ({
         flags: state.flags.map(f => f.id === id ? flag : f),
@@ -983,9 +987,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       broadcastMutation('customers', 'flag', 'updated', id)
 
       return flag;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Update flag error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -999,7 +1003,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json() as ApiErrorResponse;
         throw new Error(error.error || 'Failed to delete flag');
       }
       
@@ -1008,9 +1012,9 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         isLoading: false,
       }));
       broadcastMutation('customers', 'flag', 'deleted', id);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Delete flag error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },

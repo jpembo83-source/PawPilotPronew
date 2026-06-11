@@ -334,6 +334,30 @@ export interface BillingLineItem {
   date: string;
 }
 
+// ============================================================================
+// API payload shapes (overnights edge function)
+// ============================================================================
+
+// Generic error body returned by the overnights edge function.
+export interface ApiErrorResponse {
+  error?: string;
+}
+
+// Raw reservation payload — the edge function may include a snake_case
+// location_id alongside the camelCase fields, used for realtime broadcasts.
+export interface OvernightReservationPayload extends OvernightReservation {
+  location_id?: string;
+}
+
+// Raw care log payload — as above, may carry a snake_case location_id.
+export interface NightlyCareLogPayload extends NightlyCareLog {
+  location_id?: string;
+}
+
+// Aggregate statistics returned by /overnights/stats. The shape is not yet
+// pinned down server-side, so callers must narrow before use.
+export type OvernightStats = Record<string, unknown>;
+
 export interface OvernightsCommTemplate {
   type: 'checked_in' | 'night_update' | 'ready_for_pickup' | 'checked_out';
   subject: string;
