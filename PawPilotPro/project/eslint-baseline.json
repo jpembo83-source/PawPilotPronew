@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 5308,
+  "errors": 5307,
   "warnings": 612
  },
  "files": {
@@ -1118,10 +1118,6 @@
   },
   "tests/e2e/workflows.spec.ts": {
    "errors": 2,
-   "warnings": 0
-  },
-  "utils/supabase/info.tsx": {
-   "errors": 1,
    "warnings": 0
   }
  }

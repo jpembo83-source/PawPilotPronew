@@ -31,3 +31,6 @@ tests/e2e/.auth/
 # Supabase
 .supabase/
 .netlify/
+
+# Supabase CLI state
+supabase/.temp/
