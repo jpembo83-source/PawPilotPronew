@@ -255,7 +255,7 @@ export interface GroomingValidationIssue {
   type: 'blocker' | 'warning';
   category: 'behaviour' | 'medical' | 'matting' | 'capacity' | 'other';
   message: string;
-  details?: any;
+  details?: unknown;
 }
 
 // ============================================================================

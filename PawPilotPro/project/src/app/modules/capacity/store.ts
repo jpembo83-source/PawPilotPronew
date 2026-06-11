@@ -2,7 +2,12 @@ import { create } from 'zustand';
 import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../utils/supabase/info';
 import { useSettingsStore } from '../settings/store';
-import type { DailyCapacitySummary, ServiceCapacity, WeeklyCapacityView } from './types';
+import type {
+  CapacityBookingRecord,
+  DailyCapacitySummary,
+  ServiceCapacity,
+  WeeklyCapacityView,
+} from './types';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
@@ -36,7 +41,7 @@ function getMaxDogs(locationId?: string): number {
   return total > 0 ? total : 20;
 }
 
-function buildDayCapacity(date: string, bookings: any[], maxDogs: number): DailyCapacitySummary {
+function buildDayCapacity(date: string, bookings: CapacityBookingRecord[], maxDogs: number): DailyCapacitySummary {
   const active = bookings.filter(
     b => b.booking_date === date && !['cancelled', 'no_show'].includes(b.booking_status ?? '')
   );
@@ -96,7 +101,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
 
       const response = await fetch(`${API_BASE}/capacity/weekly?${params}`, { headers });
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as WeeklyCapacityView;
         set({ weeklyView: data, isLoading: false });
         return;
       }
@@ -112,10 +117,10 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       });
       if (locationId && locationId !== 'ALL') bookingParams.append('location_id', locationId);
 
-      let bookings: any[] = [];
+      let bookings: CapacityBookingRecord[] = [];
       try {
         const bookingsRes = await fetch(`${API_BASE}/daycare/bookings?${bookingParams}`, { headers });
-        if (bookingsRes.ok) bookings = await bookingsRes.json();
+        if (bookingsRes.ok) bookings = (await bookingsRes.json()) as CapacityBookingRecord[];
       } catch { /* use empty bookings */ }
 
       const maxDogs = getMaxDogs(locationId);
@@ -130,7 +135,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
         weeklyView: { week_start: formatDate(weekStart), week_end: formatDate(weekEnd), days },
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       // Ensure we always show something rather than "No data"
       const weekStart = getWeekStart(new Date(startDate));
       const weekEnd = new Date(weekStart);
@@ -144,7 +149,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       }
       set({
         weeklyView: { week_start: formatDate(weekStart), week_end: formatDate(weekEnd), days },
-        error: error.message,
+        error: (error as Error).message,
         isLoading: false,
       });
     }
@@ -160,7 +165,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
 
       const response = await fetch(`${API_BASE}/capacity/daily?${params}`, { headers });
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as DailyCapacitySummary;
         set({ dailySummary: data, isLoading: false });
         return;
       }
@@ -169,17 +174,17 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       const bookingParams = new URLSearchParams({ date });
       if (resolvedLocationId && resolvedLocationId !== 'ALL') bookingParams.append('location_id', resolvedLocationId);
 
-      let bookings: any[] = [];
+      let bookings: CapacityBookingRecord[] = [];
       try {
         const bookingsRes = await fetch(`${API_BASE}/daycare/bookings?${bookingParams}`, { headers });
-        if (bookingsRes.ok) bookings = await bookingsRes.json();
+        if (bookingsRes.ok) bookings = (await bookingsRes.json()) as CapacityBookingRecord[];
       } catch { /* use empty bookings */ }
 
       const maxDogs = getMaxDogs(resolvedLocationId);
       set({ dailySummary: buildDayCapacity(date, bookings, maxDogs), isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       const maxDogs = getMaxDogs(resolvedLocationId);
-      set({ dailySummary: buildDayCapacity(date, [], maxDogs), error: error.message, isLoading: false });
+      set({ dailySummary: buildDayCapacity(date, [], maxDogs), error: (error as Error).message, isLoading: false });
     }
   },
 

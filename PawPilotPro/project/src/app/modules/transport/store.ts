@@ -9,14 +9,20 @@ import { projectId } from '../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { broadcastMutation } from '../../lib/realtimeBroadcast';
 import type {
-  TransportJob,
   TransportJobWithDetails,
+  TransportDriver,
   Vehicle,
   CreateTransportJobRequest,
-  UpdateTransportJobRequest
+  UpdateTransportJobRequest,
+  ActiveDriversResponse
 } from './types';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
+
+/** Error envelope returned by the transport API on failure. */
+interface ApiErrorBody {
+  error?: string;
+}
 
 interface TransportState {
   // Data
@@ -26,8 +32,8 @@ interface TransportState {
   // Driver assignment configuration
   activeDriverCount: number | null;
   activeVehicleCount: number | null;
-  activeDrivers: any[];
-  activeVehicles: any[];
+  activeDrivers: TransportDriver[];
+  activeVehicles: Vehicle[];
   
   // UI State
   isLoading: boolean;
@@ -94,16 +100,16 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch transport jobs' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to fetch transport jobs' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as { jobs?: TransportJobWithDetails[] };
       console.log('[Transport Store] Received jobs:', data.jobs);
       set({ jobs: data.jobs || [], isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching transport jobs:', error);
-      set({ error: error.message, isLoading: false, jobs: [] });
+      set({ error: (error as Error).message, isLoading: false, jobs: [] });
     }
   },
   
@@ -118,11 +124,11 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to create transport job' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to create transport job' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const result = await response.json();
+      const result = (await response.json()) as { job?: TransportJobWithDetails };
 
       broadcastMutation('transport', 'job', 'created', result.job?.id, undefined, data.location_id);
 
@@ -130,9 +136,9 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       await get().fetchJobs({ service_date: data.service_date, location_id: data.location_id });
       
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating transport job:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -148,21 +154,21 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to update transport job' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to update transport job' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const result = await response.json();
-      
+      const result = (await response.json()) as { job?: TransportJobWithDetails };
+
       // Update local state
       set(state => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
       broadcastMutation('transport', 'job', 'updated', jobId, undefined, result.job?.location_id);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating transport job:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -177,7 +183,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to delete transport job' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to delete transport job' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
@@ -187,9 +193,9 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         isLoading: false
       }));
       broadcastMutation('transport', 'job', 'deleted', jobId);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting transport job:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -205,21 +211,21 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to assign driver' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to assign driver' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const result = await response.json();
-      
+      const result = (await response.json()) as { job?: TransportJobWithDetails };
+
       // Update local state
       set(state => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
       broadcastMutation('transport', 'job', 'updated', jobId, { action: 'driver-assigned' }, result.job?.location_id);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error assigning driver:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -235,21 +241,21 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to update job status' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to update job status' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const result = await response.json();
-      
+      const result = (await response.json()) as { job?: TransportJobWithDetails };
+
       // Update local state
       set(state => ({
         jobs: state.jobs.map(j => j.id === jobId ? { ...j, ...result.job } : j),
         isLoading: false
       }));
       broadcastMutation('transport', 'job', 'updated', jobId, { action: 'status-change', eventType }, result.job?.location_id);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating job status:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -273,12 +279,12 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       console.log('[Transport Store] Active drivers response status:', response.status);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch active drivers' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to fetch active drivers' }))) as ApiErrorBody;
         console.error('[Transport Store] Active drivers error:', errorData);
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as ActiveDriversResponse;
       console.log('[Transport Store] Active drivers data:', data);
       
       set({ 
@@ -288,10 +294,10 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         activeVehicleCount: data.vehicle_count || 0,
         isLoading: false 
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('[Transport Store] Error fetching active drivers:', error);
       // Set count to 0 on error so UI shows "No drivers configured" instead of "Loading..."
-      set({ error: error.message, isLoading: false, activeDrivers: [], activeDriverCount: 0 });
+      set({ error: (error as Error).message, isLoading: false, activeDrivers: [], activeDriverCount: 0 });
     }
   },
   
@@ -311,15 +317,15 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch vehicles' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to fetch vehicles' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as { vehicles?: Vehicle[] };
       set({ vehicles: data.vehicles || [], isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching vehicles:', error);
-      set({ error: error.message, isLoading: false, vehicles: [] });
+      set({ error: (error as Error).message, isLoading: false, vehicles: [] });
     }
   },
   
@@ -334,11 +340,11 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to create vehicle' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to create vehicle' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const result = await response.json();
+      const result = (await response.json()) as { vehicle?: Vehicle };
 
       broadcastMutation('transport', 'vehicle', 'created', result.vehicle?.id);
 
@@ -346,9 +352,9 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       await get().fetchVehicles(data.location_id);
       
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating vehicle:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -369,16 +375,16 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[Transport Store] Update vehicle failed. Status:', response.status, 'Response:', errorText);
-        let errorData;
+        let errorData: ApiErrorBody;
         try {
-          errorData = JSON.parse(errorText);
+          errorData = JSON.parse(errorText) as ApiErrorBody;
         } catch {
           errorData = { error: `Failed to update vehicle (HTTP ${response.status})` };
         }
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      const result = await response.json();
+      const result = (await response.json()) as { vehicle: Vehicle };
       console.log('[Transport Store] Vehicle updated successfully:', result);
       
       // Update local state
@@ -387,9 +393,9 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         isLoading: false
       }));
       broadcastMutation('transport', 'vehicle', 'updated', vehicleId);
-    } catch (error: any) {
+    } catch (error) {
       console.error('[Transport Store] Error updating vehicle:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -404,7 +410,7 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to delete vehicle' }));
+        const errorData = (await response.json().catch(() => ({ error: 'Failed to delete vehicle' }))) as ApiErrorBody;
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
@@ -414,9 +420,9 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
         isLoading: false
       }));
       broadcastMutation('transport', 'vehicle', 'deleted', vehicleId);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting vehicle:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },

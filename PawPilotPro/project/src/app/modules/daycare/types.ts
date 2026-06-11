@@ -230,7 +230,33 @@ export interface ValidationIssue {
   type: 'blocker' | 'warning';
   category: 'waiver' | 'hold' | 'behaviour' | 'medical' | 'capacity' | 'other';
   message: string;
-  details?: any;
+  /** Optional human-readable detail; rendered directly in the UI. */
+  details?: string;
+}
+
+// ============================================================================
+// CUSTOMER SEARCH
+// ============================================================================
+
+/** Pet summary returned by the customer search endpoint. */
+export interface CustomerSearchPet {
+  id: string;
+  name: string;
+  breed?: string;
+  photo_url?: string;
+  behaviour_notes?: string;
+  medical_notes?: string;
+  vaccination_status: string;
+}
+
+/** Household match returned by the customer search endpoint. */
+export interface CustomerSearchResult {
+  type: 'household' | 'pet' | 'contact';
+  household_id: string;
+  household_name: string;
+  pets: CustomerSearchPet[];
+  contacts: unknown[];
+  matched_pet_id?: string;
 }
 
 // ============================================================================

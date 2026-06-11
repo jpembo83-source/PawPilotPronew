@@ -155,7 +155,7 @@ export interface BillingExport {
   export_type: string;
   scope: string;
   format: 'csv' | 'pdf';
-  filters: Record<string, any>;
+  filters: Record<string, unknown>;
   file_url?: string;
   created_by: string;
   created_at: string;
@@ -181,6 +181,104 @@ export interface BillingOverview {
   active_memberships: number;
   refunds_month: number;
   credits_month: number;
+}
+
+// ============================================================================
+// API PAYLOADS & RESPONSE ENVELOPES
+// ============================================================================
+
+/** Query-string filters accepted by the billing list endpoints. */
+export type BillingListFilters = Record<string, string>;
+
+/** Line item supplied when creating an invoice; totals are calculated server-side. */
+export interface CreateInvoiceLineItemPayload {
+  service_id: string;
+  service_name: string;
+  module: string;
+  quantity: number;
+  unit_price: number;
+  tax_rate?: number;
+  discount?: number;
+  booking_reference?: string;
+}
+
+export interface CreateInvoicePayload {
+  household_id: string;
+  household_name: string;
+  location_id: string;
+  location_name: string;
+  line_items: CreateInvoiceLineItemPayload[];
+  created_by: string;
+}
+
+export interface RecordPaymentPayload {
+  household_id: string;
+  household_name: string;
+  location_id: string;
+  amount: number;
+  method: PaymentMethod;
+  provider_reference?: string;
+  notes?: string;
+  created_by: string;
+}
+
+export interface CreateSubscriptionPayload {
+  household_id: string;
+  household_name: string;
+  plan_id: string;
+  plan_name: string;
+  plan_version?: number;
+  pet_ids: string[];
+  monthly_price: number;
+  billing_method: PaymentMethod;
+  created_by: string;
+}
+
+export interface CreateCreditPayload {
+  household_id: string;
+  household_name: string;
+  amount: number;
+  reason: string;
+  source: Credit['source'];
+  expires_days?: number;
+  created_by: string;
+}
+
+export interface IssueRefundPayload {
+  payment_id?: string;
+  invoice_id?: string;
+  household_id: string;
+  household_name: string;
+  amount: number;
+  method: PaymentMethod;
+  provider_reference?: string;
+  reason: string;
+  approved_by: string;
+  created_by: string;
+}
+
+export interface CreateFeePayload {
+  household_id: string;
+  household_name: string;
+  location_id: string;
+  fee_type: string;
+  amount: number;
+  reason: string;
+  booking_reference?: string;
+  created_by: string;
+}
+
+export interface CreateExportPayload {
+  export_type: string;
+  scope: string;
+  format: BillingExport['format'];
+  filters?: Record<string, unknown>;
+  created_by: string;
+}
+
+/** Error envelope returned by the billing API on failure. */
+interface ApiErrorBody {
+  error?: string;
 }
 
 // ============================================================================
@@ -221,32 +319,32 @@ interface BillingState {
   
   // Actions
   fetchOverview: (locationId?: string) => Promise<void>;
-  fetchInvoices: (filters?: Record<string, any>) => Promise<void>;
+  fetchInvoices: (filters?: BillingListFilters) => Promise<void>;
   fetchInvoice: (id: string) => Promise<void>;
-  createInvoice: (data: any) => Promise<Invoice>;
+  createInvoice: (data: CreateInvoicePayload) => Promise<Invoice>;
   issueInvoice: (id: string, dueDays?: number, issuedBy?: string) => Promise<void>;
   voidInvoice: (id: string, reason: string, voidedBy: string) => Promise<void>;
-  
-  fetchPayments: (filters?: Record<string, any>) => Promise<void>;
+
+  fetchPayments: (filters?: BillingListFilters) => Promise<void>;
   fetchPayment: (id: string) => Promise<void>;
-  recordPayment: (data: any) => Promise<Payment>;
+  recordPayment: (data: RecordPaymentPayload) => Promise<Payment>;
   allocatePayment: (paymentId: string, invoiceId: string, amount: number, createdBy: string) => Promise<void>;
-  
-  fetchSubscriptions: (filters?: Record<string, any>) => Promise<void>;
-  createSubscription: (data: any) => Promise<Subscription>;
+
+  fetchSubscriptions: (filters?: BillingListFilters) => Promise<void>;
+  createSubscription: (data: CreateSubscriptionPayload) => Promise<Subscription>;
   pauseSubscription: (id: string, reason: string) => Promise<void>;
   cancelSubscription: (id: string, reason: string) => Promise<void>;
-  
+
   fetchCredits: (householdId?: string) => Promise<void>;
-  createCredit: (data: any) => Promise<Credit>;
+  createCredit: (data: CreateCreditPayload) => Promise<Credit>;
   fetchRefunds: (householdId?: string) => Promise<void>;
-  issueRefund: (data: any) => Promise<Refund>;
-  
-  fetchFees: (filters?: Record<string, any>) => Promise<void>;
-  createFee: (data: any) => Promise<Fee>;
-  
+  issueRefund: (data: IssueRefundPayload) => Promise<Refund>;
+
+  fetchFees: (filters?: BillingListFilters) => Promise<void>;
+  createFee: (data: CreateFeePayload) => Promise<Fee>;
+
   fetchExports: () => Promise<void>;
-  createExport: (data: any) => Promise<BillingExport>;
+  createExport: (data: CreateExportPayload) => Promise<BillingExport>;
   
   seedData: () => Promise<void>;
 }
@@ -289,7 +387,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error(`Failed to fetch billing overview: ${response.status} ${response.statusText}`);
       }
       
-      const overview = await response.json();
+      const overview = (await response.json()) as BillingOverview;
       set({ overview, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -305,7 +403,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
-      const params = new URLSearchParams(filters as any).toString();
+      const params = new URLSearchParams(filters).toString();
       const url = params ? `${BASE_URL}/invoices?${params}` : `${BASE_URL}/invoices`;
       
       const response = await fetch(url, { headers: await getAuthHeaders() });
@@ -314,7 +412,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch invoices');
       }
       
-      const { invoices } = await response.json();
+      const { invoices } = (await response.json()) as { invoices: Invoice[] };
       set({ invoices, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -334,7 +432,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch invoice');
       }
       
-      const { invoice, line_items, allocations } = await response.json();
+      const { invoice, line_items, allocations } = (await response.json()) as {
+        invoice: Invoice;
+        line_items: InvoiceLineItem[];
+        allocations: PaymentAllocation[];
+      };
       set({ 
         selectedInvoice: invoice, 
         invoiceLineItems: line_items,
@@ -363,7 +465,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to create invoice');
       }
       
-      const { invoice } = await response.json();
+      const { invoice } = (await response.json()) as { invoice: Invoice };
       set(state => ({
         invoices: [invoice, ...state.invoices],
         loading: false
@@ -395,7 +497,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to issue invoice');
       }
       
-      const { invoice } = await response.json();
+      const { invoice } = (await response.json()) as { invoice: Invoice };
       set(state => ({
         invoices: state.invoices.map(inv => inv.id === id ? invoice : inv),
         selectedInvoice: state.selectedInvoice?.id === id ? invoice : state.selectedInvoice,
@@ -422,11 +524,11 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to void invoice');
       }
       
-      const { invoice } = await response.json();
+      const { invoice } = (await response.json()) as { invoice: Invoice };
       set(state => ({
         invoices: state.invoices.map(inv => inv.id === id ? invoice : inv),
         selectedInvoice: state.selectedInvoice?.id === id ? invoice : state.selectedInvoice,
@@ -447,7 +549,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
-      const params = new URLSearchParams(filters as any).toString();
+      const params = new URLSearchParams(filters).toString();
       const url = params ? `${BASE_URL}/payments?${params}` : `${BASE_URL}/payments`;
       
       const response = await fetch(url, { headers: await getAuthHeaders() });
@@ -456,7 +558,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch payments');
       }
       
-      const { payments } = await response.json();
+      const { payments } = (await response.json()) as { payments: Payment[] };
       set({ payments, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -476,7 +578,10 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch payment');
       }
       
-      const { payment, allocations } = await response.json();
+      const { payment, allocations } = (await response.json()) as {
+        payment: Payment;
+        allocations: PaymentAllocation[];
+      };
       set({ 
         selectedPayment: payment,
         paymentAllocations: allocations,
@@ -504,7 +609,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to record payment');
       }
       
-      const { payment } = await response.json();
+      const { payment } = (await response.json()) as { payment: Payment };
       set(state => ({ 
         payments: [payment, ...state.payments],
         loading: false
@@ -533,11 +638,15 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to allocate payment');
       }
-      
-      const { allocation, invoice, payment } = await response.json();
+
+      const { allocation, invoice, payment } = (await response.json()) as {
+        allocation: PaymentAllocation;
+        invoice: Invoice;
+        payment: Payment;
+      };
       
       set(state => ({
         payments: state.payments.map(p => p.id === paymentId ? payment : p),
@@ -559,7 +668,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
-      const params = new URLSearchParams(filters as any).toString();
+      const params = new URLSearchParams(filters).toString();
       const url = params ? `${BASE_URL}/subscriptions?${params}` : `${BASE_URL}/subscriptions`;
       
       const response = await fetch(url, { headers: await getAuthHeaders() });
@@ -568,7 +677,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch subscriptions');
       }
       
-      const { subscriptions } = await response.json();
+      const { subscriptions } = (await response.json()) as { subscriptions: Subscription[] };
       set({ subscriptions, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -592,7 +701,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to create subscription');
       }
       
-      const { subscription } = await response.json();
+      const { subscription } = (await response.json()) as { subscription: Subscription };
       set(state => ({ 
         subscriptions: [subscription, ...state.subscriptions],
         loading: false
@@ -624,7 +733,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to pause subscription');
       }
       
-      const { subscription } = await response.json();
+      const { subscription } = (await response.json()) as { subscription: Subscription };
       set(state => ({
         subscriptions: state.subscriptions.map(sub => sub.id === id ? subscription : sub),
         loading: false,
@@ -652,7 +761,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to cancel subscription');
       }
       
-      const { subscription } = await response.json();
+      const { subscription } = (await response.json()) as { subscription: Subscription };
       set(state => ({
         subscriptions: state.subscriptions.map(sub => sub.id === id ? subscription : sub),
         loading: false,
@@ -682,7 +791,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch credits');
       }
       
-      const { credits } = await response.json();
+      const { credits } = (await response.json()) as { credits: Credit[] };
       set({ credits, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -706,7 +815,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to create credit');
       }
       
-      const { credit } = await response.json();
+      const { credit } = (await response.json()) as { credit: Credit };
       set(state => ({ 
         credits: [credit, ...state.credits],
         loading: false
@@ -738,7 +847,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch refunds');
       }
       
-      const { refunds } = await response.json();
+      const { refunds } = (await response.json()) as { refunds: Refund[] };
       set({ refunds, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -762,7 +871,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to issue refund');
       }
       
-      const { refund } = await response.json();
+      const { refund } = (await response.json()) as { refund: Refund };
       set(state => ({ 
         refunds: [refund, ...state.refunds],
         loading: false
@@ -785,7 +894,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const headers = await getAuthHeaders();
       set({ loading: true, error: null });
       
-      const params = new URLSearchParams(filters as any).toString();
+      const params = new URLSearchParams(filters).toString();
       const url = params ? `${BASE_URL}/fees?${params}` : `${BASE_URL}/fees`;
       
       const response = await fetch(url, { headers: await getAuthHeaders() });
@@ -794,7 +903,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch fees');
       }
       
-      const { fees } = await response.json();
+      const { fees } = (await response.json()) as { fees: Fee[] };
       set({ fees, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -818,7 +927,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to create fee');
       }
       
-      const { fee } = await response.json();
+      const { fee } = (await response.json()) as { fee: Fee };
       set(state => ({ 
         fees: [fee, ...state.fees],
         loading: false
@@ -847,7 +956,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to fetch exports');
       }
       
-      const { exports } = await response.json();
+      const { exports } = (await response.json()) as { exports: BillingExport[] };
       set({ exports, loading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -871,7 +980,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to create export');
       }
       
-      const { export: billingExport } = await response.json();
+      const { export: billingExport } = (await response.json()) as { export: BillingExport };
       set(state => ({ 
         exports: [billingExport, ...state.exports],
         loading: false
@@ -903,7 +1012,8 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         throw new Error('Failed to seed billing data');
       }
       
-      const result = await response.json();
+      // Seed responses are diagnostic only; the shape is not relied upon.
+      const result = (await response.json()) as unknown;
       console.log('Billing data seeded:', result);
       
       // Refresh all data

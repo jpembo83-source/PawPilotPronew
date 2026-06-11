@@ -60,3 +60,12 @@ export interface WeeklyCapacityView {
   week_end: string;
   days: DailyCapacitySummary[];
 }
+
+/**
+ * Minimal slice of a daycare booking needed to derive capacity
+ * when the capacity API is not yet available.
+ */
+export interface CapacityBookingRecord {
+  booking_date: string;
+  booking_status?: string;
+}

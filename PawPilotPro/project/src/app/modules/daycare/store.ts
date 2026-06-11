@@ -12,9 +12,21 @@ import type {
   DaycareFilters,
   CheckInValidation,
   DaycareCapacity,
+  CustomerSearchResult,
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare`;
+
+/** Error envelope returned by the daycare API on failure. */
+interface ApiErrorBody {
+  error?: string;
+}
+
+/** Combined payload returned by the check-in endpoint. */
+interface CheckInResult {
+  booking: DaycareBooking;
+  attendance: AttendanceRecord;
+}
 
 // ============================================================================
 // STORE STATE
@@ -40,11 +52,11 @@ interface DaycareState {
   fetchBookingById: (id: string) => Promise<DaycareBooking | null>;
   createBooking: (data: Partial<DaycareBooking>) => Promise<DaycareBooking>;
   cancelBooking: (id: string, reason: string) => Promise<DaycareBooking>;
-  searchCustomers: (query: string) => Promise<any[]>;
+  searchCustomers: (query: string) => Promise<CustomerSearchResult[]>;
   
   // Actions - Check-in/out
   validateCheckIn: (bookingId: string) => Promise<CheckInValidation>;
-  checkIn: (bookingId: string, data: { handover_notes?: string; warnings_acknowledged?: boolean }) => Promise<{ booking: DaycareBooking; attendance: AttendanceRecord }>;
+  checkIn: (bookingId: string, data: { handover_notes?: string; warnings_acknowledged?: boolean }) => Promise<CheckInResult>;
   checkOut: (bookingId: string, checkout_notes?: string, checkout_time?: string) => Promise<DaycareBooking>;
   
   // Actions - Attendance
@@ -54,7 +66,7 @@ interface DaycareState {
   fetchStats: (locationId?: string, date?: string) => Promise<void>;
   
   // Debug
-  debugDocuments: () => Promise<any>;
+  debugDocuments: () => Promise<unknown>;
   
   // Filters
   setFilters: (filters: DaycareFilters) => void;
@@ -109,15 +121,15 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch bookings');
       }
       
-      const bookings = await response.json();
+      const bookings = (await response.json()) as DaycareBooking[];
       set({ bookings, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch bookings error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -130,11 +142,11 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch booking');
       }
       
-      const booking = await response.json();
+      const booking = (await response.json()) as DaycareBooking;
       
       set(state => ({
         bookings: state.bookings.some(b => b.id === id)
@@ -145,9 +157,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       }));
       
       return booking;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch booking error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -162,11 +174,11 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to create booking');
       }
       
-      const booking = await response.json();
+      const booking = (await response.json()) as DaycareBooking;
       
       set(state => ({
         bookings: [booking, ...state.bookings],
@@ -176,9 +188,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       broadcastMutation('daycare', 'booking', 'created', booking.id, undefined, booking.location_id);
 
       return booking;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Create booking error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -193,11 +205,11 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to cancel booking');
       }
       
-      const booking = await response.json();
+      const booking = (await response.json()) as DaycareBooking;
       
       set(state => ({
         bookings: state.bookings.map(b => b.id === id ? booking : b),
@@ -208,9 +220,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       broadcastMutation('daycare', 'booking', 'updated', id, { status: 'cancelled' }, booking.location_id);
 
       return booking;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Cancel booking error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -223,16 +235,16 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to search customers');
       }
       
-      const customers = await response.json();
+      const customers = (await response.json()) as CustomerSearchResult[];
       set({ isLoading: false });
       return customers;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Search customers error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       return [];
     }
   },
@@ -251,15 +263,15 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         console.error('[Store] validateCheckIn API error:', error);
         throw new Error(error.error || 'Failed to validate check-in');
       }
       
-      const result = await response.json();
+      const result = (await response.json()) as CheckInValidation;
       console.log('[Store] validateCheckIn API result:', result);
       return result;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Validate check-in error:', error);
       throw error;
     }
@@ -275,12 +287,12 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to check in');
       }
       
-      const result = await response.json();
-      
+      const result = (await response.json()) as CheckInResult;
+
       set(state => ({
         bookings: state.bookings.map(b => b.id === bookingId ? result.booking : b),
         selectedBooking: state.selectedBooking?.id === bookingId ? result.booking : state.selectedBooking,
@@ -291,9 +303,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       broadcastMutation('daycare', 'attendance', 'created', bookingId, { action: 'check-in' }, result.booking?.location_id);
 
       return result;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Check-in error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -308,11 +320,11 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to check out');
       }
       
-      const booking = await response.json();
+      const booking = (await response.json()) as DaycareBooking;
       
       set(state => ({
         bookings: state.bookings.map(b => b.id === bookingId ? booking : b),
@@ -324,9 +336,9 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       broadcastMutation('daycare', 'attendance', 'updated', bookingId, { action: 'check-out' }, booking.location_id);
 
       return booking;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Check-out error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -344,15 +356,15 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch attendance');
       }
       
-      const attendance = await response.json();
+      const attendance = (await response.json()) as AttendanceRecord[];
       set({ attendance, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch attendance error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -380,7 +392,7 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         const errorText = await response.text();
         let errorMessage = 'Failed to fetch stats';
         try {
-          const errorData = JSON.parse(errorText);
+          const errorData = JSON.parse(errorText) as ApiErrorBody;
           errorMessage = errorData.error || errorMessage;
         } catch {
           errorMessage = errorText || errorMessage;
@@ -388,11 +400,11 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
         throw new Error(errorMessage);
       }
       
-      const stats = await response.json();
+      const stats = (await response.json()) as DaycareStats;
       set({ stats, isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Fetch stats error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       // Don't throw - allow UI to continue with error state
     }
   },
@@ -406,16 +418,17 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch debug documents');
       }
       
-      const documents = await response.json();
+      // Debug payload is inspected ad hoc; no schema to rely upon.
+      const documents = (await response.json()) as unknown;
       set({ isLoading: false });
       return documents;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Debug documents error:', error);
-      set({ error: error.message, isLoading: false });
+      set({ error: (error as Error).message, isLoading: false });
       return [];
     }
   },

@@ -16,6 +16,11 @@ import type {
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/grooming`;
 
+/** Error envelope returned by the grooming API on failure. */
+interface ApiErrorBody {
+  error?: string;
+}
+
 // ============================================================================
 // STORE STATE
 // ============================================================================
@@ -59,7 +64,7 @@ interface GroomingState {
   fetchStats: (locationId?: string, date?: string) => Promise<void>;
   
   // Actions - Search
-  searchCustomers: (query: string) => Promise<any[]>;
+  searchCustomers: (query: string) => Promise<unknown[]>;
   
   // Filters
   setFilters: (filters: GroomingFilters) => void;
@@ -106,14 +111,14 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const response = await fetch(`${BASE_URL}/appointments?${params}`, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch appointments');
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as GroomingAppointment[];
       set({ appointments: data, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -125,15 +130,15 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const response = await fetch(`${BASE_URL}/appointments/${id}`, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch appointment');
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as GroomingAppointment;
       set({ selectedAppointment: data, isLoading: false });
       return data;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -149,19 +154,19 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to create appointment');
       }
       
-      const appointment = await response.json();
+      const appointment = (await response.json()) as GroomingAppointment;
       set(state => ({
         appointments: [...state.appointments, appointment],
         isLoading: false,
       }));
       broadcastMutation('grooming', 'appointment', 'created', appointment.id);
       return appointment;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -177,11 +182,11 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to update appointment');
       }
       
-      const appointment = await response.json();
+      const appointment = (await response.json()) as GroomingAppointment;
       set(state => ({
         appointments: state.appointments.map(a => a.id === id ? appointment : a),
         selectedAppointment: state.selectedAppointment?.id === id ? appointment : state.selectedAppointment,
@@ -189,8 +194,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       }));
       broadcastMutation('grooming', 'appointment', 'updated', id);
       return appointment;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -206,19 +211,19 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to cancel appointment');
       }
       
-      const appointment = await response.json();
+      const appointment = (await response.json()) as GroomingAppointment;
       set(state => ({
         appointments: state.appointments.map(a => a.id === id ? appointment : a),
         isLoading: false,
       }));
       broadcastMutation('grooming', 'appointment', 'updated', id, { status: 'cancelled' });
       return appointment;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -233,12 +238,12 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const response = await fetch(`${BASE_URL}/appointments/${appointmentId}/validate-checkin`, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to validate check-in');
       }
       
-      return await response.json();
-    } catch (error: any) {
+      return (await response.json()) as GroomingCheckInValidation;
+    } catch (error) {
       throw error;
     }
   },
@@ -254,11 +259,11 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to check in');
       }
       
-      const appointment = await response.json();
+      const appointment = (await response.json()) as GroomingAppointment;
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
         isLoading: false,
@@ -270,8 +275,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       get().fetchQueue();
 
       return appointment;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -287,11 +292,11 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to start grooming');
       }
       
-      const appointment = await response.json();
+      const appointment = (await response.json()) as GroomingAppointment;
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
         isLoading: false,
@@ -304,8 +309,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       get().fetchGroomers();
 
       return appointment;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -321,11 +326,11 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to complete grooming');
       }
       
-      const appointment = await response.json();
+      const appointment = (await response.json()) as GroomingAppointment;
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
         isLoading: false,
@@ -337,8 +342,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       get().fetchGroomers();
 
       return appointment;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -354,19 +359,19 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to check out');
       }
       
-      const appointment = await response.json();
+      const appointment = (await response.json()) as GroomingAppointment;
       set(state => ({
         appointments: state.appointments.map(a => a.id === appointmentId ? appointment : a),
         isLoading: false,
       }));
       broadcastMutation('grooming', 'appointment', 'updated', appointmentId, { action: 'check-out' });
       return appointment;
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
   },
@@ -382,13 +387,13 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const response = await fetch(`${BASE_URL}/queue${params}`, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch queue');
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as GroomingQueueItem[];
       set({ queue: data });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch queue:', error);
     }
   },
@@ -404,13 +409,13 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const response = await fetch(`${BASE_URL}/groomers${params}`, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch groomers');
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as Groomer[];
       set({ groomers: data });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to fetch groomers:', error);
     }
   },
@@ -430,14 +435,14 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       const response = await fetch(`${BASE_URL}/stats?${params}`, { headers });
       
       if (!response.ok) {
-        const error = await response.json();
+        const error = (await response.json()) as ApiErrorBody;
         throw new Error(error.error || 'Failed to fetch stats');
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as GroomingStats;
       set({ stats: data, isLoading: false });
-    } catch (error: any) {
-      set({ error: error.message, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
     }
   },
   
@@ -456,8 +461,8 @@ export const useGroomingStore = create<GroomingState>((set, get) => ({
       if (!response.ok) {
         return [];
       }
-      
-      return await response.json();
+
+      return (await response.json()) as unknown[];
     } catch (error) {
       return [];
     }
