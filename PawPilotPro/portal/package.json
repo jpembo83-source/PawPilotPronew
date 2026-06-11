@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.2.0",
+    "@hookform/resolvers": "^5.2.0",
     "@capacitor/camera": "^8.2.0",
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
@@ -26,9 +27,10 @@
     "lucide-react": "^1.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.60.0",
     "react-router-dom": "^7.12.0",
     "sonner": "^2.0.7",
-    "zod": "^3.23.0",
+    "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
@@ -37,6 +39,7 @@
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/leaflet": "^1.9.21",

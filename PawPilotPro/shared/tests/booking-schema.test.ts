@@ -9,7 +9,9 @@ describe("newBookingRequestSchema", () => {
       startAt: "2026-06-01T08:00:00.000Z",
       endAt: "2026-06-01T17:00:00.000Z",
       notes: null,
-      requestId: "11111111-1111-1111-1111-111111111111",
+      // zod v4's .uuid() enforces RFC 4122 version/variant bits, so fixtures
+      // must be structurally valid v4 UUIDs (clients use crypto.randomUUID()).
+      requestId: "11111111-1111-4111-8111-111111111111",
     });
     expect(r.success).toBe(true);
   });
@@ -20,7 +22,9 @@ describe("newBookingRequestSchema", () => {
       startAt: "2026-06-01T08:00:00.000Z",
       endAt: "2026-06-01T17:00:00.000Z",
       notes: null,
-      requestId: "11111111-1111-1111-1111-111111111111",
+      // zod v4's .uuid() enforces RFC 4122 version/variant bits, so fixtures
+      // must be structurally valid v4 UUIDs (clients use crypto.randomUUID()).
+      requestId: "11111111-1111-4111-8111-111111111111",
     });
     expect(r.success).toBe(false);
   });
@@ -31,7 +35,9 @@ describe("newBookingRequestSchema", () => {
       startAt: "2026-06-01T17:00:00.000Z",
       endAt: "2026-06-01T08:00:00.000Z",
       notes: null,
-      requestId: "11111111-1111-1111-1111-111111111111",
+      // zod v4's .uuid() enforces RFC 4122 version/variant bits, so fixtures
+      // must be structurally valid v4 UUIDs (clients use crypto.randomUUID()).
+      requestId: "11111111-1111-4111-8111-111111111111",
     });
     expect(r.success).toBe(false);
   });

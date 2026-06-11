@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/context/AuthContext";
 import { CollarBridgeProvider } from "@/context/CollarBridgeContext";
 import { SplashCurtain } from "@/components/SplashCurtain";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { router } from "@/router";
 
 const queryClient = new QueryClient({
@@ -15,13 +16,18 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CollarBridgeProvider>
-          <RouterProvider router={router} />
-          <Toaster position="top-center" />
-          {/* Sits on top of every route during the first ~700ms so the seam
-              from native cream splash to React-rendered screen is invisible.
-              Also tells the Capacitor splash plugin to hide at the same
-              moment, so the two layers fade out together. */}
-          <SplashCurtain />
+          {/* Catches render errors outside the router (providers, splash,
+              toaster). Route render errors are caught by the router's root
+              errorElement — see RouteErrorFallback in router.tsx. */}
+          <ErrorBoundary onReset={() => void router.navigate("/", { replace: true })}>
+            <RouterProvider router={router} />
+            <Toaster position="top-center" />
+            {/* Sits on top of every route during the first ~700ms so the seam
+                from native cream splash to React-rendered screen is invisible.
+                Also tells the Capacitor splash plugin to hide at the same
+                moment, so the two layers fade out together. */}
+            <SplashCurtain />
+          </ErrorBoundary>
         </CollarBridgeProvider>
       </AuthProvider>
     </QueryClientProvider>

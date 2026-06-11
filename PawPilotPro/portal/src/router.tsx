@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router-dom";
+import { RouteErrorFallback } from "@/components/ErrorBoundary";
 import { RequirePortalAuth } from "@/components/RequirePortalAuth";
 import { AppShell } from "@/components/AppShell";
 import { LoginScreen } from "@/screens/LoginScreen";
@@ -30,42 +31,50 @@ import { TrackerUpsellScreen } from "@/screens/TrackerUpsellScreen";
 import { MembershipsScreen } from "@/screens/MembershipsScreen";
 
 export const router = createBrowserRouter([
-  { path: "/login", element: <LoginScreen /> },
-  // Public read-only vet view — no auth wrapper
-  { path: "/vet/:token", element: <VetViewScreen /> },
-  { path: "/accept-invite", element: <AcceptInviteScreen /> },
-  { path: "/forgot-password", element: <ForgotPasswordScreen /> },
-  { path: "/reset-password", element: <ResetPasswordScreen /> },
   {
-    element: (
-      <RequirePortalAuth>
-        <AppShell />
-      </RequirePortalAuth>
-    ),
+    // Pathless root route: its errorElement catches render errors from every
+    // route below, replacing the router's unstyled default error page
+    // (data routers trap render errors before any outer React error boundary).
+    errorElement: <RouteErrorFallback />,
     children: [
-      { path: "/", element: <HomeScreen /> },
-      { path: "/bookings", element: <BookingsScreen /> },
-      { path: "/bookings/:id", element: <BookingDetailScreen /> },
-      { path: "/book", element: <BookingFlow /> },
-      { path: "/pets", element: <PetsScreen /> },
-      { path: "/pets/add", element: <AddPetScreen /> },
-      { path: "/pets/:id", element: <PetDetailScreen /> },
-      { path: "/pets/:id/edit", element: <PetEditScreen /> },
-      { path: "/pets/:id/vax/upload", element: <VaxUploadScreen /> },
-      { path: "/pets/:id/tracker", element: <TrackerScreen /> },
-      { path: "/pets/:id/timeline", element: <PetTimelineScreen /> },
-      { path: "/pets/:id/vet-share", element: <VetShareScreen /> },
-      { path: "/pets/:id/pulse", element: <PulseScreen /> },
-      { path: "/pets/:id/whereabouts", element: <WhereaboutsScreen /> },
-      { path: "/tracker/upsell", element: <TrackerUpsellScreen /> },
-      { path: "/memberships", element: <MembershipsScreen /> },
-      { path: "/account", element: <AccountScreen /> },
-      { path: "/account/household", element: <HouseholdScreen /> },
-      { path: "/account/people", element: <ContactsScreen /> },
-      { path: "/account/people/new", element: <ContactEditScreen /> },
-      { path: "/account/people/:id", element: <ContactEditScreen /> },
-      { path: "/account/documents", element: <DocumentsScreen /> },
-      { path: "/account/documents/upload", element: <DocumentUploadScreen /> },
+      { path: "/login", element: <LoginScreen /> },
+      // Public read-only vet view — no auth wrapper
+      { path: "/vet/:token", element: <VetViewScreen /> },
+      { path: "/accept-invite", element: <AcceptInviteScreen /> },
+      { path: "/forgot-password", element: <ForgotPasswordScreen /> },
+      { path: "/reset-password", element: <ResetPasswordScreen /> },
+      {
+        element: (
+          <RequirePortalAuth>
+            <AppShell />
+          </RequirePortalAuth>
+        ),
+        children: [
+          { path: "/", element: <HomeScreen /> },
+          { path: "/bookings", element: <BookingsScreen /> },
+          { path: "/bookings/:id", element: <BookingDetailScreen /> },
+          { path: "/book", element: <BookingFlow /> },
+          { path: "/pets", element: <PetsScreen /> },
+          { path: "/pets/add", element: <AddPetScreen /> },
+          { path: "/pets/:id", element: <PetDetailScreen /> },
+          { path: "/pets/:id/edit", element: <PetEditScreen /> },
+          { path: "/pets/:id/vax/upload", element: <VaxUploadScreen /> },
+          { path: "/pets/:id/tracker", element: <TrackerScreen /> },
+          { path: "/pets/:id/timeline", element: <PetTimelineScreen /> },
+          { path: "/pets/:id/vet-share", element: <VetShareScreen /> },
+          { path: "/pets/:id/pulse", element: <PulseScreen /> },
+          { path: "/pets/:id/whereabouts", element: <WhereaboutsScreen /> },
+          { path: "/tracker/upsell", element: <TrackerUpsellScreen /> },
+          { path: "/memberships", element: <MembershipsScreen /> },
+          { path: "/account", element: <AccountScreen /> },
+          { path: "/account/household", element: <HouseholdScreen /> },
+          { path: "/account/people", element: <ContactsScreen /> },
+          { path: "/account/people/new", element: <ContactEditScreen /> },
+          { path: "/account/people/:id", element: <ContactEditScreen /> },
+          { path: "/account/documents", element: <DocumentsScreen /> },
+          { path: "/account/documents/upload", element: <DocumentUploadScreen /> },
+        ],
+      },
     ],
   },
 ]);

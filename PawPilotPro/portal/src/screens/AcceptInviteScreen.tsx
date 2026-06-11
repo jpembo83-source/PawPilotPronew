@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Mail, ShieldAlert } from "lucide-react";
 import { getPortalApi } from "@/lib/api";
 import { getSupabase } from "@/lib/supabase";
@@ -11,11 +14,23 @@ interface AcceptResponse {
   reusedExistingAccount?: boolean;
 }
 
+// Mirrors the server's acceptSchema (portal_routes.tsx): min 10, max 128.
+const setPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(10, "Password must be at least 10 characters")
+    .max(128, "Password must be 128 characters or fewer"),
+});
+type SetPasswordForm = z.infer<typeof setPasswordSchema>;
+
 export function AcceptInviteScreen() {
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SetPasswordForm>({ resolver: zodResolver(setPasswordSchema) });
   const [err, setErr] = useState<string | null>(null);
   const nav = useNavigate();
 
@@ -43,9 +58,7 @@ export function AcceptInviteScreen() {
     );
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
+  async function submit({ password }: SetPasswordForm) {
     setErr(null);
     try {
       const r = await getPortalApi().post<AcceptResponse>("/portal/auth/accept-invite", { token, password });
@@ -62,8 +75,6 @@ export function AcceptInviteScreen() {
       }
     } catch (e: any) {
       setErr(e?.message ?? "Couldn't set up account");
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -78,7 +89,8 @@ export function AcceptInviteScreen() {
       </header>
 
       <form
-        onSubmit={submit}
+        onSubmit={handleSubmit(submit)}
+        noValidate
         className="space-y-4 anim-slide-up"
         style={{ animationDelay: "60ms" }}
       >
@@ -87,14 +99,17 @@ export function AcceptInviteScreen() {
           <input
             id="password"
             type="password"
-            minLength={10}
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            {...register("password")}
+            aria-invalid={errors.password ? true : undefined}
             className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
             autoComplete="new-password"
             placeholder="At least 10 characters"
           />
+          {errors.password && (
+            <p role="alert" className="text-[13px] text-destructive font-medium anim-fade-in mt-2">
+              {errors.password.message}
+            </p>
+          )}
         </label>
 
         {err && (
@@ -107,7 +122,7 @@ export function AcceptInviteScreen() {
         )}
 
         <button
-          disabled={busy}
+          disabled={isSubmitting}
           type="submit"
           className="press group relative flex items-center justify-center w-full h-12 mt-2 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
         >
@@ -116,7 +131,7 @@ export function AcceptInviteScreen() {
             aria-hidden="true"
           />
           <span className="tracking-[-0.005em]">
-            {busy ? "Setting up…" : "Set up my account"}
+            {isSubmitting ? "Setting up…" : "Set up my account"}
           </span>
         </button>
       </form>

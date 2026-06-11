@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Info, PawPrint, ArrowRight } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { useBranding } from "@/lib/branding";
@@ -8,23 +11,28 @@ import { useBranding } from "@/lib/branding";
 const HERO_PHOTO =
   "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?q=80&w=1400&auto=format&fit=crop";
 
+const loginSchema = z.object({
+  email: z.email("Enter a valid email address"),
+  password: z.string().min(1, "Enter your password"),
+});
+type LoginForm = z.infer<typeof loginSchema>;
+
 export function LoginScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
   const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [photoOk, setPhotoOk] = useState(true);
   const nav = useNavigate();
   const [params] = useSearchParams();
   const next = params.get("next") ?? "/";
   const reused = params.get("reused") === "1";
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submit({ email, password }: LoginForm) {
     setErr(null);
-    setBusy(true);
     const { error } = await getSupabase().auth.signInWithPassword({ email, password });
-    setBusy(false);
     if (error) { setErr(error.message); return; }
     nav(next, { replace: true });
   }
@@ -90,7 +98,7 @@ export function LoginScreen() {
           className="bg-card rounded-3xl p-7 max-w-sm mx-auto w-full"
           style={{ boxShadow: "var(--shadow-lg)" }}
         >
-          <form onSubmit={submit} className="space-y-3.5">
+          <form onSubmit={handleSubmit(submit)} noValidate className="space-y-3.5">
             {reused && (
               <div
                 role="status"
@@ -110,13 +118,17 @@ export function LoginScreen() {
               <input
                 id="email"
                 type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                {...register("email")}
+                aria-invalid={errors.email ? true : undefined}
                 className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
                 autoComplete="email"
                 placeholder="you@dogday.com"
               />
+              {errors.email && (
+                <p role="alert" className="text-[13px] text-destructive font-medium anim-fade-in mt-1.5">
+                  {errors.email.message}
+                </p>
+              )}
             </label>
 
             <label htmlFor="password" className="block">
@@ -126,12 +138,16 @@ export function LoginScreen() {
               <input
                 id="password"
                 type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                {...register("password")}
+                aria-invalid={errors.password ? true : undefined}
                 className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
                 autoComplete="current-password"
               />
+              {errors.password && (
+                <p role="alert" className="text-[13px] text-destructive font-medium anim-fade-in mt-1.5">
+                  {errors.password.message}
+                </p>
+              )}
             </label>
 
             {err && (
@@ -141,14 +157,14 @@ export function LoginScreen() {
             )}
 
             <button
-              disabled={busy}
+              disabled={isSubmitting}
               type="submit"
               className="press group relative flex items-center justify-center gap-2 w-full h-12 mt-1 rounded-xl bg-foreground text-background font-medium disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
               style={{ boxShadow: "var(--shadow-sm)" }}
             >
               <span className="absolute inset-x-0 top-0 h-px bg-white/10 pointer-events-none" aria-hidden="true" />
-              <span className="tracking-[-0.005em]">{busy ? "Signing in…" : "Sign in"}</span>
-              {!busy && <ArrowRight size={16} strokeWidth={2.2} className="opacity-70 transition-transform group-hover:translate-x-0.5" />}
+              <span className="tracking-[-0.005em]">{isSubmitting ? "Signing in…" : "Sign in"}</span>
+              {!isSubmitting && <ArrowRight size={16} strokeWidth={2.2} className="opacity-70 transition-transform group-hover:translate-x-0.5" />}
             </button>
 
             <Link

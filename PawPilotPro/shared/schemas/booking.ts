@@ -37,7 +37,9 @@ export const newBookingRequestSchema = z.union([
       endAt: z.string().datetime(),
       notes: z.string().max(500).nullable(),
       requestId: z.string().uuid(),
-      bundle: z.undefined(),
+      // "Must be absent" marker. zod v4 no longer treats z.undefined() keys
+      // as optional — .optional() restores accept-missing-key behaviour.
+      bundle: z.undefined().optional(),
     })
     .refine((d) => new Date(d.endAt) > new Date(d.startAt), {
       message: "endAt must be after startAt",
@@ -48,10 +50,11 @@ export const newBookingRequestSchema = z.union([
     bundle: z.array(serviceRequestSchema).min(2).max(4),
     notes: z.string().max(500).nullable(),
     requestId: z.string().uuid(),
-    service: z.undefined(),
-    petIds: z.undefined(),
-    startAt: z.undefined(),
-    endAt: z.undefined(),
+    // Same "must be absent" markers as above (see zod v4 note).
+    service: z.undefined().optional(),
+    petIds: z.undefined().optional(),
+    startAt: z.undefined().optional(),
+    endAt: z.undefined().optional(),
   }),
 ]);
 
