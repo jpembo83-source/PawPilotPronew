@@ -2532,7 +2532,7 @@ const trackerEventSchema = z.object({
   petId:       z.string().min(1).optional(),
   petName:     z.string().min(1).optional(),
   type:        trackerEventTypeSchema,
-  payload:     z.record(z.unknown()).optional(),
+  payload:     z.record(z.string(), z.unknown()).optional(),
 });
 
 /** Choose where tapping this event in the drawer should send the owner. */

@@ -14,7 +14,7 @@ history. So these files alone do not reproduce prod exactly.
 20260531100000     invoxia_notification_state
 20260531110000     invoxia_detector_cron
 20260611201216     legacy_jan2026_quarantine   (not yet a file here; see migrations_drafts/)
-20260611201256     phase4_customers_stage0      (customer tables — cf. migrations_drafts/0002_customers.sql)
+20260611201256     phase4_customers_stage0      ← added here (Phase 4 stage 0, customers)
 20260623183120     fix_security_lints
 20260623220200     harden_function_security     ← added here
 20260625085232     harden_function_search_path  ← added here
@@ -23,6 +23,7 @@ history. So these files alone do not reproduce prod exactly.
 ## Added in this change
 | File | Purpose |
 |---|---|
+| `20260611201256_phase4_customers_stage0.sql` | SQL recorded in prod history for the Phase 4 stage-0 customers DDL (applied 2026-06-11), promoting `migrations_drafts/0002_customers.sql`. Idempotency guards added (`drop policy/constraint if exists`) so it is a safe no-op on baseline-provisioned DBs. |
 | `20260623220200_harden_function_security.sql` | Exact SQL of the live prod migration. **Prod parity** — targets prod-only functions; do not expect it to apply to a fresh DB. |
 | `20260625085232_harden_function_search_path.sql` | Exact SQL of the live prod migration. **Prod parity.** |
 | `20260625120000_active_schema_baseline.sql` | The active app schema staging was provisioned from: `kv_store` + `app` helpers + customer tables + RLS. Idempotent; no-op on prod. |

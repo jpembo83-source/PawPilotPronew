@@ -1,5 +1,5 @@
 {
- "total": 221,
+ "total": 204,
  "files": {
   "scripts/seed-test-data.ts": 1,
   "src/app/modules/billing/pages/BillingOverview.tsx": 1,
@@ -52,7 +52,6 @@
   "src/app/modules/settings/utils/rbac.ts": 3,
   "src/app/modules/staff/pages/PoliciesTab.tsx": 3,
   "src/app/modules/staff/pages/StaffMemberDetailPage.tsx": 3,
-  "src/app/modules/system/components/SupabaseConnectivityCheck.tsx": 2,
   "src/app/modules/transport/components/CreateTransportJobDialog.tsx": 54,
   "src/app/modules/transport/components/CreateTransportRequestModal.tsx": 1,
   "src/app/modules/transport/pages/DriverDashboard.tsx": 1,
@@ -60,9 +59,7 @@
   "src/app/modules/transport/pages/TransportDashboard.tsx": 1,
   "src/app/modules/transport/pages/VehicleManager.tsx": 1,
   "src/app/utils/contactHelpers.ts": 4,
-  "supabase/functions/server/_shared/auth.ts": 5,
-  "supabase/functions/server/kv_store.tsx": 3,
-  "supabase/functions/server/lib/email.ts": 2,
-  "supabase/functions/server/portal_bookings.ts": 8
+  "supabase/functions/server/kv_store.tsx": 1,
+  "supabase/functions/server/portal_bookings.ts": 2
  }
 }
