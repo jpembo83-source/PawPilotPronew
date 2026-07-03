@@ -15,6 +15,10 @@ import * as kv from "../kv_store.tsx";
 
 export type PetUpdateType = "checked_in" | "checked_out" | "photo" | "note";
 
+/** Private bucket for moment photos. Reads are signed-URL only. */
+export const MOMENTS_BUCKET = "pet-moments";
+export const MOMENT_SIGNED_URL_TTL_SECONDS = 60 * 30; // matches docs-download TTL
+
 export interface PetUpdate {
   id: string;
   tenant_id: string;
@@ -95,5 +99,23 @@ export async function listPetUpdatesForDay(
   const rows = (await kv.getByPrefix(petUpdateDayPrefix(tenantId, date, petId))) as PetUpdate[];
   return (Array.isArray(rows) ? rows : []).sort((a, b) =>
     a.created_at.localeCompare(b.created_at),
+  );
+}
+
+/** Attach a fresh signed URL for any photo update. `admin` must be a
+ *  service-role storage client. */
+export async function withSignedPhotoUrls(
+  // deno-lint-ignore no-explicit-any
+  admin: { storage: { from(bucket: string): { createSignedUrl(path: string, ttl: number): Promise<{ data: { signedUrl: string } | null }> } } },
+  updates: PetUpdate[],
+): Promise<Array<PetUpdate & { photo_url?: string }>> {
+  return Promise.all(
+    updates.map(async (u) => {
+      if (!u.photo_path) return u;
+      const { data } = await admin.storage
+        .from(MOMENTS_BUCKET)
+        .createSignedUrl(u.photo_path, MOMENT_SIGNED_URL_TTL_SECONDS);
+      return { ...u, photo_url: data?.signedUrl };
+    }),
   );
 }

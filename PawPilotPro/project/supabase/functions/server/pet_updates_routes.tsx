@@ -11,15 +11,15 @@ import {
   buildPetUpdate,
   listPetUpdatesForDay,
   recordPetUpdate,
-  type PetUpdate,
+  withSignedPhotoUrls,
+  MOMENTS_BUCKET,
 } from "./lib/pet_updates.ts";
+import { notify } from "./lib/notify.ts";
 
 const app = new Hono();
 app.use("*", requireAuth);
 
-export const MOMENTS_BUCKET = "pet-moments";
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
-const SIGNED_URL_TTL_SECONDS = 60 * 30; // 30 min — matches the docs pattern
 
 // Mirrors daycare_routes' role model: anyone who can run check-in/out can
 // share a moment.
@@ -42,22 +42,6 @@ async function ensureMomentsBucket(admin: ReturnType<typeof createClient>) {
     await admin.storage.createBucket(MOMENTS_BUCKET, { public: false });
   }
   bucketEnsured = true;
-}
-
-/** Attach a fresh signed URL for any photo update. */
-export async function withSignedPhotoUrls(
-  admin: ReturnType<typeof createClient>,
-  updates: PetUpdate[],
-): Promise<Array<PetUpdate & { photo_url?: string }>> {
-  return Promise.all(
-    updates.map(async (u) => {
-      if (!u.photo_path) return u;
-      const { data } = await admin.storage
-        .from(MOMENTS_BUCKET)
-        .createSignedUrl(u.photo_path, SIGNED_URL_TTL_SECONDS);
-      return { ...u, photo_url: data?.signedUrl };
-    }),
-  );
 }
 
 // Share a moment: photo and/or a one-line note for one pet.
@@ -111,6 +95,22 @@ app.post("/moment", async (c) => {
       createdByName: user.name,
     });
     await recordPetUpdate(update);
+
+    // Owner notification (in-app; taxonomy in lib/notify.ts). Best-effort —
+    // a notification failure never fails the share.
+    if (householdId) {
+      try {
+        await notify({
+          tenantId: user.tenantId,
+          householdId,
+          type: "moment.shared",
+          payload: { petName, hasPhoto: !!photoPath, note: text ?? null },
+          link: "/",
+        });
+      } catch (notifyError) {
+        console.error("[pet_updates.postMoment] notify failed (non-fatal):", notifyError);
+      }
+    }
 
     const [withUrl] = photoPath
       ? await withSignedPhotoUrls(getAdmin(), [update])

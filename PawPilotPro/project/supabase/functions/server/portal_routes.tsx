@@ -9,6 +9,7 @@ import { createClient } from "npm:@supabase/supabase-js";
 import * as kv from "./kv_store.tsx";
 import { internalError } from "./_shared/log.ts";
 import { notify, PortalNotificationType } from "./lib/notify.ts";
+import { listPetUpdatesForDay, withSignedPhotoUrls } from "./lib/pet_updates.ts";
 
 const portal = new Hono();
 
@@ -368,6 +369,47 @@ portal.get("/pets/:id", async (c) => {
       approvedAt: v.created_at || v.approved_at || null,
     })),
   });
+});
+
+// Today feed — a pet's updates for one day (defaults to today). Read-only:
+// owners consume, staff produce. Ownership is enforced by key construction
+// (the pet must exist under this tenant+household), and moment photos are
+// served via short-lived signed URLs from the private bucket.
+portal.get("/pets/:id/updates", async (c) => {
+  try {
+    const auth = await readPortalUser(c);
+    if ("error" in auth) return c.json({ error: auth.error }, auth.status as 401 | 403);
+    const { tenantId, householdId } = auth;
+    const id = c.req.param("id");
+
+    const pet = (await kv.get(`customer:${tenantId}:pet:${householdId}:${id}`)) as any;
+    if (!pet) return c.json({ error: "Not found" }, 404);
+
+    const date = c.req.query("date") || new Date().toISOString().split("T")[0];
+    const updates = await listPetUpdatesForDay(tenantId, id, date);
+
+    let wire: Array<import("./lib/pet_updates.ts").PetUpdate & { photo_url?: string }> = updates;
+    if (updates.some((u) => u.photo_path)) {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      wire = await withSignedPhotoUrls(admin, updates);
+    }
+
+    // Strip server-internal fields from the owner-facing payload.
+    return c.json({
+      date,
+      updates: wire.map((u) => ({
+        id: u.id,
+        type: u.type,
+        text: u.text ?? null,
+        photoUrl: u.photo_url ?? null,
+        createdAt: u.created_at,
+      })),
+    });
+  } catch (error) {
+    return internalError(c, "portal.petUpdates", error);
+  }
 });
 
 // Shared serializer — keeps the pet shape the portal returns consistent

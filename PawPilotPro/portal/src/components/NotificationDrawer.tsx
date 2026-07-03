@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   BellOff, Calendar, Syringe, MapPin, Footprints, Car,
-  Zap, BatteryLow, BatteryFull, WifiOff, Wifi, Dog,
+  Zap, BatteryLow, BatteryFull, WifiOff, Wifi, Dog, Camera,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNotifications, PortalNotification } from "@/hooks/useNotifications";
@@ -34,6 +34,8 @@ function renderNotification(n: PortalNotification): Renderer {
     petName?: string;
     zoneName?: string;
     batteryPct?: number;
+    note?: string | null;
+    hasPhoto?: boolean;
   };
   const pet = p.petName ?? "Your pet";
 
@@ -53,6 +55,14 @@ function renderNotification(n: PortalNotification): Renderer {
       return { Icon: Syringe, accent: "warn", title: "Vaccination not accepted" };
     case "vax.expiring":
       return { Icon: Syringe, accent: "warn", title: "Vaccination expiring soon" };
+
+    /* ----- Day-feed moments ---------------------------------------- */
+    case "moment.shared":
+      return {
+        Icon: Camera, accent: "primary",
+        title: `A moment from ${pet}'s day`,
+        body: p.note || (p.hasPhoto ? "The team shared a new photo." : undefined),
+      };
 
     /* ----- Tracker / collar events -------------------------------- */
     case "tracker.zone_left":
