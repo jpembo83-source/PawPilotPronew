@@ -1,0 +1,74 @@
+{
+  "household": {
+    "migrated": 3,
+    "quarantined": {
+      "invalid_created_at": 1,
+      "missing_name": 1,
+      "non_canonical_tenant": 1
+    }
+  },
+  "contact": {
+    "migrated": 4,
+    "quarantined": {
+      "missing_household": 2,
+      "household_key_mismatch": 1,
+      "duplicate_id": 1,
+      "non_canonical_tenant": 1
+    }
+  },
+  "pet": {
+    "migrated": 3,
+    "quarantined": {
+      "missing_household": 1,
+      "invalid_numeric": 1,
+      "non_canonical_tenant": 1
+    }
+  },
+  "document": {
+    "migrated": 2,
+    "quarantined": {
+      "missing_pet": 1,
+      "invalid_uploaded_at": 1,
+      "non_canonical_tenant": 1
+    }
+  },
+  "note": {
+    "migrated": 2,
+    "quarantined": {
+      "invalid_category": 1,
+      "missing_household": 1,
+      "non_canonical_tenant": 1
+    }
+  },
+  "flag": {
+    "migrated": 2,
+    "quarantined": {
+      "invalid_severity": 1,
+      "missing_pet": 1,
+      "non_canonical_tenant": 1
+    }
+  },
+  "note_pet": {
+    "migrated": 1,
+    "quarantined": {
+      "missing_pet": 1,
+      "missing_note": 2,
+      "non_canonical_tenant": 1
+    }
+  },
+  "activity": {
+    "migrated": 4,
+    "quarantined": {
+      "missing_household_id": 1,
+      "household_key_mismatch": 1,
+      "invalid_occurred_at": 1,
+      "non_canonical_tenant": 2
+    }
+  },
+  "unclassified": {
+    "migrated": 0,
+    "quarantined": {
+      "unclassified_key": 2
+    }
+  }
+}
