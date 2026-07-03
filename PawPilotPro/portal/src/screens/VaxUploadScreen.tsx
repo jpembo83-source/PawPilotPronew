@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { getSupabase } from "@/lib/supabase";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
@@ -19,6 +20,7 @@ const VAX_TYPES = [
 export function VaxUploadScreen() {
   const { id } = useParams();
   const nav = useNavigate();
+  const online = useOnlineStatus();
   const [file, setFile] = useState<File | null>(null);
   const [vaxType, setVaxType] = useState<string>("rabies");
   const [issuedAt, setIssuedAt] = useState("");
@@ -151,8 +153,14 @@ export function VaxUploadScreen() {
 
       {err && <p role="alert" className="text-sm text-destructive mb-3">{err}</p>}
 
+      {!online && (
+        <p role="status" className="text-sm text-muted-foreground mb-3">
+          You're offline — you can submit this as soon as you're back online.
+        </p>
+      )}
+
       <button
-        disabled={!file || busy}
+        disabled={!file || busy || !online}
         onClick={submit}
         className="press group relative flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-primary text-primary-foreground font-semibold shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
       >
