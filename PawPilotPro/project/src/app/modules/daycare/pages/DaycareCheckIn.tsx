@@ -19,8 +19,17 @@ import {
   XCircle,
   CheckCircle,
   UserPlus,
+  Checks,
+  Check,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import {
+  sectionOf,
+  blockedReasons,
+  includedEntries,
+  canConfirmBatch,
+  type BatchEntry,
+} from '../lib/bulkCheckIn';
 import type { DaycareBooking, CheckInValidation } from '../types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -234,6 +243,14 @@ export function DaycareCheckIn() {
   const [showWalkIn, setShowWalkIn]               = useState(false);
   const [submitting, setSubmitting]               = useState(false);
 
+  // Bulk select mode. The single-dog tap flow is untouched when this is off.
+  const [selectMode, setSelectMode]               = useState(false);
+  const [selectedIds, setSelectedIds]             = useState<Set<string>>(new Set());
+  const [batch, setBatch]                         = useState<BatchEntry[] | null>(null);
+  const [batchAcks, setBatchAcks]                 = useState<Record<string, boolean>>({});
+  const [batchValidating, setBatchValidating]     = useState(false);
+  const [batchSubmitting, setBatchSubmitting]     = useState(false);
+
   const today         = new Date().toISOString().split('T')[0];
   const todayFormatted = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -304,6 +321,95 @@ export function DaycareCheckIn() {
     (validation.warnings.length === 0 || warningsAcknowledged) &&
     !submitting;
 
+  // ── Bulk select mode ─────────────────────────────────────────────────────
+
+  const toggleSelectMode = () => {
+    setSelectMode(on => {
+      if (on) setSelectedIds(new Set());
+      return !on;
+    });
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Validate every selected booking, then open ONE summary dialog. Each dog
+  // is gated individually — same blocker/warning semantics as the single flow.
+  const startBatch = async () => {
+    const targets = bookings.filter(b => selectedIds.has(b.id));
+    if (targets.length === 0 || batchValidating) return;
+    setBatchValidating(true);
+    try {
+      const entries = await Promise.all(
+        targets.map(async (booking): Promise<BatchEntry> => {
+          try {
+            return { booking, validation: await validateCheckIn(booking.id) };
+          } catch (err) {
+            // A failed validate call is treated as blocked and reported —
+            // never silently skipped, never checked in unvalidated.
+            const message = err instanceof Error && err.message ? err.message : 'Could not validate — try again';
+            return { booking, validation: null, error: message };
+          }
+        })
+      );
+      setBatchAcks({});
+      setBatch(entries);
+    } finally {
+      setBatchValidating(false);
+    }
+  };
+
+  const handleBatchCheckIn = async () => {
+    if (!batch || batchSubmitting || !canConfirmBatch(batch, batchAcks)) return;
+    setBatchSubmitting(true);
+    const included = includedEntries(batch, batchAcks);
+    const succeeded: DaycareBooking[] = [];
+    const failed: DaycareBooking[] = [];
+    for (const entry of included) {
+      try {
+        await checkIn(entry.booking.id, {
+          warnings_acknowledged: sectionOf(entry) === 'warning',
+        });
+        succeeded.push(entry.booking);
+      } catch {
+        failed.push(entry.booking);
+      }
+    }
+
+    // One refresh for the whole batch, exactly like the single flow's refresh.
+    const { fetchStats } = useDaycareStore.getState();
+    await Promise.all([
+      load(),
+      fetchStats(selectedLocationId === 'ALL' ? undefined : selectedLocationId, today),
+    ]);
+
+    setBatch(null);
+    setBatchSubmitting(false);
+
+    if (succeeded.length > 0) {
+      toast.success(`${succeeded.length} checked in`);
+    }
+    if (failed.length > 0) {
+      toast.error(
+        `Couldn't check in ${failed.map(b => b.pet_name).join(', ')} — still selected so you can retry.`
+      );
+      setSelectedIds(new Set(failed.map(b => b.id)));
+    } else {
+      setSelectedIds(new Set());
+      setSelectMode(false);
+    }
+  };
+
+  const batchIncludedCount = batch ? includedEntries(batch, batchAcks).length : 0;
+  const batchClear    = batch?.filter(e => sectionOf(e) === 'clear') ?? [];
+  const batchWarned   = batch?.filter(e => sectionOf(e) === 'warning') ?? [];
+  const batchBlocked  = batch?.filter(e => sectionOf(e) === 'blocked') ?? [];
+
   return (
     <div className="flex flex-col h-full relative" style={{ background: 'var(--background)' }}>
 
@@ -329,6 +435,18 @@ export function DaycareCheckIn() {
               )}
             </div>
           </div>
+
+          {/* Select-mode toggle */}
+          <button
+            onClick={toggleSelectMode}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+            style={selectMode
+              ? { background: 'var(--primary)', color: '#fff' }
+              : { background: '#F4F3EF', color: '#6B6762' }}
+          >
+            <Checks size={14} weight="bold" />
+            {selectMode ? 'Done' : 'Select'}
+          </button>
 
           {/* Walk-in button */}
           <button
@@ -387,13 +505,30 @@ export function DaycareCheckIn() {
 
         {!isLoading && filtered.map(booking => {
           const late = isLate(booking);
+          const isSelected = selectMode && selectedIds.has(booking.id);
           return (
             <button
               key={booking.id}
-              onClick={() => handleSelectBooking(booking)}
+              onClick={() => { if (selectMode) toggleSelected(booking.id); else void handleSelectBooking(booking); }}
+              aria-pressed={selectMode ? isSelected : undefined}
               className="w-full bg-white rounded-2xl border p-4 flex items-center gap-4 text-left hover:shadow-sm active:scale-[0.99] transition-all"
-              style={{ borderColor: late ? '#FCD34D' : '#E2DED8' }}
+              style={{
+                borderColor: isSelected ? 'var(--primary)' : late ? '#FCD34D' : '#E2DED8',
+                background: isSelected ? 'var(--primary-tint)' : undefined,
+              }}
             >
+              {/* Selection affordance (select mode only) */}
+              {selectMode && (
+                <span
+                  aria-hidden="true"
+                  className="h-6 w-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
+                  style={isSelected
+                    ? { background: 'var(--primary)', borderColor: 'var(--primary)' }
+                    : { borderColor: '#C8C4BC', background: '#fff' }}
+                >
+                  {isSelected && <Check size={14} weight="bold" className="text-white" />}
+                </span>
+              )}
               {/* Avatar */}
               <div
                 className="h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0"
@@ -437,6 +572,30 @@ export function DaycareCheckIn() {
           );
         })}
       </div>
+
+      {/* Bulk action bar — last flex child, so it sits above MobileLayout's
+          bottom tab bar (which lives outside this page's scroll area and
+          already carries the safe-area inset). */}
+      {selectMode && (
+        <div className="bg-white border-t border-[#E2DED8] px-4 py-3 flex items-center gap-3">
+          <p className="text-sm text-[#6B6762] flex-1">
+            {selectedIds.size === 0
+              ? 'Tap dogs to select'
+              : `${selectedIds.size} selected`}
+          </p>
+          <button
+            onClick={() => void startBatch()}
+            disabled={selectedIds.size === 0 || batchValidating}
+            className="h-11 px-5 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
+            style={{ background: 'var(--primary)' }}
+          >
+            <SignIn size={16} weight="bold" />
+            {batchValidating
+              ? 'Checking…'
+              : `Check in ${selectedIds.size} ${selectedIds.size === 1 ? 'dog' : 'dogs'}`}
+          </button>
+        </div>
+      )}
 
       {/* Walk-in panel (overlay) */}
       <WalkInPanel
@@ -565,6 +724,116 @@ export function DaycareCheckIn() {
             >
               <SignIn size={16} weight="bold" />
               {submitting ? 'Checking in…' : `Check In ${selectedBooking?.pet_name}`}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk check-in summary dialog */}
+      <Dialog open={batch !== null} onOpenChange={open => { if (!open && !batchSubmitting) setBatch(null); }}>
+        <DialogContent className="rounded-3xl max-w-md p-0 overflow-hidden">
+          <div className="px-6 pt-6 pb-4" style={{ background: 'var(--primary-tint)' }}>
+            <h2 className="text-xl font-bold text-[#1C1916] leading-tight">Check in dogs</h2>
+            <p className="text-sm text-[#6B6762] mt-0.5">
+              Each dog is validated individually — blocked dogs are excluded.
+            </p>
+          </div>
+
+          <div className="px-6 py-5 space-y-4 max-h-[50vh] overflow-y-auto">
+
+            {/* Clear */}
+            {batchClear.length > 0 && (
+              <div
+                className="border rounded-xl p-4"
+                style={{ background: 'var(--primary-tint)', borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)' }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle size={16} weight="fill" style={{ color: 'var(--primary)' }} className="flex-shrink-0" />
+                  <span className="text-sm font-semibold" style={{ color: 'var(--primary)' }}>
+                    Ready to check in
+                  </span>
+                </div>
+                <p className="text-sm text-[#1C1916] pl-6">
+                  {batchClear.map(e => e.booking.pet_name).join(', ')}
+                </p>
+              </div>
+            )}
+
+            {/* Warnings — per-dog acknowledgment, same semantics as single flow */}
+            {batchWarned.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Warning size={16} weight="fill" className="text-amber-600 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-amber-800">Warnings — acknowledge each dog</span>
+                </div>
+                {batchWarned.map(entry => (
+                  <div key={entry.booking.id} className="pl-6">
+                    <p className="text-sm font-semibold text-amber-900">{entry.booking.pet_name}</p>
+                    <ul className="space-y-0.5 mb-2">
+                      {entry.validation!.warnings.map((w, i) => (
+                        <li key={i} className="text-sm text-amber-700">{w.message}</li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`ack-${entry.booking.id}`}
+                        checked={!!batchAcks[entry.booking.id]}
+                        onCheckedChange={v =>
+                          setBatchAcks(prev => ({ ...prev, [entry.booking.id]: v === true }))
+                        }
+                      />
+                      <label
+                        htmlFor={`ack-${entry.booking.id}`}
+                        className="text-sm font-medium text-amber-900 cursor-pointer"
+                      >
+                        I acknowledge {entry.booking.pet_name}'s warnings
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Blocked — excluded from the batch, never silently skipped */}
+            {batchBlocked.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <XCircle size={16} weight="fill" className="text-red-600 flex-shrink-0" />
+                  <span className="text-sm font-semibold text-red-800">Blocked — will not be checked in</span>
+                </div>
+                {batchBlocked.map(entry => (
+                  <div key={entry.booking.id} className="pl-6">
+                    <p className="text-sm font-semibold text-red-900">{entry.booking.pet_name}</p>
+                    <ul className="space-y-0.5">
+                      {blockedReasons(entry).map((reason, i) => (
+                        <li key={i} className="text-sm text-red-700">{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 pb-6 flex gap-3">
+            <button
+              onClick={() => setBatch(null)}
+              disabled={batchSubmitting}
+              className="flex-1 h-11 rounded-xl border border-[#E2DED8] text-[#1C1916] text-sm font-medium hover:bg-[#F4F3EF] transition-colors disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleBatchCheckIn()}
+              disabled={batchSubmitting || !batch || !canConfirmBatch(batch, batchAcks)}
+              className="flex-1 h-11 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
+              style={{ background: 'var(--primary)' }}
+            >
+              <SignIn size={16} weight="bold" />
+              {batchSubmitting
+                ? 'Checking in…'
+                : `Check in ${batchIncludedCount} ${batchIncludedCount === 1 ? 'dog' : 'dogs'}`}
             </button>
           </div>
         </DialogContent>
