@@ -21,6 +21,7 @@ import {
   CreditCard,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { useConnectivity } from '../../../hooks/useConnectivity';
 import type { DaycareBooking } from '../types';
 import { CreateBookingDialog } from '../components/CreateBookingDialog';
 
@@ -49,6 +50,7 @@ export function DaycareBookings() {
   const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
   const { bookings, isLoading, fetchBookings, cancelBooking } = useDaycareStore();
+  const isOnline = useConnectivity();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -311,6 +313,11 @@ export function DaycareBookings() {
               className="mt-2"
             />
           </div>
+          {!isOnline && (
+            <p className="text-xs text-red-700 text-center">
+              You're offline — this cancellation can't be saved right now.
+            </p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
               Keep Booking
@@ -318,7 +325,7 @@ export function DaycareBookings() {
             <Button
               variant="destructive"
               onClick={handleCancelBooking}
-              disabled={isLoading || !cancelReason.trim()}
+              disabled={isLoading || !cancelReason.trim() || !isOnline}
             >
               Cancel Booking
             </Button>

@@ -20,6 +20,7 @@ import {
   SmileySad,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { useConnectivity } from '../../../hooks/useConnectivity';
 import type { DaycareBooking } from '../types';
 
 type Mood = 'great' | 'good' | 'tired';
@@ -49,6 +50,7 @@ export function DaycareCheckOut() {
   const navigate = useNavigate();
   const { selectedLocationId } = useDashboardStore();
   const { bookings, isLoading, fetchBookings, checkOut } = useDaycareStore();
+  const isOnline = useConnectivity();
 
   const [searchQuery, setSearchQuery]     = useState('');
   const [selected, setSelected]           = useState<DaycareBooking | null>(null);
@@ -324,6 +326,11 @@ export function DaycareCheckOut() {
           </div>
 
           {/* Footer */}
+          {!isOnline && (
+            <p className="text-xs text-red-700 text-center px-6 pb-2 -mt-2">
+              You're offline — this check-out can't be saved right now.
+            </p>
+          )}
           <div className="px-6 pb-6 flex gap-3">
             <button
               onClick={() => setShowDialog(false)}
@@ -333,7 +340,7 @@ export function DaycareCheckOut() {
             </button>
             <button
               onClick={handleCheckOut}
-              disabled={submitting}
+              disabled={submitting || !isOnline}
               className="flex-1 h-11 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
               style={{ background: 'var(--primary)' }}
             >

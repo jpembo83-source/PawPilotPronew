@@ -21,6 +21,7 @@ import {
   UserPlus,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { useConnectivity } from '../../../hooks/useConnectivity';
 import type { DaycareBooking, CheckInValidation } from '../types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ interface WalkInPanelProps {
 function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) {
   const { searchCustomers, createBooking, validateCheckIn, checkIn, isLoading } = useDaycareStore();
   const { locations } = useSettingsStore();
+  const isOnline = useConnectivity();
 
   const [query, setQuery]               = useState('');
   const [results, setResults]           = useState<any[]>([]);
@@ -202,15 +204,22 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
               Select a specific location before creating a walk-in
             </p>
           ) : (
-            <button
-              onClick={handleCreate}
-              disabled={creating || isLoading}
-              className="w-full h-12 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 transition-opacity"
-              style={{ background: 'var(--primary)' }}
-            >
-              <SignIn size={17} weight="bold" />
-              {creating ? 'Booking & checking in…' : `Check in ${selectedPet.name} as walk-in`}
-            </button>
+            <>
+              <button
+                onClick={handleCreate}
+                disabled={creating || isLoading || !isOnline}
+                className="w-full h-12 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 transition-opacity"
+                style={{ background: 'var(--primary)' }}
+              >
+                <SignIn size={17} weight="bold" />
+                {creating ? 'Booking & checking in…' : `Check in ${selectedPet.name} as walk-in`}
+              </button>
+              {!isOnline && (
+                <p className="text-xs text-red-700 text-center mt-2">
+                  You're offline — this walk-in can't be saved right now.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -224,6 +233,7 @@ export function DaycareCheckIn() {
   const navigate = useNavigate();
   const { selectedLocationId } = useDashboardStore();
   const { bookings, isLoading, fetchBookings, validateCheckIn, checkIn } = useDaycareStore();
+  const isOnline = useConnectivity();
 
   const [searchQuery, setSearchQuery]             = useState('');
   const [selectedBooking, setSelectedBooking]     = useState<DaycareBooking | null>(null);
@@ -550,6 +560,11 @@ export function DaycareCheckIn() {
           </div>
 
           {/* Footer */}
+          {!isOnline && (
+            <p className="text-xs text-red-700 text-center px-6 pb-2 -mt-2">
+              You're offline — this check-in can't be saved right now.
+            </p>
+          )}
           <div className="px-6 pb-6 flex gap-3">
             <button
               onClick={() => setShowDialog(false)}
@@ -559,7 +574,7 @@ export function DaycareCheckIn() {
             </button>
             <button
               onClick={handleCheckIn}
-              disabled={!canConfirm}
+              disabled={!canConfirm || !isOnline}
               className="flex-1 h-11 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
               style={{ background: 'var(--primary)' }}
             >
