@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Sparkline } from "@/components/Sparkline";
 import { PetSwitcherStrip } from "@/components/PetSwitcherStrip";
-import { TrackerUpsellCard } from "@/components/TrackerUpsell";
+import { TrackerUpsellRow } from "@/components/TrackerUpsell";
 import { TodayCard } from "@/components/TodayCard";
 import { useHeroPetStore } from "@/stores/heroPetStore";
 import { stripEmoji } from "@/lib/text";
@@ -233,24 +233,18 @@ export function HomeScreen() {
           <TodayCard petId={heroPetId} petName={heroPet.name} />
         )}
 
-        {/* PULSE HERO — the editorial centerpiece of the home screen.
+        {/* PULSE HERO — the editorial centerpiece for collar owners.
             Big tabular display number that breathes, ambient ECG trace,
             pulsing status pill, full-width sparkline.
 
             When the FEATURED pet has no Invoxia collar bound (hasTracker
-            false on the wire pet) we drop the pulse surface entirely and
-            show the TrackerUpsellCard in its place — same vertical real
-            estate, same visual weight, but the CTA is "get a tracker for
-            [Pet]" rather than a zero-state HR chart that the pet has no
-            way of populating.  Owners with multiple pets get the upsell
-            exactly when they switch to the no-collar pet via the
-            PetSwitcherStrip, not as a global page-wide nag. */}
-        {heroPetId && heroPet?.hasTracker === false ? (
-          <TrackerUpsellCard
-            petName={heroPet?.name ?? "your pet"}
-            petId={heroPetId}
-          />
-        ) : heroPetId ? (
+            false on the wire pet) the pulse surface is dropped entirely
+            and the tracker pitch collapses to a single compact row BELOW
+            the Up next section — the Today feed and next bookings take
+            the prime real estate, and the tracker suite is opt-in-by-
+            possession rather than default clutter. Collar owners keep
+            the current layout unchanged. */}
+        {heroPetId && heroPet?.hasTracker !== false && (
           <PulseHero
             petId={heroPetId}
             petName={heroPet?.name ?? ""}
@@ -258,7 +252,7 @@ export function HomeScreen() {
             series={heroHrSeries}
             days={heroHrDays}
           />
-        ) : null}
+        )}
 
         {/* UP NEXT ------------------------------------------------------- */}
         <section className="mb-6">
@@ -310,6 +304,11 @@ export function HomeScreen() {
             </ul>
           )}
         </section>
+
+        {/* Tracker pitch — compact, below the day's real content. */}
+        {heroPetId && heroPet?.hasTracker === false && (
+          <TrackerUpsellRow petName={heroPet?.name ?? "your pet"} petId={heroPetId} />
+        )}
 
         {/* INSIGHTS ------------------------------------------------------ */}
         {householdInsights.length > 0 && (

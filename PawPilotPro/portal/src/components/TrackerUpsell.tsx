@@ -87,6 +87,34 @@ export function TrackerUpsellCard({ petName, petId, compact = false }: TrackerUp
   );
 }
 
+/**
+ * Single compact row variant — used on Home when the featured pet has no
+ * collar: the tracker suite becomes opt-in-by-possession rather than the
+ * default centerpiece, and the Today feed / next bookings take the prime
+ * real estate. Same destination, same voice, a fraction of the height.
+ */
+export function TrackerUpsellRow({ petName, petId }: { petName: string; petId: string }) {
+  return (
+    <Link
+      to={`/tracker/upsell?from=${petId}`}
+      className="press group flex items-center gap-3.5 bg-card border border-border rounded-[1.25rem] p-3.5 mb-6 hover:border-primary/40 transition-colors"
+      style={{ boxShadow: "var(--shadow-card-soft)" }}
+      aria-label={`Add a PawPilot Tracker for ${petName}`}
+    >
+      <div className="size-12 rounded-2xl bg-secondary text-secondary-foreground grid place-items-center shrink-0">
+        <Heart size={18} strokeWidth={2} aria-hidden="true" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-[15px] truncate">See {petName}'s heart, every day</h3>
+        <p className="text-[13px] text-muted-foreground truncate">
+          Add a PawPilot Tracker — heart, breath, sleep and location.
+        </p>
+      </div>
+      <ArrowUpRight size={16} strokeWidth={2.2} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" aria-hidden="true" />
+    </Link>
+  );
+}
+
 function FeatureMark({ icon: Icon, label }: { icon: typeof Heart; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1.5 min-w-0">
