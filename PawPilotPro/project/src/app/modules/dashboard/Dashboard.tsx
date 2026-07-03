@@ -1,13 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { DashboardHeader } from './components/DashboardHeader';
 import { PoliciesAlertBanner } from './components/PoliciesAlertBanner';
 import { useDaycareStore } from '../daycare/store';
 import { useDashboardStore } from './store';
 import { useAuth } from '../../context/AuthContext';
+import { ShareMomentModal, type ShareMomentPet } from '../daycare/components/ShareMomentModal';
 import {
   SignIn, SignOut, Plus, Users,
-  ArrowRight, Dog,
+  ArrowRight, Dog, Camera,
 } from '@phosphor-icons/react';
 
 function getGreeting(): string {
@@ -22,6 +23,7 @@ export function Dashboard() {
   const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
   const { stats, bookings, isLoading, fetchStats, fetchBookings } = useDaycareStore();
+  const [momentPet, setMomentPet] = useState<ShareMomentPet | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -229,6 +231,18 @@ export function Dashboard() {
                       <p className="text-xs text-[#9E9B97] truncate">{b.household_name}</p>
                     </div>
                     <button
+                      onClick={() => setMomentPet({
+                        id: b.pet_id,
+                        name: b.pet_name,
+                        householdId: b.household_id,
+                        bookingId: b.id,
+                      })}
+                      aria-label={`Share a moment for ${b.pet_name}`}
+                      className="p-1.5 rounded-lg flex-shrink-0 text-[#9E9B97] hover:text-primary hover:bg-primary-tint transition-colors"
+                    >
+                      <Camera size={15} weight="duotone" />
+                    </button>
+                    <button
                       onClick={() => navigate('/daycare/check-out')}
                       className="text-xs px-2.5 py-1 rounded-lg font-medium flex-shrink-0 text-[#6B6762] hover:text-[#1C1916] hover:bg-[#F5F3F0] transition-colors"
                     >
@@ -310,6 +324,8 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      <ShareMomentModal open={momentPet !== null} onClose={() => setMomentPet(null)} pet={momentPet} />
     </div>
   );
 }

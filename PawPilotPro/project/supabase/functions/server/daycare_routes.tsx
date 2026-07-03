@@ -7,6 +7,7 @@ import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
+import { buildPetUpdate, recordPetUpdate } from './lib/pet_updates.ts';
 
 const app = new Hono();
 
@@ -1209,7 +1210,24 @@ app.post('/bookings/:id/checkin', async (c) => {
       description: `${booking.pet_name} checked in by ${user.name}`,
       metadata: { pet_name: booking.pet_name, handover_notes, warnings_acknowledged },
     });
-    
+
+    // Owner-facing feed entry ("Rex arrived 8:42"). Best-effort: the feed
+    // must never fail a check-in.
+    try {
+      await recordPetUpdate(buildPetUpdate({
+        tenantId: user.tenantId,
+        petId: booking.pet_id,
+        petName: booking.pet_name,
+        type: 'checked_in',
+        bookingId,
+        householdId: booking.household_id,
+        createdById: user.id,
+        createdByName: user.name,
+      }));
+    } catch (feedError) {
+      console.error('[daycare.checkIn] pet_update write failed (non-fatal):', feedError);
+    }
+
     return c.json({ booking, attendance });
   } catch (error: any) {
     return internalError(c, 'daycare.checkIn', error);
@@ -1300,7 +1318,26 @@ app.post('/bookings/:id/checkout', async (c) => {
       description: `${booking.pet_name} checked out by ${user.name}`,
       metadata: { pet_name: booking.pet_name, checkout_notes, checkout_time: checkoutTime },
     });
-    
+
+    // Owner-facing feed entry; carries the check-out notes (incl. the
+    // "Mood: …" line the staff dialog composes). Best-effort, never fatal.
+    try {
+      await recordPetUpdate(buildPetUpdate({
+        tenantId: user.tenantId,
+        petId: booking.pet_id,
+        petName: booking.pet_name,
+        type: 'checked_out',
+        text: typeof checkout_notes === 'string' ? checkout_notes : undefined,
+        bookingId,
+        householdId: booking.household_id,
+        createdById: user.id,
+        createdByName: user.name,
+        at: new Date(checkoutTime),
+      }));
+    } catch (feedError) {
+      console.error('[daycare.checkOut] pet_update write failed (non-fatal):', feedError);
+    }
+
     return c.json(booking);
   } catch (error: any) {
     return internalError(c, 'daycare.checkOut', error);
