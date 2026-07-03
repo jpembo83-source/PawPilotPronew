@@ -60,6 +60,7 @@ export function DaycareBookings() {
   const dateParam = searchParams.get('date') || new Date().toISOString().split('T')[0];
   const statusParam = searchParams.get('status');
   const checkInStatusParam = searchParams.get('check_in_status');
+  const flagParam = searchParams.get('flag');
 
   useEffect(() => {
     if (searchParams.get('action') === 'create') {
@@ -88,7 +89,31 @@ export function DaycareBookings() {
     }
   };
 
+  // Mirrors how the daycare /stats endpoint counts each alert category, so a
+  // count tapped on the dashboard always matches the list shown here.
+  const FLAG_FILTERS: Record<string, { label: string; match: (b: DaycareBooking) => boolean }> = {
+    medical: {
+      label: 'Medical flags',
+      match: b => b.has_medical_flag,
+    },
+    behaviour: {
+      label: 'Behaviour flags',
+      match: b => b.has_behaviour_flag,
+    },
+    paperwork: {
+      label: 'Waiver issues & holds',
+      match: b => b.waiver_status === 'expired' || b.waiver_status === 'expiring_soon'
+        || b.has_booking_hold || b.has_payment_hold,
+    },
+    vaccination: {
+      label: 'Vaccination expiry',
+      match: b => b.vaccination_status === 'expired' || b.vaccination_status === 'expiring_soon',
+    },
+  };
+  const activeFlagFilter = flagParam ? FLAG_FILTERS[flagParam] : undefined;
+
   const filteredBookings = bookings.filter(b => {
+    if (activeFlagFilter && !activeFlagFilter.match(b)) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return b.pet_name.toLowerCase().includes(q) || b.household_name.toLowerCase().includes(q);
@@ -178,6 +203,25 @@ export function DaycareBookings() {
           </button>
         ))}
       </div>
+
+      {/* Active alert-category filter (deep link from the dashboard) */}
+      {activeFlagFilter && (
+        <div className="flex items-center gap-2">
+          <Badge className="bg-primary-tint text-primary border-0 text-xs gap-1.5 py-1 pl-2.5 pr-1">
+            Filtered: {activeFlagFilter.label}
+            <button
+              onClick={() => {
+                searchParams.delete('flag');
+                setSearchParams(searchParams);
+              }}
+              aria-label="Clear alert filter"
+              className="p-0.5 rounded-full hover:bg-white/60 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          </Badge>
+        </div>
+      )}
 
       {/* Booking list */}
       {isLoading ? (
