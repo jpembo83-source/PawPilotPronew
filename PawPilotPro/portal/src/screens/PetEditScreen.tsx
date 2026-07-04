@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { Skeleton } from "@/components/Skeleton";
 import { getPortalApi } from "@/lib/api";
 import type { Pet, PetPatch, Sex, NeuteredStatus } from "@shared/types/pet";
@@ -27,6 +28,7 @@ export function PetEditScreen() {
   const { id } = useParams<{ id: string }>();
   const nav = useNavigate();
   const queryClient = useQueryClient();
+  const online = useOnlineStatus();
 
   const { data, isLoading } = usePortalQuery<PetDetailData>(
     ["portal", "pets", id],
@@ -233,9 +235,15 @@ export function PetEditScreen() {
             />
           </fieldset>
 
+          {!online && (
+            <p role="status" className="text-sm text-muted-foreground">
+              You're offline — you can save this as soon as you're back online.
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={update.isPending}
+            disabled={update.isPending || !online}
             className="press relative flex items-center justify-center w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[var(--shadow-sm)] disabled:opacity-50"
           >
             {update.isPending ? "Saving…" : "Save changes"}

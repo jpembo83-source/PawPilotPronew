@@ -326,12 +326,22 @@
   animation: shimmer 1.6s ease-in-out infinite;
 }
 
+/* Offline banner settles in softly from under the safe-area inset */
+@keyframes banner-settle {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-banner-settle {
+  animation: banner-settle 0.3s ease-out both;
+}
+
 /* Honor users who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
   .animate-breathe,
   .animate-pulse-dot,
   .animate-drift-dash,
-  .animate-shimmer {
+  .animate-shimmer,
+  .animate-banner-settle {
     animation: none !important;
   }
 }

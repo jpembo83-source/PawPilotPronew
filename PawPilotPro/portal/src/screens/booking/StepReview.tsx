@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Car, Scissors, Sun, Moon, Info } from "lucide-react";
 import { useBookingDraftStore } from "@/stores/bookingDraftStore";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { getPortalApi } from "@/lib/api";
 import { Skeleton } from "@/components/Skeleton";
 import type { Service } from "@shared/types/booking";
@@ -114,6 +115,7 @@ function formatMoney(amount: number, currency: string): string {
 
 export function StepReview() {
   const draft = useBookingDraftStore();
+  const online = useOnlineStatus();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const nav = useNavigate();
@@ -294,8 +296,14 @@ export function StepReview() {
         <p role="alert" className="text-sm text-destructive mb-4 anim-fade-in">{err}</p>
       )}
 
+      {!online && (
+        <p role="status" className="text-sm text-muted-foreground mb-4 anim-fade-in">
+          You're offline — you can send this as soon as you're back online.
+        </p>
+      )}
+
       <button
-        disabled={busy}
+        disabled={busy || !online}
         onClick={submit}
         className="press group relative flex items-center justify-center gap-2 w-full h-14 rounded-2xl bg-primary text-primary-foreground font-semibold shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
       >
