@@ -34,6 +34,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useDashboardStore } from '../../modules/dashboard/store';
 import { useSettingsStore } from '../../modules/settings/store';
 import { usePermissions } from '../../hooks/usePermissions';
+import { OfflineBanner } from './OfflineBanner';
 import defaultLogo from '../../../assets/logo.svg';
 
 // Section groupings for drawer
@@ -234,6 +235,8 @@ export function MobileLayout() {
           />
         </button>
       </header>
+
+      <OfflineBanner />
 
       {/* ── Main Content ───────────────────────────────────────── */}
       <main className="flex-1 overflow-auto">

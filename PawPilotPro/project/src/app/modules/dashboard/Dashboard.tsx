@@ -8,9 +8,23 @@ import { useAuth } from '../../context/AuthContext';
 import {
   SignIn, SignOut, Plus, Users,
   ArrowRight, Dog, Warning, FirstAidKit,
+  Pulse, FileDashed, Syringe,
 } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../components/ui/tooltip';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
+
+interface AlertKind {
+  key: 'medical' | 'behaviour' | 'paperwork' | 'vaccination';
+  label: string;
+  count: number;
+  icon: Icon;
+  /** Safety signals (a dog could get hurt today) render louder than paperwork. */
+  loud: boolean;
+  fg: string;
+  bg: string;
+  border: string;
+}
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -80,10 +94,45 @@ export function Dashboard() {
   const utilisation = stats?.capacity_utilisation ? Math.round(stats.capacity_utilisation) : 0;
   const totalBookings = stats?.total_bookings ?? 0;
   const expectedArrivals = stats?.expected_arrivals_2h ?? 0;
-  const alertCount = stats
-    ? (stats.waiver_alerts ?? 0) +
-      (stats.hold_alerts ?? 0) + (stats.behaviour_flags ?? 0) + (stats.medical_flags ?? 0)
-    : 0;
+
+  // Same categories the server counts over today's bookings (daycare /stats).
+  // Paperwork = waiver issues + account holds; safety flags stay separate.
+  const alertKinds: AlertKind[] = [
+    {
+      key: 'medical',
+      label: 'Medical',
+      count: stats?.medical_flags ?? 0,
+      icon: Pulse,
+      loud: true,
+      fg: '#B91C1C', bg: '#FEF2F2', border: '#FECACA',
+    },
+    {
+      key: 'behaviour',
+      label: 'Behaviour',
+      count: stats?.behaviour_flags ?? 0,
+      icon: Warning,
+      loud: true,
+      fg: '#B45309', bg: '#FFFBEB', border: '#FDE68A',
+    },
+    {
+      key: 'paperwork',
+      label: 'Paperwork',
+      count: (stats?.waiver_alerts ?? 0) + (stats?.hold_alerts ?? 0),
+      icon: FileDashed,
+      loud: false,
+      fg: '#6B6762', bg: '#FAFAF9', border: '#E7E5E4',
+    },
+    {
+      key: 'vaccination',
+      label: 'Vaccines',
+      count: stats?.vaccination_alerts ?? 0,
+      icon: Syringe,
+      loud: false,
+      fg: '#6B6762', bg: '#FAFAF9', border: '#E7E5E4',
+    },
+  ];
+  const urgentCount = alertKinds.filter(k => k.loud).reduce((sum, k) => sum + k.count, 0);
+  const alertCount = alertKinds.reduce((sum, k) => sum + k.count, 0);
 
   const onSite = bookings.filter(b => b.check_in_status === 'checked_in');
   const arriving = bookings.filter(b =>
@@ -151,23 +200,53 @@ export function Dashboard() {
           </div>
 
           <div
-            className="rounded-2xl px-4 py-4 flex flex-col justify-between cursor-pointer transition-all hover:shadow-md"
+            className="rounded-2xl px-3 py-3 flex flex-col"
             style={{
-              background: alertCount > 0 ? '#FFF5F5' : '#fff',
-              border: `1px solid ${alertCount > 0 ? '#FECACA' : '#E2DED8'}`,
+              background: urgentCount > 0 ? '#FFF5F5' : '#fff',
+              border: `1px solid ${urgentCount > 0 ? '#FECACA' : '#E2DED8'}`,
             }}
-            onClick={() => navigate('/daycare')}
           >
-            <p className="text-xs font-medium mb-2" style={{ color: alertCount > 0 ? '#C03030' : '#9E9B97' }}>
-              Alerts
+            <p className="text-xs font-medium mb-2 px-1" style={{ color: urgentCount > 0 ? '#C03030' : '#9E9B97' }}>
+              Alerts{alertCount === 0 ? ' — all clear' : ''}
             </p>
-            <div>
-              <p className="text-3xl font-bold" style={{ color: alertCount > 0 ? '#C03030' : '#1C1916' }}>
-                {alertCount}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: alertCount > 0 ? '#EF8080' : '#9E9B97' }}>
-                {alertCount > 0 ? 'Needs attention' : 'All clear'}
-              </p>
+            <div className="grid grid-cols-2 gap-1.5 flex-1">
+              {alertKinds.map(kind => {
+                const Icon = kind.icon;
+                const active = kind.count > 0;
+                return (
+                  <button
+                    key={kind.key}
+                    aria-label={`${kind.count} ${kind.label.toLowerCase()} alert${kind.count === 1 ? '' : 's'} — view affected dogs`}
+                    onClick={() => navigate(`/daycare/bookings?filter=today&date=${today}&flag=${kind.key}`)}
+                    className="min-h-[44px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center transition-all hover:shadow-sm active:scale-[0.97]"
+                    style={{
+                      background: active ? kind.bg : '#FAFAF9',
+                      border: `1px solid ${active ? kind.border : '#EEECE8'}`,
+                      opacity: active ? 1 : 0.5,
+                    }}
+                  >
+                    <span className="flex items-center gap-1">
+                      <Icon
+                        size={kind.loud && active ? 15 : 13}
+                        weight={kind.loud && active ? 'fill' : 'regular'}
+                        style={{ color: active ? kind.fg : '#9E9B97' }}
+                      />
+                      <span
+                        className={kind.loud && active ? 'text-lg font-bold leading-none' : 'text-base font-semibold leading-none'}
+                        style={{ color: active ? kind.fg : '#9E9B97' }}
+                      >
+                        {kind.count}
+                      </span>
+                    </span>
+                    <span
+                      className={`text-[10px] leading-tight mt-0.5 ${kind.loud && active ? 'font-semibold' : 'font-medium'}`}
+                      style={{ color: active ? kind.fg : '#9E9B97' }}
+                    >
+                      {kind.label}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

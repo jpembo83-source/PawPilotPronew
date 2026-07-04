@@ -20,6 +20,7 @@ import {
   SmileySad,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { useConnectivity } from '../../../hooks/useConnectivity';
 import type { DaycareBooking } from '../types';
 
 type Mood = 'great' | 'good' | 'tired';
@@ -49,6 +50,7 @@ export function DaycareCheckOut() {
   const navigate = useNavigate();
   const { selectedLocationId } = useDashboardStore();
   const { bookings, isLoading, fetchBookings, checkOut } = useDaycareStore();
+  const isOnline = useConnectivity();
 
   const [searchQuery, setSearchQuery]     = useState('');
   const [selected, setSelected]           = useState<DaycareBooking | null>(null);
@@ -136,7 +138,7 @@ export function DaycareCheckOut() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by pet or owner name…"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searchQuery && (
             <button
@@ -325,12 +327,17 @@ export function DaycareCheckOut() {
                 value={checkoutNotes}
                 onChange={e => setCheckoutNotes(e.target.value)}
                 rows={3}
-                className="resize-none text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
+                className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
               />
             </div>
           </div>
 
           {/* Footer */}
+          {!isOnline && (
+            <p className="text-xs text-red-700 text-center px-6 pb-2 -mt-2">
+              You're offline — this check-out can't be saved right now.
+            </p>
+          )}
           <div className="px-6 pb-6 flex gap-3">
             <button
               onClick={() => setShowDialog(false)}
@@ -340,7 +347,7 @@ export function DaycareCheckOut() {
             </button>
             <button
               onClick={handleCheckOut}
-              disabled={submitting}
+              disabled={submitting || !isOnline}
               className="flex-1 h-11 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
               style={{ background: 'var(--primary)' }}
             >
