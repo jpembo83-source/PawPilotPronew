@@ -697,7 +697,7 @@ app.get('/bookings', async (c) => {
     const householdId = c.req.query('household_id');
     const search = c.req.query('search');
     
-    const tenantId = getTenantId(user);
+    const tenantId = user.tenantId;
     const bookingsData = await kv.getByPrefix('daycare:booking:');
     const existingHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
     const householdIds = new Set(existingHouseholds.map((h: any) => h.id).filter(Boolean));
