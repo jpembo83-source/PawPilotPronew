@@ -30,7 +30,9 @@
       "Bash(ping -c 1 -W 1000 \"00260f21f5ca.local\")",
       "Bash(npm --version)",
       "Bash(npx --version)",
-      "mcp__Claude_Code_Remote__send_later"
+      "mcp__Claude_Code_Remote__send_later",
+      "mcp__Claude_Code_Remote__list_triggers",
+      "mcp__Claude_Code_Remote__delete_trigger"
     ]
   }
 }
