@@ -1961,17 +1961,51 @@ portal.post("/pets/:id/edit-request", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => null);
   if (!body?.note || typeof body.note !== "string") return c.json({ error: "note required" }, 400);
-  const pet = await kv.get(`customer:${tenantId}:pet:${householdId}:${id}`);
+  const requestNote = body.note.trim().slice(0, 2000);
+  if (!requestNote) return c.json({ error: "note required" }, 400);
+  const pet = (await kv.get(`customer:${tenantId}:pet:${householdId}:${id}`)) as
+    | { name?: string }
+    | null;
   if (!pet) return c.json({ error: "Not found" }, 404);
   const reqId = crypto.randomUUID();
+  const now = new Date().toISOString();
   await kv.set(`portal_edit_requests:${tenantId}:${reqId}`, {
     id: reqId,
     petId: id,
     householdId,
-    note: body.note,
-    submittedAt: new Date().toISOString(),
+    note: requestNote,
+    submittedAt: now,
     status: "open",
   });
+
+  // Surface the request where staff actually work: as a household note in
+  // the same KV shape the staff Customer Detail → Notes tab reads, linked
+  // to the pet. The portal_edit_requests record above has no consumer yet
+  // (kept for a future dedicated queue); without this note the owner's
+  // "staff will review" promise was a dead letter.
+  const noteId = crypto.randomUUID();
+  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, {
+    id: noteId,
+    tenant_id: tenantId,
+    household_id: householdId,
+    title: `Profile edit request: ${pet.name ?? "pet"} (portal)`,
+    content:
+      `The owner asked for a profile update via the pet portal:\n\n"${requestNote}"\n\n` +
+      `Apply the change on the pet's profile, then let them know.`,
+    category: "general",
+    visibility: "internal",
+    is_pinned: false,
+    created_by: "portal",
+    created_by_name: "Pet portal",
+    created_at: now,
+    updated_at: now,
+  });
+  await kv.set(`customer:${tenantId}:note:${noteId}:pet:${id}`, {
+    tenant_id: tenantId,
+    note_id: noteId,
+    pet_id: id,
+  });
+
   return c.json({ ok: true, id: reqId });
 });
 
