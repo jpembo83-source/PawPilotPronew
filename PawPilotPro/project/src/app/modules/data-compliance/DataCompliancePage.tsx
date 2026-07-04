@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Button } from '../../components/ui/button';
 import { CircleNotch } from '@phosphor-icons/react';
 import { useDataComplianceStore } from './store';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { OverviewPage } from './pages/OverviewPage';
 import { DataSubjectRequestsPage } from './pages/DataSubjectRequestsPage';
 import { DataExportsPage } from './pages/DataExportsPage';
@@ -16,13 +17,20 @@ import { AuditLogPage } from './pages/AuditLogPage';
 export function DataCompliancePage() {
   const { loadAll, seedData, isLoading } = useDataComplianceStore();
   const [activeTab, setActiveTab] = useState('overview');
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
   const handleSeed = async () => {
-    if (confirm('This will create sample compliance data. Continue?')) {
+    if (
+      await confirm({
+        title: 'Create sample compliance data?',
+        description: 'This will create sample compliance data.',
+        confirmLabel: 'Continue',
+      })
+    ) {
       await seedData();
     }
   };
@@ -96,6 +104,7 @@ export function DataCompliancePage() {
           </Tabs>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }

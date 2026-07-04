@@ -11,6 +11,7 @@ import { Plus, MagnifyingGlass, PencilSimple, Trash, EnvelopeSimple, Phone, Chat
 import { toast } from 'sonner';
 import { TemplateBuilderDialog } from './modals/TemplateBuilderDialog';
 import type { CommunicationTemplate } from '../types';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 const channelIcons = {
   email: EnvelopeSimple,
@@ -28,6 +29,7 @@ export function TemplatesSection() {
   const { templates, deleteTemplate, templateFilters, setTemplateFilters } = useCommunicationsSettingsStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CommunicationTemplate | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleEdit = (template: CommunicationTemplate) => {
     setEditingTemplate(template);
@@ -35,8 +37,13 @@ export function TemplatesSection() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this template?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deleteTemplate(id);
       toast.success('Template deleted');
@@ -223,11 +230,13 @@ export function TemplatesSection() {
       )}
 
       {/* Dialog */}
-      <TemplateBuilderDialog 
+      <TemplateBuilderDialog
         open={dialogOpen}
         onClose={handleClose}
         template={editingTemplate}
       />
+
+      {confirmDialog}
     </div>
   );
 }

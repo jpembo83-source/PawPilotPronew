@@ -11,6 +11,7 @@ import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { MapPin, NavigationArrow, Warning, CheckCircle, CircleNotch } from '@phosphor-icons/react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -67,7 +68,7 @@ export function DriverDashboard() {
       setNote('');
     } catch (err) {
       console.error('Failed to update job status:', err);
-      alert('Failed to update job status. Please try again.');
+      toast.error('Failed to update job status. Please try again.');
     }
   };
   
@@ -77,7 +78,7 @@ export function DriverDashboard() {
         await updateJobStatus(nextJob.id, 'started');
       } catch (err) {
         console.error('Failed to start route:', err);
-        alert('Failed to start route. Please try again.');
+        toast.error('Failed to start route. Please try again.');
       }
     }
   };

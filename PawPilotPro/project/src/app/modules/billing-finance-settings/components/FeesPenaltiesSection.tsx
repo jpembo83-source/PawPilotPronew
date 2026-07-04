@@ -9,11 +9,13 @@ import { Plus } from '@phosphor-icons/react';
 import { useBillingFinanceSettingsStore } from '../store';
 import { FeeDialog } from './modals/FeeDialog';
 import type { FeeDefinition } from '../types';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function FeesPenaltiesSection() {
   const { fees, deleteFee } = useBillingFinanceSettingsStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFee, setEditingFee] = useState<FeeDefinition | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleEdit = (fee: FeeDefinition) => {
     setEditingFee(fee);
@@ -26,7 +28,12 @@ export function FeesPenaltiesSection() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Delete this fee definition?')) {
+    const confirmed = await confirm({
+      title: 'Delete this fee definition?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (confirmed) {
       await deleteFee(id);
     }
   };
@@ -111,6 +118,8 @@ export function FeesPenaltiesSection() {
       </Card>
 
       <FeeDialog open={dialogOpen} onOpenChange={setDialogOpen} fee={editingFee} />
+
+      {confirmDialog}
     </>
   );
 }

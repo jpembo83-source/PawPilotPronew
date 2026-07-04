@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '../../../../components/ui/select';
 import { Checkbox } from '../../../../components/ui/checkbox';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 import { Pet, PetSex } from '../../types';
 
 interface CreatePetModalProps {
@@ -90,6 +91,7 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleChange = (field: keyof PetFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -97,11 +99,20 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
     setError(null);
   };
 
-  const handleClose = () => {
+  // Every dismissal path (Cancel button, overlay click, Escape) funnels
+  // through here via the Dialog's onOpenChange, so a dirty form is always
+  // guarded by the discard dialog.
+  const handleClose = async () => {
     if (hasUnsavedChanges) {
-      if (!window.confirm('You have unsaved changes. Are you sure you want to close?')) {
-        return;
-      }
+      const discard = await confirm({
+        title: 'Discard changes?',
+        description:
+          "This pet hasn't been saved yet. Closing now will lose everything you've entered.",
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep editing',
+        destructive: true,
+      });
+      if (!discard) return;
     }
     setFormData(initialFormData);
     setHasUnsavedChanges(false);
@@ -174,7 +185,12 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) void handleClose();
+      }}
+    >
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Pet</DialogTitle>
@@ -551,7 +567,7 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
             <Button
               type="button"
               variant="outline"
-              onClick={handleClose}
+              onClick={() => void handleClose()}
               disabled={isSubmitting}
             >
               Cancel
@@ -562,6 +578,7 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
           </div>
         </form>
       </DialogContent>
+      {confirmDialog}
     </Dialog>
   );
 }

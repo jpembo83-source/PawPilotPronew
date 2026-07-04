@@ -5,22 +5,36 @@ import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function ClearDataPage() {
   const navigate = useNavigate();
   const [isClearing, setIsClearing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  
+  const { confirm, confirmDialog } = useConfirmDialog();
+
   const handleClearData = async () => {
-    if (!confirm('⚠️ Are you sure you want to delete ALL flags, notes, and timeline events? This cannot be undone!')) {
+    const firstConfirmed = await confirm({
+      title: 'Delete ALL flags, notes, and timeline events?',
+      description: 'This cannot be undone!',
+      confirmLabel: 'Delete all',
+      destructive: true,
+    });
+    if (!firstConfirmed) {
       return;
     }
-    
-    if (!confirm('This will permanently delete ALL flags, notes, and activities across ALL households. Type YES to confirm.')) {
+
+    const secondConfirmed = await confirm({
+      title: 'Are you absolutely sure?',
+      description: 'This will permanently delete ALL flags, notes, and activities across ALL households.',
+      confirmLabel: 'Yes, delete everything',
+      destructive: true,
+    });
+    if (!secondConfirmed) {
       return;
     }
-    
+
     setIsClearing(true);
     setError(null);
     setResult(null);
@@ -125,6 +139,7 @@ export function ClearDataPage() {
           </div>
         </CardContent>
       </Card>
+      {confirmDialog}
     </div>
   );
 }

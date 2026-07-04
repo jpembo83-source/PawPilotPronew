@@ -6,6 +6,7 @@ import {
   Mail, Copy, ShieldOff, CheckCircle2, Clock, Send, RefreshCw, KeyRound, PauseCircle, PlayCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 import { getAuthHeaders } from '../../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../../utils/supabase/info';
 
@@ -60,6 +61,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
   const [data, setData] = useState<ActivityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,8 +115,13 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     'Invite re-sent',
   );
 
-  const resetPassword = () => {
-    if (!confirm("Send a password reset email to this household's portal account?")) return;
+  const resetPassword = async () => {
+    const confirmed = await confirm({
+      title: 'Send password reset email?',
+      description: "A password reset email will be sent to this household's portal account.",
+      confirmLabel: 'Send email',
+    });
+    if (!confirmed) return;
     return runAction(
       'reset-password',
       () => callAdmin(`/customers/${householdId}/portal-reset-password`, { method: 'POST' }),
@@ -122,8 +129,13 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     );
   };
 
-  const pause = () => {
-    if (!confirm("Pause this household's portal access? They won't be able to sign in until you resume.")) return;
+  const pause = async () => {
+    const confirmed = await confirm({
+      title: "Pause this household's portal access?",
+      description: "They won't be able to sign in until you resume.",
+      confirmLabel: 'Pause access',
+    });
+    if (!confirmed) return;
     return runAction(
       'pause',
       () => callAdmin(`/customers/${householdId}/portal-pause`, { method: 'POST' }),
@@ -137,8 +149,14 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     'Portal access resumed',
   );
 
-  const revoke = () => {
-    if (!confirm("Revoke this household's portal access? They'll need a new invite to get back in.\n\nPause is usually the gentler option.")) return;
+  const revoke = async () => {
+    const confirmed = await confirm({
+      title: "Revoke this household's portal access?",
+      description: "They'll need a new invite to get back in. Pause is usually the gentler option.",
+      confirmLabel: 'Revoke access',
+      destructive: true,
+    });
+    if (!confirmed) return;
     return runAction(
       'revoke',
       () => callAdmin(`/customers/${householdId}/portal-revoke`, { method: 'POST' }),
@@ -329,6 +347,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
           )}
         </CardContent>
       </Card>
+      {confirmDialog}
     </div>
   );
 }

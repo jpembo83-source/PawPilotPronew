@@ -21,6 +21,8 @@ import {
   CardContent,
 } from '../../../components/ui/card';
 import { Skeleton } from '../../../components/ui/skeleton';
+import { toast } from 'sonner';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 
@@ -58,6 +60,7 @@ export function PetProfilePage() {
   const { currentPetProfile, isLoading, fetchPetProfile, updatePet, flags, fetchFlags } = useCustomerStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -163,13 +166,13 @@ export function PetProfilePage() {
     
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+      toast.error('Photo is too large — maximum size is 5MB');
       return;
     }
-    
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('That file is not an image — please choose a JPG, PNG, or similar');
       return;
     }
     
@@ -209,17 +212,23 @@ export function PetProfilePage() {
       
     } catch (error: any) {
       console.error('Failed to upload photo:', error);
-      alert(`Failed to upload photo: ${error.message}`);
+      toast.error(`Failed to upload photo: ${error.message || 'please try again'}`);
     } finally {
       setUploading(false);
     }
   };
-  
+
   const handleRemovePhoto = async () => {
-    if (!confirm('Are you sure you want to remove this photo?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Remove this photo?',
+      description: "The pet's profile photo will be deleted. You can upload a new one at any time.",
+      confirmLabel: 'Remove photo',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     setUploading(true);
-    
+
     try {
       // Update pet to remove photo
       await updatePet(currentPetProfile!.id, { photo_url: null });
@@ -227,7 +236,7 @@ export function PetProfilePage() {
       await fetchPetProfile(currentPetProfile!.id);
     } catch (error: any) {
       console.error('Failed to remove photo:', error);
-      alert('Failed to remove photo');
+      toast.error('Failed to remove photo — please try again');
     } finally {
       setUploading(false);
     }
@@ -551,6 +560,7 @@ export function PetProfilePage() {
         pet={pet}
         onPetUpdated={() => fetchPetProfile(pet.id)}
       />
+      {confirmDialog}
     </div>
   );
 }

@@ -5,10 +5,12 @@ import { Switch } from '../../../components/ui/switch';
 import { Warning, Info, Stack } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function ModuleSettings() {
   const { globalEnabledModules, toggleGlobalModule, logAction, fetchGlobalModules } = useSettingsStore();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   React.useEffect(() => {
     // Only fetch when user is authenticated and not loading
@@ -21,7 +23,13 @@ export function ModuleSettings() {
     const newState = !currentState;
     
     if (!newState) {
-      if (!confirm(`Disable ${moduleId} globally? This will disable it for ALL locations immediately.`)) {
+      const confirmed = await confirm({
+        title: `Disable ${moduleId} globally?`,
+        description: 'This will disable it for ALL locations immediately.',
+        confirmLabel: 'Disable',
+        destructive: true,
+      });
+      if (!confirmed) {
         return;
       }
     }
@@ -111,6 +119,8 @@ export function ModuleSettings() {
            </p>
         </div>
       </div>
+
+      {confirmDialog}
     </div>
   );
 }

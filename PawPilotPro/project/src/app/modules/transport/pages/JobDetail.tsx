@@ -29,6 +29,8 @@ import {
   ChatTeardrop
 } from '@phosphor-icons/react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
 import type { TransportJobWithDetails } from '../types';
 
 export function JobDetail() {
@@ -37,6 +39,7 @@ export function JobDetail() {
   const { jobs, vehicles, isLoading, error, activeDriverCount, fetchJobs, fetchVehicles, fetchActiveDrivers, updateJobStatus, assignDriver, deleteJob } = useTransportStore();
   const { locations } = useSettingsStore();
   const { users, fetchUsers } = useUserStore();
+  const { confirm, confirmDialog } = useConfirmDialog();
   
   // Debug: Log activeDriverCount whenever it changes
   useEffect(() => {
@@ -87,7 +90,7 @@ export function JobDetail() {
     try {
       await updateJobStatus(job.id, eventType, actionNotes || undefined);
       setActionNotes('');
-      alert(`Job status updated to ${eventType}`);
+      toast.success(`Job status updated to ${eventType}`);
     } catch (err) {
       console.error('Failed to update status:', err);
     }
@@ -103,7 +106,7 @@ export function JobDetail() {
       setShowAssignDialog(false);
       setSelectedDriverId('');
       setSelectedVehicleId('');
-      alert('Driver assigned successfully');
+      toast.success('Driver assigned successfully');
     } catch (err) {
       console.error('Failed to assign driver:', err);
     }
@@ -112,10 +115,16 @@ export function JobDetail() {
   const handleDeleteJob = async () => {
     if (!job) return;
     
-    if (!confirm('Are you sure you want to delete this transport job? This action cannot be undone.')) {
+    const confirmed = await confirm({
+      title: 'Delete this transport job?',
+      description: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
-    
+
     try {
       await deleteJob(job.id);
       navigate('/transport');
@@ -582,6 +591,7 @@ export function JobDetail() {
           </div>
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }

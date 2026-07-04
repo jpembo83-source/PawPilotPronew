@@ -9,6 +9,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useOperationalRulesStore } from '../store';
 import { updateRule, deleteRule } from '../api';
 import { toast } from 'sonner';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 import type { OperationalRule } from '../types';
 
 interface RuleDetailsModalProps {
@@ -21,6 +22,7 @@ export function RuleDetailsModal({ rule, onClose, onSuccess }: RuleDetailsModalP
   const { user, hasPermission } = useAuth();
   const { updateRule: updateRuleInStore, deleteRule: deleteRuleFromStore } = useOperationalRulesStore();
   const [isUpdating, setIsUpdating] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const canEdit = hasPermission('operational_rules', 'update');
   const canDelete = hasPermission('operational_rules', 'delete');
@@ -57,7 +59,13 @@ export function RuleDetailsModal({ rule, onClose, onSuccess }: RuleDetailsModalP
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this rule? This action cannot be undone.')) {
+    const confirmed = await confirm({
+      title: 'Delete this rule?',
+      description: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -276,6 +284,7 @@ export function RuleDetailsModal({ rule, onClose, onSuccess }: RuleDetailsModalP
             )}
           </div>
         </div>
+        {confirmDialog}
       </DialogContent>
     </Dialog>
   );

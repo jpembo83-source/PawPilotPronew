@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Input } from '../../../../components/ui/input';
 import { Switch } from '../../../../components/ui/switch';
 import { toast } from 'sonner';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 
 interface NotesTabProps {
   household: Household & { 
@@ -138,27 +139,34 @@ function NoteCard({ note, household }: { note: HouseholdNote; household: Househo
   const { deleteNote, updateNote } = useCustomerStore();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  
+  const { confirm, confirmDialog } = useConfirmDialog();
+
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this note?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this note?',
+      description: 'This note will be permanently deleted.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     setIsDeleting(true);
     try {
       await deleteNote(note.id);
     } catch (error) {
       console.error('Failed to delete note:', error);
-      alert('Failed to delete note');
+      toast.error('Failed to delete note — please try again');
     } finally {
       setIsDeleting(false);
     }
   };
-  
+
   const handleTogglePin = async () => {
     try {
       await updateNote(note.id, { is_pinned: !note.is_pinned });
     } catch (error) {
       console.error('Failed to toggle pin:', error);
-      alert('Failed to update note');
+      toast.error('Failed to update note — please try again');
     }
   };
   
@@ -241,6 +249,7 @@ function NoteCard({ note, household }: { note: HouseholdNote; household: Househo
           household={household}
         />
       )}
+      {confirmDialog}
     </>
   );
 }
@@ -249,27 +258,34 @@ function NoteCard({ note, household }: { note: HouseholdNote; household: Househo
 function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Household & { pets?: Pet[] } }) {
   const { deleteFlag, updateFlag } = useCustomerStore();
   const [isDeleting, setIsDeleting] = useState(false);
-  
+  const { confirm, confirmDialog } = useConfirmDialog();
+
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to remove this flag?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Remove this flag?',
+      description: 'This flag will be permanently removed.',
+      confirmLabel: 'Remove',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     setIsDeleting(true);
     try {
       await deleteFlag(flag.id);
     } catch (error) {
       console.error('Failed to delete flag:', error);
-      alert('Failed to delete flag');
+      toast.error('Failed to delete flag — please try again');
     } finally {
       setIsDeleting(false);
     }
   };
-  
+
   const handleToggleActive = async () => {
     try {
       await updateFlag(flag.id, { is_active: !flag.is_active });
     } catch (error) {
       console.error('Failed to toggle flag:', error);
-      alert('Failed to update flag');
+      toast.error('Failed to update flag — please try again');
     }
   };
   
@@ -344,6 +360,7 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
           <Trash className="h-4 w-4" />
         </Button>
       </div>
+      {confirmDialog}
     </div>
   );
 }
@@ -365,7 +382,7 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
     e.preventDefault();
     
     if (!formData.content.trim()) {
-      alert('Please enter note content');
+      toast.error('Please enter note content');
       return;
     }
     
@@ -384,7 +401,7 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
       });
     } catch (error) {
       console.error('Failed to create note:', error);
-      alert('Failed to create note');
+      toast.error('Failed to create note — please try again');
     } finally {
       setIsSubmitting(false);
     }
@@ -508,7 +525,7 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
     e.preventDefault();
     
     if (!formData.content.trim()) {
-      alert('Please enter note content');
+      toast.error('Please enter note content');
       return;
     }
     
@@ -518,7 +535,7 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
       onClose();
     } catch (error) {
       console.error('Failed to update note:', error);
-      alert('Failed to update note');
+      toast.error('Failed to update note — please try again');
     } finally {
       setIsSubmitting(false);
     }

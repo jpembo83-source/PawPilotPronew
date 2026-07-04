@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../../../../components/ui/switch';
 import { Plus, PencilSimple, Trash, FileText, CurrencyDollar } from '@phosphor-icons/react';
 import { usePricingStore, PriceBook, PriceBookEntry, PriceBookStatus, PriceBookScope } from '../../../pricing/store';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 import { useSettingsStore } from '../../store';
 import { toast } from 'sonner';
 
@@ -19,6 +20,7 @@ export function PriceBooks() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedBook, setSelectedBook] = useState<PriceBook | null>(null);
   const [selectedBookForEntries, setSelectedBookForEntries] = useState<PriceBook | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleCreatePriceBook = async (data: Omit<PriceBook, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -42,8 +44,14 @@ export function PriceBooks() {
   };
 
   const handleDeletePriceBook = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this price book? All entries will be deleted.')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this price book?',
+      description: 'All entries will be deleted. This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deletePriceBook(id);
       toast.success('Price book deleted successfully');
@@ -183,6 +191,8 @@ export function PriceBooks() {
           onClose={() => setSelectedBookForEntries(null)}
         />
       )}
+
+      {confirmDialog}
     </div>
   );
 }
@@ -360,6 +370,7 @@ function PriceBookEntriesDialog({ book, onClose }: PriceBookEntriesDialogProps) 
   } = usePricingStore();
   const [isAddingEntry, setIsAddingEntry] = useState(false);
   const [editingEntry, setEditingEntry] = useState<PriceBookEntry | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   React.useEffect(() => {
     fetchPriceBookEntries(book.id);
@@ -388,8 +399,13 @@ function PriceBookEntriesDialog({ book, onClose }: PriceBookEntriesDialogProps) 
   };
 
   const handleDeleteEntry = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this price entry?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this price entry?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deletePriceBookEntry(book.id, id);
       toast.success('Price entry deleted successfully');
@@ -489,6 +505,8 @@ function PriceBookEntriesDialog({ book, onClose }: PriceBookEntriesDialogProps) 
           onSave={(data) => handleUpdateEntry(editingEntry.id, data)}
         />
       )}
+
+      {confirmDialog}
     </Dialog>
   );
 }
