@@ -13,11 +13,16 @@ import { useBillingStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { BackendStatus } from '../../../components/BackendStatus';
 import { useCurrency } from '../../../utils/currency';
+import { usePermissions } from '../../../hooks/usePermissions';
+import { CreateInvoiceDialog } from '../components/CreateInvoiceDialog';
 
 export function BillingOverview() {
   const { overview, loading, error, fetchOverview } = useBillingStore();
   const { selectedLocationId } = useSettingsStore();
   const { format: formatCurrency } = useCurrency();
+  const { hasPermission } = usePermissions();
+  const [showCreateInvoice, setShowCreateInvoice] = useState(false);
+  const canCreateInvoice = hasPermission('invoices', 'create');
 
   useEffect(() => {
     fetchOverview(selectedLocationId);
@@ -278,7 +283,13 @@ export function BillingOverview() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowCreateInvoice(true)}
+              disabled={!canCreateInvoice}
+              title={canCreateInvoice ? undefined : "You don't have permission to create invoices"}
+            >
               Create Invoice
             </Button>
             <Button variant="outline" size="sm">
@@ -296,6 +307,8 @@ export function BillingOverview() {
           </div>
         </CardContent>
       </Card>
+
+      <CreateInvoiceDialog open={showCreateInvoice} onOpenChange={setShowCreateInvoice} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4074,
+  "errors": 4073,
   "warnings": 433
  },
  "files": {
@@ -177,7 +177,7 @@
    "warnings": 1
   },
   "src/app/modules/billing/pages/BillingOverview.tsx": {
-   "errors": 5,
+   "errors": 4,
    "warnings": 0
   },
   "src/app/modules/billing/pages/Invoices.tsx": {
