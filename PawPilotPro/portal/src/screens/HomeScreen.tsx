@@ -14,6 +14,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { Sparkline } from "@/components/Sparkline";
 import { PetSwitcherStrip } from "@/components/PetSwitcherStrip";
 import { TrackerUpsellCard } from "@/components/TrackerUpsell";
+import { TodayCard } from "@/components/TodayCard";
 import { useHeroPetStore } from "@/stores/heroPetStore";
 import { stripEmoji } from "@/lib/text";
 import type { Booking } from "@shared/types/booking";
@@ -224,6 +225,14 @@ export function HomeScreen() {
       <PetSwitcherStrip pets={allPets} />
 
       <div className="px-5 -mt-1">
+        {/* TODAY — staff-driven day feed for the featured pet. Sits above
+            the biometric surfaces: "Rex arrived 8:42" + a photo from the
+            yard is the answer to "how is my dog right now". Renders only
+            when there is at least one update today. */}
+        {heroPetId && heroPet && (
+          <TodayCard petId={heroPetId} petName={heroPet.name} />
+        )}
+
         {/* PULSE HERO — the editorial centerpiece of the home screen.
             Big tabular display number that breathes, ambient ECG trace,
             pulsing status pill, full-width sparkline.

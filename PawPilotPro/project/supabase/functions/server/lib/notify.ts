@@ -14,6 +14,8 @@ export type PortalNotificationType =
   | "vax.approved"
   | "vax.rejected"
   | "vax.expiring"
+  // Staff shared a photo/note to the pet's day feed ("Share a moment")
+  | "moment.shared"
   // Tracker events — emitted by the invoxia-event-detector edge function
   // and (optionally) by /portal/internal/tracker-event for ops/test seeding.
   | "tracker.zone_left"
