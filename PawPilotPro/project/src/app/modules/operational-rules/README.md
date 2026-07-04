@@ -229,6 +229,7 @@ Safe, predefined operators:
 
 ```typescript
 import { evaluateRules } from '@/modules/operational-rules/api';
+import { toast } from 'sonner';
 
 const result = await evaluateRules({
   event: 'daycare.check_in',
@@ -250,7 +251,7 @@ const result = await evaluateRules({
 });
 
 if (result.blocked) {
-  alert(result.blockReason);
+  toast.error(result.blockReason);
   return; // Prevent action
 }
 

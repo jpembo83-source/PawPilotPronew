@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { useComplianceStats } from '../../policies/hooks/usePolicyCompliance';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function PoliciesTab() {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ export function PoliciesTab() {
   const [selectedPolicyForAssign, setSelectedPolicyForAssign] = useState<Policy | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPolicyForEdit, setSelectedPolicyForEdit] = useState<Policy | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
   
   // UploadSimple form
   const [uploadForm, setUploadForm] = useState({
@@ -172,10 +174,16 @@ export function PoliciesTab() {
   };
   
   const handleDeletePolicy = async (policy: Policy) => {
-    if (!confirm(`Are you sure you want to delete "${policy.title}"? This will also delete all versions and assignments.`)) {
+    const confirmed = await confirm({
+      title: `Delete "${policy.title}"?`,
+      description: 'This will also delete all versions and assignments.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
-    
+
     try {
       await deletePolicy(policy.id);
       toast.success('Policy deleted successfully');
@@ -662,6 +670,8 @@ export function PoliciesTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {confirmDialog}
     </div>
   );
 }

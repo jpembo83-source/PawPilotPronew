@@ -7,12 +7,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Play, Clock } from '@phosphor-icons/react';
 import { useDataComplianceStore } from '../store';
 import { toast } from 'sonner';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function RetentionJobsPage() {
   const { retentionJobs, executeRetentionJob } = useDataComplianceStore();
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleExecute = async (jobId: string) => {
-    if (confirm('Execute this retention job now? This action cannot be undone.')) {
+    if (
+      await confirm({
+        title: 'Execute this retention job now?',
+        description: 'This action cannot be undone.',
+        confirmLabel: 'Execute job',
+        destructive: true,
+      })
+    ) {
       await executeRetentionJob(jobId);
       toast.success('Retention job started');
     }
@@ -95,6 +104,7 @@ export function RetentionJobsPage() {
             <p>No retention jobs configured.</p>
           </div>
         )}
+        {confirmDialog}
       </CardContent>
     </Card>
   );

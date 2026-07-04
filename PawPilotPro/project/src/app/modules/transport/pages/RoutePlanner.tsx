@@ -12,13 +12,16 @@ import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { CalendarBlank, MapPin, Truck, Plus, Warning, CircleNotch, Trash } from '@phosphor-icons/react';
 import { format, startOfToday } from 'date-fns';
+import { toast } from 'sonner';
+import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
 import { CreateTransportJobDialog } from '../components/CreateTransportJobDialog';
 
 export function RoutePlanner() {
   const { jobs, vehicles, isLoading, error, fetchJobs, fetchVehicles, deleteJob } = useTransportStore();
   const { locations } = useSettingsStore();
   const { session } = useAuth();
-  
+  const { confirm, confirmDialog } = useConfirmDialog();
+
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -60,15 +63,21 @@ export function RoutePlanner() {
   });
   
   const handleDeleteJob = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this transport job? This action cannot be undone.')) {
+    const confirmed = await confirm({
+      title: 'Delete this transport job?',
+      description: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
-    
+
     try {
       await deleteJob(jobId);
     } catch (err) {
       console.error('Error deleting job:', err);
-      alert('Failed to delete transport job. Please try again.');
+      toast.error('Failed to delete transport job. Please try again.');
     }
   };
   
@@ -219,6 +228,7 @@ export function RoutePlanner() {
           )}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

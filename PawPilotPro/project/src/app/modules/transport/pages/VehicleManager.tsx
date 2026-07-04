@@ -22,13 +22,16 @@ import {
 } from '@/app/components/ui/dialog';
 import { useSettingsStore } from '../../settings/store';
 import { useAuth } from '@/app/context/AuthContext';
+import { toast } from 'sonner';
+import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
 
 export function VehicleManager() {
   const { vehicles, isLoading, error, fetchVehicles, createVehicle, updateVehicle, deleteVehicle } = useTransportStore();
   const { users, fetchUsers } = useUserStore();
   const { locations } = useSettingsStore();
   const { session } = useAuth();
-  
+  const { confirm, confirmDialog } = useConfirmDialog();
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [formData, setFormData] = useState<Partial<Vehicle>>({
@@ -73,7 +76,7 @@ export function VehicleManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.licence_plate || !formData.location_id) {
-      alert('Please fill in all required fields');
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -108,20 +111,25 @@ export function VehicleManager() {
       setIsDialogOpen(false);
     } catch (err) {
       console.error('Failed to save vehicle:', err);
-      alert('Failed to save vehicle. Please try again.');
+      toast.error('Failed to save vehicle. Please try again.');
     }
   };
 
   const handleDelete = async (vehicleId: string) => {
-    if (!confirm('Are you sure you want to delete this vehicle?')) {
+    const confirmed = await confirm({
+      title: 'Delete this vehicle?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
-    
+
     try {
       await deleteVehicle(vehicleId);
     } catch (err) {
       console.error('Failed to delete vehicle:', err);
-      alert('Failed to delete vehicle. Please try again.');
+      toast.error('Failed to delete vehicle. Please try again.');
     }
   };
 
@@ -289,6 +297,7 @@ export function VehicleManager() {
           </form>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </div>
   );
 }

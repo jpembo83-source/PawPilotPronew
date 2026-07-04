@@ -3,8 +3,10 @@ import { Pet } from '../../types';
 import { Card, CardContent } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Camera, UploadSimple, X, CircleNotch } from '@phosphor-icons/react';
+import { toast } from 'sonner';
 import { projectId } from '../../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../../utils/supabase/authHeaders';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 
 interface PetProfilePictureProps {
   pet: Pet;
@@ -15,6 +17,7 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(pet.photo_url || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
   
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -22,13 +25,13 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
     
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
-    
+
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+      toast.error('File size must be less than 5MB');
       return;
     }
     
@@ -67,7 +70,7 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
       
     } catch (error: any) {
       console.error('UploadSimple error:', error);
-      alert(`Failed to upload photo: ${error.message}`);
+      toast.error(error.message ? `Failed to upload photo: ${error.message}` : 'Failed to upload photo');
     } finally {
       setUploading(false);
       // Reset file input
@@ -78,8 +81,13 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
   };
   
   const handleRemovePhoto = async () => {
-    if (!confirm('Remove profile picture?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Remove profile picture?',
+      confirmLabel: 'Remove photo',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     setPreviewUrl(null);
     onUpdate('');
   };
@@ -151,6 +159,7 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
             JPG, PNG or GIF (max 5MB)
           </p>
         </div>
+        {confirmDialog}
       </CardContent>
     </Card>
   );

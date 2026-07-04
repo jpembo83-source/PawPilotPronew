@@ -12,6 +12,7 @@ import { Plus, PencilSimple, Trash, MapPin, TrendUp, TrendDown } from '@phosphor
 import { usePricingStore, LocationPriceOverride } from '../../../pricing/store';
 import { useSettingsStore, Location } from '../../store';
 import { toast } from 'sonner';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 
 interface LocationPricingOverridesProps {
   location: Location;
@@ -30,6 +31,7 @@ export function LocationPricingOverrides({ location }: LocationPricingOverridesP
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedOverride, setSelectedOverride] = useState<LocationPriceOverride | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     fetchLocationOverrides(location.id);
@@ -59,8 +61,14 @@ export function LocationPricingOverrides({ location }: LocationPricingOverridesP
   };
 
   const handleDeleteOverride = async (id: string) => {
-    if (!confirm('Are you sure you want to remove this price override? The service will revert to the base price.')) return;
-    
+    const confirmed = await confirm({
+      title: 'Remove this price override?',
+      description: 'The service will revert to the base price.',
+      confirmLabel: 'Remove override',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deleteLocationOverride(location.id, id);
       toast.success('Price override removed successfully');
@@ -203,6 +211,8 @@ export function LocationPricingOverrides({ location }: LocationPricingOverridesP
           title="Edit Price Override"
         />
       )}
+
+      {confirmDialog}
     </Card>
   );
 }

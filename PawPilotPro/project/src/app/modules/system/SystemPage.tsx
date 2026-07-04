@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { CircleNotch, Warning, CheckCircle, HardDrives, UsersThree, Package, Gear, Shield, Clock, Pulse, FileText, Lightning } from '@phosphor-icons/react';
 import { useSystemStore } from './store';
 import { toast } from 'sonner';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { SupabaseConnectivityCheck } from './components/SupabaseConnectivityCheck';
 import { UATSeedPanel } from './components/UATSeedPanel';
 
@@ -20,13 +21,20 @@ export function SystemPage() {
     updateFeatureFlag, pauseJob, resumeJob, setMaintenanceMode, forceLogoutAll
   } = useSystemStore();
   const [activeTab, setActiveTab] = useState('overview');
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
   const handleSeed = async () => {
-    if (confirm('This will create sample system data. Continue?')) {
+    if (
+      await confirm({
+        title: 'Create sample system data?',
+        description: 'This will create sample system data.',
+        confirmLabel: 'Continue',
+      })
+    ) {
       await seedData();
       toast.success('System data seeded successfully');
     }
@@ -51,7 +59,7 @@ export function SystemPage() {
 
   const handleForceLogout = async () => {
     const reason = prompt('Force logout all users?\n\nReason (required):');
-    if (reason && confirm('This will immediately log out all users. Continue?')) {
+    if (reason && (await confirm({ title: 'Log out all users?', description: 'Everyone will be logged out immediately.', confirmLabel: 'Log out everyone', destructive: true }))) {
       await forceLogoutAll(reason);
       toast.success('All users logged out');
     }
@@ -598,6 +606,7 @@ export function SystemPage() {
           </Tabs>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }

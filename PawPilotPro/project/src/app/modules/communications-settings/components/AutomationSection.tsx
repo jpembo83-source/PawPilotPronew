@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { AutomationRuleDialog } from './modals/AutomationRuleDialog';
 import type { AutomationRule } from '../types';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 const statusColors = {
   active: 'bg-green-100 text-green-700',
@@ -23,6 +24,7 @@ export function AutomationSection() {
   const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleToggle = async (rule: AutomationRule) => {
     try {
@@ -43,8 +45,13 @@ export function AutomationSection() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this automation rule?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this automation rule?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deleteAutomationRule(id);
       toast.success('Automation rule deleted');
@@ -143,11 +150,13 @@ export function AutomationSection() {
       )}
 
       {/* Dialog */}
-      <AutomationRuleDialog 
+      <AutomationRuleDialog
         open={dialogOpen}
         onClose={handleClose}
         rule={editingRule}
       />
+
+      {confirmDialog}
     </div>
   );
 }

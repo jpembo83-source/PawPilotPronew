@@ -9,11 +9,13 @@ import { Plus, Clock, PencilSimple, Trash, Buildings, MapPin } from '@phosphor-i
 import { toast } from 'sonner';
 import { SLADialog } from './modals/SLADialog';
 import type { SLADefinition } from '../types';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function SLASection() {
   const { slaDefinitions, deleteSLADefinition } = useCommunicationsSettingsStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSLA, setEditingSLA] = useState<SLADefinition | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleEdit = (sla: SLADefinition) => {
     setEditingSLA(sla);
@@ -21,8 +23,13 @@ export function SLASection() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this SLA definition?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this SLA definition?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deleteSLADefinition(id);
       toast.success('SLA definition deleted');
@@ -130,11 +137,13 @@ export function SLASection() {
       )}
 
       {/* Dialog */}
-      <SLADialog 
+      <SLADialog
         open={dialogOpen}
         onClose={handleClose}
         sla={editingSLA}
       />
+
+      {confirmDialog}
     </div>
   );
 }

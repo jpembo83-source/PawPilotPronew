@@ -13,6 +13,7 @@ import { Plus, PencilSimple, Trash, Dog, Scissors, ShoppingBag, Car } from '@pho
 import { usePricingStore, Service, ServiceType } from '../../../pricing/store';
 import { toast } from 'sonner';
 import { MODULES } from '../../constants/modules';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 
 const MODULE_ICONS = {
   daycare: Dog,
@@ -67,6 +68,7 @@ export function ServiceCatalogue() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [filterModule, setFilterModule] = useState<string>('all');
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleCreateService = async (data: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -90,8 +92,13 @@ export function ServiceCatalogue() {
   };
 
   const handleDeleteService = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this service?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this service?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deleteService(id);
       toast.success('Service deleted successfully');
@@ -261,6 +268,8 @@ export function ServiceCatalogue() {
           title="Edit Service"
         />
       )}
+
+      {confirmDialog}
     </div>
   );
 }

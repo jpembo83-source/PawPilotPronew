@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components
 import { Plus, PencilSimple, Trash, CreditCard, Package as PackageIcon } from '@phosphor-icons/react';
 import { usePricingStore, Membership, Package } from '../../../pricing/store';
 import { toast } from 'sonner';
+import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 
 export function MembershipsAndPackages() {
   const [activeTab, setActiveTab] = useState('memberships');
@@ -39,6 +40,7 @@ function MembershipsTab() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMembership, setSelectedMembership] = useState<Membership | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleCreate = async (data: Omit<Membership, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -62,8 +64,13 @@ function MembershipsTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this membership?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this membership?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deleteMembership(id);
       toast.success('Membership deleted successfully');
@@ -177,6 +184,8 @@ function MembershipsTab() {
           title="Edit Membership"
         />
       )}
+
+      {confirmDialog}
     </Card>
   );
 }
@@ -186,6 +195,7 @@ function PackagesTab() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleCreate = async (data: Omit<Package, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -209,8 +219,13 @@ function PackagesTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this package?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this package?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deletePackage(id);
       toast.success('Package deleted successfully');
@@ -328,6 +343,8 @@ function PackagesTab() {
           title="Edit Package"
         />
       )}
+
+      {confirmDialog}
     </Card>
   );
 }

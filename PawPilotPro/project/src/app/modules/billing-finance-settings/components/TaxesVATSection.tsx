@@ -9,11 +9,13 @@ import { Plus } from '@phosphor-icons/react';
 import { useBillingFinanceSettingsStore } from '../store';
 import { TaxRuleDialog } from './modals/TaxRuleDialog';
 import type { TaxRule } from '../types';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function TaxesVATSection() {
   const { taxRules, deleteTaxRule } = useBillingFinanceSettingsStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<TaxRule | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleEdit = (rule: TaxRule) => {
     setEditingRule(rule);
@@ -26,7 +28,13 @@ export function TaxesVATSection() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this tax rule? This action cannot be undone.')) {
+    const confirmed = await confirm({
+      title: 'Delete this tax rule?',
+      description: 'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (confirmed) {
       await deleteTaxRule(id);
     }
   };
@@ -125,6 +133,8 @@ export function TaxesVATSection() {
         onOpenChange={setDialogOpen}
         rule={editingRule}
       />
+
+      {confirmDialog}
     </>
   );
 }

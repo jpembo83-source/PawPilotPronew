@@ -20,6 +20,7 @@ import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 interface DocumentManagerProps {
   householdId: string;
@@ -43,6 +44,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -186,7 +188,13 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
   };
 
   const handleDelete = async (documentId: string) => {
-    if (!confirm('Are you sure you want to delete this document?')) {
+    const confirmed = await confirm({
+      title: 'Delete this document?',
+      description: 'This document will be permanently deleted.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -515,6 +523,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
           </form>
         </DialogContent>
       </Dialog>
+      {confirmDialog}
     </>
   );
 }

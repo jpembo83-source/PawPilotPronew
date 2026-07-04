@@ -6,19 +6,27 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { CircleNotch } from '@phosphor-icons/react';
 import { useIntegrationsSettingsStore } from './store';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 
 export function IntegrationsSettingsPage() {
   const { loadAll, seedData, isLoading, stats, catalogue, integrations, credentials, webhooks, syncJobs, logs, alerts, auditLogs } = useIntegrationsSettingsStore();
   const [activeTab, setActiveTab] = useState('catalogue');
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
   const handleSeed = async () => {
-    if (confirm('This will create sample integration data. Continue?')) {
+    if (
+      await confirm({
+        title: 'Create sample integration data?',
+        description: 'This will create sample integration data.',
+        confirmLabel: 'Continue',
+      })
+    ) {
       await seedData();
     }
   };
@@ -406,6 +414,7 @@ export function IntegrationsSettingsPage() {
           </Tabs>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }

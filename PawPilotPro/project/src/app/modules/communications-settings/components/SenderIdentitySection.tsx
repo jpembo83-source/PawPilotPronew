@@ -9,11 +9,13 @@ import { Buildings, MapPin, EnvelopeSimple, Phone, ChatTeardrop, Plus, PencilSim
 import { toast } from 'sonner';
 import { SenderIdentityDialog } from './modals/SenderIdentityDialog';
 import type { SenderIdentity } from '../types';
+import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 
 export function SenderIdentitySection() {
   const { senderIdentities, deleteSenderIdentity } = useCommunicationsSettingsStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIdentity, setEditingIdentity] = useState<SenderIdentity | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleEdit = (identity: SenderIdentity) => {
     setEditingIdentity(identity);
@@ -21,8 +23,13 @@ export function SenderIdentitySection() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this sender identity?')) return;
-    
+    const confirmed = await confirm({
+      title: 'Delete this sender identity?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
     try {
       await deleteSenderIdentity(id);
       toast.success('Sender identity deleted');
@@ -110,11 +117,13 @@ export function SenderIdentitySection() {
       </div>
 
       {/* Dialog */}
-      <SenderIdentityDialog 
+      <SenderIdentityDialog
         open={dialogOpen}
         onClose={handleClose}
         identity={editingIdentity}
       />
+
+      {confirmDialog}
     </div>
   );
 }
