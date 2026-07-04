@@ -18,8 +18,10 @@ import {
   Smiley,
   SmileyMeh,
   SmileySad,
+  Camera,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { ShareMomentModal, type ShareMomentPet } from '../components/ShareMomentModal';
 import { useConnectivity } from '../../../hooks/useConnectivity';
 import type { DaycareBooking } from '../types';
 
@@ -58,6 +60,7 @@ export function DaycareCheckOut() {
   const [mood, setMood]                   = useState<Mood | null>(null);
   const [showDialog, setShowDialog]       = useState(false);
   const [submitting, setSubmitting]       = useState(false);
+  const [momentPet, setMomentPet]         = useState<ShareMomentPet | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -330,6 +333,21 @@ export function DaycareCheckOut() {
                 className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
               />
             </div>
+
+            {/* Share a moment — photo + one-liner to the owner's feed */}
+            <button
+              onClick={() => selected && setMomentPet({
+                id: selected.pet_id,
+                name: selected.pet_name,
+                householdId: selected.household_id,
+                bookingId: selected.id,
+              })}
+              className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-colors"
+              style={{ background: 'var(--primary-tint)', color: 'var(--primary)' }}
+            >
+              <Camera size={16} weight="duotone" />
+              Share a moment with the owner
+            </button>
           </div>
 
           {/* Footer */}
@@ -357,6 +375,8 @@ export function DaycareCheckOut() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ShareMomentModal open={momentPet !== null} onClose={() => setMomentPet(null)} pet={momentPet} />
     </div>
   );
 }
