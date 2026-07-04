@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/check-env.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
