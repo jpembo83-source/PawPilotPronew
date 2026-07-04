@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Info, PawPrint, ArrowRight } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { useBranding } from "@/lib/branding";
+import { PasswordInput } from "@/components/PasswordInput";
 
 // Hero photo. Forest-teal gradient sits behind as graceful fallback.
 const HERO_PHOTO =
@@ -121,7 +122,7 @@ export function LoginScreen() {
                 {...register("email")}
                 aria-invalid={errors.email ? true : undefined}
                 className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
-                autoComplete="email"
+                autoComplete="username"
                 placeholder="you@dogday.com"
               />
               {errors.email && (
@@ -135,9 +136,8 @@ export function LoginScreen() {
               <span className="text-[10px] tracking-[0.18em] uppercase font-medium text-muted-foreground block mb-1.5">
                 Password
               </span>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 {...register("password")}
                 aria-invalid={errors.password ? true : undefined}
                 className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"

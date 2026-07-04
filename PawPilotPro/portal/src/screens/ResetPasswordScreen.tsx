@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, KeyRound, CheckCircle2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
+import { PasswordInput } from "@/components/PasswordInput";
 
 /**
  * Owner-side password reset — the landing page for the link in the
@@ -160,9 +161,8 @@ export function ResetPasswordScreen() {
             <form onSubmit={submit} className="space-y-4">
               <label htmlFor="new-password" className="block">
                 <span className="text-eyebrow block mb-1.5">New password</span>
-                <input
+                <PasswordInput
                   id="new-password"
-                  type="password"
                   required
                   autoComplete="new-password"
                   value={password}
@@ -173,9 +173,8 @@ export function ResetPasswordScreen() {
 
               <label htmlFor="confirm-password" className="block">
                 <span className="text-eyebrow block mb-1.5">Confirm</span>
-                <input
+                <PasswordInput
                   id="confirm-password"
-                  type="password"
                   required
                   autoComplete="new-password"
                   value={confirm}
