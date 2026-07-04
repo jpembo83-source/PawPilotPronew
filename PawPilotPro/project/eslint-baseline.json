@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4324,
-  "warnings": 459
+  "errors": 4074,
+  "warnings": 433
  },
  "files": {
   "eslint.config.js": {
@@ -400,46 +400,6 @@
    "errors": 14,
    "warnings": 4
   },
-  "src/app/modules/dashboard/components/QuickActionsBar.tsx": {
-   "errors": 7,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/components/WidgetGrid.tsx": {
-   "errors": 3,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/components/modals/PhotoUploadModal.tsx": {
-   "errors": 18,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/components/modals/QuickBookModal.tsx": {
-   "errors": 53,
-   "warnings": 9
-  },
-  "src/app/modules/dashboard/components/modals/QuickCheckInModal.tsx": {
-   "errors": 9,
-   "warnings": 2
-  },
-  "src/app/modules/dashboard/components/modals/QuickCheckOutModal.tsx": {
-   "errors": 4,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/components/modals/QuickMessageModal.tsx": {
-   "errors": 18,
-   "warnings": 2
-  },
-  "src/app/modules/dashboard/components/modals/QuickNoteModal.tsx": {
-   "errors": 21,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/components/modals/QuickTransportModal.tsx": {
-   "errors": 2,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/components/widgets/QuickLinksWidget.tsx": {
-   "errors": 3,
-   "warnings": 1
-  },
   "src/app/modules/dashboard/constants.ts": {
    "errors": 1,
    "warnings": 1
@@ -447,70 +407,6 @@
   "src/app/modules/dashboard/store.ts": {
    "errors": 3,
    "warnings": 1
-  },
-  "src/app/modules/dashboard/widgets/AlertsFlagsWidget.tsx": {
-   "errors": 6,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/CapacityWidget.tsx": {
-   "errors": 9,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/DogDetailsPanel.tsx": {
-   "errors": 10,
-   "warnings": 3
-  },
-  "src/app/modules/dashboard/widgets/DriverStatus.tsx": {
-   "errors": 9,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/GroomingTodayWidget.tsx": {
-   "errors": 11,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/LiveOccupancy.tsx": {
-   "errors": 6,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/MessagingWidget.tsx": {
-   "errors": 13,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/OvernightsTodayWidget.tsx": {
-   "errors": 6,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/PlaceholderWidget.tsx": {
-   "errors": 1,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/widgets/ReportingWidget.tsx": {
-   "errors": 7,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/RevenueSnapshot.tsx": {
-   "errors": 3,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/TodaysDaycareDogs.tsx": {
-   "errors": 5,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/TodaysDogsWidget.tsx": {
-   "errors": 4,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/widgets/VaccinationExpiryWidget.tsx": {
-   "errors": 17,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/widgets/WeeklyActivityWidget.tsx": {
-   "errors": 4,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/widgets/WidgetCard.tsx": {
-   "errors": 0,
-   "warnings": 2
   },
   "src/app/modules/data-compliance/DataCompliancePage.tsx": {
    "errors": 2,
@@ -573,7 +469,7 @@
    "warnings": 2
   },
   "src/app/modules/daycare/pages/DaycareCheckIn.tsx": {
-   "errors": 39,
+   "errors": 38,
    "warnings": 9
   },
   "src/app/modules/daycare/pages/DaycareCheckOut.tsx": {

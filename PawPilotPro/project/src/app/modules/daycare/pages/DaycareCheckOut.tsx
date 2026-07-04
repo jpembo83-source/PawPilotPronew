@@ -22,6 +22,7 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { ShareMomentModal, type ShareMomentPet } from '../components/ShareMomentModal';
+import { useConnectivity } from '../../../hooks/useConnectivity';
 import type { DaycareBooking } from '../types';
 
 type Mood = 'great' | 'good' | 'tired';
@@ -51,6 +52,7 @@ export function DaycareCheckOut() {
   const navigate = useNavigate();
   const { selectedLocationId } = useDashboardStore();
   const { bookings, isLoading, fetchBookings, checkOut } = useDaycareStore();
+  const isOnline = useConnectivity();
 
   const [searchQuery, setSearchQuery]     = useState('');
   const [selected, setSelected]           = useState<DaycareBooking | null>(null);
@@ -139,7 +141,7 @@ export function DaycareCheckOut() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by pet or owner name…"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searchQuery && (
             <button
@@ -270,19 +272,26 @@ export function DaycareCheckOut() {
 
           <div className="px-6 py-5 space-y-5">
 
-            {/* Flags */}
+            {/* Flags — alert message text alongside the icon, same pattern as
+                the check-in dialog's validation warnings. Safety-critical
+                text renders at text-sm minimum, and a flag without notes is
+                still surfaced rather than silently hidden. */}
             {(selected?.has_behaviour_flag || selected?.has_medical_flag) && (
               <div className="space-y-2">
-                {selected?.has_behaviour_flag && selected?.behaviour_notes && (
+                {selected?.has_behaviour_flag && (
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                     <Warning size={15} weight="fill" className="text-amber-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-amber-800">{selected.behaviour_notes}</p>
+                    <p className="text-sm text-amber-800">
+                      {selected.behaviour_notes?.trim() || 'Behaviour flag on file — see pet profile for details.'}
+                    </p>
                   </div>
                 )}
-                {selected?.has_medical_flag && selected?.medical_notes && (
+                {selected?.has_medical_flag && (
                   <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
                     <FirstAidKit size={15} weight="fill" className="text-red-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-red-800">{selected.medical_notes}</p>
+                    <p className="text-sm text-red-800">
+                      {selected.medical_notes?.trim() || 'Medical flag on file — see pet profile for details.'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -321,7 +330,7 @@ export function DaycareCheckOut() {
                 value={checkoutNotes}
                 onChange={e => setCheckoutNotes(e.target.value)}
                 rows={3}
-                className="resize-none text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
+                className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
               />
             </div>
 
@@ -342,6 +351,11 @@ export function DaycareCheckOut() {
           </div>
 
           {/* Footer */}
+          {!isOnline && (
+            <p className="text-xs text-red-700 text-center px-6 pb-2 -mt-2">
+              You're offline — this check-out can't be saved right now.
+            </p>
+          )}
           <div className="px-6 pb-6 flex gap-3">
             <button
               onClick={() => setShowDialog(false)}
@@ -351,7 +365,7 @@ export function DaycareCheckOut() {
             </button>
             <button
               onClick={handleCheckOut}
-              disabled={submitting}
+              disabled={submitting || !isOnline}
               className="flex-1 h-11 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40 hover:opacity-90 active:opacity-80 transition-opacity"
               style={{ background: 'var(--primary)' }}
             >

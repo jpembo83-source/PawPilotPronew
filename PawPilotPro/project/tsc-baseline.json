@@ -1,5 +1,5 @@
 {
- "total": 204,
+ "total": 169,
  "files": {
   "scripts/seed-test-data.ts": 1,
   "src/app/modules/billing/pages/BillingOverview.tsx": 1,
@@ -19,16 +19,6 @@
   "src/app/modules/customers/pages/PetProfilePage.tsx": 1,
   "src/app/modules/customers/types.ts": 1,
   "src/app/modules/dashboard/components/DashboardHeader.tsx": 2,
-  "src/app/modules/dashboard/components/modals/QuickCheckInModal.tsx": 4,
-  "src/app/modules/dashboard/components/modals/QuickDocumentModal.tsx": 1,
-  "src/app/modules/dashboard/components/modals/QuickMessageModal.tsx": 4,
-  "src/app/modules/dashboard/widgets/AlertsFlagsWidget.tsx": 1,
-  "src/app/modules/dashboard/widgets/CapacityWidget.tsx": 1,
-  "src/app/modules/dashboard/widgets/GroomingTodayWidget.tsx": 7,
-  "src/app/modules/dashboard/widgets/OvernightsTodayWidget.tsx": 2,
-  "src/app/modules/dashboard/widgets/ReportingWidget.tsx": 1,
-  "src/app/modules/dashboard/widgets/TodaysDaycareDogs.tsx": 8,
-  "src/app/modules/dashboard/widgets/VaccinationExpiryWidget.tsx": 7,
   "src/app/modules/data-compliance/components/RequestDetailsDialog.tsx": 1,
   "src/app/modules/daycare/components/CreateBookingDialog.tsx": 1,
   "src/app/modules/grooming/pages/GroomingAppointmentDetail.tsx": 12,
@@ -60,6 +50,7 @@
   "src/app/modules/transport/pages/VehicleManager.tsx": 1,
   "src/app/utils/contactHelpers.ts": 4,
   "supabase/functions/server/kv_store.tsx": 1,
-  "supabase/functions/server/portal_bookings.ts": 2
+  "supabase/functions/server/portal_bookings.ts": 2,
+  "tests/unit/bulk-checkin.test.ts": 1
  }
 }
