@@ -1975,6 +1975,63 @@ portal.post("/pets/:id/edit-request", async (c) => {
   return c.json({ ok: true, id: reqId });
 });
 
+// ----- Membership interest ------------------------------------------------
+// Lead capture for the memberships screen. Writes a pinned household note in
+// the exact KV shape the staff Customer Detail → Notes tab already reads, so
+// the lead is visible to staff immediately with no new staff surface. A
+// per-tier marker dedupes repeat requests server-side (the portal UI also
+// guards per session); a fresh lead for the same tier is allowed again after
+// 14 days so a genuinely renewed enquiry still gets through.
+portal.post("/memberships/interest", async (c) => {
+  const auth = await readPortalUser(c);
+  if ("error" in auth) return c.json({ error: auth.error }, auth.status as 401 | 403);
+  const { tenantId, householdId } = auth;
+
+  const body = await c.req.json().catch(() => null);
+  const tier =
+    typeof body?.tier === "string" && body.tier.trim()
+      ? body.tier.trim().slice(0, 80)
+      : "general";
+
+  const household = (await kv.get(`customer:${tenantId}:household:${householdId}`)) as
+    | { name?: string }
+    | null;
+  if (!household) return c.json({ error: "Household not found" }, 404);
+
+  const markerKey = `portal_membership_interest:${tenantId}:${householdId}:${tier}`;
+  const existing = (await kv.get(markerKey)) as { submittedAt?: string } | null;
+  const DEDUPE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+  if (
+    existing?.submittedAt &&
+    Date.now() - new Date(existing.submittedAt).getTime() < DEDUPE_WINDOW_MS
+  ) {
+    return c.json({ ok: true, duplicate: true });
+  }
+
+  const noteId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const subject = tier === "general" ? "memberships" : `the "${tier}" membership plan`;
+  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, {
+    id: noteId,
+    tenant_id: tenantId,
+    household_id: householdId,
+    title: tier === "general" ? "Membership enquiry (portal)" : `Membership enquiry: ${tier} (portal)`,
+    content:
+      `The owner asked about ${subject} from the pet portal. ` +
+      `They've been told the team will get back to them within 2 working days, ` +
+      `and that nothing has been purchased or charged.`,
+    category: "billing",
+    visibility: "internal",
+    is_pinned: true,
+    created_by: "portal",
+    created_by_name: "Pet portal",
+    created_at: now,
+    updated_at: now,
+  });
+  await kv.set(markerKey, { submittedAt: now, noteId });
+  return c.json({ ok: true });
+});
+
 // =======================================================================
 // PHASE A — Household self-service
 // =======================================================================
