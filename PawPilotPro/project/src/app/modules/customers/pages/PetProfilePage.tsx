@@ -268,6 +268,22 @@ export function PetProfilePage() {
   const petFlags = flags.filter(f => f.is_active && (f.pet_id === pet!.id || !f.pet_id));
   const hasAlerts = petFlags.length > 0 || !pet!.active;
 
+  // Care-profile alert content, surfaced directly in the banner so staff
+  // holding the dog never need a second tap to learn WHAT the warning is.
+  // Medical/allergy text renders at 16px — the most safety-critical text in
+  // the app. Preview = complete first sentence (never chops a substance or
+  // medication name mid-way), clamped at two lines.
+  const alertPreview = (text: string): string => {
+    const trimmed = text.trim();
+    const firstSentence = /^[^\n.!?]*[.!?]?/.exec(trimmed)?.[0]?.trim();
+    return firstSentence || trimmed;
+  };
+  const careAlerts: { key: string; label: string; text: string; medical: boolean }[] = [
+    pet.medical_notes && { key: 'medical', label: 'Medical', text: pet.medical_notes, medical: true },
+    pet.allergies && { key: 'allergies', label: 'Allergies', text: pet.allergies, medical: true },
+    pet.behaviour_notes && { key: 'behaviour', label: 'Behaviour', text: pet.behaviour_notes, medical: false },
+  ].filter((a): a is { key: string; label: string; text: string; medical: boolean } => Boolean(a));
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -396,7 +412,22 @@ export function PetProfilePage() {
                       {flag.reason && ` — ${flag.reason}`}
                     </div>
                   ))}
+                  {careAlerts.map(alert => (
+                    <p
+                      key={alert.key}
+                      className={`${alert.medical ? 'text-base' : 'text-sm'} text-red-800 line-clamp-2`}
+                    >
+                      <span className="font-semibold">{alert.label} — </span>
+                      {alertPreview(alert.text)}
+                    </p>
+                  ))}
                 </div>
+                <button
+                  onClick={() => setActiveTab('care')}
+                  className="mt-3 text-sm font-medium text-red-900 underline underline-offset-2 hover:text-red-700 transition-colors"
+                >
+                  See Care Profile for full details
+                </button>
               </div>
             </div>
           </CardContent>

@@ -269,19 +269,26 @@ export function DaycareCheckOut() {
 
           <div className="px-6 py-5 space-y-5">
 
-            {/* Flags */}
+            {/* Flags — alert message text alongside the icon, same pattern as
+                the check-in dialog's validation warnings. Safety-critical
+                text renders at text-sm minimum, and a flag without notes is
+                still surfaced rather than silently hidden. */}
             {(selected?.has_behaviour_flag || selected?.has_medical_flag) && (
               <div className="space-y-2">
-                {selected?.has_behaviour_flag && selected?.behaviour_notes && (
+                {selected?.has_behaviour_flag && (
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                     <Warning size={15} weight="fill" className="text-amber-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-amber-800">{selected.behaviour_notes}</p>
+                    <p className="text-sm text-amber-800">
+                      {selected.behaviour_notes?.trim() || 'Behaviour flag on file — see pet profile for details.'}
+                    </p>
                   </div>
                 )}
-                {selected?.has_medical_flag && selected?.medical_notes && (
+                {selected?.has_medical_flag && (
                   <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3">
                     <FirstAidKit size={15} weight="fill" className="text-red-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-red-800">{selected.medical_notes}</p>
+                    <p className="text-sm text-red-800">
+                      {selected.medical_notes?.trim() || 'Medical flag on file — see pet profile for details.'}
+                    </p>
                   </div>
                 )}
               </div>

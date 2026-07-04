@@ -7,10 +7,12 @@ import { useDashboardStore } from './store';
 import { useAuth } from '../../context/AuthContext';
 import {
   SignIn, SignOut, Plus, Users,
-  ArrowRight, Dog,
-  Pulse, Warning, FileDashed, Syringe,
+  ArrowRight, Dog, Warning, FirstAidKit,
+  Pulse, FileDashed, Syringe,
 } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../../components/ui/tooltip';
+import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
 
 interface AlertKind {
   key: 'medical' | 'behaviour' | 'paperwork' | 'vaccination';
@@ -29,6 +31,48 @@ function getGreeting(): string {
   if (h < 12) return 'Good morning';
   if (h < 17) return 'Good afternoon';
   return 'Good evening';
+}
+
+/**
+ * Flag icon that actually tells you WHAT the alert is: hover shows a tooltip,
+ * tap opens a popover with the same text (hover-only tooltips are dead on
+ * touch). Alert text is safety-critical and renders at 14px minimum.
+ */
+function FlagBadge({ kind, petName, text }: {
+  kind: 'behaviour' | 'medical';
+  petName: string;
+  text?: string;
+}) {
+  const medical = kind === 'medical';
+  const Icon = medical ? FirstAidKit : Warning;
+  const colour = medical ? '#DC2626' : '#D97706';
+  const label = medical ? 'Medical' : 'Behaviour';
+  const body = text?.trim() || `${label} flag on file — see pet profile for details.`;
+
+  return (
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <button
+              onClick={e => e.stopPropagation()}
+              aria-label={`${label} alert for ${petName}: ${body}`}
+              className="p-1.5 -my-1.5 -mx-0.5 rounded-full flex-shrink-0 hover:bg-black/5 transition-colors"
+            >
+              <Icon size={14} weight="fill" style={{ color: colour }} aria-hidden="true" />
+            </button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-64 text-sm">{body}</TooltipContent>
+      </Tooltip>
+      <PopoverContent className="max-w-72 w-auto p-3" onClick={e => e.stopPropagation()}>
+        <p className="text-sm font-semibold mb-1" style={{ color: colour }}>
+          {label} — {petName}
+        </p>
+        <p className="text-sm text-[#1C1916]">{body}</p>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function Dashboard() {
@@ -304,7 +348,11 @@ export function Dashboard() {
                       {b.pet_name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#1C1916] truncate">{b.pet_name}</p>
+                      <div className="flex items-center gap-1">
+                        <p className="text-sm font-semibold text-[#1C1916] truncate">{b.pet_name}</p>
+                        {b.has_behaviour_flag && <FlagBadge kind="behaviour" petName={b.pet_name} text={b.behaviour_notes} />}
+                        {b.has_medical_flag && <FlagBadge kind="medical" petName={b.pet_name} text={b.medical_notes} />}
+                      </div>
                       <p className="text-xs text-[#9E9B97] truncate">{b.household_name}</p>
                     </div>
                     <button
@@ -368,6 +416,8 @@ export function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-semibold text-[#1C1916] truncate">{b.pet_name}</p>
+                        {b.has_behaviour_flag && <FlagBadge kind="behaviour" petName={b.pet_name} text={b.behaviour_notes} />}
+                        {b.has_medical_flag && <FlagBadge kind="medical" petName={b.pet_name} text={b.medical_notes} />}
                         {isLate && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Late</span>
                         )}
