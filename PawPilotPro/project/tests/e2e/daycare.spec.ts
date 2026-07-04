@@ -16,17 +16,25 @@ test.describe('Daycare Module @smoke', () => {
     await expect(content.first()).toBeVisible();
   });
 
-  test('bookings API responds without server error', async ({ page }) => {
-    // The dashboard fetches /daycare/bookings on load. This endpoint 500ed in
-    // production (undefined getTenantId) while every page-level smoke test
-    // stayed green, so assert on the API response itself.
-    const bookingsResponse = page.waitForResponse(
-      resp => resp.url().includes('/daycare/bookings') && resp.request().method() === 'GET',
-      { timeout: 15000 }
-    );
+  test('daycare API calls respond without server errors', async ({ page }) => {
+    // /daycare/bookings 500ed in production (undefined getTenantId) while
+    // every page-level smoke test stayed green — the page renders even when
+    // its data fetches fail. Watch the API traffic itself: any 5xx from a
+    // daycare endpoint during the visit fails the test.
+    const serverErrors: string[] = [];
+    page.on('response', resp => {
+      if (resp.url().includes('/daycare/') && resp.status() >= 500) {
+        serverErrors.push(`${resp.request().method()} ${resp.url()} -> ${resp.status()}`);
+      }
+    });
+
     await page.goto('/daycare');
-    const resp = await bookingsResponse;
-    expect(resp.status(), `GET ${resp.url()} returned ${resp.status()}`).toBeLessThan(500);
+    // Let the dashboard's initial fetches settle; it polls, so networkidle
+    // may never fire — fall through after the timeout.
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+
+    expect(serverErrors, serverErrors.join('\n')).toHaveLength(0);
   });
 
   test('can navigate to bookings', async ({ page }) => {
