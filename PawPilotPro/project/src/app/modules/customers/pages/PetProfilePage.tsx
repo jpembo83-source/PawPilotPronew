@@ -456,7 +456,7 @@ export function PetProfilePage() {
                   <>
                     <p className="text-2xl font-bold">{summary.documentCount}</p>
                     {summary.documentsExpired > 0 && (
-                      <p className="text-xs text-red-600 mt-1">
+                      <p className="text-sm text-red-600 mt-1">
                         {summary.documentsExpired} expired
                       </p>
                     )}
@@ -514,7 +514,7 @@ export function PetProfilePage() {
                   <>
                     <p className="text-2xl font-bold">{summary.vaccinationCount}</p>
                     {summary.vaccinationsExpiring > 0 && (
-                      <p className="text-xs text-orange-600 mt-1">
+                      <p className="text-sm text-orange-600 mt-1">
                         {summary.vaccinationsExpiring} expiring soon
                       </p>
                     )}

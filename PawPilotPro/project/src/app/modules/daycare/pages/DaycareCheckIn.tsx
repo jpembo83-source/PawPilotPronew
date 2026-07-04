@@ -149,13 +149,13 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
       {/* Search */}
       <div className="px-4 pt-4 pb-2">
         <div className="relative">
-          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E9B97]" />
+          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary-foreground" />
           <input
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by pet or household name…"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-tertiary-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searching && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -168,7 +168,7 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
       {/* Results */}
       <div className="flex-1 overflow-auto px-4 pb-4 space-y-2 mt-2">
         {results.length === 0 && query.length >= 2 && !searching && (
-          <p className="text-sm text-center text-[#9E9B97] py-8">No households found</p>
+          <p className="text-sm text-center text-tertiary-foreground py-8">No households found</p>
         )}
 
         {results.map((household, i) => (
@@ -193,7 +193,7 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
                   </div>
                   <div className="flex-1 text-left min-w-0">
                     <p className="text-sm font-medium text-[#1C1916]">{pet.name}</p>
-                    {pet.breed && <p className="text-xs text-[#9E9B97] truncate">{pet.breed}</p>}
+                    {pet.breed && <p className="text-xs text-tertiary-foreground truncate">{pet.breed}</p>}
                   </div>
                   {pet.behaviour_notes && <Warning size={14} weight="fill" className="text-amber-500 flex-shrink-0" />}
                   {pet.medical_notes   && <FirstAidKit size={14} weight="fill" className="text-red-500 flex-shrink-0" />}
@@ -470,17 +470,17 @@ export function DaycareCheckIn() {
         </div>
 
         <div className="relative">
-          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E9B97]" />
+          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary-foreground" />
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by pet or owner name…"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-tertiary-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#9E9B97] hover:text-[#1C1916] transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-tertiary-foreground hover:text-[#1C1916] transition-colors"
             >
               <X size={16} />
             </button>
@@ -568,8 +568,8 @@ export function DaycareCheckIn() {
                 <p className="text-xs text-[#6B6762] truncate">{booking.household_name}</p>
                 {booking.planned_start_time && (
                   <div className="flex items-center gap-1 mt-1">
-                    <Clock size={11} className="text-[#9E9B97]" />
-                    <span className="text-xs text-[#9E9B97]">{booking.planned_start_time}</span>
+                    <Clock size={11} className="text-tertiary-foreground" />
+                    <span className="text-xs text-tertiary-foreground">{booking.planned_start_time}</span>
                     {late && (
                       <span className="text-xs font-semibold text-amber-600 ml-1">· Late</span>
                     )}
@@ -705,14 +705,14 @@ export function DaycareCheckIn() {
             {validation?.can_check_in && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-[#1C1916]">
-                  Handover notes <span className="text-[#9E9B97] font-normal">(optional)</span>
+                  Handover notes <span className="text-tertiary-foreground font-normal">(optional)</span>
                 </label>
                 <Textarea
                   placeholder="Any notes from the owner…"
                   value={handoverNotes}
                   onChange={e => setHandoverNotes(e.target.value)}
                   rows={3}
-                  className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
+                  className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-tertiary-foreground focus:border-primary focus:ring-primary/10"
                 />
               </div>
             )}

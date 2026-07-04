@@ -15,6 +15,8 @@ export default tseslint.config(
       'test-results/**',
       'playwright-report/**',
       'eslint-baseline.json',
+      // PR evidence assets (screenshots + capture harness), not app code
+      'docs/pr-assets/**',
       // Deno edge functions — different runtime, checked via `deno check`/`deno lint`
       'supabase/**',
     ],

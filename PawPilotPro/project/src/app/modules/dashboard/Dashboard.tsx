@@ -194,10 +194,10 @@ export function Dashboard() {
             style={{ background: '#fff', border: '1px solid #E2DED8' }}
             onClick={() => navigate(`/daycare/bookings?filter=today&date=${today}`)}
           >
-            <p className="text-xs text-[#9E9B97] font-medium mb-2">Bookings today</p>
+            <p className="text-xs text-tertiary-foreground font-medium mb-2">Bookings today</p>
             <div>
               <p className="text-3xl font-bold text-[#1C1916]">{totalBookings}</p>
-              <p className="text-xs text-[#9E9B97] mt-0.5">{stats?.confirmed_bookings ?? 0} confirmed</p>
+              <p className="text-xs text-tertiary-foreground mt-0.5">{stats?.confirmed_bookings ?? 0} confirmed</p>
             </div>
           </div>
 
@@ -208,7 +208,8 @@ export function Dashboard() {
               border: `1px solid ${urgentCount > 0 ? '#FECACA' : '#E2DED8'}`,
             }}
           >
-            <p className="text-xs font-medium mb-2 px-1" style={{ color: urgentCount > 0 ? '#C03030' : '#9E9B97' }}>
+            {/* Alert text carries a 14px floor — see CLAUDE.md */}
+            <p className="text-sm font-medium mb-2 px-1" style={{ color: urgentCount > 0 ? '#C03030' : 'var(--tertiary-foreground)' }}>
               Alerts{alertCount === 0 ? ' — all clear' : ''}
             </p>
             <div className="grid grid-cols-2 gap-1.5 flex-1">
@@ -231,18 +232,18 @@ export function Dashboard() {
                       <Icon
                         size={kind.loud && active ? 15 : 13}
                         weight={kind.loud && active ? 'fill' : 'regular'}
-                        style={{ color: active ? kind.fg : '#9E9B97' }}
+                        style={{ color: active ? kind.fg : 'var(--tertiary-foreground)' }}
                       />
                       <span
                         className={kind.loud && active ? 'text-lg font-bold leading-none' : 'text-base font-semibold leading-none'}
-                        style={{ color: active ? kind.fg : '#9E9B97' }}
+                        style={{ color: active ? kind.fg : 'var(--tertiary-foreground)' }}
                       >
                         {kind.count}
                       </span>
                     </span>
                     <span
-                      className={`text-[10px] leading-tight mt-0.5 ${kind.loud && active ? 'font-semibold' : 'font-medium'}`}
-                      style={{ color: active ? kind.fg : '#9E9B97' }}
+                      className={`text-sm leading-tight mt-0.5 ${kind.loud && active ? 'font-semibold' : 'font-medium'}`}
+                      style={{ color: active ? kind.fg : 'var(--tertiary-foreground)' }}
                     >
                       {kind.label}
                     </span>
@@ -277,7 +278,7 @@ export function Dashboard() {
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: '#F5F3F0' }} />
             <SignOut size={26} weight="duotone" className="mb-3" style={{ color: 'var(--primary)' }} />
             <p className="text-lg font-semibold text-[#1C1916] leading-tight">Check Out</p>
-            <p className="text-sm text-[#9E9B97] mt-0.5">
+            <p className="text-sm text-tertiary-foreground mt-0.5">
               {checkedIn > 0 ? `${checkedIn} on site` : 'No dogs on site'}
             </p>
             <ArrowRight size={15} className="absolute right-4 bottom-4 text-[#C8C4BC] group-hover:text-[#6B6762] transition-colors" />
@@ -296,7 +297,7 @@ export function Dashboard() {
             </div>
             <div>
               <p className="text-sm font-semibold text-[#1C1916]">New Booking</p>
-              <p className="text-xs text-[#9E9B97]">Schedule a visit</p>
+              <p className="text-xs text-tertiary-foreground">Schedule a visit</p>
             </div>
           </button>
 
@@ -310,7 +311,7 @@ export function Dashboard() {
             </div>
             <div>
               <p className="text-sm font-semibold text-[#1C1916]">Attendance</p>
-              <p className="text-xs text-[#9E9B97]">Today's register</p>
+              <p className="text-xs text-tertiary-foreground">Today's register</p>
             </div>
           </button>
         </div>
@@ -340,7 +341,7 @@ export function Dashboard() {
             ) : onSite.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <Dog size={36} weight="thin" className="text-[#D4CFC9] mb-2" />
-                <p className="text-sm text-[#9E9B97]">No dogs on site yet</p>
+                <p className="text-sm text-tertiary-foreground">No dogs on site yet</p>
               </div>
             ) : (
               <div className="divide-y divide-[#F5F3F0]">
@@ -355,7 +356,7 @@ export function Dashboard() {
                         {b.has_behaviour_flag && <FlagBadge kind="behaviour" petName={b.pet_name} text={b.behaviour_notes} />}
                         {b.has_medical_flag && <FlagBadge kind="medical" petName={b.pet_name} text={b.medical_notes} />}
                       </div>
-                      <p className="text-xs text-[#9E9B97] truncate">{b.household_name}</p>
+                      <p className="text-xs text-tertiary-foreground truncate">{b.household_name}</p>
                     </div>
                     <button
                       onClick={() => setMomentPet({
@@ -365,7 +366,7 @@ export function Dashboard() {
                         bookingId: b.id,
                       })}
                       aria-label={`Share a moment for ${b.pet_name}`}
-                      className="p-1.5 rounded-lg flex-shrink-0 text-[#9E9B97] hover:text-primary hover:bg-primary-tint transition-colors"
+                      className="p-1.5 rounded-lg flex-shrink-0 text-tertiary-foreground hover:text-primary hover:bg-primary-tint transition-colors"
                     >
                       <Camera size={15} weight="duotone" />
                     </button>
@@ -409,7 +410,7 @@ export function Dashboard() {
             ) : arriving.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10">
                 <Dog size={36} weight="thin" className="text-[#D4CFC9] mb-2" />
-                <p className="text-sm text-[#9E9B97]">
+                <p className="text-sm text-tertiary-foreground">
                   {totalBookings > 0 ? 'All booked dogs have arrived' : 'No bookings today'}
                 </p>
               </div>
@@ -433,10 +434,10 @@ export function Dashboard() {
                         {b.has_behaviour_flag && <FlagBadge kind="behaviour" petName={b.pet_name} text={b.behaviour_notes} />}
                         {b.has_medical_flag && <FlagBadge kind="medical" petName={b.pet_name} text={b.medical_notes} />}
                         {isLate && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Late</span>
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Late</span>
                         )}
                       </div>
-                      <p className="text-xs text-[#9E9B97] truncate">{b.household_name}</p>
+                      <p className="text-xs text-tertiary-foreground truncate">{b.household_name}</p>
                     </div>
                     <button
                       onClick={() => navigate('/daycare/check-in')}

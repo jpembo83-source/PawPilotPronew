@@ -14,6 +14,10 @@
   --secondary-foreground: #177C5E;
   --muted: #EDE9E3;
   --muted-foreground: #6B6762;
+  /* Tertiary text (timestamps, household names, captions). Darkened from
+     the legacy grey (2.49:1 on --background — failed WCAG AA) to 4.64:1 on
+     --background and 5.15:1 on white. Do not lighten below 4.5:1. */
+  --tertiary-foreground: #706D68;
   --accent: #EBF7F2;
   --accent-foreground: #177C5E;
   --destructive: #C03030;
@@ -55,6 +59,7 @@
   --secondary-foreground: #6ECFAB;
   --muted: #252219;
   --muted-foreground: #9A948E;
+  --tertiary-foreground: #9A948E;
   --accent: #1A2E27;
   --accent-foreground: #6ECFAB;
   --destructive: #991b1b;
@@ -92,6 +97,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-tertiary-foreground: var(--tertiary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -293,6 +299,17 @@
   padding: 1rem;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   border: 1px solid rgb(241 245 249);
+}
+
+/* 44px touch-target floor for the mobile shell. MobileLayout stamps
+   .mobile-shell on <body>, so buttons rendered through Radix portals
+   (dialogs, popovers) are covered too. Desktop keeps the compact h-8/h-9
+   variants untouched. Checkbox/switch/radio are excluded: their rendered
+   size is their visual identity and their labels extend the tap target. */
+body.mobile-shell button:not([role="checkbox"]):not([role="switch"]):not([role="radio"]),
+body.mobile-shell [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 /* Large touch targets */
