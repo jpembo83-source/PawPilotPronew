@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { Skeleton } from "@/components/Skeleton";
+import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { getPortalApi } from "@/lib/api";
 import type { Document, DocumentsResponse, DocumentType } from "@shared/types/document";
 
@@ -91,6 +92,7 @@ export function DocumentsScreen() {
   });
 
   const [openingId, setOpeningId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   async function open(doc: Document) {
     setOpeningId(doc.id);
     try {
@@ -147,9 +149,7 @@ export function DocumentsScreen() {
               tone="warn"
               items={buckets.actionNeeded}
               onOpen={open}
-              onDelete={(id) => {
-                if (confirm("Delete this document?")) remove.mutate(id);
-              }}
+              onDelete={setDeleteId}
               openingId={openingId}
             />
           )}
@@ -158,14 +158,25 @@ export function DocumentsScreen() {
               title="Active"
               items={buckets.active}
               onOpen={open}
-              onDelete={(id) => {
-                if (confirm("Delete this document?")) remove.mutate(id);
-              }}
+              onDelete={setDeleteId}
               openingId={openingId}
             />
           )}
         </div>
       ))}
+
+      <ConfirmSheet
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={() => {
+          if (deleteId) remove.mutate(deleteId);
+          setDeleteId(null);
+        }}
+        title="Delete this document?"
+        body="It'll disappear from your vault — the team may ask for a fresh copy later."
+        confirmLabel="Delete document"
+        cancelLabel="Keep document"
+      />
     </main>
   );
 }

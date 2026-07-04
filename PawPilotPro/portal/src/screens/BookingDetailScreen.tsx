@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { Skeleton } from "@/components/Skeleton";
 import { StatusBadge } from "@/components/StatusBadge";
+import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { getPortalApi } from "@/lib/api";
 import type { Booking } from "@shared/types/booking";
 
@@ -71,10 +72,12 @@ export function BookingDetailScreen() {
     { enabled: !!id },
   );
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const qc = useQueryClient();
 
   async function cancel() {
-    if (!id || !confirm("Cancel this request?")) return;
+    if (!id) return;
+    setConfirmOpen(false);
     setBusy(true);
     try {
       await getPortalApi().post(`/portal/bookings/${id}/cancel`);
@@ -206,13 +209,25 @@ export function BookingDetailScreen() {
 
       {/* CANCEL CTA ---------------------------------------------------- */}
       {b.status === "pending" && (
-        <button
-          onClick={cancel}
-          disabled={busy}
-          className="press w-full h-12 rounded-2xl border border-destructive/40 text-destructive font-semibold disabled:opacity-50 hover:bg-destructive/5"
-        >
-          {busy ? "Cancelling…" : isBundle ? "Cancel whole bundle" : "Cancel request"}
-        </button>
+        <>
+          <button
+            onClick={() => setConfirmOpen(true)}
+            disabled={busy}
+            className="press w-full h-12 rounded-2xl border border-destructive/40 text-destructive font-semibold disabled:opacity-50 hover:bg-destructive/5"
+          >
+            {busy ? "Cancelling…" : isBundle ? "Cancel whole bundle" : "Cancel request"}
+          </button>
+          <ConfirmSheet
+            open={confirmOpen}
+            onClose={() => setConfirmOpen(false)}
+            onConfirm={() => void cancel()}
+            title="Cancel this request?"
+            body="The team will be notified — you can always book again."
+            confirmLabel="Cancel request"
+            cancelLabel="Keep booking"
+            busy={busy}
+          />
+        </>
       )}
     </main>
   );
