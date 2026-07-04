@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Mail, ShieldAlert } from "lucide-react";
 import { getPortalApi } from "@/lib/api";
 import { getSupabase } from "@/lib/supabase";
+import { PasswordInput } from "@/components/PasswordInput";
 
 interface AcceptResponse {
   ok: boolean;
@@ -96,18 +97,21 @@ export function AcceptInviteScreen() {
       >
         <label htmlFor="password" className="block">
           <span className="text-eyebrow block mb-2">Password</span>
-          <input
+          <PasswordInput
             id="password"
-            type="password"
             {...register("password")}
             aria-invalid={errors.password ? true : undefined}
+            aria-describedby="password-requirements"
             className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
             autoComplete="new-password"
-            placeholder="At least 10 characters"
           />
-          {errors.password && (
+          {errors.password ? (
             <p role="alert" className="text-[13px] text-destructive font-medium anim-fade-in mt-2">
               {errors.password.message}
+            </p>
+          ) : (
+            <p id="password-requirements" className="text-[12.5px] text-muted-foreground mt-2">
+              At least 10 characters — a short phrase works well.
             </p>
           )}
         </label>
