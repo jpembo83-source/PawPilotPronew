@@ -49,6 +49,8 @@ interface DaycareState {
   
   // Actions - Bookings
   fetchBookings: (filters?: DaycareFilters) => Promise<void>;
+  /** Fetches bookings without touching store state — for read-only consumers (e.g. global search). */
+  listBookings: (filters?: DaycareFilters) => Promise<DaycareBooking[]>;
   fetchBookingById: (id: string) => Promise<DaycareBooking | null>;
   createBooking: (data: Partial<DaycareBooking>) => Promise<DaycareBooking>;
   cancelBooking: (id: string, reason: string) => Promise<DaycareBooking>;
@@ -100,38 +102,42 @@ export const useDaycareStore = create<DaycareState>((set, get) => ({
   fetchBookings: async (filters?: DaycareFilters) => {
     set({ isLoading: true, error: null });
     try {
-      const params = new URLSearchParams();
-      
-      const currentFilters = filters || get().filters;
-      
-      if (currentFilters.location_id) params.append('location_id', currentFilters.location_id);
-      if (currentFilters.date) params.append('date', currentFilters.date);
-      if (currentFilters.start_date) params.append('start_date', currentFilters.start_date);
-      if (currentFilters.end_date) params.append('end_date', currentFilters.end_date);
-      if (currentFilters.booking_status) params.append('booking_status', currentFilters.booking_status);
-      if (currentFilters.check_in_status) params.append('check_in_status', currentFilters.check_in_status);
-      if (currentFilters.pet_id) params.append('pet_id', currentFilters.pet_id);
-      if (currentFilters.household_id) params.append('household_id', currentFilters.household_id);
-      if (currentFilters.search) params.append('search', currentFilters.search);
-      
-      const url = params.toString() ? `${BASE_URL}/bookings?${params.toString()}` : `${BASE_URL}/bookings`;
-      
-      const response = await fetch(url, {
-        headers: await getAuthHeaders(),
-      });
-      
-      if (!response.ok) {
-        const error = (await response.json()) as ApiErrorBody;
-        throw new Error(error.error || 'Failed to fetch bookings');
-      }
-      
-      const bookings = (await response.json()) as DaycareBooking[];
+      const bookings = await get().listBookings(filters || get().filters);
       set({ bookings, isLoading: false });
     } catch (error) {
       console.error('Fetch bookings error:', error);
       set({ error: (error as Error).message, isLoading: false });
       throw error;
     }
+  },
+
+  listBookings: async (filters?: DaycareFilters) => {
+    const params = new URLSearchParams();
+
+    const currentFilters = filters || {};
+
+    if (currentFilters.location_id) params.append('location_id', currentFilters.location_id);
+    if (currentFilters.date) params.append('date', currentFilters.date);
+    if (currentFilters.start_date) params.append('start_date', currentFilters.start_date);
+    if (currentFilters.end_date) params.append('end_date', currentFilters.end_date);
+    if (currentFilters.booking_status) params.append('booking_status', currentFilters.booking_status);
+    if (currentFilters.check_in_status) params.append('check_in_status', currentFilters.check_in_status);
+    if (currentFilters.pet_id) params.append('pet_id', currentFilters.pet_id);
+    if (currentFilters.household_id) params.append('household_id', currentFilters.household_id);
+    if (currentFilters.search) params.append('search', currentFilters.search);
+
+    const url = params.toString() ? `${BASE_URL}/bookings?${params.toString()}` : `${BASE_URL}/bookings`;
+
+    const response = await fetch(url, {
+      headers: await getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = (await response.json()) as ApiErrorBody;
+      throw new Error(error.error || 'Failed to fetch bookings');
+    }
+
+    return (await response.json()) as DaycareBooking[];
   },
   
   fetchBookingById: async (id: string) => {

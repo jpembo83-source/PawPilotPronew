@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4073,
-  "warnings": 433
+  "errors": 4066,
+  "warnings": 431
  },
  "files": {
   "eslint.config.js": {
@@ -469,12 +469,12 @@
    "warnings": 2
   },
   "src/app/modules/daycare/pages/DaycareCheckIn.tsx": {
-   "errors": 38,
-   "warnings": 9
+   "errors": 35,
+   "warnings": 8
   },
   "src/app/modules/daycare/pages/DaycareCheckOut.tsx": {
-   "errors": 6,
-   "warnings": 1
+   "errors": 2,
+   "warnings": 0
   },
   "src/app/modules/daycare/pages/DaycareDashboard.tsx": {
    "errors": 37,

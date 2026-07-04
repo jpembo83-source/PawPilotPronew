@@ -4,6 +4,7 @@ import { Outlet } from 'react-router';
 import { useSettingsStore } from '../../modules/settings/store';
 import { ViewAsBanner } from '../view-as/ViewAsBanner';
 import { OfflineBanner } from './OfflineBanner';
+import { GlobalSearch } from '../search/GlobalSearch';
 import { useAuth } from '../../context/AuthContext';
 
 export function Layout() {
@@ -24,6 +25,8 @@ export function Layout() {
     <div className="flex flex-col h-screen w-full bg-[#F4F3EF] text-[#1C1916] font-sans">
       <ViewAsBanner />
       <OfflineBanner />
+      {/* Global search — Cmd/Ctrl+K from any screen */}
+      <GlobalSearch />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-auto h-full w-full bg-[#F4F3EF]">
