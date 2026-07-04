@@ -17,6 +17,7 @@ import { useSettingsStore } from '../../settings/store';
 import { useCurrency } from '../../../utils/currency';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { PermissionGate } from '../../../components/PermissionGate';
+import { CreateInvoiceDialog } from '../components/CreateInvoiceDialog';
 import type { Invoice, InvoiceStatus } from '../store';
 
 export function Invoices() {
@@ -26,6 +27,7 @@ export function Invoices() {
   const { hasPermission, isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | 'all'>('all');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Check permissions for actions
   const canCreate = hasPermission('invoices', 'create');
@@ -90,7 +92,7 @@ export function Invoices() {
           
           {/* Create button - requires create permission */}
           {canCreate ? (
-            <Button size="sm">
+            <Button size="sm" onClick={() => setShowCreateDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Create Invoice
             </Button>
@@ -236,6 +238,8 @@ export function Invoices() {
           )}
         </CardContent>
       </Card>
+
+      <CreateInvoiceDialog open={showCreateDialog} onOpenChange={setShowCreateDialog} />
     </div>
   );
 }
