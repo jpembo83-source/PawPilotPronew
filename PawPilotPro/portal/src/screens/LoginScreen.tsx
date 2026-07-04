@@ -1,12 +1,21 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Info, PawPrint, ArrowRight } from "lucide-react";
+import { Info, PawPrint, ArrowRight, ScanFace, MailCheck } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 import { useBranding } from "@/lib/branding";
 import { PasswordInput } from "@/components/PasswordInput";
+import { ConfirmSheet } from "@/components/ConfirmSheet";
+import {
+  biometricEnabled,
+  biometricLogin,
+  biometricOffered,
+  biometricSupported,
+  enableBiometric,
+  markBiometricOffered,
+} from "@/lib/biometric";
 
 // Hero photo. Forest-teal gradient sits behind as graceful fallback.
 const HERO_PHOTO =
@@ -22,6 +31,7 @@ export function LoginScreen() {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
   const [err, setErr] = useState<string | null>(null);
@@ -31,10 +41,69 @@ export function LoginScreen() {
   const next = params.get("next") ?? "/";
   const reused = params.get("reused") === "1";
 
+  // Biometric fast-path: available when the user opted in on this device.
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
+  const [offerBio, setOfferBio] = useState(false);
+  const [offerBusy, setOfferBusy] = useState(false);
+  const autoPrompted = useRef(false);
+
+  useEffect(() => {
+    if (!biometricEnabled()) return;
+    setBioAvailable(true);
+    // Auto-prompt once so a returning owner reaches Home without typing.
+    if (!autoPrompted.current) {
+      autoPrompted.current = true;
+      void tryBiometric();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function tryBiometric() {
+    setErr(null);
+    setBioBusy(true);
+    try {
+      await biometricLogin();
+      nav(next, { replace: true });
+    } catch (e: any) {
+      if (e?.message !== "cancelled") {
+        setErr(e?.message ?? "Quick unlock failed — please sign in with your password.");
+        setBioAvailable(biometricEnabled());
+      }
+    } finally {
+      setBioBusy(false);
+    }
+  }
+
   async function submit({ email, password }: LoginForm) {
     setErr(null);
     const { error } = await getSupabase().auth.signInWithPassword({ email, password });
     if (error) { setErr(error.message); return; }
+    // One-time offer to switch on biometric unlock, native shell only.
+    if (!biometricOffered() && !biometricEnabled() && (await biometricSupported())) {
+      setOfferBio(true);
+      return;
+    }
+    nav(next, { replace: true });
+  }
+
+  async function acceptBiometricOffer() {
+    setOfferBusy(true);
+    try {
+      await enableBiometric();
+    } catch {
+      // Prompt cancelled or store failed — continue signed in without it.
+    } finally {
+      markBiometricOffered();
+      setOfferBusy(false);
+      setOfferBio(false);
+      nav(next, { replace: true });
+    }
+  }
+
+  function declineBiometricOffer() {
+    markBiometricOffered();
+    setOfferBio(false);
     nav(next, { replace: true });
   }
 
@@ -100,6 +169,24 @@ export function LoginScreen() {
           style={{ boxShadow: "var(--shadow-lg)" }}
         >
           <form onSubmit={handleSubmit(submit)} noValidate className="space-y-3.5">
+            {bioAvailable && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void tryBiometric()}
+                  disabled={bioBusy}
+                  className="press flex items-center justify-center gap-2.5 w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[var(--shadow-sm)] disabled:opacity-50"
+                >
+                  <ScanFace size={18} strokeWidth={2.2} />
+                  {bioBusy ? "Unlocking…" : "Unlock with Face ID / fingerprint"}
+                </button>
+                <div className="flex items-center gap-3" aria-hidden="true">
+                  <span className="h-px flex-1 bg-border" />
+                  <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">or</span>
+                  <span className="h-px flex-1 bg-border" />
+                </div>
+              </>
+            )}
             {reused && (
               <div
                 role="status"
@@ -167,15 +254,40 @@ export function LoginScreen() {
               {!isSubmitting && <ArrowRight size={16} strokeWidth={2.2} className="opacity-70 transition-transform group-hover:translate-x-0.5" />}
             </button>
 
-            <Link
-              to="/forgot-password"
-              className="press block mx-auto text-center text-[12px] text-muted-foreground hover:text-foreground tracking-wide pt-1"
-            >
-              Forgot password?
-            </Link>
+            <div className="flex items-center justify-center gap-4 pt-1">
+              <Link
+                to="/forgot-password"
+                className="press text-[12px] text-muted-foreground hover:text-foreground tracking-wide"
+              >
+                Forgot password?
+              </Link>
+              <span className="text-muted-foreground/40 text-[12px]" aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={() =>
+                  nav(`/login/code?email=${encodeURIComponent(getValues("email") ?? "")}`)
+                }
+                className="press inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground tracking-wide"
+              >
+                <MailCheck size={13} strokeWidth={2.2} />
+                Email me a sign-in code
+              </button>
+            </div>
           </form>
         </div>
       </div>
+
+      <ConfirmSheet
+        open={offerBio}
+        onClose={declineBiometricOffer}
+        onConfirm={() => void acceptBiometricOffer()}
+        title="Unlock with Face ID next time?"
+        body="Skip the password on this device — your face or fingerprint signs you in. You can change this anytime in Account."
+        confirmLabel="Turn on quick unlock"
+        cancelLabel="Not now"
+        tone="primary"
+        busy={offerBusy}
+      />
     </main>
   );
 }

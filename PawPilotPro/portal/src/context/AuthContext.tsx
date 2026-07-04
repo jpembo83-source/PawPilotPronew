@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
+import { initBiometricTokenSync } from "@/lib/biometric";
 
 type AuthStatus = "loading" | "anonymous" | "authed";
 
@@ -17,6 +18,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
 
   useEffect(() => {
+    // Keeps the biometric-unlock refresh token current across Supabase's
+    // token rotation. No-op on web builds or when quick unlock is off.
+    initBiometricTokenSync();
+
     let mounted = true;
     getSupabase().auth.getSession().then(({ data }) => {
       if (!mounted) return;
