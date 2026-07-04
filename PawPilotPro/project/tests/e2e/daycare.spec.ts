@@ -10,10 +10,23 @@ test.describe('Daycare Module @smoke', () => {
 
   test('shows daycare content', async ({ page }) => {
     await page.goto('/daycare');
-    
+
     // Should show some daycare-related content
     const content = page.locator('text=/booking|attendance|dogs|checked|capacity/i');
     await expect(content.first()).toBeVisible();
+  });
+
+  test('bookings API responds without server error', async ({ page }) => {
+    // The dashboard fetches /daycare/bookings on load. This endpoint 500ed in
+    // production (undefined getTenantId) while every page-level smoke test
+    // stayed green, so assert on the API response itself.
+    const bookingsResponse = page.waitForResponse(
+      resp => resp.url().includes('/daycare/bookings') && resp.request().method() === 'GET',
+      { timeout: 15000 }
+    );
+    await page.goto('/daycare');
+    const resp = await bookingsResponse;
+    expect(resp.status(), `GET ${resp.url()} returned ${resp.status()}`).toBeLessThan(500);
   });
 
   test('can navigate to bookings', async ({ page }) => {
