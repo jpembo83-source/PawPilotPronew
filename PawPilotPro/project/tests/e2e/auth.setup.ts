@@ -1,9 +1,20 @@
 import { test as setup, expect } from '@playwright/test';
 
-const TEST_EMAIL = process.env.TEST_EMAIL || 'jason.pemberton@me.com';
-const TEST_PASSWORD = process.env.TEST_PASSWORD || 'Daytona2022';
+// Credentials MUST come from the environment (CI: repo secrets TEST_EMAIL /
+// TEST_PASSWORD; locally: export them before running playwright). No hardcoded
+// fallback — the previous defaults leaked a real password into the repo.
+const TEST_EMAIL = process.env.TEST_EMAIL;
+const TEST_PASSWORD = process.env.TEST_PASSWORD;
 
 setup('authenticate', async ({ page }) => {
+  if (!TEST_EMAIL || !TEST_PASSWORD) {
+    throw new Error(
+      'TEST_EMAIL and TEST_PASSWORD environment variables are required for the e2e suite. ' +
+        'In CI, add them as repository secrets (Settings -> Secrets and variables -> Actions); ' +
+        'locally, export them before running playwright.'
+    );
+  }
+
   // Always do a fresh login to avoid token expiry issues
   await page.goto('/login');
   await page.waitForLoadState('networkidle');
