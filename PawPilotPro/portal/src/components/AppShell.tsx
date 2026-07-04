@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { BottomTabBar } from "./BottomTabBar";
+import { OfflineBanner } from "./OfflineBanner";
 
 // Routes that take over the full screen — the tab bar hides for these focused flows.
 const FULLSCREEN_PREFIXES = ["/book"];
@@ -20,6 +21,7 @@ export function AppShell() {
         paddingBottom: fullscreen ? undefined : "calc(var(--tab-bar-height) + var(--safe-bottom))",
       }}
     >
+      <OfflineBanner />
       <Outlet />
       {!fullscreen && <BottomTabBar />}
     </div>

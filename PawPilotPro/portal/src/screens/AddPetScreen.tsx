@@ -4,6 +4,7 @@ import { ChevronLeft, PawPrint } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getPortalApi } from "@/lib/api";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import type { NewPetRequest } from "@shared/types/household";
 
 /**
@@ -16,6 +17,7 @@ import type { NewPetRequest } from "@shared/types/household";
 export function AddPetScreen() {
   const nav = useNavigate();
   const queryClient = useQueryClient();
+  const online = useOnlineStatus();
 
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
@@ -133,9 +135,15 @@ export function AddPetScreen() {
           ]}
         />
 
+        {!online && (
+          <p role="status" className="text-sm text-muted-foreground">
+            You're offline — you can save this as soon as you're back online.
+          </p>
+        )}
+
         <button
           type="submit"
-          disabled={create.isPending}
+          disabled={create.isPending || !online}
           className="press relative flex items-center justify-center w-full h-12 rounded-xl bg-primary text-primary-foreground font-semibold shadow-[var(--shadow-sm)] disabled:opacity-50"
         >
           {create.isPending ? "Adding…" : "Send to the team"}

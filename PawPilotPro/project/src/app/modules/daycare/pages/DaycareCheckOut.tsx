@@ -136,7 +136,7 @@ export function DaycareCheckOut() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by pet or owner name…"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searchQuery && (
             <button
@@ -318,7 +318,7 @@ export function DaycareCheckOut() {
                 value={checkoutNotes}
                 onChange={e => setCheckoutNotes(e.target.value)}
                 rows={3}
-                className="resize-none text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
+                className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
               />
             </div>
           </div>

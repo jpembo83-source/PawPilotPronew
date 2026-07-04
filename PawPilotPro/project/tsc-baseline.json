@@ -1,5 +1,5 @@
 {
- "total": 168,
+ "total": 169,
  "files": {
   "scripts/seed-test-data.ts": 1,
   "src/app/modules/billing/pages/BillingOverview.tsx": 1,
@@ -50,6 +50,7 @@
   "src/app/modules/transport/pages/VehicleManager.tsx": 1,
   "src/app/utils/contactHelpers.ts": 4,
   "supabase/functions/server/kv_store.tsx": 1,
-  "supabase/functions/server/portal_bookings.ts": 2
+  "supabase/functions/server/portal_bookings.ts": 2,
+  "tests/unit/bulk-checkin.test.ts": 1
  }
 }

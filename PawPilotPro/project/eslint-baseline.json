@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4075,
+  "errors": 4074,
   "warnings": 433
  },
  "files": {
@@ -469,7 +469,7 @@
    "warnings": 2
   },
   "src/app/modules/daycare/pages/DaycareCheckIn.tsx": {
-   "errors": 39,
+   "errors": 38,
    "warnings": 9
   },
   "src/app/modules/daycare/pages/DaycareCheckOut.tsx": {
