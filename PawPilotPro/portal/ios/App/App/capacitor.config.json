@@ -1,0 +1,26 @@
+{
+	"appId": "com.pawpilotpro.portal",
+	"appName": "PawPilotPro",
+	"webDir": "dist",
+	"ios": {
+		"contentInset": "never",
+		"backgroundColor": "#F4F3EF",
+		"scrollEnabled": true
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 3000,
+			"launchAutoHide": false,
+			"backgroundColor": "#F4F3EF",
+			"showSpinner": false,
+			"splashFullScreen": true,
+			"splashImmersive": true
+		}
+	},
+	"packageClassList": [
+		"BluetoothLe",
+		"CAPCameraPlugin",
+		"SplashScreenPlugin",
+		"NativeBiometricPlugin"
+	]
+}
