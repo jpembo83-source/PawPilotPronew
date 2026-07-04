@@ -13,6 +13,7 @@ import { Label } from '../../../components/ui/label';
 import { Badge } from '../../../components/ui/badge';
 import { MagnifyingGlass, Dog, Calendar, Warning, CaretLeft, Medal, CreditCard, MapPin } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { useConnectivity } from '../../../hooks/useConnectivity';
 import { MEMBERSHIP_PLANS } from '../../packages/membership-plans';
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
@@ -45,6 +46,7 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
   const { searchCustomers, createBooking, isLoading } = useDaycareStore();
+  const isOnline = useConnectivity();
 
   const [step, setStep] = useState<'search' | 'select-pet' | 'details'>('search');
   const [searchQuery, setSearchQuery] = useState('');
@@ -484,6 +486,11 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
           </div>
         )}
 
+        {!isOnline && step === 'details' && (
+          <p className="text-xs text-red-700 text-center">
+            You're offline — this booking can't be saved right now.
+          </p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
@@ -491,7 +498,7 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
           {step === 'details' && (
             <Button
               onClick={handleCreateBooking}
-              disabled={isLoading || !localLocationId}
+              disabled={isLoading || !localLocationId || !isOnline}
               style={{ backgroundColor: 'var(--primary)' }}
               className="text-white hover:opacity-90 disabled:opacity-50"
             >
