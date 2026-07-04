@@ -65,6 +65,7 @@ export interface DaycareBooking {
   medical_notes?: string;
   
   // Requirements validation
+  vaccination_status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
   waiver_status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
   
   // Holds
@@ -191,6 +192,7 @@ export interface DaycareStats {
   hold_alerts: number;
   behaviour_flags: number;
   medical_flags: number;
+  vaccination_alerts: number;
   
   // Revenue (permission gated)
   total_revenue?: number;

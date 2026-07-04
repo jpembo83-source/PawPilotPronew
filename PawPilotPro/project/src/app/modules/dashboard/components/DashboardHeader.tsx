@@ -16,13 +16,13 @@ import {
  * that toggled an `isCustomizing` flag. The dashboard body (Dashboard.tsx)
  * was rebuilt around hardcoded tiles and never consumed the flag — the
  * button only swapped its own heading + button labels and otherwise did
- * nothing. WidgetGrid.tsx + the widget-layout slice of dashboardStore are
- * leftovers from the older widget-based design.
+ * nothing. The old widget-based design (WidgetGrid + widgets/) has since
+ * been deleted; the widget-layout slice of dashboardStore and constants.ts
+ * remain only because the routed DashboardSettings page still reads them.
  *
- * Honest fix: remove the misleading control. If a real customise surface
- * comes back later it needs a parallel rebuild of the body (per-tile
- * IDs, draggable wrapper, hide-from-store integration). Until then the
- * header is just date-range + greeting.
+ * If a real customise surface comes back later it needs a parallel rebuild
+ * of the body (per-tile IDs, draggable wrapper, hide-from-store
+ * integration). Until then the header is just date-range + greeting.
  */
 
 function getGreeting(): string {
