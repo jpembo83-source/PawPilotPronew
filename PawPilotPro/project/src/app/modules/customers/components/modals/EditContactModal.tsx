@@ -6,7 +6,7 @@ import { Label } from '../../../../components/ui/label';
 import { Switch } from '../../../../components/ui/switch';
 import { Alert, AlertDescription } from '../../../../components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
-import { Warning, CircleNotch, Warning } from '@phosphor-icons/react';
+import { Warning, CircleNotch } from '@phosphor-icons/react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';

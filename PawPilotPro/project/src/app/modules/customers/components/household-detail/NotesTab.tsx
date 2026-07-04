@@ -3,7 +3,7 @@ import { Household, HouseholdContact, Pet, PetDocument, HouseholdNote, Household
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, FileText, PushPin, Warning, Flag, ShieldWarning, Star, Warning, Truck, Scissors, House, PencilSimple, Trash, X } from '@phosphor-icons/react';
+import { Plus, FileText, PushPin, Warning, Flag, ShieldWarning, Star, Truck, Scissors, House, PencilSimple, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from '../../../../context/AuthContext';
 import { useCustomerStore } from '../../store';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
