@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { Skeleton } from "@/components/Skeleton";
+import { ConfirmSheet } from "@/components/ConfirmSheet";
 import { getPortalApi } from "@/lib/api";
 import type {
   ContactCreate,
@@ -64,6 +65,7 @@ export function ContactEditScreen() {
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [hydrated, setHydrated] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   useEffect(() => {
     if (!isEdit) { setHydrated(true); return; }
@@ -273,17 +275,29 @@ export function ContactEditScreen() {
           </button>
 
           {showDelete && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                if (confirm("Remove this person from the household?")) remove.mutate();
-              }}
-              className="press inline-flex items-center justify-center gap-2 w-full h-11 rounded-xl border border-border bg-card text-[13.5px] font-semibold text-destructive hover:border-destructive/40 disabled:opacity-50"
-            >
-              <Trash2 size={15} strokeWidth={2.2} />
-              Remove from household
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setConfirmRemove(true)}
+                className="press inline-flex items-center justify-center gap-2 w-full h-11 rounded-xl border border-border bg-card text-[13.5px] font-semibold text-destructive hover:border-destructive/40 disabled:opacity-50"
+              >
+                <Trash2 size={15} strokeWidth={2.2} />
+                Remove from household
+              </button>
+              <ConfirmSheet
+                open={confirmRemove}
+                onClose={() => setConfirmRemove(false)}
+                onConfirm={() => {
+                  setConfirmRemove(false);
+                  remove.mutate();
+                }}
+                title="Remove this person from the household?"
+                body="Their details will come off your household record — you can add them back anytime."
+                confirmLabel="Remove person"
+                cancelLabel="Keep them"
+              />
+            </>
           )}
         </form>
       )}

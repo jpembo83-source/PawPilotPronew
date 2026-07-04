@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ChevronLeft, Stethoscope, Copy, Check, Trash2, Loader2, Mail } from "lucide-react";
+import { toast } from "sonner";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { getPortalApi } from "@/lib/api";
 import { Skeleton } from "@/components/Skeleton";
+import { ConfirmSheet } from "@/components/ConfirmSheet";
 
 interface VetShare {
   token: string;
@@ -42,6 +44,7 @@ export function VetShareScreen() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [justCreated, setJustCreated] = useState<CreateResponse | null>(null);
   const [copied, setCopied] = useState(false);
+  const [revokeToken, setRevokeToken] = useState<string | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -65,12 +68,11 @@ export function VetShareScreen() {
 
   async function handleRevoke(token: string) {
     if (!petId) return;
-    if (!confirm("Revoke this share? The vet will lose access immediately.")) return;
     try {
       await getPortalApi().del(`/portal/pets/${petId}/vet-shares/${token}`);
       refetch();
     } catch (e: any) {
-      alert(`Could not revoke: ${e?.message ?? String(e)}`);
+      toast.error("Couldn't revoke the share.", { description: e?.message ?? String(e) });
     }
   }
 
@@ -231,7 +233,7 @@ export function VetShareScreen() {
                             <Copy size={13} />
                           </button>
                           <button
-                            onClick={() => handleRevoke(s.token)}
+                            onClick={() => setRevokeToken(s.token)}
                             className="press size-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center"
                             title="Revoke"
                           >
@@ -246,6 +248,19 @@ export function VetShareScreen() {
           </ul>
         )}
       </section>
+
+      <ConfirmSheet
+        open={!!revokeToken}
+        onClose={() => setRevokeToken(null)}
+        onConfirm={() => {
+          if (revokeToken) void handleRevoke(revokeToken);
+          setRevokeToken(null);
+        }}
+        title="Revoke this share?"
+        body="The vet will lose access immediately — you can share again anytime."
+        confirmLabel="Revoke access"
+        cancelLabel="Keep sharing"
+      />
     </main>
   );
 }
