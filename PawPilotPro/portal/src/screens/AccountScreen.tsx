@@ -1,7 +1,8 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   LogOut, Home, Users, Plus, ChevronRight,
-  Bell, Mail, Megaphone, FolderOpen, Sparkles, Navigation,
+  Bell, Mail, Megaphone, FolderOpen, Sparkles, Navigation, ScanFace,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,6 +10,12 @@ import { useAuth } from "@/context/AuthContext";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { Skeleton } from "@/components/Skeleton";
 import { getPortalApi } from "@/lib/api";
+import {
+  biometricEnabled,
+  biometricSupported,
+  disableBiometric,
+  enableBiometric,
+} from "@/lib/biometric";
 import type { HouseholdResponse } from "@shared/types/household";
 
 interface AccountData {
@@ -60,6 +67,30 @@ export function AccountScreen() {
   function togglePref(k: "booking" | "vax" | "marketing" | "tracker", v: boolean) {
     if (!account) return;
     updatePrefs.mutate({ ...account.notificationPrefs, [k]: v });
+  }
+
+  // Biometric quick unlock — shown only in the native shell on capable devices.
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioOn, setBioOn] = useState(biometricEnabled());
+  useEffect(() => {
+    void biometricSupported().then(setBioSupported);
+  }, []);
+
+  async function toggleBiometric(v: boolean) {
+    try {
+      if (v) {
+        await enableBiometric();
+        setBioOn(true);
+        toast.success("Quick unlock is on for this device.");
+      } else {
+        await disableBiometric();
+        setBioOn(false);
+        toast.success("Quick unlock turned off.");
+      }
+    } catch {
+      // Prompt cancelled or no session — leave the toggle as it was.
+      setBioOn(biometricEnabled());
+    }
   }
 
   return (
@@ -140,6 +171,26 @@ export function AccountScreen() {
           />
         </div>
       </section>
+
+      {/* SECURITY (native shell only) --------------------------------- */}
+      {bioSupported && (
+        <section
+          className="rounded-2xl bg-card border border-border p-5 mb-7 anim-slide-up"
+          style={{ animationDelay: "45ms" }}
+        >
+          <header className="flex items-center gap-2.5 mb-3.5">
+            <ScanFace size={16} strokeWidth={2.2} className="text-muted-foreground" />
+            <h2 className="text-eyebrow">Security</h2>
+          </header>
+          <PrefRow
+            icon={ScanFace}
+            label="Unlock with Face ID / fingerprint"
+            hint="Sign back in without typing your password. Only your biometrics on this device can unlock it."
+            checked={bioOn}
+            onChange={(v) => void toggleBiometric(v)}
+          />
+        </section>
+      )}
 
       {/* YOUR PLAN --------------------------------------------------- */}
       {/* One link card surfacing the memberships screen. Sits above the

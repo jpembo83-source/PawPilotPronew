@@ -15,6 +15,8 @@ interface Props {
   /** Safe action label, e.g. "Keep booking". */
   cancelLabel: string;
   busy?: boolean;
+  /** "destructive" (default) for delete/cancel flows; "primary" for opt-in offers. */
+  tone?: "destructive" | "primary";
 }
 
 /**
@@ -32,6 +34,7 @@ export function ConfirmSheet({
   confirmLabel,
   cancelLabel,
   busy = false,
+  tone = "destructive",
 }: Props) {
   // Close on Escape + lock body scroll while open
   useEffect(() => {
@@ -75,7 +78,11 @@ export function ConfirmSheet({
         <button
           onClick={onConfirm}
           disabled={busy}
-          className="press flex items-center justify-center w-full h-12 rounded-2xl bg-destructive text-destructive-foreground font-semibold shadow-[var(--shadow-sm)] disabled:opacity-50"
+          className={`press flex items-center justify-center w-full h-12 rounded-2xl font-semibold shadow-[var(--shadow-sm)] disabled:opacity-50 ${
+            tone === "primary"
+              ? "bg-primary text-primary-foreground"
+              : "bg-destructive text-destructive-foreground"
+          }`}
         >
           {confirmLabel}
         </button>
