@@ -294,10 +294,11 @@ export function PetProfilePage() {
   ].filter((a): a is { key: string; label: string; text: string; medical: boolean } => Boolean(a));
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-6">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Header — wraps on phones: photo + name stack, Edit drops below,
+          nothing pushes the page wider than the screen */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start gap-3 sm:gap-6 min-w-0">
           <Button
             variant="ghost"
             size="sm"
@@ -305,10 +306,10 @@ export function PetProfilePage() {
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          
+
           {/* Profile Picture with Upload */}
           <div className="relative group">
-            <div className="relative w-32 h-32 rounded-full overflow-hidden bg-slate-100 border-4 border-white shadow-lg flex-shrink-0">
+            <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-slate-100 border-4 border-white shadow-lg flex-shrink-0">
               {previewUrl ? (
                 <>
                   <img
@@ -361,9 +362,9 @@ export function PetProfilePage() {
             />
           </div>
           
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold">{pet.name}</h1>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold break-words">{pet.name}</h1>
               <Badge variant={pet.active ? 'default' : 'destructive'}>
                 {pet.active ? 'active' : 'inactive'}
               </Badge>
@@ -371,8 +372,8 @@ export function PetProfilePage() {
                 <Warning className="h-6 w-6 text-red-500" />
               )}
             </div>
-            
-            <div className="flex items-center gap-4 text-sm text-slate-600">
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
               {pet.breed && <span className="font-medium">{pet.breed}</span>}
               {pet.breed && pet.sex && <span>•</span>}
               {pet.sex && <span className="capitalize">{pet.sex}</span>}
@@ -444,7 +445,7 @@ export function PetProfilePage() {
       )}
       
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">

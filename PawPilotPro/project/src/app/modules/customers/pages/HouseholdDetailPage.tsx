@@ -287,10 +287,11 @@ export function HouseholdDetailPage() {
   ].filter(action => action.enabled);
   
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Header — wraps on phones so actions drop below the name instead of
+          pushing the page wider than the screen */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-2 sm:gap-4 min-w-0">
           <Button
             variant="ghost"
             size="sm"
@@ -299,8 +300,8 @@ export function HouseholdDetailPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           
-          <div>
-            <div className="flex items-center gap-3 mb-2 group">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3 mb-2 group">
               {isEditingName ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -334,7 +335,7 @@ export function HouseholdDetailPage() {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-3xl font-bold">{household.name}</h1>
+                  <h1 className="text-2xl sm:text-3xl font-bold break-words">{household.name}</h1>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -354,13 +355,13 @@ export function HouseholdDetailPage() {
             </div>
             
             {primaryContact && (
-              <div className="flex items-center gap-4 text-sm text-slate-600">
-                <div className="flex items-center gap-1">
-                  <EnvelopeSimple className="h-4 w-4" />
-                  {primaryContact.email}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+                <div className="flex items-center gap-1 min-w-0">
+                  <EnvelopeSimple className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{primaryContact.email}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-4 w-4 shrink-0" />
                   {primaryContact.phone}
                 </div>
               </div>
@@ -417,7 +418,7 @@ export function HouseholdDetailPage() {
       </div>
       
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -483,7 +484,7 @@ export function HouseholdDetailPage() {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {quickActions.map(action => (
               <Button key={action.id} variant="outline" className="justify-start h-auto py-3">
                 <Plus className="h-4 w-4 mr-2" />
