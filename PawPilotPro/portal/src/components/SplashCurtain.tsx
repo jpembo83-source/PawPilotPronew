@@ -22,6 +22,7 @@
  */
 import { useEffect, useState } from "react";
 import { PawPrint } from "lucide-react";
+import { useBranding } from "@/lib/branding";
 
 interface SplashCurtainProps {
   /** Minimum visible time in ms — prevents a sub-100ms flash on fast loads. */
@@ -36,6 +37,10 @@ export function SplashCurtain({
 }: SplashCurtainProps) {
   const [visible, setVisible] = useState(true);
   const [mounted, setMounted] = useState(true);
+  // White-label: the curtain greets the user with THEIR daycare's name (from
+  // the cached brand config, so it's present on first paint). Never the
+  // product name — and no text at all until a brand name is known.
+  const brandName = useBranding((s) => s.brand.name?.trim() ?? "");
 
   useEffect(() => {
     const mountedAt = Date.now();
@@ -99,12 +104,14 @@ export function SplashCurtain({
           className="text-foreground/60 mb-3"
           aria-hidden="true"
         />
-        <span
-          className="font-display text-foreground tracking-[-0.02em]"
-          style={{ fontSize: 30, lineHeight: 1 }}
-        >
-          PawPilotPro
-        </span>
+        {brandName && (
+          <span
+            className="font-display text-foreground tracking-[-0.02em]"
+            style={{ fontSize: 30, lineHeight: 1 }}
+          >
+            {brandName}
+          </span>
+        )}
       </div>
     </div>
   );

@@ -33,6 +33,15 @@ export const useBranding = create<BrandingStore>((set) => ({
   setBrand: (b) => set({ brand: b }),
 }));
 
+/**
+ * The business's display name, with a neutral fallback for orgs that haven't
+ * set one. The product name (PawPilotPro) must never appear in customer-facing
+ * UI — the app represents the business, not the platform.
+ */
+export function brandDisplayName(b?: Branding): string {
+  return (b ?? useBranding.getState().brand).name?.trim() || "Pet Portal";
+}
+
 /** YIQ-based contrast picker: dark text on bright bg, white text on dark bg. */
 function readableForeground(hex: string): string {
   const c = hex.replace("#", "");
@@ -50,6 +59,8 @@ function isHex(v: unknown): v is string {
 
 /** Apply brand colours as CSS custom properties on :root. */
 export function applyBranding(b: Branding): void {
+  // Browser-tab / task-switcher title follows the business too.
+  if (b.name?.trim()) document.title = b.name.trim();
   const root = document.documentElement.style;
   if (isHex(b.primaryColor)) {
     root.setProperty("--primary", b.primaryColor);
