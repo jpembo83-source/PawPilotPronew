@@ -8,6 +8,7 @@ import { z } from "npm:zod";
 import { createClient } from "npm:@supabase/supabase-js";
 import * as kv from "./kv_store.tsx";
 import { internalError } from "./_shared/log.ts";
+import { isLinkedPortalUser, withLinkedUser } from "./lib/portal_link.ts";
 import { notify, PortalNotificationType } from "./lib/notify.ts";
 import { listPetUpdatesForDay, withSignedPhotoUrls } from "./lib/pet_updates.ts";
 
@@ -55,9 +56,10 @@ async function readPortalUser(c: any): Promise<PortalCtx | { error: string; stat
   if (!tenantId || !householdId) return { error: "Portal account not linked", status: 403 };
   // Defense in depth: confirm the tenant/household claim against the
   // server-written portal_users link (created at accept-invite). A
-  // spoofed tenant_id/household_id will not match.
+  // spoofed tenant_id/household_id will not match. Households may have
+  // several linked logins (one per invited contact).
   const link = (await kv.get(`portal_users:${tenantId}:${householdId}`)) as any;
-  if (!link || link.authUserId !== user.id) {
+  if (!isLinkedPortalUser(link, user.id)) {
     return { error: "Portal account not linked", status: 403 };
   }
   return { user, tenantId, householdId };
@@ -167,13 +169,13 @@ portal.post("/auth/accept-invite", async (c) => {
     }
   }
 
-  await kv.set(`portal_users:${tenantId}:${householdId}`, {
-    authUserId,
-    householdId,
-    tenantId,
-    notificationPrefs: { booking: true, vax: true, marketing: false },
-    createdAt: new Date().toISOString(),
-  });
+  // Merge into any existing link — a household can have several portal
+  // logins (one per invited contact). Never overwrite: that used to
+  // silently lock out the previously linked user.
+  const existingLink = await kv.get(`portal_users:${tenantId}:${householdId}`);
+  const mergedLink = withLinkedUser(existingLink, { tenantId, householdId }, authUserId!);
+  mergedLink.notificationPrefs ??= { booking: true, vax: true, marketing: false };
+  await kv.set(`portal_users:${tenantId}:${householdId}`, mergedLink);
   await kv.set(`portal_invites:${tenantId}:${token}`, { ...found, consumedAt: new Date().toISOString() });
 
   // For brand-new accounts, the password we just set works. For existing accounts, the password the

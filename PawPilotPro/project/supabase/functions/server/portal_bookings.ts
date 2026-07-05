@@ -8,6 +8,7 @@ import { Hono } from "npm:hono";
 import { z } from "npm:zod";
 import { createClient } from "npm:@supabase/supabase-js";
 import * as kv from "./kv_store.tsx";
+import { isLinkedPortalUser } from "./lib/portal_link.ts";
 import { notify, getOwnerEmail, getOwnerName } from "./lib/notify.ts";
 import { bookingReceivedEmail } from "./lib/email_templates/booking_received.ts";
 import { bookingConfirmedEmail } from "./lib/email_templates/booking_confirmed.ts";
@@ -71,9 +72,10 @@ async function readPortalUser(c: any): Promise<PortalCtx | { error: string; stat
   if (!tenantId || !householdId) return { error: "Portal account not linked", status: 403 };
   // Defense in depth: confirm the tenant/household claim against the
   // server-written portal_users link (created at accept-invite). A
-  // spoofed tenant_id/household_id will not match.
+  // spoofed tenant_id/household_id will not match. Households may have
+  // several linked logins (one per invited contact).
   const link = (await kv.get(`portal_users:${tenantId}:${householdId}`)) as any;
-  if (!link || link.authUserId !== user.id) {
+  if (!isLinkedPortalUser(link, user.id)) {
     return { error: "Portal account not linked", status: 403 };
   }
   return { user, tenantId, householdId };
