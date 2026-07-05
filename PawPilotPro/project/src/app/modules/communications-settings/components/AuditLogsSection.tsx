@@ -8,7 +8,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { MagnifyingGlass, MagnifyingGlass, Clock, CheckCircle, XCircle, Warning } from '@phosphor-icons/react';
+import { MagnifyingGlass, Clock, CheckCircle, XCircle, Warning } from '@phosphor-icons/react';
 
 const actionColors = {
   created: 'bg-green-100 text-green-700',

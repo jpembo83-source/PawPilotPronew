@@ -143,7 +143,7 @@ export function ShareMomentModal({ open, onClose, pet }: ShareMomentModalProps) 
           onChange={e => setNote(e.target.value)}
           maxLength={280}
           placeholder="One line for the owner (optional)…"
-          className="w-full px-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+          className="w-full px-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-tertiary-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
         />
 
         <button

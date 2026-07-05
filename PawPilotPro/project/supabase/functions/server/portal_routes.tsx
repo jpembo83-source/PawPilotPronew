@@ -8,6 +8,7 @@ import { z } from "npm:zod";
 import { createClient } from "npm:@supabase/supabase-js";
 import * as kv from "./kv_store.tsx";
 import { internalError } from "./_shared/log.ts";
+import { isLinkedPortalUser, withLinkedUser } from "./lib/portal_link.ts";
 import { notify, PortalNotificationType } from "./lib/notify.ts";
 import { listPetUpdatesForDay, withSignedPhotoUrls } from "./lib/pet_updates.ts";
 
@@ -55,9 +56,10 @@ async function readPortalUser(c: any): Promise<PortalCtx | { error: string; stat
   if (!tenantId || !householdId) return { error: "Portal account not linked", status: 403 };
   // Defense in depth: confirm the tenant/household claim against the
   // server-written portal_users link (created at accept-invite). A
-  // spoofed tenant_id/household_id will not match.
+  // spoofed tenant_id/household_id will not match. Households may have
+  // several linked logins (one per invited contact).
   const link = (await kv.get(`portal_users:${tenantId}:${householdId}`)) as any;
-  if (!link || link.authUserId !== user.id) {
+  if (!isLinkedPortalUser(link, user.id)) {
     return { error: "Portal account not linked", status: 403 };
   }
   return { user, tenantId, householdId };
@@ -167,13 +169,13 @@ portal.post("/auth/accept-invite", async (c) => {
     }
   }
 
-  await kv.set(`portal_users:${tenantId}:${householdId}`, {
-    authUserId,
-    householdId,
-    tenantId,
-    notificationPrefs: { booking: true, vax: true, marketing: false },
-    createdAt: new Date().toISOString(),
-  });
+  // Merge into any existing link — a household can have several portal
+  // logins (one per invited contact). Never overwrite: that used to
+  // silently lock out the previously linked user.
+  const existingLink = await kv.get(`portal_users:${tenantId}:${householdId}`);
+  const mergedLink = withLinkedUser(existingLink, { tenantId, householdId }, authUserId!);
+  mergedLink.notificationPrefs ??= { booking: true, vax: true, marketing: false };
+  await kv.set(`portal_users:${tenantId}:${householdId}`, mergedLink);
   await kv.set(`portal_invites:${tenantId}:${token}`, { ...found, consumedAt: new Date().toISOString() });
 
   // For brand-new accounts, the password we just set works. For existing accounts, the password the
@@ -1961,18 +1963,109 @@ portal.post("/pets/:id/edit-request", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => null);
   if (!body?.note || typeof body.note !== "string") return c.json({ error: "note required" }, 400);
-  const pet = await kv.get(`customer:${tenantId}:pet:${householdId}:${id}`);
+  const requestNote = body.note.trim().slice(0, 2000);
+  if (!requestNote) return c.json({ error: "note required" }, 400);
+  const pet = (await kv.get(`customer:${tenantId}:pet:${householdId}:${id}`)) as
+    | { name?: string }
+    | null;
   if (!pet) return c.json({ error: "Not found" }, 404);
   const reqId = crypto.randomUUID();
+  const now = new Date().toISOString();
   await kv.set(`portal_edit_requests:${tenantId}:${reqId}`, {
     id: reqId,
     petId: id,
     householdId,
-    note: body.note,
-    submittedAt: new Date().toISOString(),
+    note: requestNote,
+    submittedAt: now,
     status: "open",
   });
+
+  // Surface the request where staff actually work: as a household note in
+  // the same KV shape the staff Customer Detail → Notes tab reads, linked
+  // to the pet. The portal_edit_requests record above has no consumer yet
+  // (kept for a future dedicated queue); without this note the owner's
+  // "staff will review" promise was a dead letter.
+  const noteId = crypto.randomUUID();
+  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, {
+    id: noteId,
+    tenant_id: tenantId,
+    household_id: householdId,
+    title: `Profile edit request: ${pet.name ?? "pet"} (portal)`,
+    content:
+      `The owner asked for a profile update via the pet portal:\n\n"${requestNote}"\n\n` +
+      `Apply the change on the pet's profile, then let them know.`,
+    category: "general",
+    visibility: "internal",
+    is_pinned: false,
+    created_by: "portal",
+    created_by_name: "Pet portal",
+    created_at: now,
+    updated_at: now,
+  });
+  await kv.set(`customer:${tenantId}:note:${noteId}:pet:${id}`, {
+    tenant_id: tenantId,
+    note_id: noteId,
+    pet_id: id,
+  });
+
   return c.json({ ok: true, id: reqId });
+});
+
+// ----- Membership interest ------------------------------------------------
+// Lead capture for the memberships screen. Writes a pinned household note in
+// the exact KV shape the staff Customer Detail → Notes tab already reads, so
+// the lead is visible to staff immediately with no new staff surface. A
+// per-tier marker dedupes repeat requests server-side (the portal UI also
+// guards per session); a fresh lead for the same tier is allowed again after
+// 14 days so a genuinely renewed enquiry still gets through.
+portal.post("/memberships/interest", async (c) => {
+  const auth = await readPortalUser(c);
+  if ("error" in auth) return c.json({ error: auth.error }, auth.status as 401 | 403);
+  const { tenantId, householdId } = auth;
+
+  const body = await c.req.json().catch(() => null);
+  const tier =
+    typeof body?.tier === "string" && body.tier.trim()
+      ? body.tier.trim().slice(0, 80)
+      : "general";
+
+  const household = (await kv.get(`customer:${tenantId}:household:${householdId}`)) as
+    | { name?: string }
+    | null;
+  if (!household) return c.json({ error: "Household not found" }, 404);
+
+  const markerKey = `portal_membership_interest:${tenantId}:${householdId}:${tier}`;
+  const existing = (await kv.get(markerKey)) as { submittedAt?: string } | null;
+  const DEDUPE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+  if (
+    existing?.submittedAt &&
+    Date.now() - new Date(existing.submittedAt).getTime() < DEDUPE_WINDOW_MS
+  ) {
+    return c.json({ ok: true, duplicate: true });
+  }
+
+  const noteId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  const subject = tier === "general" ? "memberships" : `the "${tier}" membership plan`;
+  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, {
+    id: noteId,
+    tenant_id: tenantId,
+    household_id: householdId,
+    title: tier === "general" ? "Membership enquiry (portal)" : `Membership enquiry: ${tier} (portal)`,
+    content:
+      `The owner asked about ${subject} from the pet portal. ` +
+      `They've been told the team will get back to them within 2 working days, ` +
+      `and that nothing has been purchased or charged.`,
+    category: "billing",
+    visibility: "internal",
+    is_pinned: true,
+    created_by: "portal",
+    created_by_name: "Pet portal",
+    created_at: now,
+    updated_at: now,
+  });
+  await kv.set(markerKey, { submittedAt: now, noteId });
+  return c.json({ ok: true });
 });
 
 // =======================================================================

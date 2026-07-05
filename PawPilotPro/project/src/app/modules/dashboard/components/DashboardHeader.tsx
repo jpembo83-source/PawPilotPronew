@@ -83,7 +83,7 @@ export function DashboardHeader() {
 
           {/* Date + location breadcrumb */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-[#9E9B97] uppercase tracking-wide">
+            <span className="text-xs font-medium text-tertiary-foreground uppercase tracking-wide">
               {getFormattedDate()}
             </span>
             <span className="text-[#E2DED8] text-xs">·</span>

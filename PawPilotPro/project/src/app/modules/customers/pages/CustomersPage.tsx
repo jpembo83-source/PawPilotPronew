@@ -85,16 +85,16 @@ export function CustomersPage() {
   return (
     <div className="h-full flex flex-col bg-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Customers</h1>
             <p className="text-sm text-slate-500 mt-1">
               {households.length} {households.length === 1 ? 'household' : 'households'}
             </p>
           </div>
-          
-          <div className="flex items-center gap-2">
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => navigate('/customers/bulk-import')}
               className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-2"

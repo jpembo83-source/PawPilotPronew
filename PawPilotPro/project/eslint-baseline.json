@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4073,
-  "warnings": 433
+  "errors": 4065,
+  "warnings": 431
  },
  "files": {
   "eslint.config.js": {
@@ -301,7 +301,7 @@
    "warnings": 0
   },
   "src/app/modules/customers/components/household-detail/PortalActivityTab.tsx": {
-   "errors": 23,
+   "errors": 22,
    "warnings": 2
   },
   "src/app/modules/customers/components/modals/AddContactModal.tsx": {
@@ -469,12 +469,12 @@
    "warnings": 2
   },
   "src/app/modules/daycare/pages/DaycareCheckIn.tsx": {
-   "errors": 38,
-   "warnings": 9
+   "errors": 35,
+   "warnings": 8
   },
   "src/app/modules/daycare/pages/DaycareCheckOut.tsx": {
-   "errors": 6,
-   "warnings": 1
+   "errors": 2,
+   "warnings": 0
   },
   "src/app/modules/daycare/pages/DaycareDashboard.tsx": {
    "errors": 37,

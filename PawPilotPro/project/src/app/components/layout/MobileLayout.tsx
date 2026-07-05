@@ -8,7 +8,7 @@
  * - No sidebar wasted space
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router';
 import {
   Gauge,
@@ -29,7 +29,9 @@ import {
   UserGear,
   DotsThree,
   CaretRight,
+  MagnifyingGlass,
 } from '@phosphor-icons/react';
+import { GlobalSearch } from '../search/GlobalSearch';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboardStore } from '../../modules/dashboard/store';
 import { useSettingsStore } from '../../modules/settings/store';
@@ -154,6 +156,18 @@ export function MobileLayout() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const canSearch =
+    permissions.canAccessModule('customers') || permissions.canAccessModule('daycare');
+
+  // Stamp the mobile shell on <body> so theme.css can enforce the 44px
+  // touch-target floor everywhere — including dialogs rendered in portals
+  // outside this component's subtree.
+  useEffect(() => {
+    document.body.classList.add('mobile-shell');
+    return () => document.body.classList.remove('mobile-shell');
+  }, []);
 
   const logo = organisation.logoUrl || defaultLogo;
   const orgName = organisation.tradingName || organisation.name || 'PawPilot Pro';
@@ -191,7 +205,7 @@ export function MobileLayout() {
         {/* Hamburger */}
         <button
           onClick={() => setMenuOpen(true)}
-          className="p-2 -ml-2 rounded-lg transition-colors"
+          className="-ml-2 rounded-lg transition-colors flex items-center justify-center touch-target"
           style={{ WebkitTapHighlightColor: 'transparent' }}
           aria-label="Open menu"
           onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
@@ -217,26 +231,45 @@ export function MobileLayout() {
           </span>
         </button>
 
-        {/* Bell */}
-        <button
-          className="p-2 -mr-2 rounded-lg transition-colors relative"
-          style={{ WebkitTapHighlightColor: 'transparent' }}
-          aria-label="Notifications"
-          onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
-          onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
-          onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
-          onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
-        >
-          <Bell className="h-6 w-6" style={{ color: '#6B6762' }} />
-          {/* Brand dot — visible when there are notifications */}
-          <span
-            className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
-            style={{ background: 'var(--primary)' }}
-          />
-        </button>
+        {/* Search + Bell */}
+        <div className="flex items-center">
+          {canSearch && (
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="rounded-lg transition-colors flex items-center justify-center touch-target"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+              aria-label="Search pets and households"
+              onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+              onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
+              onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+              onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <MagnifyingGlass className="h-6 w-6" style={{ color: '#6B6762' }} />
+            </button>
+          )}
+          <button
+            className="-mr-2 rounded-lg transition-colors relative flex items-center justify-center touch-target"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+            aria-label="Notifications"
+            onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+            onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
+            onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+            onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Bell className="h-6 w-6" style={{ color: '#6B6762' }} />
+            {/* Brand dot — visible when there are notifications */}
+            <span
+              className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
+              style={{ background: 'var(--primary)' }}
+            />
+          </button>
+        </div>
       </header>
 
       <OfflineBanner />
+
+      {/* Global search — header icon or Cmd/Ctrl+K */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* ── Main Content ───────────────────────────────────────── */}
       <main className="flex-1 overflow-auto">
@@ -274,11 +307,11 @@ export function MobileLayout() {
                 )}
                 <item.icon
                   className="h-5 w-5 mb-1"
-                  style={{ color: isActive ? 'var(--primary)' : '#9E9B97' }}
+                  style={{ color: isActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
                 />
                 <span
                   className="text-[10px] font-semibold leading-none"
-                  style={{ color: isActive ? 'var(--primary)' : '#9E9B97' }}
+                  style={{ color: isActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
                 >
                   {item.label}
                 </span>
@@ -300,11 +333,11 @@ export function MobileLayout() {
             )}
             <DotsThree
               className="h-5 w-5 mb-1"
-              style={{ color: isMoreActive ? 'var(--primary)' : '#9E9B97' }}
+              style={{ color: isMoreActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
             />
             <span
               className="text-[10px] font-semibold leading-none"
-              style={{ color: isMoreActive ? 'var(--primary)' : '#9E9B97' }}
+              style={{ color: isMoreActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
             >
               More
             </span>
@@ -369,7 +402,7 @@ export function MobileLayout() {
                   {/* Section label */}
                   <p
                     className="px-5 pb-1.5 text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: '#9E9B97' }}
+                    style={{ color: 'var(--tertiary-foreground)' }}
                   >
                     {section}
                   </p>

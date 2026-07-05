@@ -363,7 +363,7 @@ export function Sidebar() {
             </div>
             <div className="overflow-hidden flex-1">
               <p className="text-[13px] font-medium truncate text-[#1C1916] leading-tight">{user?.name}</p>
-              <p className="text-[11px] text-[#9E9B97] capitalize leading-tight">{user?.role?.replace('_', ' ')}</p>
+              <p className="text-[11px] text-tertiary-foreground capitalize leading-tight">{user?.role?.replace('_', ' ')}</p>
             </div>
             <button
               onClick={logout}

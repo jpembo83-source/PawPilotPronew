@@ -18,6 +18,10 @@
 ## Skills active in this repo
 - repo-auth — auto-loads when touching auth/routes; the canonical auth pattern.
 - safe-delete — run before removing any dep/file/route.
+## UI floors (check before merge — grep, don't trust memory)
+- No `text-xs` for operational information (times, names, alerts); `text-xs` is for true captions only. Alert/medical-adjacent text is ≥14px (`text-sm`). Check touched files: `grep -n "text-xs\|text-\[1[01]px\]" <files>` and justify each hit.
+- Secondary/tertiary text uses theme tokens (`--muted-foreground`, `--tertiary-foreground` — both ≥4.5:1 on `--background`), never raw grey hexes. Check: `grep -rn "#9E9B97" src/` must stay at zero.
+- Interactive targets on mobile are ≥44px. shadcn buttons get this from the `body.mobile-shell` floor in theme.css; bespoke controls must meet it themselves (`.touch-target` helper).
 ## Patterns to copy (the parts already done right)
 - Auth: settings_rbac.ts (SERVICE_ROLE_KEY validation)
 - Supabase init: Portal singleton (lazy, env-validated)

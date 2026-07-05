@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Stethoscope, Heart, Syringe, AlertTriangle, Loader2 } from "lucide-react";
+import { brandDisplayName, useBranding } from "@/lib/branding";
 
 const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID as string;
 const publicAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -46,6 +47,9 @@ interface VetViewData {
 
 export function VetViewScreen() {
   const { token } = useParams<{ token: string }>();
+  // Subscribed (not a one-off read): the vet's browser has no cached brand,
+  // so the name arrives async from the public branding fetch in main.tsx.
+  const brand = useBranding((s) => s.brand);
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
   const [data, setData] = useState<VetViewData | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
@@ -110,6 +114,7 @@ export function VetViewScreen() {
 
   const p = data.pet;
   const sharedExpiry = new Date(data.sharedBy.expiresAt);
+  const businessName = brandDisplayName(brand);
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -117,7 +122,7 @@ export function VetViewScreen() {
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <Stethoscope className="text-primary" size={24} />
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">Veterinary share · PawPilotPro</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Veterinary share · {businessName}</p>
             <p className="text-sm font-semibold text-slate-900">
               {p.name}
               {p.breed ? <span className="text-slate-500 font-normal"> · {p.breed}</span> : null}
@@ -230,7 +235,7 @@ export function VetViewScreen() {
         <footer className="text-xs text-slate-500 pt-4 pb-8 text-center space-y-1">
           {data.sharedBy.note && <p className="italic">"{data.sharedBy.note}"</p>}
           <p>Shared on {new Date(data.sharedBy.createdAt).toLocaleDateString("en-GB")} by the owner. Access expires {sharedExpiry.toLocaleDateString("en-GB")}.</p>
-          <p>This view is read-only. Data sourced from PawPilotPro tracker integration + owner records.</p>
+          <p>This view is read-only. Data sourced from tracker integration + owner records.</p>
         </footer>
       </div>
     </main>

@@ -24,7 +24,7 @@ import {
   ChevronLeft, Check, Mail, Sparkles, Users, Calendar, Sunrise,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/context/AuthContext";
+import { getPortalApi } from "@/lib/api";
 
 /* --------------------------------------------------------------------- */
 /* TIER DATA                                                              */
@@ -123,34 +123,64 @@ const CHF_FORMAT = new Intl.NumberFormat("de-CH", {
 /* SCREEN                                                                 */
 /* --------------------------------------------------------------------- */
 
+/**
+ * Session-scoped set of already-requested enquiries ("general" or a tier id)
+ * so double-taps and remounts within the session don't send duplicate leads.
+ * The server dedupes too (14-day window per household+tier) — this is the
+ * UX layer, that's the guarantee.
+ */
+const REQUESTED_KEY = "portal.membership.requested";
+
+function loadRequested(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(REQUESTED_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 export function MembershipsScreen() {
   const navigate = useNavigate();
-  const { session } = useAuth();
   const [params] = useSearchParams();
   const from = params.get("from"); // ?from=account to round-trip back there
-  const [pickedId, setPickedId] = useState<Tier["id"] | null>(null);
+  const [requested, setRequested] = useState<Set<string>>(loadRequested);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   // Memoise so highlight ordering stays stable across re-renders.
   const tiers = useMemo(() => TIERS, []);
 
-  function handleInterest(tier: Tier) {
-    // For v29 this is a fire-and-forget lead-capture: toast the user, keep
-    // a soft visual confirmation on the picked card, and trust staff to
-    // follow up out-of-band.  When the /portal/memberships/interest endpoint
-    // lands, this becomes a useMutation against that route.
-    setPickedId(tier.id);
-    toast.success(`Got it — we'll be in touch about ${tier.name}.`, {
-      description: `Saved against ${session?.user?.email ?? "your account"}.`,
+  function markRequested(key: string) {
+    setRequested((prev) => {
+      const next = new Set(prev).add(key);
+      try {
+        sessionStorage.setItem(REQUESTED_KEY, JSON.stringify([...next]));
+      } catch {
+        // Storage unavailable — in-memory state still guards this mount.
+      }
+      return next;
     });
   }
 
-  function handleGeneralInterest() {
-    // The big "Talk to a human" CTA at the bottom is not bound to any
-    // specific tier — it's a generic "I want to discuss" lead.  Doesn't
-    // mark any card as picked.
-    toast.success("Got it — we'll be in touch about memberships.", {
-      description: `Saved against ${session?.user?.email ?? "your account"}.`,
-    });
+  /**
+   * Enquiry, not purchase: POST the lead so it lands as a note on the
+   * household record where staff actually see it, then flip the card into
+   * its inline "request sent" state. key = tier id, or "general" for the
+   * bottom "Talk to a human" CTA.
+   */
+  async function sendEnquiry(key: string, tierName?: string) {
+    if (requested.has(key) || sendingId) return;
+    setSendingId(key);
+    try {
+      await getPortalApi().post("/portal/memberships/interest", {
+        tier: tierName ?? "general",
+      });
+      markRequested(key);
+    } catch {
+      toast.error("Couldn't send your request — please try again in a moment.");
+    } finally {
+      setSendingId(null);
+    }
   }
 
   return (
@@ -174,8 +204,12 @@ export function MembershipsScreen() {
         Be part<br />
         of the <em className="not-italic font-display" style={{ fontStyle: "italic" }}>pack.</em>
       </h1>
-      <p className="text-[15px] text-muted-foreground mb-7 max-w-[36ch] leading-relaxed">
+      <p className="text-[15px] text-muted-foreground mb-3 max-w-[36ch] leading-relaxed">
         Familiar faces, consistent routines, chilled vibes — the pups we know best are the pups that thrive most.
+      </p>
+      <p className="text-[13px] text-muted-foreground mb-7 max-w-[38ch] leading-relaxed">
+        Plans aren't bought in the app — ask about one below and the team will
+        reply personally to set everything up with you.
       </p>
 
       {/* ABSTRACT HERO -------------------------------------------------
@@ -249,8 +283,9 @@ export function MembershipsScreen() {
           <TierCard
             key={tier.id}
             tier={tier}
-            picked={pickedId === tier.id}
-            onPick={() => handleInterest(tier)}
+            requested={requested.has(tier.id)}
+            sending={sendingId === tier.id}
+            onAsk={() => void sendEnquiry(tier.id, tier.name)}
           />
         ))}
       </ul>
@@ -306,14 +341,33 @@ export function MembershipsScreen() {
       </ul>
 
       {/* TALK TO US ----------------------------------------------------- */}
-      <button
-        onClick={handleGeneralInterest}
-        className="press group relative inline-flex items-center justify-center gap-2.5 w-full h-14 rounded-[1.25rem] bg-foreground text-background font-semibold transition-opacity hover:opacity-[0.96]"
-        style={{ boxShadow: "var(--shadow-card-soft)" }}
-      >
-        <Mail size={17} strokeWidth={2.4} aria-hidden="true" />
-        <span className="tracking-[-0.005em] text-[15px]">Talk to a human</span>
-      </button>
+      {requested.has("general") ? (
+        <div
+          role="status"
+          className="rounded-[1.25rem] bg-emerald-50 border border-emerald-200 px-5 py-4 text-[13px] leading-relaxed text-emerald-800 text-center"
+        >
+          <p className="inline-flex items-center gap-1.5 font-semibold text-[14px] mb-0.5">
+            <Check size={14} strokeWidth={2.6} aria-hidden="true" />
+            Request sent
+          </p>
+          <p>
+            The team will get back to you within 2 working days. Nothing has
+            been purchased or charged.
+          </p>
+        </div>
+      ) : (
+        <button
+          onClick={() => void sendEnquiry("general")}
+          disabled={sendingId === "general"}
+          className="press group relative inline-flex items-center justify-center gap-2.5 w-full h-14 rounded-[1.25rem] bg-foreground text-background font-semibold transition-opacity hover:opacity-[0.96] disabled:opacity-60"
+          style={{ boxShadow: "var(--shadow-card-soft)" }}
+        >
+          <Mail size={17} strokeWidth={2.4} aria-hidden="true" />
+          <span className="tracking-[-0.005em] text-[15px]">
+            {sendingId === "general" ? "Sending…" : "Talk to a human"}
+          </span>
+        </button>
+      )}
       <p className="mt-3 text-center text-[12px] text-muted-foreground leading-relaxed max-w-[40ch] mx-auto">
         We'll pick the right plan together — including the multi-dog and bespoke options that don't fit in a table.
       </p>
@@ -340,12 +394,14 @@ export function MembershipsScreen() {
 
 function TierCard({
   tier,
-  picked,
-  onPick,
+  requested,
+  sending,
+  onAsk,
 }: {
   tier: Tier;
-  picked: boolean;
-  onPick: () => void;
+  requested: boolean;
+  sending: boolean;
+  onAsk: () => void;
 }) {
   const priceLabel = CHF_FORMAT.format(tier.priceChf).replace(/,/g, "’");
   // ’ = ’ (right single quote) — Swiss convention. Intl.NumberFormat
@@ -358,7 +414,7 @@ function TierCard({
         tier.highlight
           ? "bg-secondary/60 border-primary/35"
           : "bg-card border-border/60"
-      } ${picked ? "ring-2 ring-emerald-400/60" : ""}`}
+      } ${requested ? "ring-2 ring-emerald-400/60" : ""}`}
       style={{
         boxShadow: tier.highlight
           ? "var(--shadow-card-soft), 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent)"
@@ -408,24 +464,29 @@ function TierCard({
         ))}
       </ul>
 
-      <button
-        onClick={onPick}
-        disabled={picked}
-        className={`press w-full h-11 rounded-xl text-sm font-semibold transition-colors ${
-          picked
-            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-            : "bg-foreground text-background hover:opacity-[0.96]"
-        }`}
-      >
-        {picked ? (
-          <span className="inline-flex items-center justify-center gap-2">
-            <Check size={14} strokeWidth={2.6} aria-hidden="true" />
-            We'll be in touch
-          </span>
-        ) : (
-          "I'm interested"
-        )}
-      </button>
+      {requested ? (
+        <div
+          role="status"
+          className="rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-3 text-[12.5px] leading-relaxed text-emerald-800"
+        >
+          <p className="inline-flex items-center gap-1.5 font-semibold text-[13px] mb-0.5">
+            <Check size={13} strokeWidth={2.6} aria-hidden="true" />
+            Request sent
+          </p>
+          <p>
+            The team will get back to you within 2 working days. Nothing has
+            been purchased or charged.
+          </p>
+        </div>
+      ) : (
+        <button
+          onClick={onAsk}
+          disabled={sending}
+          className="press w-full h-11 rounded-xl text-sm font-semibold transition-colors bg-foreground text-background hover:opacity-[0.96] disabled:opacity-60"
+        >
+          {sending ? "Sending…" : "Ask the team about this plan"}
+        </button>
+      )}
     </li>
   );
 }

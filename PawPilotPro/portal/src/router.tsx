@@ -3,6 +3,7 @@ import { RouteErrorFallback } from "@/components/ErrorBoundary";
 import { RequirePortalAuth } from "@/components/RequirePortalAuth";
 import { AppShell } from "@/components/AppShell";
 import { LoginScreen } from "@/screens/LoginScreen";
+import { LoginCodeScreen } from "@/screens/LoginCodeScreen";
 import { AcceptInviteScreen } from "@/screens/AcceptInviteScreen";
 import { ForgotPasswordScreen } from "@/screens/ForgotPasswordScreen";
 import { ResetPasswordScreen } from "@/screens/ResetPasswordScreen";
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorFallback />,
     children: [
       { path: "/login", element: <LoginScreen /> },
+      { path: "/login/code", element: <LoginCodeScreen /> },
       // Public read-only vet view — no auth wrapper
       { path: "/vet/:token", element: <VetViewScreen /> },
       { path: "/accept-invite", element: <AcceptInviteScreen /> },
