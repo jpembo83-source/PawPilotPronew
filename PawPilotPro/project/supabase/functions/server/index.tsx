@@ -46,6 +46,12 @@ const ALLOWED_ORIGINS = new Set(
   [
     "https://mdc.pawpilotpro.com",
     "http://localhost:5173",
+    // The native portal app (Capacitor WebView) serves the bundled web app
+    // from a local origin: capacitor://localhost on iOS, https://localhost
+    // on Android. Without these, every preflight from the phone is refused
+    // and the app renders with no data.
+    "capacitor://localhost",
+    "https://localhost",
     ...(Deno.env.get("ALLOWED_ORIGINS")?.split(",").map((o) => o.trim()) ?? []),
   ].filter(Boolean),
 );
