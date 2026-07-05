@@ -118,21 +118,22 @@ export function LoginScreen() {
             src={HERO_PHOTO}
             alt=""
             onError={() => setPhotoOk(false)}
-            className="absolute inset-0 w-full h-full object-cover anim-fade-in"
-            style={{ animationDuration: "1.2s" }}
+            className="absolute inset-0 w-full h-full object-cover anim-hero-zoom"
           />
         )}
-        {/* Editorial scrim — strong at top for wordmark, dramatic vertical gradient
-            for the headline, soft fade into the card. Three stops for an art-direction feel. */}
+        {/* Editorial scrim — strong at top for the wordmark, then a continuous
+            darkening curve: the busy middle of a real daycare photo needs a
+            constant veil so the headline zone never sits on bare highlights,
+            deepening into the card. */}
         <div className="absolute inset-0" style={{
           background: `
             linear-gradient(180deg,
               rgba(28,25,22,0.55) 0%,
-              rgba(28,25,22,0.05) 20%,
-              rgba(28,25,22,0.0) 38%,
-              rgba(28,25,22,0.0) 50%,
-              rgba(28,25,22,0.55) 78%,
-              rgba(28,25,22,0.78) 100%
+              rgba(28,25,22,0.12) 18%,
+              rgba(28,25,22,0.18) 38%,
+              rgba(28,25,22,0.34) 55%,
+              rgba(28,25,22,0.62) 76%,
+              rgba(28,25,22,0.85) 100%
             )
           `,
         }} />
@@ -140,23 +141,33 @@ export function LoginScreen() {
 
       <BrandWordmark />
 
-      {/* Editorial headline — anchored to the lower-middle of the photo */}
+      {/* Editorial headline — anchored to the lower-middle of the photo.
+          Text shadows keep it legible no matter what the photo puts behind it. */}
       <section
         className="relative z-10 px-6 mt-auto mb-6 text-white anim-fade-in"
         style={{ animationDelay: "200ms", animationDuration: "900ms" }}
       >
-        <p className="text-[10px] tracking-[0.32em] uppercase font-medium opacity-80 mb-3">
+        <p
+          className="text-[10px] tracking-[0.32em] uppercase font-medium opacity-90 mb-3"
+          style={{ textShadow: "0 1px 8px rgba(28,25,22,0.5)" }}
+        >
           Welcome
         </p>
         <h1
           className="font-display leading-[0.95] tracking-[-0.02em]"
-          style={{ fontSize: "clamp(48px, 13vw, 64px)" }}
+          style={{
+            fontSize: "clamp(48px, 13vw, 64px)",
+            textShadow: "0 2px 28px rgba(28,25,22,0.5), 0 1px 3px rgba(28,25,22,0.35)",
+          }}
         >
           Your dog,
           <br/>
-          <span className="italic font-display opacity-90">considered.</span>
+          <span className="italic font-display opacity-95">considered.</span>
         </h1>
-        <p className="text-[13px] mt-4 max-w-[26ch] opacity-85 leading-relaxed">
+        <p
+          className="text-[13px] mt-4 max-w-[26ch] opacity-95 leading-relaxed"
+          style={{ textShadow: "0 1px 12px rgba(28,25,22,0.55)" }}
+        >
           Sign in to see how they are today — heart, paws, and every moment in between.
         </p>
       </section>
@@ -167,7 +178,7 @@ export function LoginScreen() {
         style={{ marginBottom: "calc(0.75rem + var(--safe-bottom))" }}
       >
         <div
-          className="bg-card rounded-3xl p-7 max-w-sm mx-auto w-full"
+          className="bg-card/95 backdrop-blur-xl rounded-3xl p-7 max-w-sm mx-auto w-full ring-1 ring-white/40"
           style={{ boxShadow: "var(--shadow-lg)" }}
         >
           <form onSubmit={handleSubmit(submit)} noValidate className="space-y-3.5">
@@ -256,10 +267,10 @@ export function LoginScreen() {
               {!isSubmitting && <ArrowRight size={16} strokeWidth={2.2} className="opacity-70 transition-transform group-hover:translate-x-0.5" />}
             </button>
 
-            <div className="flex items-center justify-center gap-4 pt-1">
+            <div className="flex items-center justify-center gap-3 pt-1">
               <Link
                 to="/forgot-password"
-                className="press text-[12px] text-muted-foreground hover:text-foreground tracking-wide"
+                className="press text-[12px] text-muted-foreground hover:text-foreground tracking-wide whitespace-nowrap"
               >
                 Forgot password?
               </Link>
@@ -269,10 +280,10 @@ export function LoginScreen() {
                 onClick={() =>
                   nav(`/login/code?email=${encodeURIComponent(getValues("email") ?? "")}`)
                 }
-                className="press inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground tracking-wide"
+                className="press inline-flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground tracking-wide whitespace-nowrap"
               >
                 <MailCheck size={13} strokeWidth={2.2} />
-                Email me a sign-in code
+                Email a sign-in code
               </button>
             </div>
           </form>
