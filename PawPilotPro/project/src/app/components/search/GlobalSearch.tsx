@@ -204,13 +204,19 @@ export function GlobalSearch({ open: controlledOpen, onOpenChange }: GlobalSearc
         shouldFilter={false}
         title="Search"
         description="Search pets and households"
+        // Top-anchored on phones so the on-screen keyboard never covers the
+        // results; centered on larger screens.
+        contentClassName="top-4 translate-y-0 sm:top-[50%] sm:translate-y-[-50%]"
       >
         <CommandInput
           value={query}
           onValueChange={setQuery}
           placeholder="Search pets and households…"
+          // 16px on mobile — anything smaller makes iOS Safari zoom the page
+          // on focus (same convention as every other input in the app).
+          className="text-base md:text-sm"
         />
-        <CommandList>
+        <CommandList className="max-h-[min(40dvh,300px)] sm:max-h-[300px]">
           <CommandEmpty>
             {query.trim().length < 2
               ? 'Type at least 2 letters to search…'
