@@ -26,7 +26,10 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        "inline-flex h-10 w-fit items-center justify-center rounded-lg p-1 flex gap-1",
+        // max-w-full + overflow-x-auto: on narrow screens a long tab row
+        // scrolls inside its own box instead of widening the page. No
+        // visual change when the tabs fit.
+        "inline-flex h-10 w-fit max-w-full items-center justify-start overflow-x-auto rounded-lg p-1 flex gap-1",
         className,
       )}
       style={{ backgroundColor: '#f1f5f9' }}
@@ -45,7 +48,9 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex h-full items-center justify-center gap-1.5 rounded-md border border-transparent px-4 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        // shrink-0: when the list is narrower than its tabs (phones), the
+        // row scrolls instead of the triggers being squashed/clipped.
+        "inline-flex h-full shrink-0 items-center justify-center gap-1.5 rounded-md border border-transparent px-4 py-2 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       style={{

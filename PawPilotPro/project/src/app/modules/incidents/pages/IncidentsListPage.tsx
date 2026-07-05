@@ -148,14 +148,15 @@ export function IncidentsListPage() {
   const activeFiltersCount = Object.values(filters).filter(v => v !== undefined && v !== '').length;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-6">
+      {/* Header — wraps on phones so the action buttons drop below the
+          title instead of running off-screen */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Incidents</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Incidents</h1>
           <p className="text-slate-600 mt-1">Report and manage operational incidents</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {canExport && (
             <Button variant="outline" onClick={handleExport} disabled={isLoading || incidents.length === 0}>
               <DownloadSimple className="h-4 w-4 mr-2" />

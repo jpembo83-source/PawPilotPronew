@@ -287,8 +287,8 @@ export function DaycareBookings() {
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-slate-500">{booking.household_name}</span>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                  <span className="text-xs text-slate-500 truncate max-w-full">{booking.household_name}</span>
                   <span className="flex items-center gap-1 text-xs text-slate-400">
                     <CalendarBlank size={11} />
                     {new Date(booking.booking_date).toLocaleDateString('en-GB')}
