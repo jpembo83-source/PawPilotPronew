@@ -5,6 +5,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, UploadSimple, FileText, Warning, CheckCircle, XCircle, DownloadSimple, CircleNotch } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
@@ -51,46 +52,58 @@ export function BulkImportPage() {
     }
   };
   
-  const handleDownloadTemplate = async () => {
+  // Generated client-side (like ExportPage) — the server template endpoint is a
+  // stub that returns JSON, which saved-as-.xlsx reads as a corrupt file.
+  const handleDownloadTemplate = () => {
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/import/template`,
-        {
-          headers: {
-            ...(await getAuthHeaders()),
-            'X-Tenant-Id': activeTenantId || '',
-          },
-        }
-      );
-      
-      if (!response.ok) {
-        // Try to get error details
-        let errorMessage = 'Failed to download template';
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const error = await response.json();
-            errorMessage = error.error || error.message || errorMessage;
-          }
-        } catch {
-          // Ignore JSON parse errors
-        }
-        throw new Error(errorMessage);
+      const wb = XLSX.utils.book_new();
+
+      // 'Household Name' is the key linking rows across the three sheets.
+      const sheets: Array<[string, Record<string, string | number>[]]> = [
+        ['Households', [{
+          'Household Name': 'Smith Family',
+          'External ID': 'CRM-1042',
+          'Status': 'active',
+          'Location': '',
+        }]],
+        ['Contacts', [{
+          'Household Name': 'Smith Family',
+          'First Name': 'Jane',
+          'Last Name': 'Smith',
+          'Email': 'jane.smith@example.com',
+          'Phone': '+44 7700 900123',
+          'Type': 'owner',
+          'Relationship': '',
+          'Primary': 'Yes',
+          'Emergency': 'No',
+          'Billing': 'Yes',
+        }]],
+        ['Pets', [{
+          'Household Name': 'Smith Family',
+          'Name': 'Buddy',
+          'Species': 'Dog',
+          'Breed': 'Labrador Retriever',
+          'Sex': 'Male',
+          'Date of Birth': '2021-06-15',
+          'Weight (lbs)': 62,
+          'Colour': 'Golden',
+          'Microchip': '',
+          'Spayed/Neutered': 'Yes',
+          'Medical Conditions': '',
+          'Behaviour Notes': 'Friendly with other dogs',
+        }]],
+      ];
+
+      for (const [name, rows] of sheets) {
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = Object.keys(rows[0]).map((header) => ({ wch: Math.max(header.length + 2, 14) }));
+        XLSX.utils.book_append_sheet(wb, ws, name);
       }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'customer-import-template.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
+
+      XLSX.writeFile(wb, 'customer-import-template.xlsx');
       toast.success('Template downloaded');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to download template');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download template');
     }
   };
   
@@ -214,7 +227,7 @@ export function BulkImportPage() {
         <CardContent className="py-4">
           <h3 className="font-semibold text-blue-900 mb-2">Import Process</h3>
           <ol className="text-blue-800 text-sm space-y-1 list-decimal list-inside">
-            <li>DownloadSimple the Excel template and fill in your customer data</li>
+            <li>Download the Excel template and fill in your customer data</li>
             <li>Upload the completed file and run a dry run to validate</li>
             <li>Review the summary and fix any errors</li>
             <li>Apply the import to create/update records in your database</li>
@@ -225,18 +238,18 @@ export function BulkImportPage() {
       {/* Template DownloadSimple */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Step 1: DownloadSimple Template</CardTitle>
+          <CardTitle>Step 1: Download Template</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-slate-600 mb-4">
-            DownloadSimple the Excel template with the correct column headers and example data
+            Download the Excel template with the correct column headers and example data
           </p>
           <Button
             onClick={handleDownloadTemplate}
             variant="outline"
           >
             <DownloadSimple className="h-4 w-4 mr-2" />
-            DownloadSimple Template
+            Download Template
           </Button>
         </CardContent>
       </Card>
@@ -420,7 +433,7 @@ export function BulkImportPage() {
                     size="sm"
                   >
                     <DownloadSimple className="h-4 w-4 mr-2" />
-                    DownloadSimple Error Report
+                    Download Error Report
                   </Button>
                 </div>
                 <div className="max-h-64 overflow-y-auto border border-red-200 rounded-lg">

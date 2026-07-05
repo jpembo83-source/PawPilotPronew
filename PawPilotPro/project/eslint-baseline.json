@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4065,
-  "warnings": 431
+  "errors": 4058,
+  "warnings": 430
  },
  "files": {
   "eslint.config.js": {
@@ -341,8 +341,8 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/BulkImportPage.tsx": {
-   "errors": 18,
-   "warnings": 2
+   "errors": 11,
+   "warnings": 1
   },
   "src/app/modules/customers/pages/ClearDataPage.tsx": {
    "errors": 12,
