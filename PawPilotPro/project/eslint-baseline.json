@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4058,
+  "errors": 4057,
   "warnings": 430
  },
  "files": {
@@ -341,7 +341,7 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/BulkImportPage.tsx": {
-   "errors": 11,
+   "errors": 10,
    "warnings": 1
   },
   "src/app/modules/customers/pages/ClearDataPage.tsx": {
