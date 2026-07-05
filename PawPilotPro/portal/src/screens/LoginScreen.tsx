@@ -17,9 +17,11 @@ import {
   markBiometricOffered,
 } from "@/lib/biometric";
 
-// Hero photo. Forest-teal gradient sits behind as graceful fallback.
-const HERO_PHOTO =
-  "https://images.unsplash.com/photo-1633722715463-d30f4f325e24?q=80&w=1400&auto=format&fit=crop";
+// Hero photo — the daycare's own (bundled, so it loads offline and never
+// depends on a third-party CDN). Forest-teal gradient sits behind as
+// graceful fallback.
+import heroPhoto from "@/assets/login-hero.jpg";
+const HERO_PHOTO = heroPhoto;
 
 const loginSchema = z.object({
   email: z.email("Enter a valid email address"),
