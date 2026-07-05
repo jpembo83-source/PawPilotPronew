@@ -110,7 +110,7 @@ export function DaycareDashboard() {
       <div className="bg-white rounded-2xl border border-[#E2DED8] shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] p-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <span className="text-xs uppercase tracking-wide text-[#9E9B97] font-medium">Capacity Today</span>
+            <span className="text-xs uppercase tracking-wide text-tertiary-foreground font-medium">Capacity Today</span>
             <div className="text-5xl font-bold text-[#1C1916] mt-1 leading-none">{utilisation}%</div>
             <p className="text-sm text-[#6B6762] mt-2">
               {checkedIn} dog{checkedIn !== 1 ? 's' : ''} in · {availableSlots} spot{availableSlots !== 1 ? 's' : ''} remaining
@@ -138,8 +138,8 @@ export function DaycareDashboard() {
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-[#9E9B97] font-medium">Today's Bookings</span>
-              <CalendarBlank className="h-4 w-4 text-[#9E9B97]" />
+              <span className="text-xs text-tertiary-foreground font-medium">Today's Bookings</span>
+              <CalendarBlank className="h-4 w-4 text-tertiary-foreground" />
             </div>
             <div className="text-3xl font-bold text-[#1C1916]">{totalBookings}</div>
             <div className="text-xs text-[#6B6762]">{stats?.confirmed_bookings || 0} confirmed</div>
@@ -153,8 +153,8 @@ export function DaycareDashboard() {
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-[#9E9B97] font-medium">Expected Arrivals</span>
-              <Clock className="h-4 w-4 text-[#9E9B97]" />
+              <span className="text-xs text-tertiary-foreground font-medium">Expected Arrivals</span>
+              <Clock className="h-4 w-4 text-tertiary-foreground" />
             </div>
             <div className="text-3xl font-bold text-[#B45309]">{stats?.expected_arrivals_2h || 0}</div>
             <div className="text-xs text-[#6B6762]">Next 2 hours</div>
@@ -168,8 +168,8 @@ export function DaycareDashboard() {
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-[#9E9B97] font-medium">Expected Pickups</span>
-              <Clock className="h-4 w-4 text-[#9E9B97]" />
+              <span className="text-xs text-tertiary-foreground font-medium">Expected Pickups</span>
+              <Clock className="h-4 w-4 text-tertiary-foreground" />
             </div>
             <div className="text-3xl font-bold text-primary">{stats?.expected_pickups_2h || 0}</div>
             <div className="text-xs text-[#6B6762]">Next 2 hours</div>
@@ -183,8 +183,8 @@ export function DaycareDashboard() {
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-[#9E9B97] font-medium">No Shows</span>
-              <XCircle className="h-4 w-4 text-[#9E9B97]" />
+              <span className="text-xs text-tertiary-foreground font-medium">No Shows</span>
+              <XCircle className="h-4 w-4 text-tertiary-foreground" />
             </div>
             <div className="text-3xl font-bold text-[#1C1916]">{noShows}</div>
             <div className="text-xs text-[#6B6762]">{noShowPct}% of bookings</div>
@@ -273,7 +273,7 @@ export function DaycareDashboard() {
             className="bg-white rounded-2xl border border-[#E2DED8] shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] p-4 cursor-pointer hover:border-primary transition-colors"
             onClick={() => navigate(`/daycare/bookings?filter=today&date=${today}&status=no_show`)}
           >
-            <div className="text-xs text-[#9E9B97] font-medium mb-2">No Shows</div>
+            <div className="text-xs text-tertiary-foreground font-medium mb-2">No Shows</div>
             <div className="text-2xl font-bold text-[#1C1916]">{noShows}</div>
             <div className="text-xs text-[#6B6762] mt-1">{noShowPct}% of bookings</div>
           </div>
@@ -282,7 +282,7 @@ export function DaycareDashboard() {
             className="bg-white rounded-2xl border border-[#E2DED8] shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] p-4 cursor-pointer hover:border-primary transition-colors"
             onClick={() => navigate(`/daycare/bookings?filter=today&date=${today}&status=cancelled`)}
           >
-            <div className="text-xs text-[#9E9B97] font-medium mb-2">Cancellations</div>
+            <div className="text-xs text-tertiary-foreground font-medium mb-2">Cancellations</div>
             <div className="text-2xl font-bold text-[#1C1916]">{cancellations}</div>
             <div className="text-xs text-[#6B6762] mt-1">{cancellationPct}% of bookings</div>
           </div>
@@ -291,7 +291,7 @@ export function DaycareDashboard() {
             className="bg-white rounded-2xl border border-[#E2DED8] shadow-[0_1px_3px_0_rgba(0,0,0,0.06)] p-4 cursor-pointer hover:border-primary transition-colors"
             onClick={() => navigate(`/daycare/bookings?filter=today&date=${today}`)}
           >
-            <div className="text-xs text-[#9E9B97] font-medium mb-2">Completion Rate</div>
+            <div className="text-xs text-tertiary-foreground font-medium mb-2">Completion Rate</div>
             <div className="text-2xl font-bold text-primary">{completionRate}%</div>
             <div className="text-xs text-[#6B6762] mt-1">Successful bookings</div>
           </div>

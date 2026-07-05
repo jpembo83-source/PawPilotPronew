@@ -4,7 +4,7 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Separator } from '../../../components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { PencilSimple, Trash, Power, Power } from '@phosphor-icons/react';
+import { PencilSimple, Trash, Power } from '@phosphor-icons/react';
 import { useAuth } from '../../../context/AuthContext';
 import { useOperationalRulesStore } from '../store';
 import { updateRule, deleteRule } from '../api';

@@ -136,17 +136,17 @@ export function DaycareCheckOut() {
         </div>
 
         <div className="relative">
-          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9E9B97]" />
+          <MagnifyingGlass size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary-foreground" />
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search by pet or owner name…"
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-[#9E9B97] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-tertiary-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#9E9B97] hover:text-[#1C1916] transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-tertiary-foreground hover:text-[#1C1916] transition-colors"
             >
               <X size={16} />
             </button>
@@ -211,8 +211,8 @@ export function DaycareCheckOut() {
                 <p className="text-xs text-[#6B6762] truncate">{booking.household_name}</p>
                 {checkInTime && (
                   <div className="flex items-center gap-1 mt-1">
-                    <Clock size={11} className="text-[#9E9B97]" />
-                    <span className="text-xs text-[#9E9B97]">In at {checkInTime}</span>
+                    <Clock size={11} className="text-tertiary-foreground" />
+                    <span className="text-xs text-tertiary-foreground">In at {checkInTime}</span>
                     {duration && (
                       <span className="text-xs font-semibold ml-1" style={{ color: 'var(--primary)' }}>
                         · {duration}
@@ -323,14 +323,14 @@ export function DaycareCheckOut() {
             {/* Notes */}
             <div>
               <label className="text-sm font-medium text-[#1C1916] block mb-1.5">
-                Notes for the owner <span className="text-[#9E9B97] font-normal">(optional)</span>
+                Notes for the owner <span className="text-tertiary-foreground font-normal">(optional)</span>
               </label>
               <Textarea
                 placeholder="Anything the owner should know…"
                 value={checkoutNotes}
                 onChange={e => setCheckoutNotes(e.target.value)}
                 rows={3}
-                className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-[#9E9B97] focus:border-primary focus:ring-primary/10"
+                className="resize-none text-base md:text-sm rounded-xl border-[#E2DED8] bg-[#F4F3EF] placeholder:text-tertiary-foreground focus:border-primary focus:ring-primary/10"
               />
             </div>
 

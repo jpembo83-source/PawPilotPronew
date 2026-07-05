@@ -8,7 +8,7 @@
  * - No sidebar wasted space
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router';
 import {
   Gauge,
@@ -155,6 +155,14 @@ export function MobileLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
 
+  // Stamp the mobile shell on <body> so theme.css can enforce the 44px
+  // touch-target floor everywhere — including dialogs rendered in portals
+  // outside this component's subtree.
+  useEffect(() => {
+    document.body.classList.add('mobile-shell');
+    return () => document.body.classList.remove('mobile-shell');
+  }, []);
+
   const logo = organisation.logoUrl || defaultLogo;
   const orgName = organisation.tradingName || organisation.name || 'PawPilot Pro';
 
@@ -191,7 +199,7 @@ export function MobileLayout() {
         {/* Hamburger */}
         <button
           onClick={() => setMenuOpen(true)}
-          className="p-2 -ml-2 rounded-lg transition-colors"
+          className="-ml-2 rounded-lg transition-colors flex items-center justify-center touch-target"
           style={{ WebkitTapHighlightColor: 'transparent' }}
           aria-label="Open menu"
           onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
@@ -219,7 +227,7 @@ export function MobileLayout() {
 
         {/* Bell */}
         <button
-          className="p-2 -mr-2 rounded-lg transition-colors relative"
+          className="-mr-2 rounded-lg transition-colors relative flex items-center justify-center touch-target"
           style={{ WebkitTapHighlightColor: 'transparent' }}
           aria-label="Notifications"
           onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
@@ -274,11 +282,11 @@ export function MobileLayout() {
                 )}
                 <item.icon
                   className="h-5 w-5 mb-1"
-                  style={{ color: isActive ? 'var(--primary)' : '#9E9B97' }}
+                  style={{ color: isActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
                 />
                 <span
                   className="text-[10px] font-semibold leading-none"
-                  style={{ color: isActive ? 'var(--primary)' : '#9E9B97' }}
+                  style={{ color: isActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
                 >
                   {item.label}
                 </span>
@@ -300,11 +308,11 @@ export function MobileLayout() {
             )}
             <DotsThree
               className="h-5 w-5 mb-1"
-              style={{ color: isMoreActive ? 'var(--primary)' : '#9E9B97' }}
+              style={{ color: isMoreActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
             />
             <span
               className="text-[10px] font-semibold leading-none"
-              style={{ color: isMoreActive ? 'var(--primary)' : '#9E9B97' }}
+              style={{ color: isMoreActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
             >
               More
             </span>
@@ -369,7 +377,7 @@ export function MobileLayout() {
                   {/* Section label */}
                   <p
                     className="px-5 pb-1.5 text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: '#9E9B97' }}
+                    style={{ color: 'var(--tertiary-foreground)' }}
                   >
                     {section}
                   </p>

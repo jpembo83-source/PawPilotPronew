@@ -312,7 +312,7 @@ export function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="mt-8 text-xs text-center" style={{ color: '#9E9B97' }}>
+        <p className="mt-8 text-xs text-center" style={{ color: 'var(--tertiary-foreground)' }}>
           PawPilotPro &middot; Staff Operations Platform
         </p>
       </div>
