@@ -11,6 +11,7 @@ import { notify, getOwnerEmail, getOwnerName } from "./lib/notify.ts";
 import { vaxApprovedEmail } from "./lib/email_templates/vax_approved.ts";
 import { vaxRejectedEmail } from "./lib/email_templates/vax_rejected.ts";
 import { internalError, logError } from "./_shared/log.ts";
+import { linkedUserIds } from "./lib/portal_link.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -70,12 +71,54 @@ invites.post("/customers/:customerId/portal-invite", async (c) => {
   const household = (await kv.get(`customer:${tenantId}:household:${householdId}`)) as any;
   if (!household) return c.json({ error: "Household not found", tenantId, householdId }, 404);
 
-  const existingLink = await kv.get(`portal_users:${tenantId}:${householdId}`);
-  if (existingLink) return c.json({ error: "Household already has portal access" }, 409);
+  // Optional body: { contactId } invites a specific household contact.
+  // Without it, the primary contact is invited (original behaviour). A
+  // household supports multiple portal logins — one per contact — so an
+  // existing link no longer blocks the invite; only inviting an email
+  // that can already sign in (or already has a pending invite) does.
+  const body = await c.req.json().catch(() => ({}));
+  const contactId = typeof body?.contactId === "string" ? body.contactId : undefined;
 
-  const contact = await getPrimaryContact(tenantId, householdId, household.primary_contact_id);
+  const contact = contactId
+    ? ((await kv.get(`customer:${tenantId}:contact:${householdId}:${contactId}`)) as any)
+    : await getPrimaryContact(tenantId, householdId, household.primary_contact_id);
+  if (contactId && !contact) return c.json({ error: "Contact not found in this household" }, 404);
   if (!contact?.email) {
-    return c.json({ error: "Household has no contact with an email address — add a primary contact first" }, 400);
+    return c.json(
+      { error: contactId
+          ? "This contact has no email address — add one first"
+          : "Household has no contact with an email address — add a primary contact first" },
+      400,
+    );
+  }
+  const inviteEmailLower = String(contact.email).toLowerCase();
+
+  const existingLink = await kv.get(`portal_users:${tenantId}:${householdId}`);
+  const linkedIds = linkedUserIds(existingLink);
+  if (linkedIds.length > 0) {
+    // Refuse only if this exact email already has a working login.
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(supabaseUrl, serviceKey);
+    for (const id of linkedIds) {
+      const { data: u } = await admin.auth.admin.getUserById(id);
+      if (u?.user?.email?.toLowerCase() === inviteEmailLower) {
+        return c.json({ error: "This contact already has portal access. Use Reset password instead." }, 409);
+      }
+    }
+  }
+
+  // One pending invite per email at a time — staff should resend, not stack.
+  const allInvites = (await kv.getByPrefix(`portal_invites:${tenantId}:`)) as any[];
+  const pendingForEmail = allInvites.some(
+    (i) =>
+      i.customerId === householdId &&
+      !i.consumedAt &&
+      new Date(i.expiresAt) > new Date() &&
+      String(i.email ?? "").toLowerCase() === inviteEmailLower,
+  );
+  if (pendingForEmail) {
+    return c.json({ error: "An invite for this contact is already pending — use Resend." }, 409);
   }
 
   const token = crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
@@ -129,24 +172,37 @@ invites.get("/customers/:customerId/portal-activity", async (c) => {
 
   // Phase E enrichment — surface auth-side facts (last sign-in, suspended)
   // so the staff portal-activity UI can show a real account-state picture
-  // rather than "we sent an invite at some point".
+  // rather than "we sent an invite at some point". `users` lists every
+  // linked login (a household can have several — one per invited contact);
+  // the top-level lastSignInAt/suspended reflect the primary login for
+  // backward compatibility.
   let lastSignInAt: string | null = null;
   let suspended = false;
-  if (link?.authUserId) {
+  const users: Array<{ id: string; email: string | null; lastSignInAt: string | null; suspended: boolean }> = [];
+  const ids = linkedUserIds(link);
+  if (ids.length > 0) {
     try {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const admin = createClient(supabaseUrl, serviceKey);
-      const { data: u } = await admin.auth.admin.getUserById(link.authUserId);
-      lastSignInAt = (u?.user as any)?.last_sign_in_at ?? null;
-      // app_metadata only (server-set).
-      suspended = !!(u?.user as any)?.app_metadata?.portal_suspended;
+      for (const id of ids) {
+        const { data: u } = await admin.auth.admin.getUserById(id);
+        users.push({
+          id,
+          email: (u?.user as any)?.email ?? null,
+          lastSignInAt: (u?.user as any)?.last_sign_in_at ?? null,
+          // app_metadata only (server-set).
+          suspended: !!(u?.user as any)?.app_metadata?.portal_suspended,
+        });
+      }
+      lastSignInAt = users[0]?.lastSignInAt ?? null;
+      suspended = users[0]?.suspended ?? false;
     } catch (e) {
       console.warn("getUserById for portal-activity failed:", e);
     }
   }
 
-  return c.json({ link, pendingInvites: pending, lastSignInAt, suspended });
+  return c.json({ link, pendingInvites: pending, lastSignInAt, suspended, users });
 });
 
 // ----- Staff: vax review queue -----------------------------------------
@@ -338,20 +394,23 @@ invites.post("/customers/:customerId/portal-revoke", async (c) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceKey);
 
-  try {
-    const { data: u } = await admin.auth.admin.getUserById(link.authUserId);
-    if (u?.user) {
-      // Clear the portal flags from app_metadata (authoritative, server-set).
-      const appMeta = { ...(u.user.app_metadata ?? {}) };
-      delete (appMeta as any).portal_user;
-      delete (appMeta as any).portal_suspended;
-      // Keep tenant_id / household_id in metadata in case they're still
-      // useful for staff sessions — they're only meaningful when paired
-      // with portal_user:true on this code path.
-      await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta });
+  // Revoke covers every linked login — a household can have several.
+  for (const id of linkedUserIds(link)) {
+    try {
+      const { data: u } = await admin.auth.admin.getUserById(id);
+      if (u?.user) {
+        // Clear the portal flags from app_metadata (authoritative, server-set).
+        const appMeta = { ...(u.user.app_metadata ?? {}) };
+        delete (appMeta as any).portal_user;
+        delete (appMeta as any).portal_suspended;
+        // Keep tenant_id / household_id in metadata in case they're still
+        // useful for staff sessions — they're only meaningful when paired
+        // with portal_user:true on this code path.
+        await admin.auth.admin.updateUserById(id, { app_metadata: appMeta });
+      }
+    } catch (e) {
+      console.warn("revoke: clearing portal metadata failed:", e);
     }
-  } catch (e) {
-    console.warn("revoke: clearing portal metadata failed:", e);
   }
 
   await kv.del(`portal_users:${tenantId}:${householdId}`);
@@ -376,14 +435,17 @@ invites.post("/customers/:customerId/portal-pause", async (c) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceKey);
 
-  const { data: u, error: getErr } = await admin.auth.admin.getUserById(link.authUserId);
-  if (getErr || !u?.user) return c.json({ error: "Auth user lookup failed" }, 500);
+  // Pause applies to every linked login — a household can have several.
+  for (const id of linkedUserIds(link)) {
+    const { data: u, error: getErr } = await admin.auth.admin.getUserById(id);
+    if (getErr || !u?.user) return c.json({ error: "Auth user lookup failed" }, 500);
 
-  // Suspension is an authorization flag: write it to app_metadata
-  // (authoritative, server-set) only.
-  const appMeta = { ...(u.user.app_metadata ?? {}), portal_suspended: true };
-  const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta });
-  if (upErr) return internalError(c, "portal_invites.portalPause", upErr);
+    // Suspension is an authorization flag: write it to app_metadata
+    // (authoritative, server-set) only.
+    const appMeta = { ...(u.user.app_metadata ?? {}), portal_suspended: true };
+    const { error: upErr } = await admin.auth.admin.updateUserById(id, { app_metadata: appMeta });
+    if (upErr) return internalError(c, "portal_invites.portalPause", upErr);
+  }
   return c.json({ ok: true, suspended: true });
 });
 
@@ -400,14 +462,17 @@ invites.post("/customers/:customerId/portal-resume", async (c) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceKey);
 
-  const { data: u, error: getErr } = await admin.auth.admin.getUserById(link.authUserId);
-  if (getErr || !u?.user) return c.json({ error: "Auth user lookup failed" }, 500);
+  // Resume applies to every linked login — a household can have several.
+  for (const id of linkedUserIds(link)) {
+    const { data: u, error: getErr } = await admin.auth.admin.getUserById(id);
+    if (getErr || !u?.user) return c.json({ error: "Auth user lookup failed" }, 500);
 
-  // Clear the suspension flag from app_metadata (authoritative, server-set).
-  const appMeta = { ...(u.user.app_metadata ?? {}) };
-  delete (appMeta as any).portal_suspended;
-  const { error: upErr } = await admin.auth.admin.updateUserById(link.authUserId, { app_metadata: appMeta });
-  if (upErr) return internalError(c, "portal_invites.portalResume", upErr);
+    // Clear the suspension flag from app_metadata (authoritative, server-set).
+    const appMeta = { ...(u.user.app_metadata ?? {}) };
+    delete (appMeta as any).portal_suspended;
+    const { error: upErr } = await admin.auth.admin.updateUserById(id, { app_metadata: appMeta });
+    if (upErr) return internalError(c, "portal_invites.portalResume", upErr);
+  }
   return c.json({ ok: true, suspended: false });
 });
 
@@ -427,29 +492,29 @@ invites.post("/customers/:customerId/portal-invite/resend", async (c) => {
   const household = (await kv.get(`customer:${tenantId}:household:${householdId}`)) as any;
   if (!household) return c.json({ error: "Household not found" }, 404);
 
-  // Same guard as the initial /portal-invite endpoint — refuse if the
-  // household already has portal access. Without this guard, resending
-  // generates a fresh accept-invite link the owner can click to overwrite
-  // the existing portal_users link via the accept-invite handler. Almost
-  // certainly not what staff meant by "resend". Use Reset password
-  // instead for an active account.
+  // Resend re-emails a PENDING invite (any contact's). When no invite is
+  // pending and the household already has a working login, refuse — accept
+  // links for an active account are what Reset password is for. (Accepting
+  // a second contact's invite ADDS a login; it no longer overwrites.)
+  const allInvites = (await kv.getByPrefix(`portal_invites:${tenantId}:`)) as any[];
+  const pending = allInvites
+    .filter((i) => i.customerId === householdId && !i.consumedAt && new Date(i.expiresAt) > new Date())
+    .sort((a, b) => new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime())[0];
+
   const existingLink = await kv.get(`portal_users:${tenantId}:${householdId}`);
-  if (existingLink) {
+  if (!pending && existingLink) {
     return c.json(
       { error: "Portal account is already active. Use Reset password to send them a sign-in link." },
       409,
     );
   }
 
-  const contact = await getPrimaryContact(tenantId, householdId, household.primary_contact_id);
+  const contact = pending
+    ? { email: pending.email, first_name: (pending.contactName ?? "").split(" ")[0] || undefined }
+    : await getPrimaryContact(tenantId, householdId, household.primary_contact_id);
   if (!contact?.email) {
     return c.json({ error: "Household has no contact with an email address" }, 400);
   }
-
-  const allInvites = (await kv.getByPrefix(`portal_invites:${tenantId}:`)) as any[];
-  const pending = allInvites
-    .filter((i) => i.customerId === householdId && !i.consumedAt && new Date(i.expiresAt) > new Date())
-    .sort((a, b) => new Date(b.expiresAt).getTime() - new Date(a.expiresAt).getTime())[0];
 
   let inviteRecord: any;
   if (pending) {

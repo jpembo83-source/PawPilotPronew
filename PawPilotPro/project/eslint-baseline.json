@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4066,
+  "errors": 4065,
   "warnings": 431
  },
  "files": {
@@ -301,7 +301,7 @@
    "warnings": 0
   },
   "src/app/modules/customers/components/household-detail/PortalActivityTab.tsx": {
-   "errors": 23,
+   "errors": 22,
    "warnings": 2
   },
   "src/app/modules/customers/components/modals/AddContactModal.tsx": {

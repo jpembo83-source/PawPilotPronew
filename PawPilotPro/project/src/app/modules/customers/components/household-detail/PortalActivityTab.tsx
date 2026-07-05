@@ -30,6 +30,24 @@ interface PortalInvite {
   householdId: string;
   expiresAt: string;
   createdAt: string;
+  email?: string;
+  contactName?: string;
+}
+
+/** One linked login — a household can have several (one per invited contact). */
+interface PortalUserInfo {
+  id: string;
+  email: string | null;
+  lastSignInAt: string | null;
+  suspended: boolean;
+}
+
+interface HouseholdContact {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  is_primary?: boolean;
 }
 
 interface ActivityData {
@@ -37,6 +55,7 @@ interface ActivityData {
   pendingInvites: PortalInvite[];
   lastSignInAt?: string | null;
   suspended?: boolean;
+  users?: PortalUserInfo[];
 }
 
 // Public URL the owner-facing portal is served at. In prod (Netlify) this
@@ -48,6 +67,7 @@ const PORTAL_BASE_URL = (
   'http://localhost:5175'
 );
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
+const CUSTOMERS_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 
 async function callAdmin(path: string, opts: RequestInit = {}) {
   const headers = await getAuthHeaders();
@@ -59,6 +79,7 @@ async function callAdmin(path: string, opts: RequestInit = {}) {
 
 export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
   const [data, setData] = useState<ActivityData | null>(null);
+  const [contacts, setContacts] = useState<HouseholdContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const { confirm, confirmDialog } = useConfirmDialog();
@@ -67,9 +88,16 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${FN_BASE}/customers/${householdId}/portal-activity`, { headers });
-      if (res.ok) setData(await res.json());
+      const [activityRes, householdRes] = await Promise.all([
+        fetch(`${FN_BASE}/customers/${householdId}/portal-activity`, { headers }),
+        fetch(`${CUSTOMERS_BASE}/households/${householdId}`, { headers }),
+      ]);
+      if (activityRes.ok) setData(await activityRes.json());
       else setData({ link: null, pendingInvites: [] });
+      if (householdRes.ok) {
+        const household = (await householdRes.json()) as { contacts?: HouseholdContact[] };
+        setContacts(Array.isArray(household.contacts) ? household.contacts : []);
+      }
     } catch {
       setData({ link: null, pendingInvites: [] });
     } finally {
@@ -103,9 +131,14 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     [load],
   );
 
-  const sendInvite = () => runAction(
-    'send-invite',
-    () => callAdmin(`/customers/${householdId}/portal-invite`, { method: 'POST' }),
+  // No contactId → the primary contact (original flow). With contactId →
+  // that specific contact gets their own portal login for this household.
+  const sendInvite = (contactId?: string) => runAction(
+    contactId ? `send-invite-${contactId}` : 'send-invite',
+    () => callAdmin(`/customers/${householdId}/portal-invite`, {
+      method: 'POST',
+      ...(contactId ? { body: JSON.stringify({ contactId }) } : {}),
+    }),
     'Invite email sent',
   );
 
@@ -186,6 +219,14 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
   const pending = data?.pendingInvites ?? [];
   const suspended = !!data?.suspended;
   const lastSignInAt = data?.lastSignInAt ?? null;
+  const users = data?.users ?? [];
+  const linkedEmails = new Set(users.map((u) => (u.email ?? '').toLowerCase()).filter(Boolean));
+  const pendingEmails = new Set(pending.map((i) => (i.email ?? '').toLowerCase()).filter(Boolean));
+  // Contacts who could get their own portal login: have an email that isn't
+  // already linked and doesn't have an invite in flight.
+  const invitableContacts = contacts.filter(
+    (ct) => ct.email && !linkedEmails.has(ct.email.toLowerCase()) && !pendingEmails.has(ct.email.toLowerCase()),
+  );
 
   return (
     <div className="space-y-4">
@@ -226,17 +267,66 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
                   <dt className="text-muted-foreground">Linked since</dt>
                   <dd className="font-medium">{new Date(data.link.createdAt).toLocaleString()}</dd>
                 </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">Last sign-in</dt>
-                  <dd className="font-medium">
-                    {lastSignInAt ? new Date(lastSignInAt).toLocaleString() : 'Never signed in'}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-muted-foreground">Auth user ID</dt>
-                  <dd className="font-mono text-xs">{data.link.authUserId.slice(0, 8)}…</dd>
-                </div>
+                {users.length === 0 && (
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">Last sign-in</dt>
+                    <dd className="font-medium">
+                      {lastSignInAt ? new Date(lastSignInAt).toLocaleString() : 'Never signed in'}
+                    </dd>
+                  </div>
+                )}
               </dl>
+
+              {/* Every login on this household — one per invited contact */}
+              {users.length > 0 && (
+                <ul className="space-y-2">
+                  {users.map((u) => (
+                    <li key={u.id} className="flex items-center justify-between gap-3 p-3 rounded-md border bg-muted/30">
+                      <div className="text-sm min-w-0">
+                        <p className="font-medium truncate">{u.email ?? `${u.id.slice(0, 8)}…`}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {u.lastSignInAt
+                            ? `Last sign-in ${new Date(u.lastSignInAt).toLocaleString()}`
+                            : 'Never signed in'}
+                        </p>
+                      </div>
+                      {u.suspended && (
+                        <Badge variant="outline" className="border-amber-400 text-amber-700 shrink-0">
+                          Paused
+                        </Badge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Additional logins for other contacts with an email */}
+              {invitableContacts.length > 0 && (
+                <div className="pt-2 border-t space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Other contacts in this household can have their own login:
+                  </p>
+                  {invitableContacts.map((ct) => (
+                    <div key={ct.id} className="flex items-center justify-between gap-3">
+                      <div className="text-sm min-w-0">
+                        <p className="font-medium truncate">
+                          {`${ct.first_name ?? ''} ${ct.last_name ?? ''}`.trim() || ct.email}
+                        </p>
+                        <p className="text-sm text-muted-foreground truncate">{ct.email}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={!!busyAction}
+                        onClick={() => void sendInvite(ct.id)}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        {busyAction === `send-invite-${ct.id}` ? 'Sending…' : 'Send invite'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Everyday actions */}
               <div className="grid grid-cols-2 gap-2 pt-2">
@@ -291,7 +381,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
               </div>
             </>
           ) : (
-            <Button onClick={sendInvite} disabled={!!busyAction}>
+            <Button onClick={() => void sendInvite()} disabled={!!busyAction}>
               <Send className="h-4 w-4 mr-2" />
               {busyAction === 'send-invite' ? 'Sending…' : 'Send portal invite'}
             </Button>
@@ -321,9 +411,11 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
                 const hoursLeft = Math.max(0, Math.round((exp.getTime() - Date.now()) / 3_600_000));
                 return (
                   <li key={inv.token} className="flex items-center justify-between gap-3 p-3 rounded-md border bg-muted/30">
-                    <div className="text-sm">
-                      <p className="font-medium">Expires in {hoursLeft}h</p>
-                      <p className="text-xs text-muted-foreground">Sent {new Date(inv.createdAt).toLocaleString()}</p>
+                    <div className="text-sm min-w-0">
+                      <p className="font-medium truncate">
+                        {inv.contactName || inv.email || 'Invite'} — expires in {hoursLeft}h
+                      </p>
+                      <p className="text-sm text-muted-foreground">Sent {new Date(inv.createdAt).toLocaleString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" onClick={() => copyAcceptUrl(inv.token)}>
