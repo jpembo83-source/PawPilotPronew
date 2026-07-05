@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Info, PawPrint, ArrowRight, ScanFace, MailCheck } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
-import { useBranding } from "@/lib/branding";
+import { brandDisplayName, useBranding } from "@/lib/branding";
 import { PasswordInput } from "@/components/PasswordInput";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
 import {
@@ -294,7 +294,7 @@ export function LoginScreen() {
 
 function BrandWordmark() {
   const brand = useBranding((s) => s.brand);
-  const name = brand.name?.trim() || "PawPilotPro";
+  const name = brandDisplayName(brand);
   return (
     <header
       className="relative z-10 px-6 flex items-center gap-2.5 text-white anim-fade-in"

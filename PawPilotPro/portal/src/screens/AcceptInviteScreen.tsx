@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Mail, ShieldAlert } from "lucide-react";
 import { getPortalApi } from "@/lib/api";
 import { getSupabase } from "@/lib/supabase";
+import { brandDisplayName } from "@/lib/branding";
 import { PasswordInput } from "@/components/PasswordInput";
 
 interface AcceptResponse {
@@ -39,7 +40,7 @@ export function AcceptInviteScreen() {
     return (
       <main className="min-h-dvh flex flex-col px-6 pt-16 pb-10 max-w-sm mx-auto">
         <header className="mb-7 anim-fade-in">
-          <p className="text-eyebrow mb-3">PawPilotPro</p>
+          <p className="text-eyebrow mb-3">{brandDisplayName()}</p>
           <h1 className="text-display">Invite link looks off</h1>
         </header>
         <div className="rounded-2xl border border-border bg-card p-5 anim-slide-up">
