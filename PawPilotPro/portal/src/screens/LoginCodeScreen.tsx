@@ -4,7 +4,9 @@ import { ChevronLeft, MailCheck } from "lucide-react";
 import { getSupabase } from "@/lib/supabase";
 
 /**
- * Passwordless sign-in with a 6-digit emailed code (Supabase email OTP).
+ * Passwordless sign-in with an emailed one-time code (Supabase email OTP).
+ * The code length is a Supabase dashboard setting (6–10 digits), so the UI
+ * never claims a specific length — this project currently sends 8.
  *
  * Invite-only guard: `shouldCreateUser: false` makes Supabase refuse to mint
  * a user for an unknown email, so this can never become a self-signup back
@@ -53,7 +55,7 @@ export function LoginCodeScreen() {
   async function verifyCode(e: React.FormEvent) {
     e.preventDefault();
     if (code.trim().length < 6) {
-      setErr("Enter the 6-digit code from the email.");
+      setErr("Enter the full code from the email.");
       return;
     }
     setErr(null);
@@ -90,8 +92,8 @@ export function LoginCodeScreen() {
         </h1>
         <p className="text-[14px] text-muted-foreground leading-relaxed">
           {phase === "request"
-            ? "No password needed — we'll email you a 6-digit code."
-            : `If ${email.trim()} has a portal account, a 6-digit code is on its way. It's valid for a few minutes.`}
+            ? "No password needed — we'll email you a sign-in code."
+            : `If ${email.trim()} has a portal account, a sign-in code is on its way. It's valid for a few minutes.`}
         </p>
       </header>
 
@@ -128,18 +130,18 @@ export function LoginCodeScreen() {
       ) : (
         <form onSubmit={verifyCode} noValidate className="space-y-4 anim-slide-up">
           <label htmlFor="otp-code" className="block">
-            <span className="text-eyebrow block mb-1.5">6-digit code</span>
+            <span className="text-eyebrow block mb-1.5">Code from the email</span>
             <input
               id="otp-code"
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              maxLength={6}
+              maxLength={10}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
               autoComplete="one-time-code"
               autoFocus
-              placeholder="123456"
+              placeholder="12345678"
               className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[19px] tracking-[0.35em] text-tabular focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
             />
           </label>
