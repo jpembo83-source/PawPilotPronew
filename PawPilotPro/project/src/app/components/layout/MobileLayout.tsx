@@ -29,7 +29,9 @@ import {
   UserGear,
   DotsThree,
   CaretRight,
+  MagnifyingGlass,
 } from '@phosphor-icons/react';
+import { GlobalSearch } from '../search/GlobalSearch';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboardStore } from '../../modules/dashboard/store';
 import { useSettingsStore } from '../../modules/settings/store';
@@ -154,6 +156,10 @@ export function MobileLayout() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const canSearch =
+    permissions.canAccessModule('customers') || permissions.canAccessModule('daycare');
 
   // Stamp the mobile shell on <body> so theme.css can enforce the 44px
   // touch-target floor everywhere — including dialogs rendered in portals
@@ -225,26 +231,45 @@ export function MobileLayout() {
           </span>
         </button>
 
-        {/* Bell */}
-        <button
-          className="-mr-2 rounded-lg transition-colors relative flex items-center justify-center touch-target"
-          style={{ WebkitTapHighlightColor: 'transparent' }}
-          aria-label="Notifications"
-          onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
-          onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
-          onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
-          onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
-        >
-          <Bell className="h-6 w-6" style={{ color: '#6B6762' }} />
-          {/* Brand dot — visible when there are notifications */}
-          <span
-            className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
-            style={{ background: 'var(--primary)' }}
-          />
-        </button>
+        {/* Search + Bell */}
+        <div className="flex items-center">
+          {canSearch && (
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="rounded-lg transition-colors flex items-center justify-center touch-target"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
+              aria-label="Search pets and households"
+              onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+              onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
+              onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+              onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <MagnifyingGlass className="h-6 w-6" style={{ color: '#6B6762' }} />
+            </button>
+          )}
+          <button
+            className="-mr-2 rounded-lg transition-colors relative flex items-center justify-center touch-target"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+            aria-label="Notifications"
+            onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+            onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
+            onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
+            onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
+          >
+            <Bell className="h-6 w-6" style={{ color: '#6B6762' }} />
+            {/* Brand dot — visible when there are notifications */}
+            <span
+              className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
+              style={{ background: 'var(--primary)' }}
+            />
+          </button>
+        </div>
       </header>
 
       <OfflineBanner />
+
+      {/* Global search — header icon or Cmd/Ctrl+K */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
 
       {/* ── Main Content ───────────────────────────────────────── */}
       <main className="flex-1 overflow-auto">
