@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Outlet } from 'react-router';
 import { useSettingsStore } from '../../modules/settings/store';
@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 export function Layout() {
   const { fetchLocations, fetchOrganisation, fetchGlobalModules } = useSettingsStore();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     // Only fetch when user is authenticated and not loading
@@ -25,10 +26,10 @@ export function Layout() {
     <div className="flex flex-col h-screen w-full bg-[#F4F3EF] text-[#1C1916] font-sans">
       <ViewAsBanner />
       <OfflineBanner />
-      {/* Global search — Cmd/Ctrl+K from any screen */}
-      <GlobalSearch />
+      {/* Global search — Cmd/Ctrl+K or the sidebar Search button, from any screen */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <Sidebar onOpenSearch={() => setSearchOpen(true)} />
         <main className="flex-1 overflow-auto h-full w-full bg-[#F4F3EF]">
           <div className="h-full w-full max-w-7xl mx-auto p-6 md:p-8">
             <Outlet />

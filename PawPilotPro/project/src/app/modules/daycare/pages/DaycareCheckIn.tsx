@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useDaycareStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
-import { Dialog, DialogContent } from '../../../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../components/ui/dialog';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { CheckInDialog } from '../components/CheckInDialog';
 import {
@@ -137,8 +137,12 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
     <div className="absolute inset-0 z-20 flex flex-col bg-white rounded-2xl border border-[#E2DED8] shadow-xl m-4 overflow-hidden">
       {/* Walk-in header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-[#E2DED8]">
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F4F3EF] text-[#6B6762] transition-colors">
-          <X size={18} />
+        <button
+          onClick={onClose}
+          aria-label="Close walk-in"
+          className="p-1.5 rounded-lg hover:bg-[#F4F3EF] text-[#6B6762] transition-colors"
+        >
+          <X size={18} aria-hidden="true" />
         </button>
         <div>
           <h2 className="text-base font-bold text-[#1C1916]">Walk-in</h2>
@@ -154,11 +158,12 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
+            aria-label="Search by pet or household name"
             placeholder="Search by pet or household name…"
             className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-tertiary-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searching && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <div role="status" aria-label="Searching" className="absolute right-3 top-1/2 -translate-y-1/2">
               <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
             </div>
           )}
@@ -177,11 +182,19 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
               <p className="text-sm font-semibold text-[#1C1916]">{household.household_name}</p>
             </div>
             {household.pets.map((pet: any) => {
+              const petInfo = pet as { name: string; behaviour_notes?: string; medical_notes?: string };
+              const householdName = (household as { household_name: string }).household_name;
               const isSelected = selectedPet?.id === pet.id;
+              const petFlags = [
+                petInfo.behaviour_notes ? 'has behaviour alert' : null,
+                petInfo.medical_notes ? 'has medical alert' : null,
+              ].filter(Boolean).join(', ');
               return (
                 <button
                   key={pet.id}
                   onClick={() => handleSelectPet(isSelected ? null : household, isSelected ? null : pet)}
+                  aria-pressed={isSelected}
+                  aria-label={`${petInfo.name}, ${householdName}${petFlags ? `, ${petFlags}` : ''}`}
                   className="w-full flex items-center gap-3 px-4 py-3 border-t border-[#F0EDE8] transition-colors"
                   style={{ background: isSelected ? 'var(--primary-tint)' : 'white' }}
                 >
@@ -195,9 +208,9 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
                     <p className="text-sm font-medium text-[#1C1916]">{pet.name}</p>
                     {pet.breed && <p className="text-xs text-tertiary-foreground truncate">{pet.breed}</p>}
                   </div>
-                  {pet.behaviour_notes && <Warning size={14} weight="fill" className="text-amber-500 flex-shrink-0" />}
-                  {pet.medical_notes   && <FirstAidKit size={14} weight="fill" className="text-red-500 flex-shrink-0" />}
-                  {isSelected && <CheckCircle size={18} weight="fill" style={{ color: 'var(--primary)' }} className="flex-shrink-0" />}
+                  {pet.behaviour_notes && <Warning size={14} weight="fill" aria-hidden="true" className="text-amber-500 flex-shrink-0" />}
+                  {pet.medical_notes   && <FirstAidKit size={14} weight="fill" aria-hidden="true" className="text-red-500 flex-shrink-0" />}
+                  {isSelected && <CheckCircle size={18} weight="fill" aria-hidden="true" style={{ color: 'var(--primary)' }} className="flex-shrink-0" />}
                 </button>
               );
             })}
@@ -400,9 +413,10 @@ export function DaycareCheckIn() {
         <div className="flex items-center gap-3 mb-3">
           <button
             onClick={() => navigate('/daycare')}
+            aria-label="Back to daycare"
             className="p-1.5 rounded-lg hover:bg-[#F4F3EF] text-[#6B6762] transition-colors"
           >
-            <CaretLeft size={20} />
+            <CaretLeft size={20} aria-hidden="true" />
           </button>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-[#1C1916]">Check In</h1>
@@ -446,15 +460,17 @@ export function DaycareCheckIn() {
           <input
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            aria-label="Search by pet or owner name"
             placeholder="Search by pet or owner name…"
             className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2DED8] bg-[#F4F3EF] text-base md:text-sm text-[#1C1916] placeholder:text-tertiary-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-tertiary-foreground hover:text-[#1C1916] transition-colors"
             >
-              <X size={16} />
+              <X size={16} aria-hidden="true" />
             </button>
           )}
         </div>
@@ -463,13 +479,18 @@ export function DaycareCheckIn() {
       {/* Booking list */}
       <div className="flex-1 overflow-auto p-4 space-y-3">
 
-        {isLoading && [0, 1, 2].map(i => (
-          <div key={i} className="animate-pulse rounded-2xl h-20 bg-white border border-[#E2DED8]" />
-        ))}
+        {isLoading && (
+          <div role="status" aria-live="polite" className="space-y-3">
+            <span className="sr-only">Loading dogs waiting to check in…</span>
+            {[0, 1, 2].map(i => (
+              <div key={i} className="animate-pulse rounded-2xl h-20 bg-white border border-[#E2DED8]" />
+            ))}
+          </div>
+        )}
 
         {!isLoading && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-            <Dog size={48} weight="thin" className="text-[#D4CFC9] mb-3" />
+            <Dog size={48} weight="thin" aria-hidden="true" className="text-[#D4CFC9] mb-3" />
             <p className="text-base font-medium text-[#1C1916] mb-1">No dogs waiting to check in</p>
             <p className="text-sm text-[#6B6762] mb-6">
               All confirmed bookings have been checked in.
@@ -488,11 +509,24 @@ export function DaycareCheckIn() {
         {!isLoading && filtered.map(booking => {
           const late = isLate(booking);
           const isSelected = selectMode && selectedIds.has(booking.id);
+          // Flag state is safety information — it belongs in the accessible
+          // name, not just in the icon colour.
+          const flagText = [
+            booking.has_behaviour_flag ? 'has behaviour alert' : null,
+            booking.has_medical_flag ? 'has medical alert' : null,
+          ].filter(Boolean).join(', ');
+          const cardLabel =
+            `${selectMode ? (isSelected ? 'Deselect' : 'Select') : 'Check in'} ${booking.pet_name}, ` +
+            `${booking.household_name}` +
+            (flagText ? `, ${flagText}` : '') +
+            (booking.planned_start_time ? `, booked for ${booking.planned_start_time}` : '') +
+            (late ? ', running late' : '');
           return (
             <button
               key={booking.id}
               onClick={() => { if (selectMode) toggleSelected(booking.id); else void handleSelectBooking(booking); }}
               aria-pressed={selectMode ? isSelected : undefined}
+              aria-label={cardLabel}
               className="w-full bg-white rounded-2xl border p-4 flex items-center gap-4 text-left hover:shadow-sm active:scale-[0.99] transition-all"
               style={{
                 borderColor: isSelected ? 'var(--primary)' : late ? '#FCD34D' : '#E2DED8',
@@ -531,10 +565,10 @@ export function DaycareCheckIn() {
                     </span>
                   )}
                   {booking.has_behaviour_flag && (
-                    <Warning size={13} weight="fill" className="text-amber-500 flex-shrink-0" />
+                    <Warning size={13} weight="fill" aria-hidden="true" className="text-amber-500 flex-shrink-0" />
                   )}
                   {booking.has_medical_flag && (
-                    <FirstAidKit size={13} weight="fill" className="text-red-500 flex-shrink-0" />
+                    <FirstAidKit size={13} weight="fill" aria-hidden="true" className="text-red-500 flex-shrink-0" />
                   )}
                 </div>
                 <p className="text-xs text-[#6B6762] truncate">{booking.household_name}</p>
@@ -543,7 +577,8 @@ export function DaycareCheckIn() {
                     <Clock size={11} className="text-tertiary-foreground" />
                     <span className="text-xs text-tertiary-foreground">{booking.planned_start_time}</span>
                     {late && (
-                      <span className="text-xs font-semibold text-amber-600 ml-1">· Late</span>
+                      // amber-700 — amber-600 is 3.4:1 on white, below AA
+                      <span className="text-xs font-semibold text-amber-700 ml-1">· Late</span>
                     )}
                   </div>
                 )}
@@ -560,7 +595,7 @@ export function DaycareCheckIn() {
           already carries the safe-area inset). */}
       {selectMode && (
         <div className="bg-white border-t border-[#E2DED8] px-4 py-3 flex items-center gap-3">
-          <p className="text-sm text-[#6B6762] flex-1">
+          <p role="status" aria-live="polite" className="text-sm text-[#6B6762] flex-1">
             {selectedIds.size === 0
               ? 'Tap dogs to select'
               : `${selectedIds.size} selected`}
@@ -607,10 +642,10 @@ export function DaycareCheckIn() {
       <Dialog open={batch !== null} onOpenChange={open => { if (!open && !batchSubmitting) setBatch(null); }}>
         <DialogContent className="rounded-3xl max-w-md p-0 overflow-hidden">
           <div className="px-6 pt-6 pb-4" style={{ background: 'var(--primary-tint)' }}>
-            <h2 className="text-xl font-bold text-[#1C1916] leading-tight">Check in dogs</h2>
-            <p className="text-sm text-[#6B6762] mt-0.5">
+            <DialogTitle className="text-xl font-bold text-[#1C1916] leading-tight">Check in dogs</DialogTitle>
+            <DialogDescription className="text-sm text-[#6B6762] mt-0.5">
               Each dog is validated individually — blocked dogs are excluded.
-            </p>
+            </DialogDescription>
           </div>
 
           <div className="px-6 py-5 space-y-4 max-h-[50vh] overflow-y-auto">

@@ -160,12 +160,26 @@ body {
   .anim-fade-in   { animation: fadeIn var(--duration-base) var(--ease-out) both; }
   .anim-slide-up  { animation: slideUp var(--duration-slow) var(--ease-out-quart) both; }
   .anim-pop       { animation: pop var(--duration-slow) var(--ease-spring) both; }
+  /* Full-bleed hero photos (login): fade in while easing home from a slight
+     zoom — one gentle move, then still. Owns both animations because a second
+     animation class on the same element would be overridden, not combined. */
+  .anim-hero-zoom {
+    animation:
+      fadeIn 1.2s var(--ease-out) both,
+      heroZoom 14s var(--ease-out) both;
+    will-change: transform;
+  }
   .press          { transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out); }
   .press:active   { transform: scale(0.985); }
 }
 @keyframes fadeIn  { from { opacity: 0 }                            to { opacity: 1 } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
 @keyframes pop     { 0% { opacity: 0; transform: scale(0.94) } 60% { opacity: 1; transform: scale(1.02) } 100% { transform: scale(1) } }
+@keyframes heroZoom { from { transform: scale(1.07) } to { transform: scale(1) } }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-hero-zoom { animation: fadeIn 1.2s var(--ease-out) both; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

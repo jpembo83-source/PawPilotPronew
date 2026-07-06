@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import '../styles/theme.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ViewAsProvider } from './context/ViewAsContext';
 import { Layout } from './components/layout/Layout';
 import { MobileLayout } from './components/layout/MobileLayout';
+import { useIsMobile } from './components/ui/use-mobile';
 import { LoginPage } from './modules/auth/LoginPage';
 import { ResetPasswordPage } from './modules/auth/ResetPasswordPage';
 import { Daycare } from './modules/daycare/Daycare';
@@ -55,25 +56,6 @@ function AppPrefixRedirect() {
   const location = window.location.pathname;
   const newPath = location.replace('/app/', '/');
   return <Navigate to={newPath} replace />;
-}
-
-// Detect mobile device
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 768 || 
-        /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      setIsMobile(mobile);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-  
-  return isMobile;
 }
 
 // Responsive layout that switches between mobile and desktop

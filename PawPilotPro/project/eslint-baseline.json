@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4057,
-  "warnings": 430
+  "errors": 4033,
+  "warnings": 420
  },
  "files": {
   "eslint.config.js": {
@@ -54,11 +54,11 @@
   },
   "src/app/components/layout/MobileLayout.tsx": {
    "errors": 1,
-   "warnings": 3
+   "warnings": 0
   },
   "src/app/components/layout/Sidebar.tsx": {
-   "errors": 29,
-   "warnings": 7
+   "errors": 5,
+   "warnings": 0
   },
   "src/app/components/reordering/ReorderMenuItems.tsx": {
    "errors": 2,
