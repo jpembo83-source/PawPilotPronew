@@ -26,6 +26,7 @@ import {
   ShoppingBag,
   Gauge,
   CalendarCheck,
+  MagnifyingGlass,
 } from '@phosphor-icons/react';
 // Default logo imported as defaultLogo above
 import { useAuth } from '../../context/AuthContext';
@@ -107,7 +108,12 @@ const NAV_SECTIONS = [
   { label: 'Admin', paths: ['/settings'] },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Opens the global search palette (same one Cmd/Ctrl+K toggles). */
+  onOpenSearch?: () => void;
+}
+
+export function Sidebar({ onOpenSearch }: SidebarProps) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const { selectedLocationId, setLocation, sidebarCollapsed, toggleSidebar } = useDashboardStore();
@@ -120,6 +126,11 @@ export function Sidebar() {
   const orgName = organisation.tradingName || organisation.name || 'Paw Pilot Pro';
 
   const isCollapsed = sidebarCollapsed;
+
+  // Search is useful only to staff who can see what it finds (mirrors the
+  // RBAC gate inside GlobalSearch itself).
+  const canSearch = canAccessModule('customers') || canAccessModule('daycare');
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform);
 
   const activeLocationName = selectedLocationId === 'ALL'
     ? 'All Locations'
@@ -322,6 +333,32 @@ export function Sidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Global search — visible entry point for the Cmd/Ctrl+K palette */}
+      {canSearch && onOpenSearch && (
+        <div className="px-2 pt-2">
+          <button
+            onClick={onOpenSearch}
+            title={isCollapsed ? 'Search dogs & owners' : undefined}
+            aria-label="Search dogs and owners"
+            className={classNames(
+              'w-full flex items-center rounded-lg border border-[#E2DED8] bg-white text-[13px] text-[#57534E]',
+              'hover:text-[#1C1916] hover:border-[#CFC9C1] hover:bg-[#FDFDFC] transition-colors',
+              isCollapsed ? 'justify-center p-2.5' : 'gap-2 px-3 py-2'
+            )}
+          >
+            <MagnifyingGlass className="h-4 w-4 text-[#78716C] shrink-0" />
+            {!isCollapsed && (
+              <>
+                <span className="flex-1 text-left font-medium">Search</span>
+                <kbd className="text-[11px] leading-none text-tertiary-foreground border border-[#E2DED8] rounded px-1.5 py-1 bg-[#FAFAF8] font-sans">
+                  {isMac ? '⌘K' : 'Ctrl K'}
+                </kbd>
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className={classNames(
