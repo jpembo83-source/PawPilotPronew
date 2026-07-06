@@ -1,13 +1,6 @@
 import { Check } from "lucide-react";
 import { useBookingDraftStore } from "@/stores/bookingDraftStore";
-import type { Service } from "@shared/types/booking";
-
-const SERVICES: { id: Service; title: string; subtitle: string; emoji: string }[] = [
-  { id: "daycare",    title: "Daycare",    subtitle: "Drop-off & pick-up the same day", emoji: "☀️" },
-  { id: "grooming",   title: "Grooming",   subtitle: "Bath, full groom, nail trim",     emoji: "✂️" },
-  { id: "overnights", title: "Overnights", subtitle: "Multi-night boarding",            emoji: "🌙" },
-  { id: "transport",  title: "Transport",  subtitle: "Pickup / drop-off add-on",        emoji: "🚐" },
-];
+import { SERVICES, stepsFor } from "./bookingSteps";
 
 export function StepService({ onNext }: { onNext: () => void }) {
   const { service, setService } = useBookingDraftStore();
@@ -47,6 +40,11 @@ export function StepService({ onNext }: { onNext: () => void }) {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[15px] leading-tight">{s.title}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{s.subtitle}</p>
+                    {/* Wizard length up front — the count is live from
+                        stepsFor, so it can't drift from the real flow. */}
+                    <p className="text-[11px] text-muted-foreground/80 mt-1 text-tabular">
+                      {stepsFor(s.id).length} quick steps
+                    </p>
                   </div>
                   {selected && (
                     <div className="size-6 rounded-full bg-primary text-primary-foreground grid place-items-center shrink-0">
