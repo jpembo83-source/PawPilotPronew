@@ -32,10 +32,10 @@ export function StepService({ onNext }: { onNext: () => void }) {
               >
                 <div className="flex items-center gap-3.5">
                   <div
-                    className="size-12 rounded-full bg-secondary text-secondary-foreground grid place-items-center text-2xl shrink-0"
+                    className="size-12 rounded-full bg-secondary text-secondary-foreground grid place-items-center shrink-0"
                     aria-hidden="true"
                   >
-                    {s.emoji}
+                    <s.icon size={22} strokeWidth={2} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[15px] leading-tight">{s.title}</p>

@@ -1,6 +1,7 @@
 // Booking wizard step metadata — shared by BookingFlow (progress header)
 // and StepService (per-service step counts on the cards). Moved out of
 // BookingFlow so both can import it without a component-module cycle.
+import { Sun, Scissors, Moon, Bus, type LucideIcon } from "lucide-react";
 import type { Service } from "@shared/types/booking";
 
 export type Step = "service" | "pets" | "location" | "dates" | "addons" | "review";
@@ -39,11 +40,13 @@ export function stepsFor(service: string | null): Step[] {
   return base;
 }
 
-export const SERVICES: { id: Service; title: string; subtitle: string; emoji: string }[] = [
-  { id: "daycare",    title: "Daycare",    subtitle: "Drop-off & pick-up the same day", emoji: "☀️" },
-  { id: "grooming",   title: "Grooming",   subtitle: "Bath, full groom, nail trim",     emoji: "✂️" },
-  { id: "overnights", title: "Overnights", subtitle: "Multi-night boarding",            emoji: "🌙" },
-  { id: "transport",  title: "Transport",  subtitle: "Pickup / drop-off add-on",        emoji: "🚐" },
+// Icon primitives, not emoji — MASTER.md anti-pattern rule ("Emojis as
+// icons — use SVG"), same rule stripEmoji() enforces on server copy.
+export const SERVICES: { id: Service; title: string; subtitle: string; icon: LucideIcon }[] = [
+  { id: "daycare",    title: "Daycare",    subtitle: "Drop-off & pick-up the same day", icon: Sun },
+  { id: "grooming",   title: "Grooming",   subtitle: "Bath, full groom, nail trim",     icon: Scissors },
+  { id: "overnights", title: "Overnights", subtitle: "Multi-night boarding",            icon: Moon },
+  { id: "transport",  title: "Transport",  subtitle: "Pickup / drop-off add-on",        icon: Bus },
 ];
 
 /** Display title for the context bar ("Daycare · Rex & Luna"). */

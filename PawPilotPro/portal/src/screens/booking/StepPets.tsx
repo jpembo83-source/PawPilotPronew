@@ -1,4 +1,4 @@
-import { Check, Clock } from "lucide-react";
+import { Check, Clock, PawPrint } from "lucide-react";
 import { useBookingDraftStore } from "@/stores/bookingDraftStore";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { Skeleton } from "@/components/Skeleton";
@@ -95,10 +95,10 @@ export function StepPets({ onNext }: { onNext: () => void }) {
                   />
                 ) : (
                   <div
-                    className="size-14 rounded-full bg-secondary text-secondary-foreground grid place-items-center text-2xl shrink-0"
+                    className="size-14 rounded-full bg-secondary text-secondary-foreground grid place-items-center shrink-0"
                     aria-hidden="true"
                   >
-                    🐶
+                    <PawPrint size={24} strokeWidth={2} />
                   </div>
                 )}
                 <div className="flex-1 text-left min-w-0">
@@ -149,10 +149,10 @@ export function StepPets({ onNext }: { onNext: () => void }) {
                     />
                   ) : (
                     <div
-                      className="size-14 rounded-full bg-secondary text-secondary-foreground/70 grid place-items-center text-2xl shrink-0"
+                      className="size-14 rounded-full bg-secondary text-secondary-foreground/70 grid place-items-center shrink-0"
                       aria-hidden="true"
                     >
-                      🐶
+                      <PawPrint size={24} strokeWidth={2} />
                     </div>
                   )}
                   <div className="flex-1 text-left min-w-0">
