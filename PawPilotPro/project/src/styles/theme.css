@@ -30,6 +30,10 @@
   --font-weight-normal: 400;
   --ring: #177C5E;
   --primary-tint: color-mix(in srgb, var(--primary) 10%, white);
+  /* Primary as TEXT on tinted chips/badges. --primary itself is only
+     4.0–4.5:1 on --primary-tint / --background, so small text set in it
+     fails WCAG AA; this darker step is 5.7:1 on the tint. Do not lighten. */
+  --primary-strong: #0F5D45;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -60,6 +64,9 @@
   --muted: #252219;
   --muted-foreground: #9A948E;
   --tertiary-foreground: #9A948E;
+  /* Dark mode: chips sit on dark tints, so the READABLE primary is the
+     lighter step, mirroring --secondary-foreground. */
+  --primary-strong: #6ECFAB;
   --accent: #1A2E27;
   --accent-foreground: #6ECFAB;
   --destructive: #991b1b;
@@ -108,6 +115,7 @@
   --color-switch-background: var(--switch-background);
   --color-ring: var(--ring);
   --color-primary-tint: var(--primary-tint);
+  --color-primary-strong: var(--primary-strong);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);

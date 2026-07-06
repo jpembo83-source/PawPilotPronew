@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4065,
+  "errors": 4062,
   "warnings": 431
  },
  "files": {
@@ -57,7 +57,7 @@
    "warnings": 3
   },
   "src/app/components/layout/Sidebar.tsx": {
-   "errors": 29,
+   "errors": 26,
    "warnings": 7
   },
   "src/app/components/reordering/ReorderMenuItems.tsx": {

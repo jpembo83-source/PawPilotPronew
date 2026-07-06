@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator
 } from "../../components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 
 import { MODULES } from '../../modules/settings/constants/modules';
 
@@ -125,7 +126,14 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
   const logo = organisation.logoUrl || defaultLogo;
   const orgName = organisation.tradingName || organisation.name || 'Paw Pilot Pro';
 
-  const isCollapsed = sidebarCollapsed;
+  // Icon-only nav depends on hover/focus tooltips for its labels, and touch
+  // devices have neither — a coarse-pointer user could never learn what the
+  // icons mean. On touch-primary devices the sidebar therefore stays
+  // expanded (labels always visible) and the collapse toggle is not offered.
+  const [touchPrimary] = React.useState(
+    () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true
+  );
+  const isCollapsed = sidebarCollapsed && !touchPrimary;
 
   // Search is useful only to staff who can see what it finds (mirrors the
   // RBAC gate inside GlobalSearch itself).
@@ -201,12 +209,14 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
   const ungroupedItems = filteredNavItems.filter((item: any) => !allSectionPaths.includes(item.path));
 
   const renderNavItem = (item: any) => {
-    const PhosphorIcon = PATH_ICONS[item.path];
-    return (
+    const navItem = item as { path: string; label?: string; name?: string };
+    const PhosphorIcon = PATH_ICONS[navItem.path];
+    const label = navItem.label || navItem.name;
+    const link = (
       <NavLink
         key={item.path}
         to={item.path}
-        title={isCollapsed ? (item.label || item.name) : undefined}
+        aria-label={isCollapsed ? label : undefined}
         className={({ isActive }) => classNames(
           'group relative flex items-center rounded-lg text-[13.5px] font-medium transition-all duration-150',
           isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
@@ -246,6 +256,16 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         )}
       </NavLink>
     );
+
+    // Collapsed icons get a real tooltip (shows on hover AND keyboard focus,
+    // unlike the title attribute it replaces).
+    if (!isCollapsed) return link;
+    return (
+      <Tooltip key={item.path}>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+    );
   };
 
   return (
@@ -253,18 +273,22 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
       "flex flex-col h-full bg-[#FAFAF8] border-r border-[#E2DED8] flex-shrink-0 transition-all duration-300 relative",
       isCollapsed ? "w-16" : "w-60"
     )}>
-      {/* Collapse Toggle Button */}
-      <button
-        onClick={toggleSidebar}
-        className="absolute -right-3 top-20 z-50 h-6 w-6 bg-white border border-[#E2DED8] rounded-full shadow-sm flex items-center justify-center text-[#6B6762] hover:text-[#1C1916] hover:bg-[#F0EDE8] transition-colors"
-        title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-      >
-        {isCollapsed ? (
-          <CaretRight className="h-3.5 w-3.5" />
-        ) : (
-          <CaretLeft className="h-3.5 w-3.5" />
-        )}
-      </button>
+      {/* Collapse Toggle Button — not offered on touch-primary devices,
+          where the icon-only state would have no visible labels. */}
+      {!touchPrimary && (
+        <button
+          onClick={toggleSidebar}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="absolute -right-3 top-20 z-50 h-6 w-6 bg-white border border-[#E2DED8] rounded-full shadow-sm flex items-center justify-center text-[#6B6762] hover:text-[#1C1916] hover:bg-[#F0EDE8] transition-colors"
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <CaretRight className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <CaretLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+        </button>
+      )}
 
       {/* Logo / Org Header */}
       <div className={classNames(
@@ -291,10 +315,12 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
       )}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={classNames(
-              "w-full hover:bg-[#F0EDE8] transition-colors rounded-lg flex items-center text-[13px] group",
-              isCollapsed ? "p-2 justify-center" : "px-3 py-2 gap-2 justify-between"
-            )}>
+            <button
+              aria-label={isCollapsed ? `Change location — currently ${activeLocationName}` : undefined}
+              className={classNames(
+                "w-full hover:bg-[#F0EDE8] transition-colors rounded-lg flex items-center text-[13px] group",
+                isCollapsed ? "p-2 justify-center" : "px-3 py-2 gap-2 justify-between"
+              )}>
               <div className="flex items-center gap-2 overflow-hidden">
                 <Buildings className="h-3.5 w-3.5 text-primary shrink-0" strokeWidth={1.5} />
                 {!isCollapsed && (
@@ -405,9 +431,10 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
             <button
               onClick={logout}
               title="Sign Out"
+              aria-label="Sign out"
               className="text-[#A09893] hover:text-[#C03030] transition-colors rounded p-1 hover:bg-[#FEF2F2] ml-auto"
             >
-              <SignOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <SignOut className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
             </button>
           </div>
         ) : (
@@ -421,9 +448,10 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
             <button
               onClick={logout}
               title="Sign Out"
+              aria-label="Sign out"
               className="text-[#A09893] hover:text-[#C03030] transition-colors rounded p-1.5 hover:bg-[#FEF2F2]"
             >
-              <SignOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <SignOut className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
             </button>
           </div>
         )}

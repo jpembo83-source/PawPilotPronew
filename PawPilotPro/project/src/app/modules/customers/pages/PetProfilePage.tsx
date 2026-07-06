@@ -302,9 +302,10 @@ export function PetProfilePage() {
           <Button
             variant="ghost"
             size="sm"
+            aria-label="Back to household"
             onClick={() => navigate(`/customers/${pet.household_id}?tab=pets`)}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
 
           {/* Profile Picture with Upload */}

@@ -1,0 +1,343 @@
+{
+  "generatedAt": "2026-07-06T19:40:17.357Z",
+  "results": [
+    {
+      "screen": "dashboard",
+      "viewport": "desktop",
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            },
+            {
+              "target": [
+                ".py-\\[18px\\]"
+              ],
+              "html": "<div class=\"flex items-center gap-2.5 transition-all duration-300 px-4 py-[18px]\">"
+            },
+            {
+              "target": [
+                ".text-\\[10px\\]"
+              ],
+              "html": "<div class=\"h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0\">A</div>"
+            },
+            {
+              "target": [
+                ".cursor-default > .overflow-hidden.flex-1"
+              ],
+              "html": "<div class=\"overflow-hidden flex-1\"><p class=\"text-[13px] font-medium truncate text-[#1C1916] leading-tight\">Alex Morgan</p><p class=\"text-[11px] text-tertiary-foreground capitalize leading-tight\">adm"
+            }
+          ],
+          "nodeCount": 4
+        }
+      ],
+      "passes": 30
+    },
+    {
+      "screen": "check-in",
+      "viewport": "desktop",
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            },
+            {
+              "target": [
+                ".py-\\[18px\\]"
+              ],
+              "html": "<div class=\"flex items-center gap-2.5 transition-all duration-300 px-4 py-[18px]\">"
+            },
+            {
+              "target": [
+                ".text-white"
+              ],
+              "html": "<div class=\"h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0\">A</div>"
+            },
+            {
+              "target": [
+                ".cursor-default > .overflow-hidden.flex-1"
+              ],
+              "html": "<div class=\"overflow-hidden flex-1\"><p class=\"text-[13px] font-medium truncate text-[#1C1916] leading-tight\">Alex Morgan</p><p class=\"text-[11px] text-tertiary-foreground capitalize leading-tight\">adm"
+            }
+          ],
+          "nodeCount": 4
+        }
+      ],
+      "passes": 33
+    },
+    {
+      "screen": "check-out",
+      "viewport": "desktop",
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            },
+            {
+              "target": [
+                ".py-\\[18px\\]"
+              ],
+              "html": "<div class=\"flex items-center gap-2.5 transition-all duration-300 px-4 py-[18px]\">"
+            },
+            {
+              "target": [
+                ".text-white"
+              ],
+              "html": "<div class=\"h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0\">A</div>"
+            },
+            {
+              "target": [
+                ".cursor-default > .overflow-hidden.flex-1"
+              ],
+              "html": "<div class=\"overflow-hidden flex-1\"><p class=\"text-[13px] font-medium truncate text-[#1C1916] leading-tight\">Alex Morgan</p><p class=\"text-[11px] text-tertiary-foreground capitalize leading-tight\">adm"
+            }
+          ],
+          "nodeCount": 4
+        }
+      ],
+      "passes": 33
+    },
+    {
+      "screen": "pet-profile",
+      "viewport": "desktop",
+      "violations": [
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "description": "Ensure the order of headings is semantically correct",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/heading-order?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "h3"
+              ],
+              "html": "<h3 class=\"font-semibold text-red-900 mb-2\">Active Alerts</h3>"
+            }
+          ],
+          "nodeCount": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            },
+            {
+              "target": [
+                ".py-\\[18px\\]"
+              ],
+              "html": "<div class=\"flex items-center gap-2.5 transition-all duration-300 px-4 py-[18px]\">"
+            },
+            {
+              "target": [
+                ".text-\\[10px\\]"
+              ],
+              "html": "<div class=\"h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0\">A</div>"
+            },
+            {
+              "target": [
+                ".cursor-default > .overflow-hidden.flex-1"
+              ],
+              "html": "<div class=\"overflow-hidden flex-1\"><p class=\"text-[13px] font-medium truncate text-[#1C1916] leading-tight\">Alex Morgan</p><p class=\"text-[11px] text-tertiary-foreground capitalize leading-tight\">adm"
+            }
+          ],
+          "nodeCount": 4
+        }
+      ],
+      "passes": 38
+    },
+    {
+      "screen": "dashboard",
+      "viewport": "mobile",
+      "violations": [
+        {
+          "id": "image-redundant-alt",
+          "impact": "minor",
+          "description": "Ensure image alternative is not repeated as text",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/image-redundant-alt?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "img"
+              ],
+              "html": "<img src=\"data:image/svg+xml;b...\" alt=\"Maple Dog Co.\" class=\"h-5 w-5 object-conta...\">"
+            }
+          ],
+          "nodeCount": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            }
+          ],
+          "nodeCount": 1
+        }
+      ],
+      "passes": 31
+    },
+    {
+      "screen": "check-in",
+      "viewport": "mobile",
+      "violations": [
+        {
+          "id": "image-redundant-alt",
+          "impact": "minor",
+          "description": "Ensure image alternative is not repeated as text",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/image-redundant-alt?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "img"
+              ],
+              "html": "<img src=\"data:image/svg+xml;b...\" alt=\"Maple Dog Co.\" class=\"h-5 w-5 object-conta...\">"
+            }
+          ],
+          "nodeCount": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            }
+          ],
+          "nodeCount": 1
+        }
+      ],
+      "passes": 33
+    },
+    {
+      "screen": "check-out",
+      "viewport": "mobile",
+      "violations": [
+        {
+          "id": "image-redundant-alt",
+          "impact": "minor",
+          "description": "Ensure image alternative is not repeated as text",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/image-redundant-alt?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "img"
+              ],
+              "html": "<img src=\"data:image/svg+xml;b...\" alt=\"Maple Dog Co.\" class=\"h-5 w-5 object-conta...\">"
+            }
+          ],
+          "nodeCount": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            }
+          ],
+          "nodeCount": 1
+        }
+      ],
+      "passes": 33
+    },
+    {
+      "screen": "pet-profile",
+      "viewport": "mobile",
+      "violations": [
+        {
+          "id": "heading-order",
+          "impact": "moderate",
+          "description": "Ensure the order of headings is semantically correct",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/heading-order?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "h3"
+              ],
+              "html": "<h3 class=\"font-semibold text-red-900 mb-2\">Active Alerts</h3>"
+            }
+          ],
+          "nodeCount": 1
+        },
+        {
+          "id": "image-redundant-alt",
+          "impact": "minor",
+          "description": "Ensure image alternative is not repeated as text",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/image-redundant-alt?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                "img"
+              ],
+              "html": "<img src=\"data:image/svg+xml;b...\" alt=\"Maple Dog Co.\" class=\"h-5 w-5 object-conta...\">"
+            }
+          ],
+          "nodeCount": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "description": "Ensure all page content is contained by landmarks",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/region?application=playwright",
+          "nodes": [
+            {
+              "target": [
+                ".text-center"
+              ],
+              "html": "<div data-slot=\"dialog-header\" class=\"flex flex-col gap-2 text-center sm:text-left sr-only\">"
+            }
+          ],
+          "nodeCount": 1
+        }
+      ],
+      "passes": 38
+    }
+  ]
+}
