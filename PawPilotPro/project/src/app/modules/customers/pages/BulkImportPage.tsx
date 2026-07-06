@@ -5,11 +5,103 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, UploadSimple, FileText, Warning, CheckCircle, XCircle, DownloadSimple, CircleNotch } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../../../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+
+// Single source of truth for the workbook layout: template headers on the
+// left, import field names (what the server's row schemas expect) on the
+// right. The downloaded template and the upload parser both derive from this,
+// so they cannot drift apart.
+const IMPORT_SHEETS: Record<string, Record<string, string>> = {
+  Households: {
+    'Household Name': 'name',
+    'External ID': 'external_id',
+    'Status (active/inactive)': 'status',
+    'Internal Notes': 'internal_notes',
+  },
+  Contacts: {
+    'Household Name': 'household_name',
+    'First Name': 'first_name',
+    'Last Name': 'last_name',
+    'Email': 'email',
+    'Phone': 'phone',
+    'Primary (Yes/No)': 'is_primary',
+    'Emergency Contact (Yes/No)': 'is_emergency_contact',
+    'Emergency Relationship': 'emergency_contact_relationship',
+  },
+  Pets: {
+    'Household Name': 'household_name',
+    'Name': 'name',
+    'Breed': 'breed',
+    'Sex': 'sex',
+    'Date of Birth (YYYY-MM-DD)': 'date_of_birth',
+    'Weight (kg)': 'weight_kg',
+    'Colour': 'colour',
+    'Microchip': 'microchip',
+    'Neutered Status (spayed/castrated/none)': 'neutered_status',
+    'Medical Notes': 'medical_notes',
+    'Behaviour Notes': 'behaviour_notes',
+    'Allergies': 'allergies',
+  },
+};
+
+// One example row per sheet, keyed by template header. "Household Name" links
+// rows across the three sheets.
+const TEMPLATE_EXAMPLES: Record<string, Record<string, string | number>> = {
+  Households: {
+    'Household Name': 'Smith Family',
+    'External ID': 'CRM-1042',
+    'Status (active/inactive)': 'active',
+    'Internal Notes': '',
+  },
+  Contacts: {
+    'Household Name': 'Smith Family',
+    'First Name': 'Jane',
+    'Last Name': 'Smith',
+    'Email': 'jane.smith@example.com',
+    'Phone': '+44 7700 900123',
+    'Primary (Yes/No)': 'Yes',
+    'Emergency Contact (Yes/No)': 'No',
+    'Emergency Relationship': '',
+  },
+  Pets: {
+    'Household Name': 'Smith Family',
+    'Name': 'Buddy',
+    'Breed': 'Labrador Retriever',
+    'Sex': 'Male',
+    'Date of Birth (YYYY-MM-DD)': '2021-06-15',
+    'Weight (kg)': 28,
+    'Colour': 'Golden',
+    'Microchip': '',
+    'Neutered Status (spayed/castrated/none)': 'castrated',
+    'Medical Notes': '',
+    'Behaviour Notes': 'Friendly with other dogs',
+    'Allergies': '',
+  },
+};
+
+// Extract a sheet's data rows as {row, field: value} objects for the server.
+// `row` is the 1-based spreadsheet row (header is row 1), so server-side
+// errors point at the line the user sees in Excel. Blank rows are dropped.
+function parseSheet(workbook: XLSX.WorkBook, sheetName: string): Array<Record<string, unknown>> {
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) return [];
+  const mapping = IMPORT_SHEETS[sheetName];
+  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: false, defval: '' });
+  return rows
+    .map((sourceRow, index) => {
+      const mapped: Record<string, unknown> = { row: index + 2 };
+      for (const [header, field] of Object.entries(mapping)) {
+        mapped[field] = sourceRow[header] ?? '';
+      }
+      return mapped;
+    })
+    .filter((mapped) => Object.entries(mapped).some(([key, value]) => key !== 'row' && String(value).trim() !== ''));
+}
 
 interface ImportResult {
   success: boolean;
@@ -51,46 +143,20 @@ export function BulkImportPage() {
     }
   };
   
-  const handleDownloadTemplate = async () => {
+  // Generated client-side (like ExportPage) — the server template endpoint was
+  // a stub that returned JSON, which saved-as-.xlsx read as a corrupt file.
+  const handleDownloadTemplate = () => {
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/import/template`,
-        {
-          headers: {
-            ...(await getAuthHeaders()),
-            'X-Tenant-Id': activeTenantId || '',
-          },
-        }
-      );
-      
-      if (!response.ok) {
-        // Try to get error details
-        let errorMessage = 'Failed to download template';
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const error = await response.json();
-            errorMessage = error.error || error.message || errorMessage;
-          }
-        } catch {
-          // Ignore JSON parse errors
-        }
-        throw new Error(errorMessage);
+      const wb = XLSX.utils.book_new();
+      for (const [sheetName, exampleRow] of Object.entries(TEMPLATE_EXAMPLES)) {
+        const ws = XLSX.utils.json_to_sheet([exampleRow]);
+        ws['!cols'] = Object.keys(exampleRow).map((header) => ({ wch: Math.max(header.length + 2, 14) }));
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
       }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'customer-import-template.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
+      XLSX.writeFile(wb, 'customer-import-template.xlsx');
       toast.success('Template downloaded');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to download template');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to download template');
     }
   };
   
@@ -101,25 +167,31 @@ export function BulkImportPage() {
     }
     
     setIsProcessing(true);
-    
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('dry_run', isDryRun.toString());
 
-      // FormData posts must not send the JSON Content-Type the shared util adds —
-      // the browser has to set the multipart boundary itself.
-      const { 'Content-Type': _ct, ...auth } = await getAuthHeaders();
+    try {
+      // Parse the workbook here and send plain JSON rows — the server
+      // validates each row and reports errors by spreadsheet row number.
+      const workbook = XLSX.read(await file.arrayBuffer());
+      const payload = {
+        dry_run: isDryRun,
+        households: parseSheet(workbook, 'Households'),
+        contacts: parseSheet(workbook, 'Contacts'),
+        pets: parseSheet(workbook, 'Pets'),
+      };
+      if (payload.households.length + payload.contacts.length + payload.pets.length === 0) {
+        toast.error('No data rows found — fill in the Households, Contacts, or Pets sheets of the template');
+        return;
+      }
 
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/import`,
         {
           method: 'POST',
           headers: {
-            ...auth,
+            ...(await getAuthHeaders()),
             'X-Tenant-Id': activeTenantId || '',
           },
-          body: formData,
+          body: JSON.stringify(payload),
         }
       );
       
@@ -149,8 +221,10 @@ export function BulkImportPage() {
         throw new Error('Invalid response from server');
       }
       setResult(importResult);
-      
-      if (isDryRun) {
+
+      if (importResult.errors.length > 0) {
+        toast.warning(`${isDryRun ? 'Dry run' : 'Import'} completed with ${importResult.errors.length} row error${importResult.errors.length === 1 ? '' : 's'} — review the details below`);
+      } else if (isDryRun) {
         toast.success('Dry run completed - review the results below');
       } else {
         toast.success('Import completed successfully');
@@ -214,7 +288,7 @@ export function BulkImportPage() {
         <CardContent className="py-4">
           <h3 className="font-semibold text-blue-900 mb-2">Import Process</h3>
           <ol className="text-blue-800 text-sm space-y-1 list-decimal list-inside">
-            <li>DownloadSimple the Excel template and fill in your customer data</li>
+            <li>Download the Excel template and fill in your customer data</li>
             <li>Upload the completed file and run a dry run to validate</li>
             <li>Review the summary and fix any errors</li>
             <li>Apply the import to create/update records in your database</li>
@@ -225,18 +299,18 @@ export function BulkImportPage() {
       {/* Template DownloadSimple */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Step 1: DownloadSimple Template</CardTitle>
+          <CardTitle>Step 1: Download Template</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-slate-600 mb-4">
-            DownloadSimple the Excel template with the correct column headers and example data
+            Download the Excel template with the correct column headers and an example row — replace the example with your data before importing
           </p>
           <Button
             onClick={handleDownloadTemplate}
             variant="outline"
           >
             <DownloadSimple className="h-4 w-4 mr-2" />
-            DownloadSimple Template
+            Download Template
           </Button>
         </CardContent>
       </Card>
@@ -420,7 +494,7 @@ export function BulkImportPage() {
                     size="sm"
                   >
                     <DownloadSimple className="h-4 w-4 mr-2" />
-                    DownloadSimple Error Report
+                    Download Error Report
                   </Button>
                 </div>
                 <div className="max-h-64 overflow-y-auto border border-red-200 rounded-lg">

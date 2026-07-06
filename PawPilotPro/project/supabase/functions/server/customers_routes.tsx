@@ -2,6 +2,7 @@
 // Complete CRUD for households, contacts, pets, documents, activity timeline
 
 import { Hono } from 'npm:hono';
+import { z } from 'npm:zod';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
@@ -1200,47 +1201,403 @@ app.post('/seed-data', async (c) => {
 // IMPORT/EXPORT ROUTES
 // ============================================================================
 
-// Download import template
-app.get('/import/template', async (c) => {
-  try {
-    const user = c.get('user') as AuthenticatedUser;
-    const tenantId = user.tenantId;
-    
-    // For now, return a simple message
-    // In production, this would generate an Excel template using a library like xlsx
-    return c.json({ 
-      message: 'Template download not yet implemented',
-      note: 'This will return an Excel file with columns: household_name, external_id, contact_first_name, contact_last_name, contact_email, contact_phone, pet_name, pet_breed, pet_species, etc.'
-    });
-  } catch (error: any) {
-    return internalError(c, 'customers.templateDownload', error);
-  }
+// The import template is generated client-side by BulkImportPage (SheetJS),
+// so there is no template route here.
+
+// Bulk import households / contacts / pets.
+// The client (BulkImportPage) parses the workbook locally and posts plain JSON
+// rows keyed by field name, each carrying its spreadsheet row number so errors
+// point back at the user's file. Rows are validated individually — a bad row
+// becomes an error entry, never a failed request. All writes are staged and
+// flushed only after the whole file is processed; a dry run stages but never
+// flushes, so it touches nothing.
+
+const IMPORT_MAX_ROWS = 2000;
+
+// Workbook cells arrive as strings ("Yes", "28", "") or occasionally numbers.
+// These normalisers use z.custom so the failure messages read like spreadsheet
+// feedback, not schema internals, and stay stable across zod versions.
+const importCell = (v: unknown): string => (v === null || v === undefined ? '' : String(v).trim());
+const importOptional = z.preprocess((v) => {
+  const s = importCell(v);
+  return s === '' ? undefined : s;
+}, z.string().optional());
+const importRequired = z.preprocess(importCell, z.string().min(1, 'required'));
+const importYesNo = z.preprocess((v) => {
+  const s = importCell(v).toLowerCase();
+  if (['yes', 'y', 'true', '1'].includes(s)) return true;
+  if (['no', 'n', 'false', '0', ''].includes(s)) return false;
+  return s;
+}, z.custom<boolean>((v) => typeof v === 'boolean', { message: 'expected Yes or No' }));
+const importDate = z.preprocess((v) => {
+  const s = importCell(v);
+  return s === '' ? undefined : s;
+}, z.custom<string | undefined>(
+  (v) => v === undefined || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)),
+  { message: 'expected YYYY-MM-DD' },
+));
+const importNumber = z.preprocess((v) => {
+  const s = importCell(v);
+  return s === '' ? undefined : Number(s.replace(',', '.'));
+}, z.custom<number | undefined>(
+  (v) => v === undefined || (typeof v === 'number' && Number.isFinite(v)),
+  { message: 'expected a number' },
+));
+const importChoice = (...values: string[]) => z.preprocess((v) => {
+  const s = importCell(v).toLowerCase();
+  return s === '' ? undefined : s;
+}, z.custom<string | undefined>(
+  (v) => v === undefined || values.includes(v as string),
+  { message: `expected one of: ${values.join(', ')}` },
+));
+
+const importHouseholdRowSchema = z.object({
+  row: z.number(),
+  name: importRequired,
+  external_id: importOptional,
+  status: importChoice('active', 'inactive'),
+  internal_notes: importOptional,
 });
 
-// Import customers from XLSX
+const importContactRowSchema = z.object({
+  row: z.number(),
+  household_name: importRequired,
+  first_name: importRequired,
+  last_name: importRequired,
+  email: importOptional,
+  phone: importOptional,
+  is_primary: importYesNo,
+  is_emergency_contact: importYesNo,
+  emergency_contact_relationship: importOptional,
+});
+
+const importPetRowSchema = z.object({
+  row: z.number(),
+  household_name: importRequired,
+  name: importRequired,
+  breed: importOptional,
+  sex: importOptional,
+  date_of_birth: importDate,
+  weight_kg: importNumber,
+  colour: importOptional,
+  microchip: importOptional,
+  neutered_status: importChoice('spayed', 'castrated', 'none'),
+  medical_notes: importOptional,
+  behaviour_notes: importOptional,
+  allergies: importOptional,
+});
+
+const importBodySchema = z.object({
+  dry_run: z.boolean().default(true),
+  households: z.array(z.unknown()).default([]),
+  contacts: z.array(z.unknown()).default([]),
+  pets: z.array(z.unknown()).default([]),
+});
+
 app.post('/import', async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
-    
-    // For now, return a mock result
-    // In production, this would:
-    // 1. Parse the uploaded Excel file
-    // 2. Validate each row
-    // 3. If dry_run=true, return validation results only
-    // 4. If dry_run=false, create/update records
-    
-    return c.json({
-      success: true,
-      summary: {
-        totalRows: 0,
-        households: { created: 0, updated: 0, errors: 0 },
-        contacts: { created: 0, updated: 0, errors: 0 },
-        pets: { created: 0, updated: 0, errors: 0 },
-      },
-      errors: [],
-      message: 'Import functionality not yet implemented. This will parse Excel files and create/update customer records.'
-    });
+    const userId = user.id;
+
+    const body = importBodySchema.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      return c.json({ error: 'Invalid import payload' }, 400);
+    }
+    const { dry_run, households: householdRows, contacts: contactRows, pets: petRows } = body.data;
+
+    const totalRows = householdRows.length + contactRows.length + petRows.length;
+    if (totalRows === 0) {
+      return c.json({ error: 'No data rows found in the Households, Contacts, or Pets sheets' }, 400);
+    }
+    if (totalRows > IMPORT_MAX_ROWS) {
+      return c.json({ error: `Too many rows (${totalRows}) — the limit is ${IMPORT_MAX_ROWS} per import` }, 400);
+    }
+
+    const errors: Array<{ row: number; entity: string; field: string; message: string }> = [];
+    const summary = {
+      totalRows,
+      households: { created: 0, updated: 0, errors: 0 },
+      contacts: { created: 0, updated: 0, errors: 0 },
+      pets: { created: 0, updated: 0, errors: 0 },
+    };
+    const rowNumberOf = (raw: unknown): number => {
+      const n = (raw as Record<string, unknown>)?.row;
+      return typeof n === 'number' ? n : 0;
+    };
+    const collectIssues = (entity: string, raw: unknown, issues: Array<{ path: Array<string | number>; message: string }>) => {
+      for (const issue of issues) {
+        errors.push({ row: rowNumberOf(raw), entity, field: issue.path.join('.') || '(row)', message: issue.message });
+      }
+    };
+
+    // Staged writes, keyed by KV key so re-touching a record replaces the
+    // earlier staged version instead of writing twice.
+    const staged = new Map<string, unknown>();
+    const now = new Date().toISOString();
+
+    const stageActivity = (householdId: string, petId: string | undefined, type: string, title: string, description: string) => {
+      const activity = {
+        id: generateId('act'),
+        household_id: householdId,
+        ...(petId ? { pet_id: petId } : {}),
+        activity_type: type,
+        title,
+        description,
+        occurred_at: now,
+        created_by: userId,
+      };
+      staged.set(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity);
+    };
+
+    // ---- households ----
+    const existingHouseholds = (await kv.getByPrefix(`customer:${tenantId}:household:`)).filter((h: Record<string, unknown>) => !h.deleted_at);
+    const householdsByName = new Map<string, Record<string, unknown>>();
+    const householdsByExternalId = new Map<string, Record<string, unknown>>();
+    const indexHousehold = (h: Record<string, unknown>) => {
+      if (h.name) householdsByName.set(String(h.name).toLowerCase(), h);
+      if (h.external_id) householdsByExternalId.set(String(h.external_id), h);
+    };
+    existingHouseholds.forEach(indexHousehold);
+
+    for (const raw of householdRows) {
+      const parsed = importHouseholdRowSchema.safeParse(raw);
+      if (!parsed.success) {
+        summary.households.errors++;
+        collectIssues('household', raw, parsed.error.issues);
+        continue;
+      }
+      const rowData = parsed.data;
+      const match =
+        (rowData.external_id && householdsByExternalId.get(rowData.external_id)) ||
+        householdsByName.get(rowData.name.toLowerCase());
+
+      if (match) {
+        const updated = {
+          ...match,
+          name: rowData.name,
+          external_id: rowData.external_id ?? match.external_id,
+          status: rowData.status ?? match.status,
+          internal_notes: rowData.internal_notes ?? match.internal_notes,
+          updated_at: now,
+        };
+        staged.set(`customer:${tenantId}:household:${updated.id}`, updated);
+        indexHousehold(updated);
+        summary.households.updated++;
+      } else {
+        const household = {
+          id: generateId('hh'),
+          tenant_id: tenantId,
+          external_id: rowData.external_id,
+          name: rowData.name,
+          status: rowData.status ?? 'active',
+          vip: false,
+          payment_hold: false,
+          internal_notes: rowData.internal_notes,
+          created_by: userId,
+          created_at: now,
+          updated_at: now,
+        };
+        staged.set(`customer:${tenantId}:household:${household.id}`, household);
+        stageActivity(household.id, undefined, 'household_created', 'Household Created', `Household "${household.name}" was created by bulk import`);
+        indexHousehold(household);
+        summary.households.created++;
+      }
+    }
+
+    const resolveHousehold = (name: string) => householdsByName.get(name.toLowerCase());
+    const householdNotFound = (entity: 'contact' | 'pet', row: number, name: string) => {
+      summary[entity === 'contact' ? 'contacts' : 'pets'].errors++;
+      errors.push({
+        row,
+        entity,
+        field: 'household_name',
+        message: `Household "${name}" not found — add it to the Households sheet or check the spelling`,
+      });
+    };
+
+    // ---- contacts ----
+    const existingContacts = (await kv.getByPrefix(`customer:${tenantId}:contact:`)).filter((ct: Record<string, unknown>) => !ct.deleted_at);
+    const contactsByHousehold = new Map<string, Array<Record<string, unknown>>>();
+    const indexContact = (ct: Record<string, unknown>) => {
+      const list = contactsByHousehold.get(String(ct.household_id)) ?? [];
+      list.push(ct);
+      contactsByHousehold.set(String(ct.household_id), list);
+    };
+    existingContacts.forEach(indexContact);
+    const findContact = (householdId: string, rowData: { email?: string; first_name: string; last_name: string }) => {
+      const list = contactsByHousehold.get(householdId) ?? [];
+      if (rowData.email) {
+        const byEmail = list.find((ct) => ct.email && String(ct.email).toLowerCase() === rowData.email!.toLowerCase());
+        if (byEmail) return byEmail;
+      }
+      return list.find((ct) =>
+        String(ct.first_name ?? '').toLowerCase() === rowData.first_name.toLowerCase() &&
+        String(ct.last_name ?? '').toLowerCase() === rowData.last_name.toLowerCase());
+    };
+
+    for (const raw of contactRows) {
+      const parsed = importContactRowSchema.safeParse(raw);
+      if (!parsed.success) {
+        summary.contacts.errors++;
+        collectIssues('contact', raw, parsed.error.issues);
+        continue;
+      }
+      const rowData = parsed.data;
+      const household = resolveHousehold(rowData.household_name);
+      if (!household) {
+        householdNotFound('contact', rowData.row, rowData.household_name);
+        continue;
+      }
+      const householdId = String(household.id);
+      const match = findContact(householdId, rowData);
+      let contact: Record<string, unknown>;
+      if (match) {
+        contact = {
+          ...match,
+          first_name: rowData.first_name,
+          last_name: rowData.last_name,
+          email: rowData.email ?? match.email,
+          phone: rowData.phone ?? match.phone,
+          is_primary: rowData.is_primary || match.is_primary,
+          is_emergency_contact: rowData.is_emergency_contact || match.is_emergency_contact,
+          emergency_contact_relationship: rowData.emergency_contact_relationship ?? match.emergency_contact_relationship,
+          updated_at: now,
+        };
+        Object.assign(match, contact);
+        summary.contacts.updated++;
+      } else {
+        contact = {
+          id: generateId('con'),
+          tenant_id: tenantId,
+          household_id: householdId,
+          first_name: rowData.first_name,
+          last_name: rowData.last_name,
+          email: rowData.email,
+          phone: rowData.phone,
+          is_primary: rowData.is_primary,
+          is_emergency_contact: rowData.is_emergency_contact,
+          emergency_contact_relationship: rowData.emergency_contact_relationship,
+          marketing_consent: false,
+          sms_consent: false,
+          email_consent: false,
+          created_at: now,
+          updated_at: now,
+        };
+        indexContact(contact);
+        stageActivity(householdId, undefined, 'contact_added', 'Contact Added', `Contact "${rowData.first_name} ${rowData.last_name}" was added by bulk import`);
+        summary.contacts.created++;
+      }
+      staged.set(`customer:${tenantId}:contact:${householdId}:${contact.id}`, contact);
+
+      // Mirror the single-contact routes: a primary contact is recorded on the
+      // household and any other primary in the household is unset.
+      if (rowData.is_primary) {
+        for (const other of contactsByHousehold.get(householdId) ?? []) {
+          if (other.id !== contact.id && other.is_primary) {
+            other.is_primary = false;
+            other.updated_at = now;
+            staged.set(`customer:${tenantId}:contact:${householdId}:${other.id}`, other);
+          }
+        }
+        household.primary_contact_id = contact.id;
+        household.updated_at = now;
+        staged.set(`customer:${tenantId}:household:${householdId}`, household);
+      }
+    }
+
+    // ---- pets ----
+    const existingPets = (await kv.getByPrefix(`customer:${tenantId}:pet:`)).filter((p: Record<string, unknown>) => !p.deleted_at);
+    const petsByHousehold = new Map<string, Array<Record<string, unknown>>>();
+    const indexPet = (p: Record<string, unknown>) => {
+      const list = petsByHousehold.get(String(p.household_id)) ?? [];
+      list.push(p);
+      petsByHousehold.set(String(p.household_id), list);
+    };
+    existingPets.forEach(indexPet);
+
+    for (const raw of petRows) {
+      const parsed = importPetRowSchema.safeParse(raw);
+      if (!parsed.success) {
+        summary.pets.errors++;
+        collectIssues('pet', raw, parsed.error.issues);
+        continue;
+      }
+      const rowData = parsed.data;
+      const household = resolveHousehold(rowData.household_name);
+      if (!household) {
+        householdNotFound('pet', rowData.row, rowData.household_name);
+        continue;
+      }
+      const householdId = String(household.id);
+      const match = (petsByHousehold.get(householdId) ?? []).find(
+        (p) => String(p.name ?? '').toLowerCase() === rowData.name.toLowerCase(),
+      );
+      let pet: Record<string, unknown>;
+      if (match) {
+        pet = {
+          ...match,
+          name: rowData.name,
+          breed: rowData.breed ?? match.breed,
+          sex: rowData.sex ?? match.sex,
+          date_of_birth: rowData.date_of_birth ?? match.date_of_birth,
+          weight_kg: rowData.weight_kg ?? match.weight_kg,
+          colour: rowData.colour ?? match.colour,
+          microchip: rowData.microchip ?? match.microchip,
+          neutered_status: rowData.neutered_status ?? match.neutered_status,
+          medical_notes: rowData.medical_notes ?? match.medical_notes,
+          behaviour_notes: rowData.behaviour_notes ?? match.behaviour_notes,
+          allergies: rowData.allergies ?? match.allergies,
+          updated_at: now,
+        };
+        Object.assign(match, pet);
+        summary.pets.updated++;
+      } else {
+        pet = {
+          id: generateId('pet'),
+          tenant_id: tenantId,
+          household_id: householdId,
+          name: rowData.name,
+          breed: rowData.breed,
+          sex: rowData.sex,
+          date_of_birth: rowData.date_of_birth,
+          weight_kg: rowData.weight_kg,
+          colour: rowData.colour,
+          microchip: rowData.microchip,
+          neutered_status: rowData.neutered_status,
+          medical_notes: rowData.medical_notes,
+          behaviour_notes: rowData.behaviour_notes,
+          allergies: rowData.allergies,
+          vaccination_status: 'unknown',
+          daycare_enrolled: false,
+          grooming_enrolled: false,
+          transport_enrolled: false,
+          overnights_enrolled: false,
+          active: true,
+          created_at: now,
+          updated_at: now,
+        };
+        indexPet(pet);
+        stageActivity(householdId, String(pet.id), 'pet_added', 'Pet Added', `Pet "${rowData.name}" was added by bulk import`);
+        summary.pets.created++;
+      }
+      staged.set(`customer:${tenantId}:pet:${householdId}:${pet.id}`, pet);
+    }
+
+    // ---- flush ----
+    if (!dry_run && staged.size > 0) {
+      const keys = [...staged.keys()];
+      const CHUNK = 500;
+      for (let i = 0; i < keys.length; i += CHUNK) {
+        const slice = keys.slice(i, i + CHUNK);
+        await kv.mset(slice, slice.map((k) => staged.get(k)));
+      }
+    }
+
+    // success reflects "the file was processed", not "every row was clean" —
+    // row problems are reported in errors/summary. In apply mode, valid rows
+    // are imported and bad rows are skipped with their errors listed.
+    return c.json({ success: true, dry_run, summary, errors });
   } catch (error: any) {
     return internalError(c, 'customers.importCustomers', error);
   }
