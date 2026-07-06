@@ -1,0 +1,450 @@
+{
+  "admin": {
+    "desktop": [
+      [
+        {
+          "label": "Dashboard",
+          "path": "/"
+        },
+        {
+          "label": "Portal Inbox",
+          "path": "/customers/pending-requests"
+        },
+        {
+          "label": "Capacity",
+          "path": "/capacity"
+        },
+        {
+          "label": "Daycare",
+          "path": "/daycare"
+        },
+        {
+          "label": "Grooming",
+          "path": "/grooming"
+        },
+        {
+          "label": "Transport",
+          "path": "/transport"
+        },
+        {
+          "label": "Overnights",
+          "path": "/overnights"
+        }
+      ],
+      [
+        {
+          "label": "Customers",
+          "path": "/customers"
+        },
+        {
+          "label": "Messages",
+          "path": "/messages"
+        },
+        {
+          "label": "Billing",
+          "path": "/billing"
+        },
+        {
+          "label": "Incidents",
+          "path": "/incidents"
+        },
+        {
+          "label": "Reports",
+          "path": "/reports"
+        }
+      ],
+      [
+        {
+          "label": "Policies",
+          "path": "/policies"
+        },
+        {
+          "label": "Staff",
+          "path": "/staff"
+        },
+        {
+          "label": "Packages",
+          "path": "/packages"
+        }
+      ],
+      [
+        {
+          "label": "Settings",
+          "path": "/settings"
+        }
+      ]
+    ],
+    "mobileBottomBar": [
+      {
+        "label": "Home",
+        "path": "/"
+      },
+      {
+        "label": "Daycare",
+        "path": "/daycare"
+      },
+      {
+        "label": "Transport",
+        "path": "/transport"
+      },
+      {
+        "label": "Grooming",
+        "path": "/grooming"
+      }
+    ],
+    "mobileDrawer": [
+      {
+        "section": "Operations",
+        "items": [
+          {
+            "label": "Dashboard",
+            "path": "/"
+          },
+          {
+            "label": "Daycare",
+            "path": "/daycare"
+          },
+          {
+            "label": "Grooming",
+            "path": "/grooming"
+          },
+          {
+            "label": "Transport",
+            "path": "/transport"
+          },
+          {
+            "label": "Overnights",
+            "path": "/overnights"
+          }
+        ]
+      },
+      {
+        "section": "Business",
+        "items": [
+          {
+            "label": "Customers",
+            "path": "/customers"
+          },
+          {
+            "label": "Billing",
+            "path": "/billing"
+          },
+          {
+            "label": "Messages",
+            "path": "/messages"
+          }
+        ]
+      },
+      {
+        "section": "Team",
+        "items": [
+          {
+            "label": "Incidents",
+            "path": "/incidents"
+          },
+          {
+            "label": "Staff",
+            "path": "/staff"
+          }
+        ]
+      },
+      {
+        "section": "Admin",
+        "items": [
+          {
+            "label": "Gear",
+            "path": "/settings"
+          }
+        ]
+      },
+      {
+        "section": "Test admin",
+        "items": []
+      }
+    ]
+  },
+  "manager": {
+    "desktop": [
+      [
+        {
+          "label": "Dashboard",
+          "path": "/"
+        },
+        {
+          "label": "Portal Inbox",
+          "path": "/customers/pending-requests"
+        },
+        {
+          "label": "Capacity",
+          "path": "/capacity"
+        },
+        {
+          "label": "Daycare",
+          "path": "/daycare"
+        },
+        {
+          "label": "Transport",
+          "path": "/transport"
+        },
+        {
+          "label": "Overnights",
+          "path": "/overnights"
+        }
+      ],
+      [
+        {
+          "label": "Customers",
+          "path": "/customers"
+        },
+        {
+          "label": "Incidents",
+          "path": "/incidents"
+        },
+        {
+          "label": "Reports",
+          "path": "/reports"
+        }
+      ],
+      [
+        {
+          "label": "Settings",
+          "path": "/settings"
+        }
+      ]
+    ],
+    "mobileBottomBar": [
+      {
+        "label": "Home",
+        "path": "/"
+      },
+      {
+        "label": "Daycare",
+        "path": "/daycare"
+      },
+      {
+        "label": "Transport",
+        "path": "/transport"
+      },
+      {
+        "label": "Grooming",
+        "path": "/grooming"
+      }
+    ],
+    "mobileDrawer": [
+      {
+        "section": "Operations",
+        "items": [
+          {
+            "label": "Dashboard",
+            "path": "/"
+          },
+          {
+            "label": "Daycare",
+            "path": "/daycare"
+          },
+          {
+            "label": "Grooming",
+            "path": "/grooming"
+          },
+          {
+            "label": "Transport",
+            "path": "/transport"
+          },
+          {
+            "label": "Overnights",
+            "path": "/overnights"
+          }
+        ]
+      },
+      {
+        "section": "Business",
+        "items": [
+          {
+            "label": "Customers",
+            "path": "/customers"
+          },
+          {
+            "label": "Billing",
+            "path": "/billing"
+          },
+          {
+            "label": "Messages",
+            "path": "/messages"
+          }
+        ]
+      },
+      {
+        "section": "Team",
+        "items": [
+          {
+            "label": "Incidents",
+            "path": "/incidents"
+          },
+          {
+            "label": "Staff",
+            "path": "/staff"
+          }
+        ]
+      },
+      {
+        "section": "Admin",
+        "items": [
+          {
+            "label": "Gear",
+            "path": "/settings"
+          }
+        ]
+      },
+      {
+        "section": "Test manager",
+        "items": []
+      }
+    ]
+  },
+  "assistant_manager": {
+    "desktop": [
+      [
+        {
+          "label": "Dashboard",
+          "path": "/"
+        },
+        {
+          "label": "Portal Inbox",
+          "path": "/customers/pending-requests"
+        },
+        {
+          "label": "Capacity",
+          "path": "/capacity"
+        },
+        {
+          "label": "Daycare",
+          "path": "/daycare"
+        },
+        {
+          "label": "Transport",
+          "path": "/transport"
+        },
+        {
+          "label": "Overnights",
+          "path": "/overnights"
+        }
+      ],
+      [
+        {
+          "label": "Customers",
+          "path": "/customers"
+        },
+        {
+          "label": "Incidents",
+          "path": "/incidents"
+        }
+      ]
+    ],
+    "mobileBottomBar": [
+      {
+        "label": "Home",
+        "path": "/"
+      },
+      {
+        "label": "Daycare",
+        "path": "/daycare"
+      },
+      {
+        "label": "Transport",
+        "path": "/transport"
+      },
+      {
+        "label": "Grooming",
+        "path": "/grooming"
+      }
+    ],
+    "mobileDrawer": [
+      {
+        "section": "Operations",
+        "items": [
+          {
+            "label": "Dashboard",
+            "path": "/"
+          },
+          {
+            "label": "Daycare",
+            "path": "/daycare"
+          },
+          {
+            "label": "Grooming",
+            "path": "/grooming"
+          },
+          {
+            "label": "Transport",
+            "path": "/transport"
+          },
+          {
+            "label": "Overnights",
+            "path": "/overnights"
+          }
+        ]
+      },
+      {
+        "section": "Business",
+        "items": [
+          {
+            "label": "Customers",
+            "path": "/customers"
+          },
+          {
+            "label": "Messages",
+            "path": "/messages"
+          }
+        ]
+      },
+      {
+        "section": "Team",
+        "items": [
+          {
+            "label": "Incidents",
+            "path": "/incidents"
+          },
+          {
+            "label": "Staff",
+            "path": "/staff"
+          }
+        ]
+      },
+      {
+        "section": "Test assistant_manager",
+        "items": []
+      }
+    ]
+  },
+  "staff": {
+    "desktop": [
+      [
+        {
+          "label": "Dashboard",
+          "path": "/"
+        }
+      ]
+    ],
+    "mobileBottomBar": [
+      {
+        "label": "Home",
+        "path": "/"
+      }
+    ],
+    "mobileDrawer": [
+      {
+        "section": "Operations",
+        "items": [
+          {
+            "label": "Dashboard",
+            "path": "/"
+          }
+        ]
+      },
+      {
+        "section": "Test staff",
+        "items": []
+      }
+    ]
+  }
+}

@@ -8,26 +8,7 @@ import {
   CaretRight,
   Check,
 } from '@phosphor-icons/react';
-import {
-  GridFour,
-  PawPrint,
-  Scissors,
-  Van,
-  Moon,
-  UsersThree,
-  ChatCircleDots,
-  Receipt,
-  Warning,
-  ChartBar,
-  ClipboardText,
-  UserGear,
-  Package,
-  Gear,
-  ShoppingBag,
-  Gauge,
-  CalendarCheck,
-  MagnifyingGlass,
-} from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 // Default logo imported as defaultLogo above
 import { useAuth } from '../../context/AuthContext';
 import { useDashboardStore } from '../../modules/dashboard/store';
@@ -43,71 +24,12 @@ import {
   DropdownMenuSeparator
 } from "../../components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
-
-import { MODULES } from '../../modules/settings/constants/modules';
+import { getVisibleNavEntries, groupNavEntries, type NavEntry } from './navManifest';
 
 // Helper for class names if cn doesn't exist yet
 function classNames(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(' ');
 }
-
-// Map nav item paths to module names for permission checking
-// Each path maps to a permission module - user must have 'view' on that module
-const PATH_TO_MODULE: Record<string, string> = {
-  '/': 'dashboard',
-  '/capacity': 'capacity', // Separate permission for capacity management
-  '/calendar': 'calendar',
-  '/customers': 'customers',
-  '/customers/pending-requests': 'customers',
-  '/daycare': 'daycare',
-  '/daycare/check-in': 'daycare',
-  '/grooming': 'grooming',
-  '/boutique': 'boutique',
-  '/billing': 'billing',
-  '/invoices': 'invoices',
-  '/messages': 'messages',
-  '/messaging': 'messages',
-  '/incidents': 'incidents',
-  '/transport': 'transport',
-  '/reports': 'reports',
-  '/staff': 'staff',
-  '/policies': 'staff', // Policies is part of staff management
-  '/memberships': 'memberships',
-  '/packages': 'packages',
-  '/overnights': 'overnights', // Separate permission for overnights
-  '/settings': 'settings',
-};
-
-// Phosphor icon overrides — weight="fill" for active, weight="regular" for inactive
-const PATH_ICONS: Record<string, React.ElementType> = {
-  '/':           GridFour,
-  '/daycare':    PawPrint,
-  '/capacity':   Gauge,
-  '/grooming':   Scissors,
-  '/transport':  Van,
-  '/overnights': Moon,
-  '/customers':  UsersThree,
-  '/messages':   ChatCircleDots,
-  '/messaging':  ChatCircleDots,
-  '/billing':    Receipt,
-  '/invoices':   Receipt,
-  '/incidents':  Warning,
-  '/reports':    ChartBar,
-  '/policies':   ClipboardText,
-  '/staff':      UserGear,
-  '/packages':   Package,
-  '/settings':   Gear,
-  '/boutique':   ShoppingBag,
-  '/calendar':   CalendarCheck,
-};
-
-// Section grouping for nav items
-const NAV_SECTIONS = [
-  { label: 'Operations', paths: ['/', '/customers/pending-requests', '/daycare', '/overnights', '/grooming', '/transport', '/capacity'] },
-  { label: 'Business', paths: ['/customers', '/billing', '/messages', '/reports', '/incidents'] },
-  { label: 'Team', paths: ['/staff', '/policies', '/packages'] },
-  { label: 'Admin', paths: ['/settings'] },
-];
 
 interface SidebarProps {
   /** Opens the global search palette (same one Cmd/Ctrl+K toggles). */
@@ -144,74 +66,24 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
     ? 'All Locations'
     : locations.find(l => l && l.id === selectedLocationId)?.name || 'Unknown Location';
 
-  // Build dynamic nav items from MODULES
-  // Step 1: Collect all nav items from modules
-  // Optional modules are shown if:
-  //   a) Enabled for the location, OR
-  //   b) User has explicit permission (via template) - so drivers always see Transport
-  const allNavItems = MODULES.reduce((acc, module) => {
-    // Core modules - always include
-    if (module.isCore) {
-      return [...acc, ...module.navItems];
-    }
-
-    // Global enable/disable is the primary gate — a disabled module is hidden for everyone
-    const isGloballyEnabled = (globalEnabledModules || []).includes(module.id);
-    if (!isGloballyEnabled) {
-      return acc;
-    }
-
-    // When viewing a specific location, also check that location's enabledModules.
-    // Exception: if the user has an explicit role permission (e.g. driver for Transport),
-    // still show the item so they can do their job.
-    if (selectedLocationId !== 'ALL') {
-      const currentLoc = locations.find(l => l && l.id === selectedLocationId);
-      const isEnabledAtLocation = currentLoc?.isActive &&
-        (currentLoc.enabledModules || []).includes(module.id);
-      const userHasPermission = canAccessModule(module.id);
-      if (!isEnabledAtLocation && !userHasPermission) {
-        return acc;
-      }
-    }
-
-    // Add all nav items from this module
-    return [...acc, ...module.navItems];
-  }, [] as any[]);
-
-  // Step 2: Add Settings nav item (icon resolved via PATH_ICONS)
-  allNavItems.push({ label: 'Settings', icon: Gear, path: '/settings' });
-
-  // Step 3: Filter by beta access (adds "(beta)" suffix for admins, hides for others)
-  const betaFilteredNavItems = filterNavItems(allNavItems);
-
-  // Step 4: Filter by RBAC permissions - this is the key enforcement point
-  const filteredNavItems = betaFilteredNavItems.filter((item: any) => {
-    const moduleName = PATH_TO_MODULE[item.path];
-
-    // If no module mapping found, hide the item (fail secure)
-    if (!moduleName) {
-      console.warn(`[Sidebar] No permission mapping for path: ${item.path}`);
-      return false;
-    }
-
-    // Check if user has permission to access this module
-    return canAccessModule(moduleName);
+  // Visible nav items come from the shared manifest — RBAC, module
+  // enablement, and beta gating all happen inside getVisibleNavEntries,
+  // identically for this sidebar and the mobile layout.
+  const visibleNavEntries = getVisibleNavEntries({
+    canAccessModule,
+    filterNavItems,
+    globalEnabledModules: globalEnabledModules || [],
+    selectedLocationId,
+    locations,
   });
+  const groupedSections = groupNavEntries(visibleNavEntries).map(({ section, items }) => ({
+    label: section,
+    items,
+  }));
 
-  // Group filteredNavItems into sections
-  const groupedSections = NAV_SECTIONS.map(section => ({
-    label: section.label,
-    items: filteredNavItems.filter((item: any) => section.paths.includes(item.path)),
-  })).filter(section => section.items.length > 0);
-
-  // Any items not matched by a section fall into an "Other" group
-  const allSectionPaths = NAV_SECTIONS.flatMap(s => s.paths);
-  const ungroupedItems = filteredNavItems.filter((item: any) => !allSectionPaths.includes(item.path));
-
-  const renderNavItem = (item: any) => {
-    const navItem = item as { path: string; label?: string; name?: string };
-    const PhosphorIcon = PATH_ICONS[navItem.path];
-    const label = navItem.label || navItem.name;
+  const renderNavItem = (item: NavEntry) => {
+    const PhosphorIcon = item.icon;
+    const label = item.label;
     const link = (
       <NavLink
         key={item.path}
@@ -230,27 +102,16 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
             {isActive && !isCollapsed && (
               <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full" />
             )}
-            {PhosphorIcon ? (
-              <PhosphorIcon
-                size={isCollapsed ? 20 : 18}
-                weight={isActive ? 'fill' : 'regular'}
-                className={classNames(
-                  "flex-shrink-0 transition-colors",
-                  isActive ? 'text-primary' : 'text-[#78716C] group-hover:text-[#1C1916]'
-                )}
-              />
-            ) : (
-              <item.icon
-                className={classNames(
-                  "flex-shrink-0 transition-colors",
-                  isCollapsed ? "h-5 w-5" : "h-[18px] w-[18px]",
-                  isActive ? 'text-primary' : 'text-[#78716C] group-hover:text-[#1C1916]'
-                )}
-                strokeWidth={1.5}
-              />
-            )}
+            <PhosphorIcon
+              size={isCollapsed ? 20 : 18}
+              weight={isActive ? 'fill' : 'regular'}
+              className={classNames(
+                "flex-shrink-0 transition-colors",
+                isActive ? 'text-primary' : 'text-[#78716C] group-hover:text-[#1C1916]'
+              )}
+            />
             {!isCollapsed && (
-              <span className="leading-none tracking-tight">{item.label || item.name}</span>
+              <span className="leading-none tracking-tight">{label}</span>
             )}
           </>
         )}
@@ -398,19 +259,10 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
                 <div className="my-1.5 mx-2 h-px bg-[#EAE7E2]" />
               )}
               <div className="space-y-px">
-                {section.items.map((item: any) => renderNavItem(item))}
+                {section.items.map(item => renderNavItem(item))}
               </div>
             </React.Fragment>
           ))}
-
-          {ungroupedItems.length > 0 && (
-            <React.Fragment>
-              <div className="my-1.5 mx-2 h-px bg-[#EAE7E2]" />
-              <div className="space-y-px">
-                {ungroupedItems.map((item: any) => renderNavItem(item))}
-              </div>
-            </React.Fragment>
-          )}
         </div>
       </nav>
 
