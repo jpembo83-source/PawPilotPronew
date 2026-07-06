@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useDaycareStore } from '../store';
-import { Dialog, DialogContent } from '../../../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../components/ui/dialog';
 import { Textarea } from '../../../components/ui/textarea';
 import {
   Clock,
@@ -106,8 +106,15 @@ export function CheckOutDialog({ open, onOpenChange, booking, onCheckedOut }: Ch
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-bold text-[#1C1916] leading-tight">{booking?.pet_name}</h2>
-              <p className="text-sm text-[#6B6762] truncate">{booking?.household_name}</p>
+              <DialogTitle
+                className="text-xl font-bold text-[#1C1916] leading-tight"
+                aria-label={booking ? `Check out ${booking.pet_name}` : undefined}
+              >
+                {booking?.pet_name}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-[#6B6762] truncate">
+                {booking?.household_name}
+              </DialogDescription>
 
               {/* Duration strip */}
               {booking?.actual_check_in_time && (
@@ -164,6 +171,7 @@ export function CheckOutDialog({ open, onOpenChange, booking, onCheckedOut }: Ch
                   <button
                     key={value}
                     onClick={() => setMood(mood === value ? null : value)}
+                    aria-pressed={mood === value}
                     className="flex flex-col items-center gap-1.5 rounded-xl py-3 border transition-all"
                     style={{
                       background: mood === value ? `${colour}14` : '#FAFAF8',

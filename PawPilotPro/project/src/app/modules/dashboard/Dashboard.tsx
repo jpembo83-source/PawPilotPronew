@@ -167,14 +167,16 @@ export function Dashboard() {
             style={{ background: 'var(--primary)' }}
           >
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              {/* White below 92% opacity fails 4.5:1 on --primary (#177C5E) —
+                  keep ≥0.92 for any text on this card. */}
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.92)' }}>
                 Capacity
               </p>
               <div className="flex items-end gap-3">
                 <span className="text-5xl font-bold text-white leading-none">{utilisation}%</span>
                 <div className="pb-0.5">
-                  <p className="text-sm text-white/80">{checkedIn} in</p>
-                  <p className="text-sm text-white/60">{available} free</p>
+                  <p className="text-sm text-white/95">{checkedIn} in</p>
+                  <p className="text-sm text-white/92">{available} free</p>
                 </div>
               </div>
             </div>
@@ -185,7 +187,7 @@ export function Dashboard() {
                   style={{ width: `${Math.min(utilisation, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-white/40">of capacity</p>
+              <p className="text-xs text-white/92">of capacity</p>
             </div>
           </div>
 
@@ -264,7 +266,7 @@ export function Dashboard() {
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.06)' }} />
             <SignIn size={26} weight="duotone" className="text-white/75 mb-3" />
             <p className="text-lg font-semibold text-white leading-tight">Check In</p>
-            <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.92)' }}>
               {expectedArrivals > 0 ? `${expectedArrivals} arriving soon` : 'No arrivals due'}
             </p>
             <ArrowRight size={15} className="absolute right-4 bottom-4 text-white/30 group-hover:text-white/60 transition-colors" />

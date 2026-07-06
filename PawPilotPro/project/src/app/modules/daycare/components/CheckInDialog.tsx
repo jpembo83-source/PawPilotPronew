@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useDaycareStore } from '../store';
-import { Dialog, DialogContent } from '../../../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../components/ui/dialog';
 import { Textarea } from '../../../components/ui/textarea';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { SignIn, Warning, XCircle, CheckCircle } from '@phosphor-icons/react';
@@ -62,9 +62,16 @@ export function CheckInDialog({ open, onOpenChange, booking, validation, onCheck
     (validation.warnings.length === 0 || warningsAcknowledged) &&
     !submitting;
 
+  const hasWarnings = !!validation?.warnings?.length;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-3xl max-w-md p-0 overflow-hidden">
+      <DialogContent
+        className="rounded-3xl max-w-md p-0 overflow-hidden"
+        // The warning section is part of what a screen reader must hear when
+        // the dialog opens — it is safety information, not decoration.
+        aria-describedby={hasWarnings ? 'checkin-dialog-desc checkin-dialog-warnings' : undefined}
+      >
 
         {/* Header */}
         <div className="px-6 pt-6 pb-5 flex items-center gap-4" style={{ background: 'var(--primary-tint)' }}>
@@ -77,10 +84,17 @@ export function CheckInDialog({ open, onOpenChange, booking, validation, onCheck
             </span>
           </div>
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-[#1C1916] leading-tight">
+            <DialogTitle
+              className="text-xl font-bold text-[#1C1916] leading-tight"
+              // Visible text is just the pet's name; the accessible name
+              // carries the action so SRs announce "Check in Rex, dialog".
+              aria-label={booking ? `Check in ${booking.pet_name}` : undefined}
+            >
               {booking?.pet_name}
-            </h2>
-            <p className="text-sm text-[#6B6762] truncate">{booking?.household_name}</p>
+            </DialogTitle>
+            <DialogDescription id="checkin-dialog-desc" className="text-sm text-[#6B6762] truncate">
+              {booking?.household_name}
+            </DialogDescription>
           </div>
         </div>
 
@@ -103,7 +117,12 @@ export function CheckInDialog({ open, onOpenChange, booking, validation, onCheck
 
           {/* Warnings */}
           {validation?.warnings && validation.warnings.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <div
+              id="checkin-dialog-warnings"
+              role="group"
+              aria-label="Check-in warnings"
+              className="bg-amber-50 border border-amber-200 rounded-xl p-4"
+            >
               <div className="flex items-center gap-2 mb-2">
                 <Warning size={16} weight="fill" className="text-amber-600 flex-shrink-0" />
                 <span className="text-sm font-semibold text-amber-800">Warnings</span>
