@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate, NavLink, useLocation } from 'react-router';
 import { Truck, CalendarBlank, NavigationArrow, List, SquaresFour, DeviceMobile, Monitor } from '@phosphor-icons/react';
 import { TransportDashboard } from './pages/TransportDashboard';
@@ -10,23 +10,7 @@ import { VehicleManager } from './pages/VehicleManager';
 import { DriverDashboard } from './pages/DriverDashboard';
 import { DriverMobileView } from './pages/DriverMobileView';
 import { usePermissions } from '@/app/hooks/usePermissions';
-
-// Detect if on mobile device
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-  
-  return isMobile;
-}
+import { useIsMobile } from '@/app/components/ui/use-mobile';
 
 export function Transportation() {
   const location = useLocation();

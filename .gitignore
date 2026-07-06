@@ -12,3 +12,6 @@
 *.bin
 zipFile.zip
 .worktrees/
+
+# Dependency/tool caches — never content
+node_modules/

@@ -11,22 +11,11 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, Outlet } from 'react-router';
 import {
-  Gauge,
-  UsersThree,
-  Dog,
-  Truck,
-  Gear,
   List,
   X,
   Buildings,
   SignOut,
   Bell,
-  Scissors,
-  Receipt,
-  Warning,
-  ChatTeardrop,
-  Moon,
-  UserGear,
   DotsThree,
   CaretRight,
   MagnifyingGlass,
@@ -36,121 +25,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useDashboardStore } from '../../modules/dashboard/store';
 import { useSettingsStore } from '../../modules/settings/store';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useBetaFeatures } from '../../hooks/useBetaFeatures';
 import { OfflineBanner } from './OfflineBanner';
 import defaultLogo from '../../../assets/logo.svg';
-
-// Section groupings for drawer
-const SECTION_LABELS: Record<string, string> = {
-  dashboard: 'Operations',
-  daycare: 'Operations',
-  grooming: 'Operations',
-  transport: 'Operations',
-  overnights: 'Operations',
-  customers: 'Business',
-  billing: 'Business',
-  messages: 'Business',
-  incidents: 'Team',
-  staff: 'Team',
-  settings: 'Admin',
-};
-
-// Optional modules gated by globalEnabledModules
-const OPTIONAL_MODULES = new Set(['grooming', 'transport', 'overnights', 'boutique']);
-
-const isModuleVisible = (moduleId: string, globalEnabledModules: string[]) =>
-  !OPTIONAL_MODULES.has(moduleId) || globalEnabledModules.includes(moduleId);
-
-// Bottom nav items — most important 4 for mobile + More tab
-const getBottomNavItems = (
-  permissions: ReturnType<typeof usePermissions>,
-  globalEnabledModules: string[],
-) => {
-  const items: Array<{ path: string; icon: any; label: string; module: string }> = [
-    { path: '/', icon: Gauge, label: 'Home', module: 'dashboard' },
-  ];
-
-  if (permissions.canAccessModule('daycare') && isModuleVisible('daycare', globalEnabledModules)) {
-    items.push({ path: '/daycare', icon: Dog, label: 'Daycare', module: 'daycare' });
-  }
-  if (permissions.canAccessModule('transport') && isModuleVisible('transport', globalEnabledModules)) {
-    items.push({ path: '/transport', icon: Truck, label: 'Transport', module: 'transport' });
-  }
-  if (permissions.canAccessModule('grooming') && isModuleVisible('grooming', globalEnabledModules)) {
-    items.push({ path: '/grooming', icon: Scissors, label: 'Grooming', module: 'grooming' });
-  }
-  if (permissions.canAccessModule('customers') && isModuleVisible('customers', globalEnabledModules)) {
-    items.push({ path: '/customers', icon: UsersThree, label: 'Customers', module: 'customers' });
-  }
-
-  // Limit to 4 items — 5th slot is always "More"
-  return items.slice(0, 4);
-};
-
-// All menu items for the slide-out drawer
-const getAllMenuItems = (
-  permissions: ReturnType<typeof usePermissions>,
-  globalEnabledModules: string[],
-) => {
-  const items: Array<{ path: string; icon: any; label: string; module: string }> = [];
-
-  if (permissions.canAccessModule('dashboard')) {
-    items.push({ path: '/', icon: Gauge, label: 'Dashboard', module: 'dashboard' });
-  }
-  if (permissions.canAccessModule('daycare') && isModuleVisible('daycare', globalEnabledModules)) {
-    items.push({ path: '/daycare', icon: Dog, label: 'Daycare', module: 'daycare' });
-  }
-  if (permissions.canAccessModule('grooming') && isModuleVisible('grooming', globalEnabledModules)) {
-    items.push({ path: '/grooming', icon: Scissors, label: 'Grooming', module: 'grooming' });
-  }
-  if (permissions.canAccessModule('transport') && isModuleVisible('transport', globalEnabledModules)) {
-    items.push({ path: '/transport', icon: Truck, label: 'Transport', module: 'transport' });
-  }
-  if (permissions.canAccessModule('overnights') && isModuleVisible('overnights', globalEnabledModules)) {
-    items.push({ path: '/overnights', icon: Moon, label: 'Overnights', module: 'overnights' });
-  }
-  if (permissions.canAccessModule('customers')) {
-    items.push({ path: '/customers', icon: UsersThree, label: 'Customers', module: 'customers' });
-  }
-  if (permissions.canAccessModule('billing')) {
-    items.push({ path: '/billing', icon: Receipt, label: 'Billing', module: 'billing' });
-  }
-  if (permissions.canAccessModule('messages')) {
-    items.push({ path: '/messages', icon: ChatTeardrop, label: 'Messages', module: 'messages' });
-  }
-  if (permissions.canAccessModule('incidents')) {
-    items.push({ path: '/incidents', icon: Warning, label: 'Incidents', module: 'incidents' });
-  }
-  if (permissions.canAccessModule('staff')) {
-    items.push({ path: '/staff', icon: UserGear, label: 'Staff', module: 'staff' });
-  }
-  if (permissions.canAccessModule('settings')) {
-    items.push({ path: '/settings', icon: Gear, label: 'Gear', module: 'settings' });
-  }
-
-  return items;
-};
-
-// Group items by section label
-function groupBySection(items: Array<{ path: string; icon: any; label: string; module: string }>) {
-  const groups: Record<string, typeof items> = {};
-  const order: string[] = [];
-
-  for (const item of items) {
-    const section = SECTION_LABELS[item.module] || 'Other';
-    if (!groups[section]) {
-      groups[section] = [];
-      order.push(section);
-    }
-    groups[section].push(item);
-  }
-
-  return order.map((section) => ({ section, items: groups[section] }));
-}
+import { getVisibleNavEntries, groupNavEntries, bottomBarEntries } from './navManifest';
 
 export function MobileLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const permissions = usePermissions();
+  const { filterNavItems } = useBetaFeatures();
   const { selectedLocationId, setLocation } = useDashboardStore();
   const { locations, organisation, globalEnabledModules } = useSettingsStore();
 
@@ -172,9 +56,17 @@ export function MobileLayout() {
   const logo = organisation.logoUrl || defaultLogo;
   const orgName = organisation.tradingName || organisation.name || 'PawPilot Pro';
 
-  const bottomNavItems = getBottomNavItems(permissions, globalEnabledModules || []);
-  const allMenuItems = getAllMenuItems(permissions, globalEnabledModules || []);
-  const groupedMenuItems = groupBySection(allMenuItems);
+  // Same manifest + same filter as the desktop sidebar — the two navs can
+  // no longer drift apart.
+  const visibleNavEntries = getVisibleNavEntries({
+    canAccessModule: permissions.canAccessModule,
+    filterNavItems,
+    globalEnabledModules: globalEnabledModules || [],
+    selectedLocationId,
+    locations,
+  });
+  const bottomNavItems = bottomBarEntries(visibleNavEntries);
+  const groupedMenuItems = groupNavEntries(visibleNavEntries);
 
   const activeLocationName =
     selectedLocationId === 'ALL'
@@ -313,7 +205,7 @@ export function MobileLayout() {
                   className="text-[10px] font-semibold leading-none"
                   style={{ color: isActive ? 'var(--primary)' : 'var(--tertiary-foreground)' }}
                 >
-                  {item.label}
+                  {item.shortLabel ?? item.label}
                 </span>
               </NavLink>
             );
