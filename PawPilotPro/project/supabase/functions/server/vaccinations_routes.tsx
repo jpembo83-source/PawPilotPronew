@@ -2,6 +2,7 @@ import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
+import { updatePetVaccinationStatus } from './lib/vaccination_status.ts';
 
 const app = new Hono();
 
@@ -14,8 +15,8 @@ const app = new Hono();
 app.use('/make-server-fc003b23/pets/*', requireAuth);
 
 // Type definitions
-type VaccinationType = 
-  | 'dhpp' 
+type VaccinationType =
+  | 'dhpp'
   | 'rabies'
   | 'bordetella'
   | 'leptospirosis'
@@ -44,108 +45,33 @@ interface VaccinationRecord {
   updated_at: string;
 }
 
-// Helper to calculate vaccination status for a pet
-async function calculatePetVaccinationStatus(petId: string, tenantId: string) {
-  const vaccinationsData = await kv.getByPrefix(`vaccination:${tenantId}:${petId}:`);
-  const vaccinations: VaccinationRecord[] = vaccinationsData.map((v: string) => JSON.parse(v));
-
-  if (vaccinations.length === 0) {
-    return {
-      status: 'unknown' as const,
-      expiry_date: undefined,
-    };
-  }
-
-  // Find the earliest expiring vaccination
-  const vaccinationsWithDueDate = vaccinations.filter(v => v.next_due_date);
-  
-  if (vaccinationsWithDueDate.length === 0) {
-    return {
-      status: 'unknown' as const,
-      expiry_date: undefined,
-    };
-  }
-
-  // Sort by next_due_date
-  vaccinationsWithDueDate.sort((a, b) => 
-    new Date(a.next_due_date!).getTime() - new Date(b.next_due_date!).getTime()
-  );
-
-  const earliestDueDate = vaccinationsWithDueDate[0].next_due_date!;
-  const dueDate = new Date(earliestDueDate);
-  const today = new Date();
-  const thirtyDaysFromNow = new Date();
-  thirtyDaysFromNow.setDate(today.getDate() + 30);
-
-  let status: 'up_to_date' | 'expiring_soon' | 'expired';
-  
-  if (dueDate < today) {
-    status = 'expired';
-  } else if (dueDate <= thirtyDaysFromNow) {
-    status = 'expiring_soon';
-  } else {
-    status = 'up_to_date';
-  }
-
-  return {
-    status,
-    expiry_date: earliestDueDate,
-  };
-}
-
-// Update pet's vaccination status
-async function updatePetVaccinationStatus(petId: string, tenantId: string) {
-  // Find pet in customer database
-  const petKeys = await kv.getByPrefix(`customer:${tenantId}:pet:`);
-  const petStr = petKeys.find((p: string) => {
-    const parsed = JSON.parse(p);
-    return parsed.id === petId;
-  });
-  
-  if (!petStr) {
-    console.warn(`Pet ${petId} not found when updating vaccination status`);
-    return;
-  }
-
-  const pet = JSON.parse(petStr);
-  const { status, expiry_date } = await calculatePetVaccinationStatus(petId, tenantId);
-
-  // Update pet record with new vaccination status
-  const updatedPet = {
-    ...pet,
-    vaccination_status: status,
-    vaccination_expiry_date: expiry_date,
-    updated_at: new Date().toISOString(),
-  };
-
-  await kv.set(`customer:${tenantId}:pet:${pet.household_id}:${petId}`, updatedPet);
+// Find a pet within the authenticated user's tenant. kv.getByPrefix returns
+// PARSED JSONB values — the previous implementation JSON.parse()d them (which
+// throws on an object, 500ing every route in this file) and scanned the
+// unscoped `customer:` prefix, which would have crossed tenants.
+async function findPet(tenantId: string, petId: string): Promise<any | null> {
+  const pets = (await kv.getByPrefix(`customer:${tenantId}:pet:`)) as any[];
+  return pets.find((p) => p && p.id === petId) ?? null;
 }
 
 // GET /pets/:petId/vaccinations - List all vaccinations for a pet
 app.get('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
   try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const petId = c.req.param('petId');
-    
-    // Get tenant_id from pet record
-    const petKeys = await kv.getByPrefix(`customer:`);
-    const pet = petKeys.find((p: string) => {
-      const parsed = JSON.parse(p);
-      return parsed.id === petId;
-    });
-    
+
+    const pet = await findPet(tenantId, petId);
     if (!pet) {
       return c.json({ error: 'Pet not found' }, 404);
     }
 
-    const petData = JSON.parse(pet);
-    const tenantId = petData.tenant_id;
-
-    // Get all vaccinations for this pet
-    const vaccinationsData = await kv.getByPrefix(`vaccination:${tenantId}:${petId}:`);
-    const vaccinations: VaccinationRecord[] = vaccinationsData.map((v: string) => JSON.parse(v));
+    const vaccinations = (await kv.getByPrefix(
+      `vaccination:${tenantId}:${petId}:`,
+    )) as VaccinationRecord[];
 
     // Sort by date_administered (newest first)
-    vaccinations.sort((a, b) => 
+    vaccinations.sort((a, b) =>
       new Date(b.date_administered).getTime() - new Date(a.date_administered).getTime()
     );
 
@@ -159,37 +85,27 @@ app.get('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
 // POST /pets/:petId/vaccinations - Create a new vaccination record
 app.post('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
   try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const petId = c.req.param('petId');
     const body = await c.req.json();
-    
-    // Get tenant_id from pet record
-    const petKeys = await kv.getByPrefix(`customer:`);
-    const petStr = petKeys.find((p: string) => {
-      const parsed = JSON.parse(p);
-      return parsed.id === petId;
-    });
-    
-    if (!petStr) {
+
+    const pet = await findPet(tenantId, petId);
+    if (!pet) {
       return c.json({ error: 'Pet not found' }, 404);
     }
 
-    const pet = JSON.parse(petStr);
-    const tenantId = pet.tenant_id;
-
-    // requireAuth has already validated the bearer token and attached the user.
-    const user = c.get('user') as AuthenticatedUser;
-    
     // Validate required fields
     if (!body.vaccination_type || !body.date_administered) {
-      return c.json({ 
-        error: 'Missing required fields: vaccination_type, date_administered' 
+      return c.json({
+        error: 'Missing required fields: vaccination_type, date_administered'
       }, 400);
     }
 
     // If type is 'other', require vaccination_name
     if (body.vaccination_type === 'other' && !body.vaccination_name) {
-      return c.json({ 
-        error: 'vaccination_name is required when vaccination_type is "other"' 
+      return c.json({
+        error: 'vaccination_name is required when vaccination_type is "other"'
       }, 400);
     }
 
@@ -254,36 +170,23 @@ app.post('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
 // PUT /pets/:petId/vaccinations/:vaccinationId - Update a vaccination record
 app.put('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', async (c) => {
   try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const petId = c.req.param('petId');
     const vaccinationId = c.req.param('vaccinationId');
     const body = await c.req.json();
-    
-    // Get tenant_id from pet record
-    const petKeys = await kv.getByPrefix(`customer:`);
-    const petStr = petKeys.find((p: string) => {
-      const parsed = JSON.parse(p);
-      return parsed.id === petId;
-    });
-    
-    if (!petStr) {
+
+    const pet = await findPet(tenantId, petId);
+    if (!pet) {
       return c.json({ error: 'Pet not found' }, 404);
     }
 
-    const pet = JSON.parse(petStr);
-    const tenantId = pet.tenant_id;
-
-    // Get existing vaccination
+    // Get existing vaccination (point read — the key is exact)
     const vaccinationKey = `vaccination:${tenantId}:${petId}:${vaccinationId}`;
-    const vaccinationsData = await kv.getByPrefix(vaccinationKey);
-    
-    if (vaccinationsData.length === 0) {
+    const existing = (await kv.get(vaccinationKey)) as VaccinationRecord | null;
+    if (!existing) {
       return c.json({ error: 'Vaccination record not found' }, 404);
     }
-
-    const existing = JSON.parse(vaccinationsData[0]);
-
-    // requireAuth has already validated the bearer token and attached the user.
-    const user = c.get('user') as AuthenticatedUser;
 
     // Update vaccination
     const updated: VaccinationRecord = {
@@ -339,41 +242,28 @@ app.put('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', async (
 // DELETE /pets/:petId/vaccinations/:vaccinationId - Delete a vaccination record
 app.delete('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', async (c) => {
   try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
     const petId = c.req.param('petId');
     const vaccinationId = c.req.param('vaccinationId');
-    
-    // Get tenant_id from pet record
-    const petKeys = await kv.getByPrefix(`customer:`);
-    const petStr = petKeys.find((p: string) => {
-      const parsed = JSON.parse(p);
-      return parsed.id === petId;
-    });
-    
-    if (!petStr) {
+
+    const pet = await findPet(tenantId, petId);
+    if (!pet) {
       return c.json({ error: 'Pet not found' }, 404);
     }
 
-    const pet = JSON.parse(petStr);
-    const tenantId = pet.tenant_id;
-
-    // Get existing vaccination
+    // Get existing vaccination (point read — the key is exact)
     const vaccinationKey = `vaccination:${tenantId}:${petId}:${vaccinationId}`;
-    const vaccinationsData = await kv.getByPrefix(vaccinationKey);
-    
-    if (vaccinationsData.length === 0) {
+    const existing = (await kv.get(vaccinationKey)) as VaccinationRecord | null;
+    if (!existing) {
       return c.json({ error: 'Vaccination record not found' }, 404);
     }
-
-    const existing = JSON.parse(vaccinationsData[0]);
 
     // Delete vaccination
     await kv.del(vaccinationKey);
 
     // Update pet's overall vaccination status
     await updatePetVaccinationStatus(petId, tenantId);
-
-    // requireAuth has already validated the bearer token and attached the user.
-    const user = c.get('user') as AuthenticatedUser;
 
     // Create activity event
     const activityId = crypto.randomUUID();

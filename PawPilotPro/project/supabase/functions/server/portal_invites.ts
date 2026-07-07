@@ -14,6 +14,7 @@ import { petApprovedEmail } from "./lib/email_templates/pet_approved.ts";
 import { petRejectedEmail } from "./lib/email_templates/pet_rejected.ts";
 import { internalError, logError } from "./_shared/log.ts";
 import { linkedUserIds } from "./lib/portal_link.ts";
+import { updatePetVaccinationStatus } from "./lib/vaccination_status.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -310,6 +311,13 @@ invites.post("/vax-queue/:id/approve", async (c) => {
     reviewedAt: now,
     promotedTo: vaxId,
   });
+
+  // Keep the pet's vaccination_status / vaccination_expiry_date snapshot in
+  // sync — booking creation copies it onto daycare/grooming records. Before
+  // this call, certificate approvals wrote the vaccination record but never
+  // refreshed the snapshot, so approved certs never moved a pet off
+  // "unknown"/"expired".
+  await updatePetVaccinationStatus(entry.petId, tenantId);
 
   const email = await getOwnerEmail(tenantId, entry.householdId);
   const ownerName = await getOwnerName(tenantId, entry.householdId);
