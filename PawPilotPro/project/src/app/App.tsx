@@ -25,7 +25,7 @@ import { ThemeManager } from './components/ThemeManager';
 import { Toaster } from 'sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Overnights } from './modules/overnights/pages/Overnights';
-import { CustomersPage, CreateHouseholdPage, HouseholdDetailPage, PetProfilePage, BulkImportPage, ExportPage, ClearDataPage, VaxReviewPage, PendingRequestsPage } from './modules/customers';
+import { CustomersPage, CreateHouseholdPage, HouseholdDetailPage, PetProfilePage, BulkImportPage, ExportPage, ClearDataPage, PendingRequestsPage } from './modules/customers';
 import { MessagingPage } from './modules/messaging/MessagingPage';
 import { OperationalRulesPage } from './modules/operational-rules/OperationalRulesPage';
 import { CommunicationsSettingsPage } from './modules/communications-settings';
@@ -119,7 +119,9 @@ export default function App() {
                 <Route path="customers/bulk-import" element={<BulkImportPage />} />
                 <Route path="customers/export" element={<ExportPage />} />
                 <Route path="customers/clear-data" element={<ClearDataPage />} />
-                <Route path="customers/vax-review" element={<VaxReviewPage />} />
+                {/* Vax review folded into the Portal Inbox's Vaccinations tab —
+                    the old standalone URL deep-links straight to that tab. */}
+                <Route path="customers/vax-review" element={<Navigate to="/customers/pending-requests?tab=vaccinations" replace />} />
                 <Route path="customers/pending-requests" element={<PendingRequestsPage />} />
                 {/* Beta-only routes - only visible to beta testers */}
                 <Route path="messages" element={<BetaRoute><MessagingPage /></BetaRoute>} />

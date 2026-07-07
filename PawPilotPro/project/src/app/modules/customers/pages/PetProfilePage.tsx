@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, Link } from 'react-router';
 import { useCustomerStore } from '../store';
 import { 
   ArrowLeft, 
@@ -36,6 +36,8 @@ interface PetSummary {
   lastVisit: string | null;
   vaccinationCount: number;
   vaccinationsExpiring: number;
+  /** Owner-uploaded certificates for this pet sitting in the review queue. */
+  vaccinationsPendingReview: number;
 }
 
 const EMPTY_SUMMARY: PetSummary = {
@@ -45,6 +47,7 @@ const EMPTY_SUMMARY: PetSummary = {
   lastVisit: null,
   vaccinationCount: 0,
   vaccinationsExpiring: 0,
+  vaccinationsPendingReview: 0,
 };
 
 // Import tab components
@@ -91,10 +94,11 @@ export function PetProfilePage() {
       try {
         const headers = await getAuthHeaders();
 
-        const [docsRes, vaxRes, visitsRes] = await Promise.allSettled([
+        const [docsRes, vaxRes, visitsRes, vaxQueueRes] = await Promise.allSettled([
           fetch(`${API_BASE}/customers/households/${householdId}/documents`, { headers }),
           fetch(`${API_BASE}/pets/${id}/vaccinations`, { headers }),
           fetch(`${API_BASE}/daycare/bookings?pet_id=${id}`, { headers }),
+          fetch(`${API_BASE}/portal-admin/vax-queue/pending-count?petId=${encodeURIComponent(id)}`, { headers }),
         ]);
 
         const now = Date.now();
@@ -121,6 +125,13 @@ export function PetProfilePage() {
             const due = new Date(v.next_due_date).getTime();
             return due >= now && due <= now + 30 * MS_PER_DAY;
           }).length;
+        }
+
+        // Owner-uploaded certificates for this pet awaiting staff review —
+        // powers the "awaiting review" chip on the Vaccinations stat card.
+        if (vaxQueueRes.status === 'fulfilled' && vaxQueueRes.value.ok) {
+          const body = (await vaxQueueRes.value.json().catch(() => ({}))) as { count?: number };
+          next.vaccinationsPendingReview = body.count ?? 0;
         }
 
         // Visits — attended daycare bookings; "recent" = last 90 days
@@ -519,6 +530,15 @@ export function PetProfilePage() {
                       <p className="text-sm text-orange-600 mt-1">
                         {summary.vaccinationsExpiring} expiring soon
                       </p>
+                    )}
+                    {summary.vaccinationsPendingReview > 0 && (
+                      <Link
+                        to="/customers/pending-requests?tab=vaccinations"
+                        className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-sm font-medium hover:bg-amber-200 transition-colors"
+                      >
+                        <Syringe className="h-3.5 w-3.5" />
+                        {summary.vaccinationsPendingReview} awaiting review
+                      </Link>
                     )}
                   </>
                 )}

@@ -238,6 +238,22 @@ invites.get("/vax-queue", async (c) => {
   return c.json({ items: enriched });
 });
 
+// Per-pet pending count — powers the "awaiting review" chip on the staff
+// PetProfilePage without paying for the full queue GET (which signs a URL
+// per certificate). Without ?petId it counts the whole tenant queue.
+invites.get("/vax-queue/pending-count", async (c) => {
+  const auth = await readAuth(c);
+  if (!auth) return c.json({ error: "Unauthorized" }, 401);
+  const { tenantId } = auth;
+  const petId = c.req.query("petId") || null;
+
+  const count = ((await kv.getByPrefix(`vax_review_queue:${tenantId}:`)) as any[])
+    .filter((i) => i.status === "pending")
+    .filter((i) => !petId || i.petId === petId)
+    .length;
+  return c.json({ count });
+});
+
 invites.post("/vax-queue/:id/approve", async (c) => {
   const auth = await readAuth(c);
   if (!auth) return c.json({ error: "Unauthorized" }, 401);

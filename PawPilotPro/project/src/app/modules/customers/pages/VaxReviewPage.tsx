@@ -22,7 +22,7 @@ const VAX_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
-interface QueueItem {
+export interface QueueItem {
   id: string;
   petId: string;
   petName: string | null;
@@ -105,7 +105,9 @@ export function VaxReviewPage() {
   );
 }
 
-function ReviewCard({ item, onResolved }: { item: QueueItem; onResolved: () => void }) {
+// Exported for the Portal Inbox's Vaccinations tab (PendingRequestsPage),
+// which renders the same review cards — the review logic lives here only.
+export function ReviewCard({ item, onResolved }: { item: QueueItem; onResolved: () => void }) {
   const [vaccinationType, setVaccinationType] = useState(item.proposedVaxType ?? 'rabies');
   const [dateAdministered, setDateAdministered] = useState(item.proposedIssuedAt?.slice(0, 10) ?? '');
   const [nextDueDate, setNextDueDate] = useState(item.proposedExpiresAt?.slice(0, 10) ?? '');

@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Textarea } from '../../../components/ui/textarea';
 import { Label } from '../../../components/ui/label';
-import { Calendar, CheckCircle2, XCircle, Loader2, AlertTriangle, Sparkles, Gauge, PawPrint } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Calendar, CheckCircle2, XCircle, Loader2, AlertTriangle, Sparkles, Gauge, PawPrint, Syringe } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../utils/supabase/info';
 import { broadcastMutation } from '../../../lib/realtimeBroadcast';
 import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
+import { ReviewCard, type QueueItem } from './VaxReviewPage';
 
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 
@@ -80,19 +82,37 @@ interface PetVerification {
   petMissing?: boolean;
 }
 
+/** Tab ids double as the ?tab= query value so the vax tab is deep-linkable. */
+const INBOX_TABS = ['bookings', 'pets', 'vaccinations'] as const;
+type InboxTab = (typeof INBOX_TABS)[number];
+
 export function PendingRequestsPage() {
   const [items, setItems] = useState<PendingRequest[]>([]);
   const [verifications, setVerifications] = useState<PetVerification[]>([]);
+  const [vaxItems, setVaxItems] = useState<QueueItem[]>([]);
   const [snapshots, setSnapshots] = useState<SnapshotMap>({});
   const [loading, setLoading] = useState(true);
+
+  // Active tab lives in the URL (?tab=vaccinations) so the sidebar badge,
+  // the PetProfilePage chip, and the old /customers/vax-review redirect can
+  // all land staff directly on the right queue.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const tab: InboxTab = (INBOX_TABS as readonly string[]).includes(rawTab ?? '')
+    ? (rawTab as InboxTab)
+    : 'bookings';
+  const setTab = (next: string) => {
+    setSearchParams(next === 'bookings' ? {} : { tab: next }, { replace: true });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const [reqRes, vRes] = await Promise.all([
+      const [reqRes, vRes, vaxRes] = await Promise.all([
         fetch(`${FN_BASE}/pending-requests`, { headers }),
         fetch(`${FN_BASE}/pet-verifications`, { headers }),
+        fetch(`${FN_BASE}/vax-queue`, { headers }),
       ]);
       if (reqRes.ok) {
         const body = (await reqRes.json()) as { requests?: PendingRequest[] };
@@ -102,6 +122,10 @@ export function PendingRequestsPage() {
         const body = (await vRes.json()) as { items?: PetVerification[] };
         setVerifications(body.items ?? []);
       } else toast.error('Could not load pet verifications');
+      if (vaxRes.ok) {
+        const body = (await vaxRes.json()) as { items?: QueueItem[] };
+        setVaxItems(body.items ?? []);
+      } else toast.error('Could not load vaccination queue');
     } finally { setLoading(false); }
   }, []);
 
@@ -161,7 +185,7 @@ export function PendingRequestsPage() {
             <p className="text-sm text-muted-foreground">
               {loading
                 ? 'Loading…'
-                : `${items.length} booking request${items.length === 1 ? '' : 's'} · ${verifications.length} pet verification${verifications.length === 1 ? '' : 's'} from the owner portal`}
+                : `${items.length} booking request${items.length === 1 ? '' : 's'} · ${verifications.length} pet verification${verifications.length === 1 ? '' : 's'} · ${vaxItems.length} vaccination certificate${vaxItems.length === 1 ? '' : 's'}`}
             </p>
           </div>
         </div>
@@ -172,46 +196,104 @@ export function PendingRequestsPage() {
 
       {loading ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent></Card>
-      ) : items.length === 0 && verifications.length === 0 ? (
+      ) : items.length === 0 && verifications.length === 0 && vaxItems.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <CheckCircle2 className="h-10 w-10 text-primary/40 mx-auto mb-3" />
             <p className="font-medium">Inbox empty</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Owner-submitted bookings and newly added pets will appear here for your approval.
+              Owner-submitted bookings, newly added pets, and vaccination certificates will appear here for your approval.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <>
-          {items.length > 0 && (
-            <section className="space-y-3">
-              {verifications.length > 0 && (
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Booking requests
-                </h2>
-              )}
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="bookings">
+              <Calendar className="h-4 w-4" />
+              Bookings
+              <QueueCount n={items.length} />
+            </TabsTrigger>
+            <TabsTrigger value="pets">
+              <PawPrint className="h-4 w-4" />
+              Pet verifications
+              <QueueCount n={verifications.length} />
+            </TabsTrigger>
+            <TabsTrigger value="vaccinations">
+              <Syringe className="h-4 w-4" />
+              Vaccinations
+              <QueueCount n={vaxItems.length} />
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="bookings">
+            {items.length === 0 ? (
+              <QueueEmpty text="No pending booking requests." />
+            ) : (
               <ul className="space-y-3">
                 {items.map((r) => <li key={r.id}><RequestRow r={r} snapshots={snapshots} onResolved={load} /></li>)}
               </ul>
-            </section>
-          )}
-          {verifications.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-2">
-                <PawPrint className="h-4 w-4" />
-                Pet verifications
-              </h2>
+            )}
+          </TabsContent>
+
+          <TabsContent value="pets">
+            {verifications.length === 0 ? (
+              <QueueEmpty text="No pets awaiting verification." />
+            ) : (
               <ul className="space-y-3">
                 {verifications.map((v) => (
                   <li key={v.id}><PetVerificationRow v={v} onResolved={load} /></li>
                 ))}
               </ul>
-            </section>
-          )}
-        </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="vaccinations">
+            {vaxItems.length === 0 ? (
+              <QueueEmpty text="No vaccination certificates awaiting review." />
+            ) : (
+              <ul className="space-y-4">
+                {vaxItems.map((item) => (
+                  <li key={item.id}>
+                    {/* Review logic lives in VaxReviewPage's ReviewCard; this
+                        wrapper only adds the realtime broadcast so a second
+                        staff client's inbox + badge refresh. */}
+                    <ReviewCard
+                      item={item}
+                      onResolved={() => {
+                        void broadcastMutation('customers', 'vaccination', 'updated', item.petId, { action: 'vax_reviewed' });
+                        void load();
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
+  );
+}
+
+/** Per-queue pending count rendered inside a tab trigger. */
+function QueueCount({ n }: { n: number }) {
+  if (n === 0) return null;
+  return (
+    <Badge variant="secondary" className="ml-1 px-1.5 min-w-5 justify-center tabular-nums">
+      {n}
+    </Badge>
+  );
+}
+
+function QueueEmpty({ text }: { text: string }) {
+  return (
+    <Card>
+      <CardContent className="py-10 text-center">
+        <CheckCircle2 className="h-8 w-8 text-primary/40 mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">{text}</p>
+      </CardContent>
+    </Card>
   );
 }
 
