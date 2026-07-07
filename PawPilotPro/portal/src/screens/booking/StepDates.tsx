@@ -1,5 +1,41 @@
 import { useState } from "react";
+import { CalendarDays, Clock } from "lucide-react";
 import { useBookingDraftStore } from "@/stores/bookingDraftStore";
+
+function formatDateDisplay(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (isNaN(d.getTime())) return "Pick a date";
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+
+/**
+ * Native pickers, app skin. The real <input type="date|time"> stays — it's
+ * the reliable choice on mobile — but it's stretched invisibly over a
+ * styled trigger row, so the CLOSED state matches the design language
+ * while every tap still opens the platform picker.
+ */
+function NativePickerRow({
+  icon,
+  display,
+  children,
+}: {
+  icon: React.ReactNode;
+  display: string;
+  children: React.ReactNode; // the native input (rendered invisible on top)
+}) {
+  return (
+    <div className="relative h-12 rounded-xl border border-input bg-input-background transition-shadow focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/30">
+      <div className="pointer-events-none absolute inset-0 flex items-center gap-2.5 px-3.5" aria-hidden="true">
+        <span className="text-muted-foreground shrink-0">{icon}</span>
+        <span className="text-[15px] text-foreground text-tabular truncate">{display}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// Invisible but fully tappable native input, stretched over the styled row.
+const NATIVE_INPUT_CLASS = "absolute inset-0 w-full h-full opacity-0 cursor-pointer";
 
 export function StepDates({ onNext }: { onNext: () => void }) {
   const { service, setDates } = useBookingDraftStore();
@@ -52,24 +88,28 @@ export function StepDates({ onNext }: { onNext: () => void }) {
 
       <div className="rounded-2xl border border-border bg-card p-4 mb-7 anim-slide-up space-y-4">
         <Field label={service === "overnights" ? "Check-in date" : "Date"}>
-          <input
-            type="date"
-            value={date}
-            min={today}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] text-tabular focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
-          />
+          <NativePickerRow icon={<CalendarDays size={16} strokeWidth={2.2} />} display={formatDateDisplay(date)}>
+            <input
+              type="date"
+              value={date}
+              min={today}
+              onChange={(e) => setDate(e.target.value)}
+              className={NATIVE_INPUT_CLASS}
+            />
+          </NativePickerRow>
         </Field>
 
         {service === "overnights" && (
           <Field label="Check-out date">
-            <input
-              type="date"
-              value={endDate}
-              min={date}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] text-tabular focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
-            />
+            <NativePickerRow icon={<CalendarDays size={16} strokeWidth={2.2} />} display={formatDateDisplay(endDate)}>
+              <input
+                type="date"
+                value={endDate}
+                min={date}
+                onChange={(e) => setEndDate(e.target.value)}
+                className={NATIVE_INPUT_CLASS}
+              />
+            </NativePickerRow>
           </Field>
         )}
 
@@ -83,23 +123,27 @@ export function StepDates({ onNext }: { onNext: () => void }) {
                   : "Drop-off time"
             }
           >
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] text-tabular focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
-            />
+            <NativePickerRow icon={<Clock size={16} strokeWidth={2.2} />} display={time}>
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className={NATIVE_INPUT_CLASS}
+              />
+            </NativePickerRow>
           </Field>
         )}
 
         {service === "daycare" && (
           <Field label="Pickup time">
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full h-12 px-3.5 rounded-xl border border-input bg-input-background text-foreground text-[15px] text-tabular focus:outline-none focus:border-primary focus:ring-2 focus:ring-ring/30 transition-shadow"
-            />
+            <NativePickerRow icon={<Clock size={16} strokeWidth={2.2} />} display={endTime}>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className={NATIVE_INPUT_CLASS}
+              />
+            </NativePickerRow>
           </Field>
         )}
       </div>

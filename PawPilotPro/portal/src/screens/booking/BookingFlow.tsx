@@ -2,48 +2,15 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { ChevronLeft, X } from "lucide-react";
 import { useBookingDraftStore } from "@/stores/bookingDraftStore";
+import { usePortalQuery } from "@/hooks/usePortalQuery";
+import type { Pet } from "@shared/types/pet";
 import { StepService } from "./StepService";
 import { StepPets } from "./StepPets";
 import { StepLocation } from "./StepLocation";
 import { StepDates } from "./StepDates";
 import { StepAddOns } from "./StepAddOns";
 import { StepReview } from "./StepReview";
-
-type Step = "service" | "pets" | "location" | "dates" | "addons" | "review";
-
-const STEP_LABEL: Record<Step, string> = {
-  service: "Service",
-  pets: "Pets",
-  location: "Where",
-  dates: "When",
-  addons: "Add-ons",
-  review: "Review",
-};
-
-/** Add-ons step appears only for primary services that have cross-sells. */
-function supportsAddOns(service: string | null): boolean {
-  return service === "daycare" || service === "overnights";
-}
-
-/**
- * Compute the live step list. We have to derive it from current draft
- * state instead of hard-coding because StepAddOns disappears the moment
- * the owner picks grooming/transport as primary — wizard goes from
- * 5 steps to 4, progress bar shrinks accordingly.
- */
-function stepsFor(service: string | null): Step[] {
-  // Location is only meaningful for services that physically happen AT a
-  // branch — daycare and overnights.  Grooming + transport (the latter
-  // operates the pickup leg) don't need an "at which branch" pick today;
-  // staff handles the routing. Skip the step for those to keep the
-  // wizard short.
-  const base: Step[] = ["service", "pets"];
-  if (service === "daycare" || service === "overnights") base.push("location");
-  base.push("dates");
-  if (supportsAddOns(service)) base.push("addons");
-  base.push("review");
-  return base;
-}
+import { STEP_LABEL, stepsFor, serviceTitle, joinPetNames, type Step } from "./bookingSteps";
 
 export function BookingFlow() {
   const [params, setParams] = useSearchParams();
@@ -57,6 +24,23 @@ export function BookingFlow() {
   const safeStep: Step = steps.includes(step) ? step : "review";
   const idx = steps.indexOf(safeStep);
   const progress = ((idx + 1) / steps.length) * 100;
+
+  // Context bar (step 2 onward): "Daycare · Rex & Luna" — what's being
+  // booked and for whom stays visible however deep the wizard goes.
+  // Same query key StepPets uses, so this is served from cache once the
+  // owner has passed that step; enabled only when the bar can render.
+  const showContext = idx > 0 && !!draft.service;
+  const { data: petsData } = usePortalQuery<{ pets: Pet[] }>(["portal", "pets"], "/portal/pets", {
+    enabled: showContext && draft.petIds.length > 0,
+  });
+  const petNames = (petsData?.pets ?? [])
+    .filter((p) => draft.petIds.includes(p.id))
+    .map((p) => p.name);
+  const contextLine = showContext
+    ? [serviceTitle(draft.service), petNames.length > 0 ? joinPetNames(petNames) : null]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
 
   useEffect(() => {
     if (!params.get("step")) draft.reset();
@@ -97,6 +81,15 @@ export function BookingFlow() {
           </div>
           <span className="w-16 invisible" aria-hidden="true">spacer</span>
         </div>
+
+        {/* Context bar — one line, truncates, never wraps the header taller */}
+        {contextLine && (
+          <div className="max-w-md mx-auto mt-1">
+            <p className="text-[12px] font-medium text-center text-muted-foreground truncate anim-fade-in">
+              {contextLine}
+            </p>
+          </div>
+        )}
       </header>
 
       {/* Progress bar -------------------------------------------------- */}
