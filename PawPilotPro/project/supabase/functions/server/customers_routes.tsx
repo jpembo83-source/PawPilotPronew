@@ -2579,10 +2579,55 @@ app.get('/pets/:petId/timeline', async (c) => {
         timeline_date: flag.created_at,
       }));
     
+    // Daycare visits — derived from the pet's attended bookings, the same
+    // source the profile's "Recent Visits" stat counts. Check-in/check-out
+    // never wrote activity-feed events, so without this merge a visit shows
+    // in the stats but never in the timeline.
+    const allBookings = await kv.getByPrefix('daycare:booking:');
+    const visitItems: any[] = [];
+    for (const booking of allBookings) {
+      if (booking.pet_id !== petId) continue;
+      const attended =
+        booking.check_in_status === 'checked_in' ||
+        booking.check_in_status === 'checked_out' ||
+        booking.booking_status === 'completed';
+      if (!attended) continue;
+
+      const checkinAt = booking.actual_check_in_time || booking.booking_date;
+      if (checkinAt) {
+        visitItems.push({
+          id: `${booking.id}-checkin`,
+          household_id: booking.household_id,
+          pet_id: booking.pet_id,
+          activity_type: 'daycare_checkin',
+          title: 'Daycare check-in',
+          description: booking.handover_notes || undefined,
+          occurred_at: checkinAt,
+          created_by_name: booking.checked_in_by_name || undefined,
+          timeline_type: 'activity',
+          timeline_date: checkinAt,
+        });
+      }
+      if (booking.actual_check_out_time) {
+        visitItems.push({
+          id: `${booking.id}-checkout`,
+          household_id: booking.household_id,
+          pet_id: booking.pet_id,
+          activity_type: 'daycare_checkout',
+          title: 'Daycare check-out',
+          description: booking.checkout_notes || undefined,
+          occurred_at: booking.actual_check_out_time,
+          created_by_name: booking.checked_out_by_name || undefined,
+          timeline_type: 'activity',
+          timeline_date: booking.actual_check_out_time,
+        });
+      }
+    }
+
     // Combine all timeline items and sort by date descending
-    const timelineItems = [...petEvents, ...petNotes, ...petFlags]
+    const timelineItems = [...petEvents, ...petNotes, ...petFlags, ...visitItems]
       .sort((a, b) => new Date(b.timeline_date).getTime() - new Date(a.timeline_date).getTime());
-    
+
     return c.json(timelineItems);
   } catch (error: any) {
     return internalError(c, 'customers.petTimeline', error);
