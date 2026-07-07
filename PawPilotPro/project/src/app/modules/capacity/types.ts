@@ -69,3 +69,26 @@ export interface CapacityBookingRecord {
   booking_date: string;
   booking_status?: string;
 }
+
+/**
+ * The slice of a daycare booking the planner view renders — the digital
+ * equivalent of one line in the paper register ("Roxy Full + PU/DO").
+ * Comes straight from GET /daycare/bookings; no new backend.
+ */
+export interface PlannerBooking {
+  id: string;
+  booking_date: string;
+  booking_status?: string;
+  check_in_status?: string;
+  pet_id: string;
+  pet_name: string;
+  household_id: string;
+  household_name: string;
+  location_id: string;
+  service_type?: string;
+  planned_start_time?: string;
+  planned_end_time?: string;
+  requires_transport?: boolean;
+  has_behaviour_flag?: boolean;
+  has_medical_flag?: boolean;
+}

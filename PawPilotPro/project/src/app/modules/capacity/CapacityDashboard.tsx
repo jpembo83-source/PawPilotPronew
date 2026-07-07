@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useCapacityStore } from './store';
+import { getMaxDogs, useCapacityStore } from './store';
 import { useDashboardStore } from '../dashboard/store';
 import { useSettingsStore } from '../settings/store';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Badge } from '../../components/ui/badge';
 import {
   CalendarBlank,
   CaretLeft,
@@ -13,6 +12,9 @@ import {
   Moon,
   Truck,
 } from '@phosphor-icons/react';
+import { WeekPlannerGrid } from './components/WeekPlannerGrid';
+import { DayBookingsSheet } from './components/DayBookingsSheet';
+import { CreateBookingDialog } from '../daycare/components/CreateBookingDialog';
 import type { ServiceCapacity, DailyCapacitySummary } from './types';
 
 function formatDate(date: Date): string {
@@ -45,7 +47,12 @@ function statusColors(status: ServiceCapacity['status']) {
 
 // ── Service card ──────────────────────────────────────────────────────────────
 
-function ServiceCard({ service, capacity }: { service: typeof SERVICES[number]; capacity: ServiceCapacity | null }) {
+function ServiceCard({ service, capacity, onOpenList }: {
+  service: typeof SERVICES[number];
+  capacity: ServiceCapacity | null;
+  /** Present = the card clicks out into the day's dog list. */
+  onOpenList?: () => void;
+}) {
   const { Icon, label, color } = service;
 
   if (!capacity || capacity.total_capacity === 0) {
@@ -65,14 +72,14 @@ function ServiceCard({ service, capacity }: { service: typeof SERVICES[number]; 
   const sc = statusColors(capacity.status);
   const pct = Math.min(capacity.utilization_percent, 100);
 
-  return (
-    <div className="p-4 rounded-2xl border bg-white">
+  const body = (
+    <>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${color}18` }}>
             <Icon size={18} style={{ color }} />
           </div>
-          <div>
+          <div className="text-left">
             <p className="text-sm font-semibold text-slate-900">{label}</p>
             <p className="text-xs text-slate-400">{capacity.booked} / {capacity.total_capacity} booked</p>
           </div>
@@ -90,7 +97,19 @@ function ServiceCard({ service, capacity }: { service: typeof SERVICES[number]; 
         <span className="text-xs text-slate-500">{capacity.available} available</span>
         <span className="text-xs font-semibold text-slate-700">{pct}%</span>
       </div>
-    </div>
+    </>
+  );
+
+  if (!onOpenList) return <div className="p-4 rounded-2xl border bg-white">{body}</div>;
+
+  return (
+    <button
+      onClick={onOpenList}
+      className="w-full p-4 rounded-2xl border bg-white text-left hover:border-primary hover:shadow-sm active:scale-[0.99] transition-all"
+      aria-label={`${label}: ${capacity.booked} of ${capacity.total_capacity} booked — open the day's dog list`}
+    >
+      {body}
+    </button>
   );
 }
 
@@ -153,18 +172,40 @@ export function CapacityDashboard() {
     weeklyView,
     selectedDate,
     dailySummary,
+    weekBookings,
     isLoading,
     setSelectedDate,
     fetchWeeklyCapacity,
     fetchDailyCapacity,
+    fetchWeekBookings,
   } = useCapacityStore();
 
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekStart(new Date()));
 
+  // Planner interactions: the day list sheet and the prefilled create dialog.
+  const [sheetDate, setSheetDate] = useState<string | null>(null);
+  const [createDate, setCreateDate] = useState<string | null>(null);
+
   useEffect(() => {
-    fetchWeeklyCapacity(formatDate(currentWeekStart), selectedLocationId);
-    fetchDailyCapacity(selectedDate, selectedLocationId);
+    void fetchWeeklyCapacity(formatDate(currentWeekStart), selectedLocationId);
+    void fetchDailyCapacity(selectedDate, selectedLocationId);
+    void fetchWeekBookings(formatDate(currentWeekStart), selectedLocationId);
   }, [currentWeekStart, selectedLocationId]);
+
+  const refreshAll = () => {
+    void fetchWeeklyCapacity(formatDate(currentWeekStart), selectedLocationId);
+    void fetchDailyCapacity(selectedDate, selectedLocationId);
+    void fetchWeekBookings(formatDate(currentWeekStart), selectedLocationId);
+  };
+
+  const openDayList = (date: string) => {
+    setSelectedDate(date);
+    setSheetDate(date);
+  };
+  const openCreate = (date: string) => {
+    setSheetDate(null);
+    setCreateDate(date);
+  };
 
   const goToPrev  = () => { const d = new Date(currentWeekStart); d.setDate(d.getDate() - 7); setCurrentWeekStart(d); };
   const goToNext  = () => { const d = new Date(currentWeekStart); d.setDate(d.getDate() + 7); setCurrentWeekStart(d); };
@@ -176,6 +217,15 @@ export function CapacityDashboard() {
   const weekRange = `${currentWeekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
   const enabledServices = SERVICES.filter(s => globalEnabledModules.includes(s.id) || s.id === 'daycare');
+
+  // The register's max for the selected location (or all locations summed) —
+  // same source the Settings -> Locations page writes.
+  const maxDogs = getMaxDogs(selectedLocationId);
+  const weekDays: string[] = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() + i);
+    return formatDate(d);
+  });
 
   const selectedLabel = new Date(selectedDate).toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -241,6 +291,18 @@ export function CapacityDashboard() {
         </div>
       </div>
 
+      {/* Week planner — the paper register digitised (tablet/desktop; phones
+          use the strip above + the day drill-down below) */}
+      <WeekPlannerGrid
+        days={weekDays}
+        bookings={weekBookings}
+        maxDogs={maxDogs}
+        today={today}
+        selectedDate={selectedDate}
+        onOpenDay={openDayList}
+        onAddBooking={openCreate}
+      />
+
       {/* Day detail */}
       <div>
         <div className="flex items-center gap-2 mb-3">
@@ -263,11 +325,32 @@ export function CapacityDashboard() {
                 key={service.id}
                 service={service}
                 capacity={dailySummary?.[service.id as keyof DailyCapacitySummary] as ServiceCapacity | null}
+                // Daycare clicks out into the day's register list; other
+                // services keep their count cards until they have lists.
+                onOpenList={service.id === 'daycare' ? () => openDayList(selectedDate) : undefined}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Day register list — bottom sheet on phones, side panel on desktop */}
+      <DayBookingsSheet
+        open={sheetDate !== null}
+        onOpenChange={(open) => { if (!open) setSheetDate(null); }}
+        date={sheetDate ?? selectedDate}
+        bookings={weekBookings}
+        maxDogs={maxDogs}
+        onAddBooking={openCreate}
+      />
+
+      {/* Booking creation, prefilled with the tapped day */}
+      <CreateBookingDialog
+        open={createDate !== null}
+        onOpenChange={(open) => { if (!open) setCreateDate(null); }}
+        initialDate={createDate ?? undefined}
+        onSuccess={() => { setCreateDate(null); refreshAll(); }}
+      />
     </div>
   );
 }
