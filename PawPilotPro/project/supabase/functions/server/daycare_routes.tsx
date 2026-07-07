@@ -320,21 +320,34 @@ const validateCheckIn = async (booking: DaycareBooking, tenantId: string) => {
     });
   }
   
-  // Behaviour flag - WARNING
-  if (booking.has_behaviour_flag) {
+  // Behaviour / medical - WARNING. Read the LIVE pet record (same reasoning
+  // as the waiver lookup above): these notes are safety data staff can edit
+  // at any time, but has_behaviour_flag/behaviour_notes are stamped onto the
+  // booking at creation and go stale — a bite history or medication change
+  // recorded after booking would otherwise never reach the check-in screen.
+  // The booking snapshot stays as the fallback when the pet record is gone,
+  // so warnings fail towards showing rather than disappearing.
+  const livePet = (await kv.get(
+    `customer:${tenantId}:pet:${booking.household_id}:${booking.pet_id}`,
+  )) as { behaviour_notes?: string; medical_notes?: string } | null;
+  const behaviourNotes = livePet ? livePet.behaviour_notes : booking.behaviour_notes;
+  const medicalNotes = livePet ? livePet.medical_notes : booking.medical_notes;
+  const hasBehaviourFlag = livePet ? !!behaviourNotes : booking.has_behaviour_flag;
+  const hasMedicalFlag = livePet ? !!medicalNotes : booking.has_medical_flag;
+
+  if (hasBehaviourFlag) {
     warnings.push({
       type: 'warning',
       category: 'behaviour',
-      message: `Behaviour alert: ${booking.behaviour_notes || 'See pet profile'}`,
+      message: `Behaviour alert: ${behaviourNotes || 'See pet profile'}`,
     });
   }
-  
-  // Medical flag - WARNING
-  if (booking.has_medical_flag) {
+
+  if (hasMedicalFlag) {
     warnings.push({
       type: 'warning',
       category: 'medical',
-      message: `Medical alert: ${booking.medical_notes || 'See pet profile'}`,
+      message: `Medical alert: ${medicalNotes || 'See pet profile'}`,
     });
   }
   
