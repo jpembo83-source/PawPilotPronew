@@ -121,6 +121,7 @@ export function PetDetailScreen() {
 
   const p = data.pet;
   const pending = p.verificationStatus === "pending_staff_review";
+  const rejected = p.verificationStatus === "rejected";
   const hasOwnerNotes = !!p.ownerNotes?.trim();
   const hasTeamNotes = !!(p.teamBehaviourNotes?.trim() || p.teamMedicalNotes?.trim());
 
@@ -161,6 +162,15 @@ export function PetDetailScreen() {
           <p className="leading-relaxed">
             <span className="font-semibold">Awaiting team verification.</span>{" "}
             You can edit details now — they'll be confirmed alongside identity.
+          </p>
+        </div>
+      )}
+      {rejected && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-destructive/5 border border-destructive/20 text-sm p-3.5 mb-3 anim-fade-in">
+          <AlertCircle size={15} strokeWidth={2.2} className="shrink-0 mt-px text-destructive" />
+          <p className="leading-relaxed">
+            <span className="font-semibold">We couldn't verify {p.name}.</span>{" "}
+            The team's reason is in your notifications and inbox — get in touch and we'll sort it out together.
           </p>
         </div>
       )}
