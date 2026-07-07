@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
+import { Badge } from '../../../../components/ui/badge';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
@@ -41,6 +42,8 @@ interface PetFormData {
   neutered_status: 'spayed' | 'castrated' | 'none' | '';
   feeding_instructions: string;
   allergies: string;
+  behaviour_notes: string;
+  medical_notes: string;
   vet_name: string;
   vet_phone: string;
   vet_address: string;
@@ -63,6 +66,8 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
     neutered_status: pet.neutered_status || '',
     feeding_instructions: pet.feeding_instructions || '',
     allergies: pet.allergies || '',
+    behaviour_notes: pet.behaviour_notes || '',
+    medical_notes: pet.medical_notes || '',
     vet_name: pet.vet_name || '',
     vet_phone: pet.vet_phone || '',
     vet_address: pet.vet_address || '',
@@ -105,6 +110,8 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
       neutered_status: pet.neutered_status || '',
       feeding_instructions: pet.feeding_instructions || '',
       allergies: pet.allergies || '',
+      behaviour_notes: pet.behaviour_notes || '',
+      medical_notes: pet.medical_notes || '',
       vet_name: pet.vet_name || '',
       vet_phone: pet.vet_phone || '',
       vet_address: pet.vet_address || '',
@@ -171,6 +178,13 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
         neutered_status: formData.neutered_status || undefined,
         feeding_instructions: formData.feeding_instructions || undefined,
         allergies: formData.allergies || undefined,
+        // Safety notes send the (possibly empty) string rather than
+        // `|| undefined`: undefined keys are dropped by JSON.stringify and
+        // the server spreads the body over the stored record, which would
+        // make a cleared note silently keep its old value. A stale bite
+        // history or medication note must be clearable.
+        behaviour_notes: formData.behaviour_notes.trim(),
+        medical_notes: formData.medical_notes.trim(),
         vet_name: formData.vet_name || undefined,
         vet_phone: formData.vet_phone || undefined,
         vet_address: formData.vet_address || undefined,
@@ -385,6 +399,45 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
                 disabled={isSubmitting}
                 rows={2}
               />
+            </div>
+
+            {/* Staff-only safety notes — same fields CreatePetModal collects;
+                these feed the check-in warning system, so they must stay
+                editable after creation. */}
+            <div className="space-y-2">
+              <Label htmlFor="behaviour_notes">
+                Behaviour Notes
+                <Badge variant="outline" className="ml-2 text-xs">Staff Only</Badge>
+              </Label>
+              <Textarea
+                id="behaviour_notes"
+                value={formData.behaviour_notes}
+                onChange={(e) => handleChange('behaviour_notes', e.target.value)}
+                placeholder="e.g., Nervous around loud noises, plays well with other dogs"
+                disabled={isSubmitting}
+                rows={2}
+              />
+              <p className="text-xs text-slate-500">
+                Internal notes about pet behaviour, not visible to customers
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="medical_notes">
+                Medical Notes
+                <Badge variant="outline" className="ml-2 text-xs">Staff Only</Badge>
+              </Label>
+              <Textarea
+                id="medical_notes"
+                value={formData.medical_notes}
+                onChange={(e) => handleChange('medical_notes', e.target.value)}
+                placeholder="e.g., Hip dysplasia, takes medication for arthritis"
+                disabled={isSubmitting}
+                rows={2}
+              />
+              <p className="text-xs text-slate-500">
+                Internal medical information, not visible to customers
+              </p>
             </div>
           </div>
 
