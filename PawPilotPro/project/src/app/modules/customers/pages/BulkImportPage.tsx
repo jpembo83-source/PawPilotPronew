@@ -21,6 +21,11 @@ const IMPORT_SHEETS: Record<string, Record<string, string>> = {
     'Household Name': 'name',
     'External ID': 'external_id',
     'Status (active/inactive)': 'status',
+    'VIP (Yes/No)': 'vip',
+    'Payment Hold (Yes/No)': 'payment_hold',
+    'Hold Reason': 'hold_reason',
+    'Location': 'location',
+    'Address': 'address',
     'Internal Notes': 'internal_notes',
   },
   Contacts: {
@@ -29,9 +34,13 @@ const IMPORT_SHEETS: Record<string, Record<string, string>> = {
     'Last Name': 'last_name',
     'Email': 'email',
     'Phone': 'phone',
+    'Preferred Contact Method': 'preferred_contact_method',
     'Primary (Yes/No)': 'is_primary',
     'Emergency Contact (Yes/No)': 'is_emergency_contact',
     'Emergency Relationship': 'emergency_contact_relationship',
+    'Marketing Consent (Yes/No)': 'marketing_consent',
+    'SMS Consent (Yes/No)': 'sms_consent',
+    'Email Consent (Yes/No)': 'email_consent',
   },
   Pets: {
     'Household Name': 'household_name',
@@ -46,16 +55,31 @@ const IMPORT_SHEETS: Record<string, Record<string, string>> = {
     'Medical Notes': 'medical_notes',
     'Behaviour Notes': 'behaviour_notes',
     'Allergies': 'allergies',
+    'Feeding Instructions': 'feeding_instructions',
+    'Vet Name': 'vet_name',
+    'Vet Phone': 'vet_phone',
+    'Vet Address': 'vet_address',
+    'Vaccination Expiry (YYYY-MM-DD)': 'vaccination_expiry_date',
+    'Daycare (Yes/No)': 'daycare_enrolled',
+    'Grooming (Yes/No)': 'grooming_enrolled',
+    'Transport (Yes/No)': 'transport_enrolled',
+    'Overnights (Yes/No)': 'overnights_enrolled',
   },
 };
 
 // One example row per sheet, keyed by template header. "Household Name" links
-// rows across the three sheets.
+// rows across the three sheets. Yes/No cells left blank keep the existing
+// value on update and use the default on create.
 const TEMPLATE_EXAMPLES: Record<string, Record<string, string | number>> = {
   Households: {
     'Household Name': 'Smith Family',
     'External ID': 'CRM-1042',
     'Status (active/inactive)': 'active',
+    'VIP (Yes/No)': 'No',
+    'Payment Hold (Yes/No)': 'No',
+    'Hold Reason': '',
+    'Location': '',
+    'Address': '12 Acacia Avenue, London, SW1A 1AA',
     'Internal Notes': '',
   },
   Contacts: {
@@ -64,9 +88,13 @@ const TEMPLATE_EXAMPLES: Record<string, Record<string, string | number>> = {
     'Last Name': 'Smith',
     'Email': 'jane.smith@example.com',
     'Phone': '+44 7700 900123',
+    'Preferred Contact Method': 'email',
     'Primary (Yes/No)': 'Yes',
-    'Emergency Contact (Yes/No)': 'No',
-    'Emergency Relationship': '',
+    'Emergency Contact (Yes/No)': 'Yes',
+    'Emergency Relationship': 'Owner',
+    'Marketing Consent (Yes/No)': 'No',
+    'SMS Consent (Yes/No)': 'Yes',
+    'Email Consent (Yes/No)': 'Yes',
   },
   Pets: {
     'Household Name': 'Smith Family',
@@ -76,11 +104,20 @@ const TEMPLATE_EXAMPLES: Record<string, Record<string, string | number>> = {
     'Date of Birth (YYYY-MM-DD)': '2021-06-15',
     'Weight (kg)': 28,
     'Colour': 'Golden',
-    'Microchip': '',
+    'Microchip': '985112003456789',
     'Neutered Status (spayed/castrated/none)': 'castrated',
-    'Medical Notes': '',
+    'Medical Notes': 'Mild hip dysplasia — no stairs',
     'Behaviour Notes': 'Friendly with other dogs',
-    'Allergies': '',
+    'Allergies': 'Chicken',
+    'Feeding Instructions': 'Half a cup of kibble, morning and evening',
+    'Vet Name': 'Acme Veterinary Clinic',
+    'Vet Phone': '+44 20 7946 0999',
+    'Vet Address': '1 High Street, London',
+    'Vaccination Expiry (YYYY-MM-DD)': '2026-11-30',
+    'Daycare (Yes/No)': 'Yes',
+    'Grooming (Yes/No)': 'No',
+    'Transport (Yes/No)': 'No',
+    'Overnights (Yes/No)': 'No',
   },
 };
 

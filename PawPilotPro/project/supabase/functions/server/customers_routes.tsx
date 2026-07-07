@@ -1223,12 +1223,15 @@ const importOptional = z.preprocess((v) => {
   return s === '' ? undefined : s;
 }, z.string().optional());
 const importRequired = z.preprocess(importCell, z.string().min(1, 'required'));
+// Tri-state: "Yes"→true, "No"→false, blank→undefined (keep the existing value
+// on update, fall back to the field's default on create).
 const importYesNo = z.preprocess((v) => {
   const s = importCell(v).toLowerCase();
+  if (s === '') return undefined;
   if (['yes', 'y', 'true', '1'].includes(s)) return true;
-  if (['no', 'n', 'false', '0', ''].includes(s)) return false;
+  if (['no', 'n', 'false', '0'].includes(s)) return false;
   return s;
-}, z.custom<boolean>((v) => typeof v === 'boolean', { message: 'expected Yes or No' }));
+}, z.custom<boolean | undefined>((v) => v === undefined || typeof v === 'boolean', { message: 'expected Yes or No' }));
 const importDate = z.preprocess((v) => {
   const s = importCell(v);
   return s === '' ? undefined : s;
@@ -1256,6 +1259,11 @@ const importHouseholdRowSchema = z.object({
   name: importRequired,
   external_id: importOptional,
   status: importChoice('active', 'inactive'),
+  vip: importYesNo,
+  payment_hold: importYesNo,
+  hold_reason: importOptional,
+  location: importOptional,
+  address: importOptional,
   internal_notes: importOptional,
 });
 
@@ -1266,9 +1274,13 @@ const importContactRowSchema = z.object({
   last_name: importRequired,
   email: importOptional,
   phone: importOptional,
+  preferred_contact_method: importOptional,
   is_primary: importYesNo,
   is_emergency_contact: importYesNo,
   emergency_contact_relationship: importOptional,
+  marketing_consent: importYesNo,
+  sms_consent: importYesNo,
+  email_consent: importYesNo,
 });
 
 const importPetRowSchema = z.object({
@@ -1285,6 +1297,15 @@ const importPetRowSchema = z.object({
   medical_notes: importOptional,
   behaviour_notes: importOptional,
   allergies: importOptional,
+  feeding_instructions: importOptional,
+  vet_name: importOptional,
+  vet_phone: importOptional,
+  vet_address: importOptional,
+  vaccination_expiry_date: importDate,
+  daycare_enrolled: importYesNo,
+  grooming_enrolled: importYesNo,
+  transport_enrolled: importYesNo,
+  overnights_enrolled: importYesNo,
 });
 
 const importBodySchema = z.object({
@@ -1350,6 +1371,13 @@ app.post('/import', async (c) => {
       staged.set(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity);
     };
 
+    // Location names resolve against Settings → Locations (location:{id}).
+    const locations = await kv.getByPrefix('location:');
+    const locationsByName = new Map<string, string>();
+    for (const loc of locations) {
+      if (loc?.name && loc?.id) locationsByName.set(String(loc.name).toLowerCase(), String(loc.id));
+    }
+
     // ---- households ----
     const existingHouseholds = (await kv.getByPrefix(`customer:${tenantId}:household:`)).filter((h: Record<string, unknown>) => !h.deleted_at);
     const householdsByName = new Map<string, Record<string, unknown>>();
@@ -1368,6 +1396,22 @@ app.post('/import', async (c) => {
         continue;
       }
       const rowData = parsed.data;
+
+      let locationId: string | undefined;
+      if (rowData.location) {
+        locationId = locationsByName.get(rowData.location.toLowerCase());
+        if (!locationId) {
+          summary.households.errors++;
+          errors.push({
+            row: rowData.row,
+            entity: 'household',
+            field: 'location',
+            message: `Location "${rowData.location}" not found — it must match a name in Settings → Locations exactly`,
+          });
+          continue;
+        }
+      }
+
       const match =
         (rowData.external_id && householdsByExternalId.get(rowData.external_id)) ||
         householdsByName.get(rowData.name.toLowerCase());
@@ -1378,6 +1422,11 @@ app.post('/import', async (c) => {
           name: rowData.name,
           external_id: rowData.external_id ?? match.external_id,
           status: rowData.status ?? match.status,
+          vip: rowData.vip ?? match.vip,
+          payment_hold: rowData.payment_hold ?? match.payment_hold,
+          hold_reason: rowData.hold_reason ?? match.hold_reason,
+          primary_location_id: locationId ?? match.primary_location_id,
+          address: rowData.address ?? match.address,
           internal_notes: rowData.internal_notes ?? match.internal_notes,
           updated_at: now,
         };
@@ -1391,8 +1440,11 @@ app.post('/import', async (c) => {
           external_id: rowData.external_id,
           name: rowData.name,
           status: rowData.status ?? 'active',
-          vip: false,
-          payment_hold: false,
+          vip: rowData.vip ?? false,
+          payment_hold: rowData.payment_hold ?? false,
+          hold_reason: rowData.hold_reason,
+          primary_location_id: locationId,
+          address: rowData.address,
           internal_notes: rowData.internal_notes,
           created_by: userId,
           created_at: now,
@@ -1459,9 +1511,13 @@ app.post('/import', async (c) => {
           last_name: rowData.last_name,
           email: rowData.email ?? match.email,
           phone: rowData.phone ?? match.phone,
-          is_primary: rowData.is_primary || match.is_primary,
-          is_emergency_contact: rowData.is_emergency_contact || match.is_emergency_contact,
+          preferred_contact_method: rowData.preferred_contact_method ?? match.preferred_contact_method,
+          is_primary: rowData.is_primary ?? match.is_primary,
+          is_emergency_contact: rowData.is_emergency_contact ?? match.is_emergency_contact,
           emergency_contact_relationship: rowData.emergency_contact_relationship ?? match.emergency_contact_relationship,
+          marketing_consent: rowData.marketing_consent ?? match.marketing_consent,
+          sms_consent: rowData.sms_consent ?? match.sms_consent,
+          email_consent: rowData.email_consent ?? match.email_consent,
           updated_at: now,
         };
         Object.assign(match, contact);
@@ -1475,12 +1531,13 @@ app.post('/import', async (c) => {
           last_name: rowData.last_name,
           email: rowData.email,
           phone: rowData.phone,
-          is_primary: rowData.is_primary,
-          is_emergency_contact: rowData.is_emergency_contact,
+          preferred_contact_method: rowData.preferred_contact_method,
+          is_primary: rowData.is_primary ?? false,
+          is_emergency_contact: rowData.is_emergency_contact ?? false,
           emergency_contact_relationship: rowData.emergency_contact_relationship,
-          marketing_consent: false,
-          sms_consent: false,
-          email_consent: false,
+          marketing_consent: rowData.marketing_consent ?? false,
+          sms_consent: rowData.sms_consent ?? false,
+          email_consent: rowData.email_consent ?? false,
           created_at: now,
           updated_at: now,
         };
@@ -1548,6 +1605,15 @@ app.post('/import', async (c) => {
           medical_notes: rowData.medical_notes ?? match.medical_notes,
           behaviour_notes: rowData.behaviour_notes ?? match.behaviour_notes,
           allergies: rowData.allergies ?? match.allergies,
+          feeding_instructions: rowData.feeding_instructions ?? match.feeding_instructions,
+          vet_name: rowData.vet_name ?? match.vet_name,
+          vet_phone: rowData.vet_phone ?? match.vet_phone,
+          vet_address: rowData.vet_address ?? match.vet_address,
+          vaccination_expiry_date: rowData.vaccination_expiry_date ?? match.vaccination_expiry_date,
+          daycare_enrolled: rowData.daycare_enrolled ?? match.daycare_enrolled,
+          grooming_enrolled: rowData.grooming_enrolled ?? match.grooming_enrolled,
+          transport_enrolled: rowData.transport_enrolled ?? match.transport_enrolled,
+          overnights_enrolled: rowData.overnights_enrolled ?? match.overnights_enrolled,
           updated_at: now,
         };
         Object.assign(match, pet);
@@ -1568,11 +1634,16 @@ app.post('/import', async (c) => {
           medical_notes: rowData.medical_notes,
           behaviour_notes: rowData.behaviour_notes,
           allergies: rowData.allergies,
+          feeding_instructions: rowData.feeding_instructions,
+          vet_name: rowData.vet_name,
+          vet_phone: rowData.vet_phone,
+          vet_address: rowData.vet_address,
+          vaccination_expiry_date: rowData.vaccination_expiry_date,
           vaccination_status: 'unknown',
-          daycare_enrolled: false,
-          grooming_enrolled: false,
-          transport_enrolled: false,
-          overnights_enrolled: false,
+          daycare_enrolled: rowData.daycare_enrolled ?? false,
+          grooming_enrolled: rowData.grooming_enrolled ?? false,
+          transport_enrolled: rowData.transport_enrolled ?? false,
+          overnights_enrolled: rowData.overnights_enrolled ?? false,
           active: true,
           created_at: now,
           updated_at: now,
