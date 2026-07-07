@@ -152,18 +152,28 @@ const filterByLocationPermission = (items: any[], user: any, locationKey: string
   return items.filter(item => user.locationIds.includes(item[locationKey]));
 };
 
-const LOCATION_CAPACITY_LIMITS: Record<string, number> = {};
+// Location capacity comes from the SAME record the Settings → Locations
+// page writes: `location:{id}` (see app_routes). This used to read a
+// `settings:location:` key that never existed, so EVERY location silently
+// fell back to 19 — and a module-level cache pinned whatever an isolate
+// saw first for its whole lifetime. No cache: one indexed kv.get per call
+// is cheap, and a capacity change in Settings must apply on the next
+// request, not on the next cold start.
+const FALLBACK_LOCATION_CAPACITY = 19;
 
 const resolveLocationCapacity = async (locationId: string): Promise<number> => {
-  if (LOCATION_CAPACITY_LIMITS[locationId]) {
-    return LOCATION_CAPACITY_LIMITS[locationId];
+  const locationData = await kv.get(`location:${locationId}`) as any;
+  const maxDogs = locationData?.capacity?.maxDogs;
+  if (typeof maxDogs === 'number' && maxDogs > 0) {
+    return maxDogs;
   }
-  const locationData = await kv.get(`settings:location:${locationId}`) as any;
-  if (locationData?.capacity?.maxDogs) {
-    LOCATION_CAPACITY_LIMITS[locationId] = locationData.capacity.maxDogs;
-    return locationData.capacity.maxDogs;
-  }
-  return 19;
+  console.warn(JSON.stringify({
+    scope: 'daycare.capacity',
+    msg: 'location record missing capacity.maxDogs — using fallback',
+    locationId,
+    fallback: FALLBACK_LOCATION_CAPACITY,
+  }));
+  return FALLBACK_LOCATION_CAPACITY;
 };
 
 const calculateRAGStatus = (booked: number, maxCapacity: number): RAGStatus => {
