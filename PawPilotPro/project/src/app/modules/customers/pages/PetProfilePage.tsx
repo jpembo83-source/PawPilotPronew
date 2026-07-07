@@ -55,6 +55,7 @@ import { PetOverviewTab } from '../components/pet-profile/PetOverviewTab';
 import { DocumentManager } from '../components/DocumentManager';
 import { PetCareProfileTab } from '../components/pet-profile/PetCareProfileTab';
 import { PetTimelineTab } from '../components/pet-profile/PetTimelineTab';
+import { VaccinationManager } from '../components/pet-profile/VaccinationManager';
 import { EditPetModal } from '../components/modals/EditPetModal';
 
 export function PetProfilePage() {
@@ -69,6 +70,9 @@ export function PetProfilePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<PetSummary>(EMPTY_SUMMARY);
   const [summaryLoading, setSummaryLoading] = useState(true);
+  // Bumped by the Vaccinations tab after a record change so the stat cards
+  // (vaccination count / expiring) re-fetch without a full page reload.
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
 
   useEffect(() => {
     if (petId) {
@@ -161,8 +165,9 @@ export function PetProfilePage() {
     };
 
     loadSummary();
+    // summaryRefreshKey is a manual refresh trigger (vaccination edits).
     return () => { cancelled = true; };
-  }, [currentPetProfile?.household_id, currentPetProfile?.id]);
+  }, [currentPetProfile?.household_id, currentPetProfile?.id, summaryRefreshKey]);
   
   // Update preview when pet profile loads
   useEffect(() => {
@@ -555,19 +560,27 @@ export function PetProfilePage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="care">Care Profile</TabsTrigger>
+          <TabsTrigger value="vaccinations">Vaccinations</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="overview">
           <PetOverviewTab pet={currentPetProfile} />
         </TabsContent>
-        
+
         <TabsContent value="documents">
           <DocumentManager householdId={currentPetProfile.household_id} petId={currentPetProfile.id} showHouseholdDocs={true} />
         </TabsContent>
-        
+
         <TabsContent value="care">
           <PetCareProfileTab pet={currentPetProfile} />
+        </TabsContent>
+
+        <TabsContent value="vaccinations">
+          <VaccinationManager
+            petId={currentPetProfile.id}
+            onChanged={() => setSummaryRefreshKey((k) => k + 1)}
+          />
         </TabsContent>
         
         <TabsContent value="timeline">

@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4033,
-  "warnings": 420
+  "errors": 3981,
+  "warnings": 419
  },
  "files": {
   "eslint.config.js": {
@@ -332,10 +332,6 @@
    "errors": 22,
    "warnings": 1
   },
-  "src/app/modules/customers/components/pet-profile/VaccinationManager.tsx": {
-   "errors": 50,
-   "warnings": 1
-  },
   "src/app/modules/customers/components/pets/CreatePetModal.tsx": {
    "errors": 8,
    "warnings": 2
@@ -365,7 +361,7 @@
    "warnings": 1
   },
   "src/app/modules/customers/pages/PendingRequestsPage.tsx": {
-   "errors": 22,
+   "errors": 20,
    "warnings": 2
   },
   "src/app/modules/customers/pages/PetDetailPage.tsx": {
