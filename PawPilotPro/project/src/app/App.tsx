@@ -25,7 +25,7 @@ import { ThemeManager } from './components/ThemeManager';
 import { Toaster } from 'sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Overnights } from './modules/overnights/pages/Overnights';
-import { CustomersPage, CreateHouseholdPage, HouseholdDetailPage, PetProfilePage, BulkImportPage, ExportPage, ClearDataPage, VaxReviewPage, PendingRequestsPage } from './modules/customers';
+import { CustomersPage, CreateHouseholdPage, OnboardingWizardPage, HouseholdDetailPage, PetProfilePage, BulkImportPage, ExportPage, ClearDataPage, VaxReviewPage, PendingRequestsPage } from './modules/customers';
 import { MessagingPage } from './modules/messaging/MessagingPage';
 import { OperationalRulesPage } from './modules/operational-rules/OperationalRulesPage';
 import { CommunicationsSettingsPage } from './modules/communications-settings';
@@ -114,6 +114,7 @@ export default function App() {
                 <Route path="boutique" element={<PlaceholderModule title="Boutique & POS" />} />
                 <Route path="customers" element={<CustomersPage />} />
                 <Route path="customers/new" element={<CreateHouseholdPage />} />
+                <Route path="customers/onboard" element={<OnboardingWizardPage />} />
                 <Route path="customers/:householdId" element={<HouseholdDetailPage />} />
                 <Route path="customers/pets/:petId" element={<PetProfilePage />} />
                 <Route path="customers/bulk-import" element={<BulkImportPage />} />
