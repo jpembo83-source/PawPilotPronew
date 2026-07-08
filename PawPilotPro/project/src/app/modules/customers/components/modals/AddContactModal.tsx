@@ -16,6 +16,7 @@ import {
   type ContactFormData,
 } from '../forms/ContactFormSections';
 import { ContactDuplicateNotice } from '../forms/DuplicateNotice';
+import { useUnsavedChangesGuard, formIsDirty } from '../../../../hooks/useUnsavedChangesGuard';
 
 interface AddContactModalProps {
   open: boolean;
@@ -80,11 +81,21 @@ export function AddContactModal({ open, onClose, householdId, onContactAdded }: 
     }
   };
 
-  const handleClose = () => {
-    if (!isSubmitting) {
+  const { requestClose, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => formIsDirty(formData, initialContactFormData),
+    onClose: () => {
       setFormData(initialContactFormData);
       setError(null);
       onClose();
+    },
+    description: "This contact hasn't been saved yet. Closing now will lose everything you've entered.",
+  });
+
+  // Every dismissal path (Cancel button, overlay click, Escape) funnels
+  // through here, so a dirty form is always guarded by the discard dialog.
+  const handleClose = () => {
+    if (!isSubmitting) {
+      void requestClose();
     }
   };
 
@@ -140,6 +151,7 @@ export function AddContactModal({ open, onClose, householdId, onContactAdded }: 
           </div>
         </form>
       </DialogContent>
+      {guardDialog}
     </Dialog>
   );
 }

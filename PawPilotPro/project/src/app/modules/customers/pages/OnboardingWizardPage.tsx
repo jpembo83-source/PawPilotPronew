@@ -56,6 +56,7 @@ import {
 } from '../components/forms/PetFormSections';
 import { DocumentUploadForm } from '../components/forms/DocumentUploadForm';
 import { ContactDuplicateNotice, HouseholdNameDuplicateNotice } from '../components/forms/DuplicateNotice';
+import { useUnsavedChangesGuard, formIsDirty } from '../../../hooks/useUnsavedChangesGuard';
 import { sendPortalInviteRequest, notifyPortalActionResult } from '../portalAdmin';
 
 const STEPS = [
@@ -67,6 +68,12 @@ const STEPS = [
 ] as const;
 
 const FINISH_INDEX = STEPS.length;
+
+// The wizard marks the contact as primary automatically.
+const initialWizardContactForm: ContactFormData = {
+  ...initialContactFormData,
+  is_primary: true,
+};
 
 /** Collapsed disclosure for the optional sections of a step. */
 function MoreDetails({ children }: { children: React.ReactNode }) {
@@ -106,14 +113,15 @@ export function OnboardingWizardPage() {
   // Step 1 — household (created on first advance, updated on later advances)
   const [household, setHousehold] = useState<Household | null>(null);
   const [householdForm, setHouseholdForm] = useState(initialHouseholdFormData);
+  // Form values as of the last commit — the Exit guard compares against this,
+  // so only UNCOMMITTED edits count as unsaved.
+  const [savedHouseholdForm, setSavedHouseholdForm] = useState(initialHouseholdFormData);
   const [householdErrors, setHouseholdErrors] = useState<Record<string, string>>({});
 
   // Step 2 — primary contact (marked primary automatically)
   const [contactId, setContactId] = useState<string | null>(null);
-  const [contactForm, setContactForm] = useState<ContactFormData>({
-    ...initialContactFormData,
-    is_primary: true,
-  });
+  const [contactForm, setContactForm] = useState<ContactFormData>(initialWizardContactForm);
+  const [savedContactForm, setSavedContactForm] = useState<ContactFormData>(initialWizardContactForm);
   const [contactError, setContactError] = useState<string | null>(null);
 
   // Step 3 — pets ("Add another pet" loops the step)
@@ -124,13 +132,41 @@ export function OnboardingWizardPage() {
 
   // Steps 4 & 5
   const [waiverUploaded, setWaiverUploaded] = useState(false);
+  const [waiverFormDirty, setWaiverFormDirty] = useState(false);
   const [inviteSent, setInviteSent] = useState(false);
 
   const goNext = () => setStepIndex(i => Math.min(i + 1, FINISH_INDEX));
   const goBack = () => setStepIndex(i => Math.max(i - 1, 0));
 
+  // Uncommitted edits on the CURRENT step — committed steps are already
+  // persisted, so exiting only ever risks the step being worked on.
+  const currentStepDirty = (): boolean => {
+    switch (stepIndex) {
+      case 0:
+        return formIsDirty(householdForm, savedHouseholdForm);
+      case 1:
+        return formIsDirty(contactForm, savedContactForm);
+      case 2:
+        return editingPetId
+          ? formIsDirty(petForm, savedPets.find(p => p.id === editingPetId)?.form ?? initialPetFormData)
+          : formIsDirty(petForm, initialPetFormData);
+      case 3:
+        return waiverFormDirty;
+      default:
+        return false;
+    }
+  };
+
+  const { requestClose: requestExit, guardDialog: exitGuardDialog } = useUnsavedChangesGuard({
+    isDirty: currentStepDirty,
+    onClose: () => {
+      void navigate(household ? `/customers/${household.id}` : '/customers');
+    },
+    description: "This step hasn't been saved. Leaving the wizard now will lose what you've entered on it.",
+  });
+
   const handleExit = () => {
-    void navigate(household ? `/customers/${household.id}` : '/customers');
+    void requestExit();
   };
 
   const errorMessage = (error: unknown, fallback: string) =>
@@ -152,6 +188,7 @@ export function OnboardingWizardPage() {
         setHousehold(created);
         toast.success(`Household created: ${created.name}`);
       }
+      setSavedHouseholdForm(householdForm);
       goNext();
     } catch (error) {
       toast.error(errorMessage(error, 'Failed to save household'));
@@ -181,6 +218,7 @@ export function OnboardingWizardPage() {
         const contact = await createContact(household!.id, buildContactPayload(contactForm));
         setContactId(contact.id);
       }
+      setSavedContactForm(contactForm);
       goNext();
     } catch (error) {
       toast.error(errorMessage(error, 'Failed to save contact'));
@@ -531,6 +569,7 @@ export function OnboardingWizardPage() {
                   toast.success('Waiver uploaded');
                   goNext();
                 }}
+                onDirtyChange={setWaiverFormDirty}
               />
 
               {!waiverUploaded && (
@@ -647,6 +686,7 @@ export function OnboardingWizardPage() {
           </Card>
         )}
       </div>
+      {exitGuardDialog}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../../../components/ui/dialog';
-import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
+import { useUnsavedChangesGuard, formIsDirty } from '../../../../hooks/useUnsavedChangesGuard';
 import { Pet } from '../../types';
 import {
   PetEssentialFields,
@@ -33,34 +33,28 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
   const [formData, setFormData] = useState<PetFormData>(initialPetFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const { confirm, confirmDialog } = useConfirmDialog();
 
   const handleChange = (field: keyof PetFormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    setHasUnsavedChanges(true);
     setError(null);
   };
 
   // Every dismissal path (Cancel button, overlay click, Escape) funnels
   // through here via the Dialog's onOpenChange, so a dirty form is always
-  // guarded by the discard dialog.
+  // guarded by the discard dialog. Dirty is a value diff against the initial
+  // form — typing and then reverting doesn't count.
+  const { requestClose, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => formIsDirty(formData, initialPetFormData),
+    onClose: () => {
+      setFormData(initialPetFormData);
+      setError(null);
+      onClose();
+    },
+    description: "This pet hasn't been saved yet. Closing now will lose everything you've entered.",
+  });
+
   const handleClose = async () => {
-    if (hasUnsavedChanges) {
-      const discard = await confirm({
-        title: 'Discard changes?',
-        description:
-          "This pet hasn't been saved yet. Closing now will lose everything you've entered.",
-        confirmLabel: 'Discard',
-        cancelLabel: 'Keep editing',
-        destructive: true,
-      });
-      if (!discard) return;
-    }
-    setFormData(initialPetFormData);
-    setHasUnsavedChanges(false);
-    setError(null);
-    onClose();
+    await requestClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,7 +76,6 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
       const newPet = await createPet(householdId, buildPetPayload(formData));
       
       setFormData(initialPetFormData);
-      setHasUnsavedChanges(false);
       onPetCreated(newPet);
       onClose();
     } catch (err: any) {
@@ -148,7 +141,7 @@ export function CreatePetModal({ open, onClose, householdId, onPetCreated }: Cre
           </div>
         </form>
       </DialogContent>
-      {confirmDialog}
+      {guardDialog}
     </Dialog>
   );
 }

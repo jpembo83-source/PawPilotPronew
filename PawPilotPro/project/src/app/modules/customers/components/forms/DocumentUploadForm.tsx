@@ -2,7 +2,7 @@
 // so the onboarding wizard's waiver step and the Documents tab share one
 // upload implementation (fields + multipart POST).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CircleNotch, FileText, UploadSimple, Warning } from '@phosphor-icons/react';
 import { Button } from '../../../../components/ui/button';
 import { DialogFooter } from '../../../../components/ui/dialog';
@@ -29,6 +29,11 @@ interface DocumentUploadFormProps {
   submitLabel?: string;
   onUploaded: () => void | Promise<void>;
   onCancel?: () => void;
+  /**
+   * Reports whether the form holds unsubmitted input, so hosts (dialog,
+   * wizard step) can run an unsaved-changes guard. Reports false on unmount.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export function DocumentUploadForm({
@@ -38,6 +43,7 @@ export function DocumentUploadForm({
   submitLabel = 'Upload Document',
   onUploaded,
   onCancel,
+  onDirtyChange,
 }: DocumentUploadFormProps) {
   const [formData, setFormData] = useState({
     document_type: initialType,
@@ -50,6 +56,19 @@ export function DocumentUploadForm({
   const [error, setError] = useState<string | null>(null);
 
   const selectedDocType = DOCUMENT_TYPES.find(t => t.value === formData.document_type);
+
+  // Dirty = any value differs from the initial (empty) form.
+  const isDirty =
+    selectedFile !== null ||
+    formData.name !== '' ||
+    formData.expiry_date !== '' ||
+    formData.notes !== '' ||
+    formData.document_type !== initialType;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

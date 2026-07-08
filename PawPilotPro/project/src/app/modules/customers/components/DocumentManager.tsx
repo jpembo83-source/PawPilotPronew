@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import { DocumentUploadForm, DOCUMENT_TYPES } from './forms/DocumentUploadForm';
 import { useCustomerStore } from '../store';
 
@@ -97,10 +98,20 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
   };
 
   // The upload form's state lives inside DocumentUploadForm and resets on
-  // dialog unmount, so closing is just hiding the modal.
+  // dialog unmount, so closing is just hiding the modal. Direct close — used
+  // after a successful upload, where no guard should fire.
   const handleCloseModal = () => {
     setShowAddModal(false);
   };
+
+  // Guarded close for user-initiated dismissal (Cancel, overlay, Escape):
+  // the upload form reports its dirty state via onDirtyChange.
+  const [uploadFormDirty, setUploadFormDirty] = useState(false);
+  const { requestClose: requestCloseUploadModal, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => uploadFormDirty,
+    onClose: handleCloseModal,
+    description: "This document hasn't been uploaded yet. Closing now will lose what you've entered.",
+  });
 
   const handleDelete = async (documentId: string) => {
     const confirmed = await confirm({
@@ -303,7 +314,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
       </Card>
 
       {/* UploadSimple Modal */}
-      <Dialog open={showAddModal} onOpenChange={handleCloseModal}>
+      <Dialog open={showAddModal} onOpenChange={(isOpen) => { if (!isOpen) void requestCloseUploadModal(); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
@@ -319,11 +330,13 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
               await fetchDocuments();
               handleCloseModal();
             }}
-            onCancel={handleCloseModal}
+            onCancel={() => void requestCloseUploadModal()}
+            onDirtyChange={setUploadFormDirty}
           />
         </DialogContent>
       </Dialog>
       {confirmDialog}
+      {guardDialog}
     </>
   );
 }
