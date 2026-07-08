@@ -17,6 +17,7 @@ import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 import { DocumentUploadForm, DOCUMENT_TYPES } from './forms/DocumentUploadForm';
+import { useCustomerStore } from '../store';
 
 interface DocumentManagerProps {
   householdId: string;
@@ -52,8 +53,24 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
       }
 
       const data = await response.json();
-      let docs = data.documents || [];
-      
+      const allDocs: PetDocument[] = data.documents || [];
+
+      // Keep the household detail in the store in sync: the header's
+      // "Waiver missing" chip and the Documents summary card derive from
+      // currentHouseholdDetail.documents and must update the moment a
+      // document is uploaded or deleted here. A full fetchHouseholdDetail
+      // would flash the page skeleton (it toggles the global isLoading).
+      useCustomerStore.setState(state =>
+        state.currentHouseholdDetail?.id === householdId
+          ? {
+              currentHouseholdDetail: { ...state.currentHouseholdDetail, documents: allDocs },
+              documents: allDocs,
+            }
+          : {},
+      );
+
+      let docs = allDocs;
+
       // Filter based on props
       if (petId && showHouseholdDocs) {
         // Show both pet-specific AND household documents

@@ -54,6 +54,7 @@ import { BillingTab } from '../components/household-detail/BillingTab';
 import { NotesTab } from '../components/household-detail/NotesTab';
 import { PortalActivityTab } from '../components/household-detail/PortalActivityTab';
 import { DocumentManager } from '../components/DocumentManager';
+import { hasValidWaiver } from '../waiverStatus';
 
 export function HouseholdDetailPage() {
   const { householdId } = useParams<{ householdId: string }>();
@@ -245,6 +246,10 @@ export function HouseholdDetailPage() {
   };
   
   const primaryContact = contacts.find(c => c.is_primary) || contacts[0];
+
+  // No non-expired waiver on file — visibility only, never blocks anything.
+  // Derived client-side; see waiverStatus.ts for why the server can't tell us.
+  const waiverMissing = !hasValidWaiver(documents);
   
   // Get household-wide active flags (pet_id is null)
   const householdFlags = flags.filter(f => f.is_active && !f.pet_id);
@@ -387,6 +392,19 @@ export function HouseholdDetailPage() {
                   Payment Hold
                 </Badge>
               )}
+              {waiverMissing && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('documents')}
+                  title="No valid waiver on file — open Documents"
+                  className="cursor-pointer"
+                >
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 border hover:bg-amber-200">
+                    <FileText className="h-3 w-3 mr-1" />
+                    Waiver missing
+                  </Badge>
+                </button>
+              )}
               {householdFlags.map(flag => {
                 const IconComponent = getFlagIcon(flag.flag_key);
                 return (
@@ -439,9 +457,18 @@ export function HouseholdDetailPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Documents</p>
-                <p className="text-2xl font-bold">{summary.totalDocuments}</p>
+                {waiverMissing && summary.totalDocuments === 0 ? (
+                  <p className="text-lg font-bold text-amber-700">No waiver on file</p>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold">{summary.totalDocuments}</p>
+                    {waiverMissing && (
+                      <p className="text-sm text-amber-700 mt-1 font-medium">No waiver on file</p>
+                    )}
+                  </>
+                )}
                 {summary.expiredDocuments > 0 && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="text-sm text-red-600 mt-1">
                     {summary.expiredDocuments} expired
                   </p>
                 )}
