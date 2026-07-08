@@ -55,6 +55,7 @@ import {
   type PetFormData,
 } from '../components/forms/PetFormSections';
 import { DocumentUploadForm } from '../components/forms/DocumentUploadForm';
+import { ContactDuplicateNotice, HouseholdNameDuplicateNotice } from '../components/forms/DuplicateNotice';
 import { sendPortalInviteRequest, notifyPortalActionResult } from '../portalAdmin';
 
 const STEPS = [
@@ -353,6 +354,12 @@ export function OnboardingWizardPage() {
                 onChange={(field, value) => setHouseholdForm(prev => ({ ...prev, [field]: value }))}
                 locations={locations}
               />
+              {/* Repeat-customer nudge — fuzzy name match, never blocks.
+                  When the notice renders null the empty div's margin collapses
+                  into the footer's, so spacing is unchanged. */}
+              <div className="mt-6">
+                <HouseholdNameDuplicateNotice name={householdForm.name} excludeHouseholdId={household?.id} />
+              </div>
               <div className="flex justify-end gap-3 pt-6 mt-6 border-t">
                 <Button onClick={() => void handleHouseholdNext()} disabled={isSaving}>
                   {isSaving ? 'Saving…' : household ? 'Save & Continue' : 'Create & Continue'}
@@ -380,6 +387,13 @@ export function OnboardingWizardPage() {
               )}
 
               <ContactBasicFields formData={contactForm} onChange={handleContactChange} disabled={isSaving} />
+
+              {/* Non-blocking duplicate nudge — matches in OTHER households only */}
+              <ContactDuplicateNotice
+                email={contactForm.email}
+                phone={contactForm.phone}
+                excludeHouseholdId={household?.id}
+              />
 
               <MoreDetails>
                 <ContactSettingsFields formData={contactForm} onChange={handleContactChange} disabled={isSaving} />

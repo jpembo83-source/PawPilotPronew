@@ -15,6 +15,7 @@ import {
   buildContactPayload,
   type ContactFormData,
 } from '../forms/ContactFormSections';
+import { ContactDuplicateNotice } from '../forms/DuplicateNotice';
 
 interface AddContactModalProps {
   open: boolean;
@@ -106,6 +107,15 @@ export function AddContactModal({ open, onClose, householdId, onContactAdded }: 
           )}
 
           <ContactBasicFields formData={formData} onChange={handleChange} disabled={isSubmitting} />
+
+          {/* Non-blocking duplicate nudge — matches in OTHER households only;
+              contacts within this household legitimately share numbers. */}
+          <ContactDuplicateNotice
+            email={formData.email}
+            phone={formData.phone}
+            excludeHouseholdId={householdId}
+            onBeforeNavigate={onClose}
+          />
 
           <ContactSettingsFields formData={formData} onChange={handleChange} disabled={isSubmitting} />
 
