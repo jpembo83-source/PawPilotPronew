@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4029,
+  "errors": 4028,
   "warnings": 420
  },
  "files": {
@@ -269,7 +269,7 @@
    "warnings": 5
   },
   "src/app/modules/customers/components/DocumentManager.tsx": {
-   "errors": 31,
+   "errors": 30,
    "warnings": 3
   },
   "src/app/modules/customers/components/household-detail/BillingTab.tsx": {

@@ -159,11 +159,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       if (currentFilters.location_id) params.append('location_id', currentFilters.location_id);
       
       const url = params.toString() ? `${BASE_URL}/households?${params.toString()}` : `${BASE_URL}/households`;
-      
-      console.log('[fetchHouseholds] Fetching from:', url);
-      
-      console.log('[fetchHouseholds] Fetching from:', url);
-      
+
       const response = await fetch(url, {
         headers: await getAuthHeaders(),
       });
@@ -171,14 +167,12 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       if (!response.ok) {
         const error = await response.json() as ApiErrorResponse;
         console.error('[fetchHouseholds] Error response:', error);
-        console.error('[fetchHouseholds] Error response:', error);
         throw new Error(error.error || 'Failed to fetch households');
       }
       
       const rawHouseholds = await response.json() as HouseholdSummary[];
       const households = rawHouseholds.filter((h) => h.id && h.id.startsWith('hh-'));
-      console.log('[fetchHouseholds] Received households:', households.length, 'households');
-      
+
       set({ households, isLoading: false });
     } catch (error) {
       console.error('Fetch households error:', error);

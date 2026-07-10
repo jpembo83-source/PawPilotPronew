@@ -667,14 +667,10 @@ function AddFlagModal({ open, onClose, household }: { open: boolean; onClose: ()
       }
       
       // Only include pet_id if it's a valid pet UUID (not null)
-      console.log('Form pet_id value:', formData.pet_id, 'Type:', typeof formData.pet_id);
-      console.log('Available pets:', household.pets);
-      
       if (formData.pet_id) {
         // Verify the pet exists in the household before sending
         const petExists = household.pets?.some(p => p.id === formData.pet_id);
-        console.log('Pet exists in household?', petExists);
-        
+
         if (petExists) {
           data.pet_id = formData.pet_id;
         } else {
@@ -684,8 +680,6 @@ function AddFlagModal({ open, onClose, household }: { open: boolean; onClose: ()
           return;
         }
       }
-      
-      console.log('Final data being sent to API:', JSON.stringify(data, null, 2));
       
       await createFlag(household.id, data);
       toast.success('Flag created successfully');

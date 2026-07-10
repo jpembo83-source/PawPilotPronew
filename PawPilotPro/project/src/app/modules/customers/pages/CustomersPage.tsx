@@ -283,14 +283,6 @@ export function CustomersPage() {
                 {households
                   .filter(household => household && household.id) // Filter out any invalid households
                   .map((household) => {
-                  // Debug: Log household details to console
-                  console.log('Household in list:', {
-                    id: household.id,
-                    name: household.name,
-                    idLength: household.id?.length,
-                    idStartsWith: household.id?.substring(0, 3)
-                  });
-                  
                   return (
                     <tr
                       key={household.id}

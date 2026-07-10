@@ -174,9 +174,8 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
         throw new Error(errorData.error || 'Failed to upload document');
       }
 
-      const result = await response.json();
-      console.log('Document uploaded successfully:', result);
-      
+      await response.json();
+
       await fetchDocuments();
       handleCloseModal();
     } catch (err: any) {

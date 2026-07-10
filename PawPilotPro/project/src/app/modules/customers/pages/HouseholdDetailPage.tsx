@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useCustomerStore } from '../store';
 import { useDaycareStore } from '../../daycare/store';
+import { useBillingStore } from '../../billing/store';
 import { usePackagesStore } from '../../packages/store';
 import { useAuth } from '../../../context/AuthContext';
 import { useCurrency } from '../../../utils/currency';
@@ -66,6 +67,8 @@ export function HouseholdDetailPage() {
   const { globalEnabledModules } = useSettingsStore();
   const { fetchCustomerPackages, customerPackages } = usePackagesStore();
   const [householdBookingCount, setHouseholdBookingCount] = useState(0);
+  // null = not loaded (billing unreachable or still fetching); render "—", never a fake 0
+  const [outstandingBalance, setOutstandingBalance] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -110,6 +113,11 @@ export function HouseholdDetailPage() {
 
       // Fetch membership/packages for this household
       fetchCustomerPackages(householdId!).catch(() => {});
+
+      // Fetch outstanding balance from billing
+      useBillingStore.getState().fetchHouseholdBalance(householdId)
+        .then(setOutstandingBalance)
+        .catch(() => setOutstandingBalance(null));
     }
   }, [householdId, isValidId]);
   
@@ -242,7 +250,7 @@ export function HouseholdDetailPage() {
     totalDocuments: documents.length,
     expiredDocuments: documents.filter(d => d.expiry_date && new Date(d.expiry_date) < new Date()).length,
     totalBookings: householdBookingCount,
-    outstandingBalance: 0, // TODO: Get from billing once implemented
+    outstandingBalance,
   };
   
   const primaryContact = contacts.find(c => c.is_primary) || contacts[0];
@@ -379,18 +387,6 @@ export function HouseholdDetailPage() {
             
             {/* Status Flags */}
             <div className="flex flex-wrap gap-2 mt-3">
-              {/* Debug info - remove after testing */}
-              {flags.length === 0 && (
-                <div className="text-xs text-slate-400 italic">
-                  No flags loaded - check console for details
-                </div>
-              )}
-              {flags.length > 0 && householdFlags.length === 0 && (
-                <div className="text-xs text-slate-400 italic">
-                  {flags.length} flag(s) exist but none are household-level and active
-                </div>
-              )}
-              
               {household.payment_hold && (
                 <Badge variant="destructive">
                   <Prohibit className="h-3 w-3 mr-1" />
@@ -479,7 +475,11 @@ export function HouseholdDetailPage() {
               <div>
                 <p className="text-sm text-slate-600 mb-1">Balance</p>
                 <p className="text-2xl font-bold">
-                  {formatCurrency(summary.outstandingBalance)}
+                  {summary.outstandingBalance === null ? (
+                    <span title="Balance unavailable — billing didn't respond">—</span>
+                  ) : (
+                    formatCurrency(summary.outstandingBalance)
+                  )}
                 </p>
               </div>
               <Receipt className="h-8 w-8 text-slate-400" />
