@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4030,
+  "errors": 4029,
   "warnings": 420
  },
  "files": {
@@ -369,7 +369,7 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/PetDetailPage.tsx": {
-   "errors": 83,
+   "errors": 82,
    "warnings": 1
   },
   "src/app/modules/customers/pages/PetProfilePage.tsx": {

@@ -54,6 +54,7 @@ import { BillingTab } from '../components/household-detail/BillingTab';
 import { NotesTab } from '../components/household-detail/NotesTab';
 import { PortalActivityTab } from '../components/household-detail/PortalActivityTab';
 import { DocumentManager } from '../components/DocumentManager';
+import { ContactLink } from '../components/ContactLink';
 
 export function HouseholdDetailPage() {
   const { householdId } = useParams<{ householdId: string }>();
@@ -358,11 +359,20 @@ export function HouseholdDetailPage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
                 <div className="flex items-center gap-1 min-w-0">
                   <EnvelopeSimple className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{primaryContact.email}</span>
+                  <ContactLink
+                    kind="email"
+                    value={primaryContact.email}
+                    contactName={`${primaryContact.first_name} ${primaryContact.last_name}`}
+                    className="truncate"
+                  />
                 </div>
                 <div className="flex items-center gap-1">
                   <Phone className="h-4 w-4 shrink-0" />
-                  {primaryContact.phone}
+                  <ContactLink
+                    kind="phone"
+                    value={primaryContact.phone}
+                    contactName={`${primaryContact.first_name} ${primaryContact.last_name}`}
+                  />
                 </div>
               </div>
             )}

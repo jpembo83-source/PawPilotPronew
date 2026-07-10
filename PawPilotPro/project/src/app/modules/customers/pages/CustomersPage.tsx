@@ -7,6 +7,7 @@ import { MagnifyingGlass, Plus, DownloadSimple, UploadSimple, Warning, Star, Cur
 import { useCustomerStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import type { CustomerFilters } from '../types';
+import { ContactLink } from '../components/ContactLink';
 import { toast } from 'sonner';
 
 export function CustomersPage() {
@@ -315,7 +316,13 @@ export function CustomersPage() {
                             <div className="text-sm font-medium text-slate-900">
                               {household.primary_contact.first_name} {household.primary_contact.last_name}
                             </div>
-                            <div className="text-sm text-slate-500">{household.primary_contact.email}</div>
+                            <div className="text-sm text-slate-500">
+                              <ContactLink
+                                kind="email"
+                                value={household.primary_contact.email}
+                                contactName={`${household.primary_contact.first_name} ${household.primary_contact.last_name}`}
+                              />
+                            </div>
                           </div>
                         ) : (
                           <span className="text-sm text-slate-400">No primary contact</span>

@@ -7,6 +7,7 @@ import { Badge } from '../../../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../../../components/ui/avatar';
 import { Plus, EnvelopeSimple, Phone, Star } from '@phosphor-icons/react';
 import { AddContactModal } from '../modals/AddContactModal';
+import { ContactLink } from '../ContactLink';
 import { EditContactModal } from '../modals/EditContactModal';
 import { useCustomerStore } from '../../store';
 import { toast } from 'sonner';
@@ -96,13 +97,13 @@ export function ContactsTab({ household }: ContactsTabProps) {
                       {contact.email && (
                         <div className="flex items-center gap-2">
                           <EnvelopeSimple className="h-4 w-4" />
-                          {contact.email}
+                          <ContactLink kind="email" value={contact.email} contactName={displayName} />
                         </div>
                       )}
                       {contact.phone && (
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4" />
-                          {contact.phone}
+                          <ContactLink kind="phone" value={contact.phone} contactName={displayName} />
                         </div>
                       )}
                     </div>

@@ -12,6 +12,7 @@ import {
 } from '@phosphor-icons/react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
+import { ContactLink } from '../ContactLink';
 
 interface PetOverviewTabProps {
   pet: Pet;
@@ -176,7 +177,7 @@ export function PetOverviewTab({ pet }: PetOverviewTabProps) {
               {pet.vet_phone && (
                 <div className="flex items-center gap-2 text-sm">
                   <Phone className="h-3.5 w-3.5 text-slate-400" />
-                  <span>{pet.vet_phone}</span>
+                  <ContactLink kind="phone" value={pet.vet_phone} contactName={pet.vet_name} />
                 </div>
               )}
               {pet.vet_address && (
