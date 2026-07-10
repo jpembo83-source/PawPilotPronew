@@ -11,16 +11,7 @@ import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';
 import type { ContactMethod, HouseholdContact } from '../../types';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../../components/ui/alert-dialog';
+import { useUnsavedChangesGuard, formIsDirty } from '../../../../hooks/useUnsavedChangesGuard';
 
 interface EditContactModalProps {
   open: boolean;
@@ -71,7 +62,6 @@ export function EditContactModal({ open, onClose, contact, householdId, onContac
   const [initialFormData, setInitialFormData] = useState<ContactFormData>(formData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const { updateContact, fetchHouseholdDetail } = useCustomerStore();
   const { organisation } = useSettingsStore();
 
@@ -99,10 +89,10 @@ export function EditContactModal({ open, onClose, contact, householdId, onContac
     setInitialFormData(newFormData);
   }, [contact]);
 
-  // Check if form has been modified
-  const hasUnsavedChanges = (): boolean => {
-    return JSON.stringify(formData) !== JSON.stringify(initialFormData);
-  };
+  const { requestClose, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => formIsDirty(formData, initialFormData),
+    onClose,
+  });
 
   const handleChange = (field: keyof ContactFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -175,24 +165,13 @@ export function EditContactModal({ open, onClose, contact, householdId, onContac
     }
   };
 
+  // Every dismissal path (Cancel button, overlay click, Escape) funnels
+  // through here, so a dirty form is always guarded by the discard dialog.
   const handleClose = () => {
     if (!isSubmitting) {
       setError(null);
-      if (hasUnsavedChanges()) {
-        setShowUnsavedWarning(true);
-      } else {
-        onClose();
-      }
+      void requestClose();
     }
-  };
-
-  const handleUnsavedWarningClose = () => {
-    setShowUnsavedWarning(false);
-  };
-
-  const handleUnsavedWarningDiscard = () => {
-    setShowUnsavedWarning(false);
-    onClose();
   };
 
   return (
@@ -494,26 +473,7 @@ export function EditContactModal({ open, onClose, contact, householdId, onContac
           </div>
         </form>
       </DialogContent>
-
-      {/* Unsaved Changes Warning */}
-      <AlertDialog open={showUnsavedWarning} onOpenChange={handleUnsavedWarningClose}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes. Are you sure you want to discard them?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleUnsavedWarningClose}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleUnsavedWarningDiscard}>
-              Discard
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {guardDialog}
     </Dialog>
   );
 }

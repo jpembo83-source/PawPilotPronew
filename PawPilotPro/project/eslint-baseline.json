@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3958,
-  "warnings": 419
+  "errors": 3920,
+  "warnings": 416
  },
  "files": {
   "eslint.config.js": {
@@ -269,8 +269,8 @@
    "warnings": 5
   },
   "src/app/modules/customers/components/DocumentManager.tsx": {
-   "errors": 31,
-   "warnings": 3
+   "errors": 12,
+   "warnings": 2
   },
   "src/app/modules/customers/components/household-detail/BillingTab.tsx": {
    "errors": 2,
@@ -301,12 +301,12 @@
    "warnings": 0
   },
   "src/app/modules/customers/components/household-detail/PortalActivityTab.tsx": {
-   "errors": 22,
+   "errors": 12,
    "warnings": 2
   },
   "src/app/modules/customers/components/modals/AddContactModal.tsx": {
-   "errors": 5,
-   "warnings": 2
+   "errors": 3,
+   "warnings": 1
   },
   "src/app/modules/customers/components/modals/EditContactModal.tsx": {
    "errors": 4,
@@ -333,8 +333,8 @@
    "warnings": 1
   },
   "src/app/modules/customers/components/pets/CreatePetModal.tsx": {
-   "errors": 8,
-   "warnings": 2
+   "errors": 3,
+   "warnings": 1
   },
   "src/app/modules/customers/pages/BulkImportPage.tsx": {
    "errors": 10,
@@ -345,7 +345,7 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/CreateHouseholdPage.tsx": {
-   "errors": 7,
+   "errors": 5,
    "warnings": 1
   },
   "src/app/modules/customers/pages/CustomersPage.tsx": {

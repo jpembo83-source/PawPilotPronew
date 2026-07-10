@@ -9,18 +9,16 @@ import {
   DownloadSimple,
   Trash,
   Warning,
-  CalendarBlank,
   CheckCircle,
-  CircleNotch,
-  UploadSimple
+  CircleNotch
 } from '@phosphor-icons/react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
-import { Label } from '../../../components/ui/label';
-import { Input } from '../../../components/ui/input';
-import { Textarea } from '../../../components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../components/ui/dialog';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
+import { DocumentUploadForm, DOCUMENT_TYPES } from './forms/DocumentUploadForm';
+import { useCustomerStore } from '../store';
 
 interface DocumentManagerProps {
   householdId: string;
@@ -28,31 +26,13 @@ interface DocumentManagerProps {
   showHouseholdDocs?: boolean; // Show household-level docs (like waivers)
 }
 
-const DOCUMENT_TYPES: { value: DocumentType; label: string; description: string; requiresExpiry?: boolean }[] = [
-  { value: 'waiver', label: 'Waiver / Consent Form', description: 'Liability waiver', requiresExpiry: true },
-  { value: 'vaccination', label: 'Vaccination Certificate', description: 'Vaccination records', requiresExpiry: true },
-  { value: 'insurance', label: 'Insurance Certificate', description: 'Pet insurance', requiresExpiry: true },
-  { value: 'medical', label: 'Medical Record', description: 'Medical documents', requiresExpiry: false },
-  { value: 'photo_id', label: 'Photo ID', description: 'Identification document', requiresExpiry: false },
-  { value: 'other', label: 'Other', description: 'Other documents', requiresExpiry: false },
-];
-
 export function DocumentManager({ householdId, petId, showHouseholdDocs = true }: DocumentManagerProps) {
   const [documents, setDocuments] = useState<PetDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { confirm, confirmDialog } = useConfirmDialog();
-
-  // Form state
-  const [formData, setFormData] = useState({
-    document_type: 'waiver' as DocumentType,
-    name: '',
-    expiry_date: '',
-    notes: '',
-  });
 
   useEffect(() => {
     fetchDocuments();
@@ -74,8 +54,24 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
       }
 
       const data = await response.json();
-      let docs = data.documents || [];
-      
+      const allDocs: PetDocument[] = data.documents || [];
+
+      // Keep the household detail in the store in sync: the header's
+      // "Waiver missing" chip and the Documents summary card derive from
+      // currentHouseholdDetail.documents and must update the moment a
+      // document is uploaded or deleted here. A full fetchHouseholdDetail
+      // would flash the page skeleton (it toggles the global isLoading).
+      useCustomerStore.setState(state =>
+        state.currentHouseholdDetail?.id === householdId
+          ? {
+              currentHouseholdDetail: { ...state.currentHouseholdDetail, documents: allDocs },
+              documents: allDocs,
+            }
+          : {},
+      );
+
+      let docs = allDocs;
+
       // Filter based on props
       if (petId && showHouseholdDocs) {
         // Show both pet-specific AND household documents
@@ -98,94 +94,24 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
   };
 
   const handleOpenAddModal = () => {
-    setFormData({
-      document_type: 'waiver',
-      name: '',
-      expiry_date: '',
-      notes: '',
-    });
-    setSelectedFile(null);
     setShowAddModal(true);
   };
 
+  // The upload form's state lives inside DocumentUploadForm and resets on
+  // dialog unmount, so closing is just hiding the modal. Direct close — used
+  // after a successful upload, where no guard should fire.
   const handleCloseModal = () => {
     setShowAddModal(false);
-    setFormData({
-      document_type: 'waiver',
-      name: '',
-      expiry_date: '',
-      notes: '',
-    });
-    setSelectedFile(null);
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      // Auto-fill name if empty
-      if (!formData.name) {
-        setFormData({ ...formData, name: file.name });
-      }
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedFile) {
-      setError('Please select a file to upload');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      // Create FormData for file upload
-      const uploadData = new FormData();
-      uploadData.append('file', selectedFile);
-      uploadData.append('document_type', formData.document_type);
-      uploadData.append('name', formData.name || selectedFile.name);
-      if (formData.expiry_date) {
-        uploadData.append('expiry_date', formData.expiry_date);
-      }
-      if (formData.notes) {
-        uploadData.append('notes', formData.notes);
-      }
-      if (petId) {
-        uploadData.append('pet_id', petId);
-      }
-
-      // FormData posts must not send the JSON Content-Type the shared util
-      // adds — the browser sets the multipart boundary itself.
-      const { 'Content-Type': _ct, ...auth } = await getAuthHeaders();
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers/households/${householdId}/documents`,
-        {
-          method: 'POST',
-          headers: auth,
-          body: uploadData,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to upload document');
-      }
-
-      const result = await response.json();
-      console.log('Document uploaded successfully:', result);
-      
-      await fetchDocuments();
-      handleCloseModal();
-    } catch (err: any) {
-      console.error('Failed to upload document:', err);
-      setError(err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // Guarded close for user-initiated dismissal (Cancel, overlay, Escape):
+  // the upload form reports its dirty state via onDirtyChange.
+  const [uploadFormDirty, setUploadFormDirty] = useState(false);
+  const { requestClose: requestCloseUploadModal, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => uploadFormDirty,
+    onClose: handleCloseModal,
+    description: "This document hasn't been uploaded yet. Closing now will lose what you've entered.",
+  });
 
   const handleDelete = async (documentId: string) => {
     const confirmed = await confirm({
@@ -246,8 +172,6 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
   const getDocumentTypeInfo = (type: DocumentType) => {
     return DOCUMENT_TYPES.find(t => t.value === type) || { label: type, description: '' };
   };
-
-  const selectedDocType = DOCUMENT_TYPES.find(t => t.value === formData.document_type);
 
   if (isLoading) {
     return (
@@ -390,7 +314,7 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
       </Card>
 
       {/* UploadSimple Modal */}
-      <Dialog open={showAddModal} onOpenChange={handleCloseModal}>
+      <Dialog open={showAddModal} onOpenChange={(isOpen) => { if (!isOpen) void requestCloseUploadModal(); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Upload Document</DialogTitle>
@@ -399,131 +323,20 @@ export function DocumentManager({ householdId, petId, showHouseholdDocs = true }
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Document Type */}
-            <div>
-              <Label htmlFor="document_type">Document Type *</Label>
-              <select
-                id="document_type"
-                value={formData.document_type}
-                onChange={(e) => setFormData({ ...formData, document_type: e.target.value as DocumentType })}
-                className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              >
-                {DOCUMENT_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label} - {type.description}
-                  </option>
-                ))}
-              </select>
-              {selectedDocType?.requiresExpiry && (
-                <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                  <Warning className="h-3 w-3" />
-                  This document type requires an expiry date for compliance tracking
-                </p>
-              )}
-            </div>
-
-            {/* File UploadSimple */}
-            <div>
-              <Label htmlFor="file">File *</Label>
-              <div className="mt-1">
-                <input
-                  type="file"
-                  id="file"
-                  onChange={handleFileSelect}
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  Supported formats: PDF, DOC, DOCX, JPG, PNG (Max 10MB)
-                </p>
-              </div>
-              {selectedFile && (
-                <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-200 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-slate-400" />
-                  <span className="text-sm">{selectedFile.name}</span>
-                  <span className="text-xs text-slate-500">
-                    ({(selectedFile.size / 1024).toFixed(1)} KB)
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Document Name */}
-            <div>
-              <Label htmlFor="name">Document Name *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., Liability Waiver 2026"
-                required
-              />
-            </div>
-
-            {/* Expiry Date */}
-            <div>
-              <Label htmlFor="expiry_date">
-                Expiry Date {selectedDocType?.requiresExpiry && '*'}
-              </Label>
-              <Input
-                id="expiry_date"
-                type="date"
-                value={formData.expiry_date}
-                onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
-                min={new Date().toISOString().split('T')[0]}
-                required={selectedDocType?.requiresExpiry}
-              />
-              {selectedDocType?.requiresExpiry && (
-                <p className="text-xs text-slate-500 mt-1">
-                  Required for compliance tracking and check-in validation
-                </p>
-              )}
-            </div>
-
-            {/* Notes */}
-            <div>
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Any additional notes about this document"
-                rows={3}
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
-                <Warning className="h-4 w-4" />
-                {error}
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseModal} disabled={isSubmitting}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting || !selectedFile}>
-                {isSubmitting ? (
-                  <>
-                    <CircleNotch className="h-4 w-4 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <UploadSimple className="h-4 w-4 mr-2" />
-                    Upload Document
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+          <DocumentUploadForm
+            householdId={householdId}
+            petId={petId}
+            onUploaded={async () => {
+              await fetchDocuments();
+              handleCloseModal();
+            }}
+            onCancel={() => void requestCloseUploadModal()}
+            onDirtyChange={setUploadFormDirty}
+          />
         </DialogContent>
       </Dialog>
       {confirmDialog}
+      {guardDialog}
     </>
   );
 }

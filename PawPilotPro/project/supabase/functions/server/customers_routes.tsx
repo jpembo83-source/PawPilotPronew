@@ -161,6 +161,91 @@ app.get('/households', async (c) => {
   }
 });
 
+// ============================================================================
+// DUPLICATE LOOKUP
+// ============================================================================
+// Lightweight, tenant-scoped lookup backing the non-blocking duplicate nudges
+// in the contact/household create flows. Matching is normalised: emails are
+// compared trimmed + lowercased; phones digits-only, with dial-code tolerance
+// (equal, or both ≥10 digits and sharing the same trailing 10 — so
+// "+44 7700 900123" matches "07700 900123"). Household names reuse the list
+// endpoint's fuzzy behaviour (case-insensitive substring). This endpoint only
+// ever informs a UI hint — it must never gate a create.
+
+const normaliseEmail = (value: string) => value.trim().toLowerCase();
+const normalisePhone = (value: string) => value.replace(/\D/g, '');
+
+const phonesMatch = (a: string, b: string) => {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return a.length >= 10 && b.length >= 10 && a.slice(-10) === b.slice(-10);
+};
+
+const LOOKUP_MAX_MATCHES = 5;
+
+app.get('/lookup', async (c) => {
+  try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+
+    const email = normaliseEmail(c.req.query('email') ?? '');
+    const phone = normalisePhone(c.req.query('phone') ?? '');
+    const name = (c.req.query('name') ?? '').trim().toLowerCase();
+
+    const result: {
+      contacts: any[];
+      households: Array<{ id: string; name: string }>;
+    } = { contacts: [], households: [] };
+
+    if (!email && !phone && !name) {
+      return c.json(result);
+    }
+
+    const households = await kv.getByPrefix(`customer:${tenantId}:household:`);
+    const householdNameById = new Map<string, string>(
+      households.map((h: any) => [h.id, h.name ?? 'Unnamed Household'])
+    );
+
+    if (email || phone) {
+      const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`);
+      for (const contact of allContacts as any[]) {
+        if (result.contacts.length >= LOOKUP_MAX_MATCHES) break;
+
+        const matched: Array<'email' | 'phone'> = [];
+        if (email && contact.email && normaliseEmail(String(contact.email)) === email) {
+          matched.push('email');
+        }
+        if (phone && contact.phone && phonesMatch(normalisePhone(String(contact.phone)), phone)) {
+          matched.push('phone');
+        }
+        if (matched.length === 0) continue;
+
+        result.contacts.push({
+          id: contact.id,
+          first_name: contact.first_name,
+          last_name: contact.last_name,
+          email: contact.email,
+          phone: contact.phone,
+          household_id: contact.household_id,
+          household_name: householdNameById.get(contact.household_id) ?? 'Unnamed Household',
+          matched,
+        });
+      }
+    }
+
+    if (name) {
+      result.households = (households as any[])
+        .filter((h) => h.name?.toLowerCase().includes(name))
+        .slice(0, LOOKUP_MAX_MATCHES)
+        .map((h) => ({ id: h.id, name: h.name }));
+    }
+
+    return c.json(result);
+  } catch (error: any) {
+    return internalError(c, 'customers.lookup', error);
+  }
+});
+
 // Get single household
 app.get('/households/:id', async (c) => {
   try {

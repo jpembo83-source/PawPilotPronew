@@ -14,6 +14,7 @@ import { Input } from '../../../../components/ui/input';
 import { Switch } from '../../../../components/ui/switch';
 import { toast } from 'sonner';
 import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
+import { useUnsavedChangesGuard, formIsDirty } from '../../../../hooks/useUnsavedChangesGuard';
 
 interface NotesTabProps {
   household: Household & { 
@@ -366,16 +367,29 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
 }
 
 // Add Note Modal
+const initialNoteFormData = {
+  title: '',
+  content: '',
+  category: 'general' as NoteCategory,
+  visibility: 'internal' as 'internal' | 'customer',
+  is_pinned: false,
+  pet_ids: [] as string[],
+};
+
 function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: () => void; household: Household & { pets?: Pet[] } }) {
   const { createNote } = useCustomerStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    category: 'general' as NoteCategory,
-    visibility: 'internal' as 'internal' | 'customer',
-    is_pinned: false,
-    pet_ids: [] as string[],
+  const [formData, setFormData] = useState(initialNoteFormData);
+
+  // Every dismissal path (Cancel button, overlay click, Escape) funnels
+  // through requestClose, so a dirty form is always guarded.
+  const { requestClose, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => formIsDirty(formData, initialNoteFormData),
+    onClose: () => {
+      setFormData(initialNoteFormData);
+      onClose();
+    },
+    description: "This note hasn't been saved yet. Closing now will lose what you've written.",
   });
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -391,14 +405,7 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
       await createNote(household.id, formData);
       onClose();
       // Reset form
-      setFormData({
-        title: '',
-        content: '',
-        category: 'general',
-        visibility: 'internal',
-        is_pinned: false,
-        pet_ids: [],
-      });
+      setFormData(initialNoteFormData);
     } catch (error) {
       console.error('Failed to create note:', error);
       toast.error('Failed to create note — please try again');
@@ -408,7 +415,7 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
   };
   
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) void requestClose(); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add Note</DialogTitle>
@@ -495,7 +502,7 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
           </div>
           
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => void requestClose()}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -504,6 +511,7 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
           </DialogFooter>
         </form>
       </DialogContent>
+      {guardDialog}
     </Dialog>
   );
 }
@@ -512,13 +520,24 @@ function AddNoteModal({ open, onClose, household }: { open: boolean; onClose: ()
 function EditNoteModal({ open, onClose, note, household }: { open: boolean; onClose: () => void; note: HouseholdNote; household: Household & { pets?: Pet[] } }) {
   const { updateNote } = useCustomerStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     title: note.title || '',
     content: note.content,
     category: note.category,
     visibility: note.visibility,
     is_pinned: note.is_pinned,
     pet_ids: note.pet_ids || [],
+  };
+  const [formData, setFormData] = useState(initialFormData);
+
+  // Every dismissal path (Cancel button, overlay click, Escape) funnels
+  // through requestClose, so a dirty form is always guarded.
+  const { requestClose, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => formIsDirty(formData, initialFormData),
+    onClose: () => {
+      setFormData(initialFormData);
+      onClose();
+    },
   });
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -542,7 +561,7 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
   };
   
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) void requestClose(); }}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Edit Note</DialogTitle>
@@ -626,7 +645,7 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
           </div>
           
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => void requestClose()}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -635,6 +654,7 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
           </DialogFooter>
         </form>
       </DialogContent>
+      {guardDialog}
     </Dialog>
   );
 }
@@ -643,12 +663,24 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
 function AddFlagModal({ open, onClose, household }: { open: boolean; onClose: () => void; household: Household & { pets?: Pet[] } }) {
   const { createFlag } = useCustomerStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const initialFlagFormData = {
     flag_key: 'behaviour_caution' as FlagKey,
     severity: 'warn' as FlagSeverity,
     is_active: true,
     reason: '',
     pet_id: null as string | null,
+  };
+  const [formData, setFormData] = useState(initialFlagFormData);
+
+  // Every dismissal path (Cancel button, overlay click, Escape) funnels
+  // through requestClose, so a dirty form is always guarded.
+  const { requestClose, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => formIsDirty(formData, initialFlagFormData),
+    onClose: () => {
+      setFormData(initialFlagFormData);
+      onClose();
+    },
+    description: "This flag hasn't been created yet. Closing now will lose what you've entered.",
   });
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -707,7 +739,7 @@ function AddFlagModal({ open, onClose, household }: { open: boolean; onClose: ()
   };
   
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) void requestClose(); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add Operational Flag</DialogTitle>
@@ -790,7 +822,7 @@ function AddFlagModal({ open, onClose, household }: { open: boolean; onClose: ()
           </div>
           
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => void requestClose()}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -799,6 +831,7 @@ function AddFlagModal({ open, onClose, household }: { open: boolean; onClose: ()
           </DialogFooter>
         </form>
       </DialogContent>
+      {guardDialog}
     </Dialog>
   );
 }
