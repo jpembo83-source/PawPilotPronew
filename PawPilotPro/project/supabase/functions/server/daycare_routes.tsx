@@ -8,6 +8,7 @@ import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { buildPetUpdate, recordPetUpdate } from './lib/pet_updates.ts';
+import { flagCheckInIssues } from './lib/flag_gate.ts';
 
 const app = new Hono();
 
@@ -379,7 +380,21 @@ const validateCheckIn = async (booking: DaycareBooking, tenantId: string) => {
       message: `Medical alert: ${medicalNotes || 'See pet profile'}`,
     });
   }
-  
+
+  // Operational flags — LIVE read, same rationale as the pet record above:
+  // a warn flag must surface (and a block flag must block) on the very next
+  // check-in tap after staff create it, not only on bookings made afterwards.
+  const flagRecords = await kv.getByPrefix(
+    `customer:${tenantId}:household:${booking.household_id}:flag:`,
+  );
+  const flagIssues = flagCheckInIssues(flagRecords, booking.pet_id, {
+    // The hold check above already reports payment holds stamped on the
+    // booking; skip the duplicate message from the payment_hold flag.
+    skipPaymentHold: booking.has_payment_hold || booking.has_booking_hold,
+  });
+  blockers.push(...flagIssues.blockers);
+  warnings.push(...flagIssues.warnings);
+
   return {
     can_check_in: blockers.length === 0,
     blockers,

@@ -1003,7 +1003,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         isLoading: false,
       }));
 
-      broadcastMutation('customers', 'flag', 'created')
+      broadcastMutation('customers', 'flag', 'created', flag.id);
 
       return flag;
     } catch (error) {
@@ -1034,7 +1034,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         isLoading: false,
       }));
 
-      broadcastMutation('customers', 'flag', 'updated', id)
+      broadcastMutation('customers', 'flag', 'updated', id);
 
       return flag;
     } catch (error) {
