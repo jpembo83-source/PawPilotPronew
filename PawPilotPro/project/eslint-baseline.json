@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 4028,
+  "errors": 4027,
   "warnings": 420
  },
  "files": {
@@ -353,7 +353,7 @@
    "warnings": 1
   },
   "src/app/modules/customers/pages/CustomersPage.tsx": {
-   "errors": 11,
+   "errors": 10,
    "warnings": 2
   },
   "src/app/modules/customers/pages/ExportPage.tsx": {

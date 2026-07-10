@@ -1,12 +1,12 @@
 // Customer Management System
 // Modern Customer Master Database with comprehensive household management
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { MagnifyingGlass, Plus, DownloadSimple, UploadSimple, Warning, Star, CurrencyDollar, FileDashed, MapPin, ArrowClockwise } from '@phosphor-icons/react';
+import { MagnifyingGlass, Plus, DownloadSimple, UploadSimple, Warning, Star, CurrencyDollar, FileDashed, MapPin, ArrowClockwise, CaretUp, CaretDown } from '@phosphor-icons/react';
 import { useCustomerStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
-import type { CustomerFilters } from '../types';
+import type { CustomerFilters, HouseholdSortKey, HouseholdSummary } from '../types';
 import { ContactLink } from '../components/ContactLink';
 import { toast } from 'sonner';
 
@@ -27,7 +27,10 @@ export function CustomersPage() {
   
   const [searchInput, setSearchInput] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+  const [sortKey, setSortKey] = useState<HouseholdSortKey>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     fetchHouseholds().catch((err) => {
       toast.error('Failed to load customers');
@@ -35,10 +38,37 @@ export function CustomersPage() {
     });
     fetchLocations(); // Fetch locations for display
   }, []);
-  
+
+  const runSearch = (value: string) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    const newFilters = { ...filters, search: value || undefined };
+    setFilters(newFilters);
+    fetchHouseholds(newFilters).catch(() => {}); // store surfaces the error state
+  };
+
+  // Debounced live search (350ms, matching CreateBookingDialog); Enter and
+  // the Search button stay as immediate triggers via runSearch.
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (searchInput === (filters.search ?? '')) return; // already applied (covers initial mount)
+
+    searchDebounceRef.current = setTimeout(() => runSearch(searchInput), 350);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchInput]);
+
   const handleSearch = () => {
-    setFilters({ ...filters, search: searchInput });
-    fetchHouseholds({ ...filters, search: searchInput });
+    runSearch(searchInput);
+  };
+
+  const handleSort = (key: HouseholdSortKey) => {
+    if (sortKey === key) {
+      setSortDir(dir => (dir === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
   };
   
   const handleFilterChange = (key: keyof CustomerFilters, value: any) => {
@@ -82,6 +112,27 @@ export function CustomersPage() {
   };
   
   const activeFiltersCount = Object.values(filters).filter(v => v !== undefined && v !== '').length;
+
+  // Client-side sort over the loaded set; default alphabetical by household.
+  const sortedHouseholds = useMemo(() => {
+    const contactName = (h: HouseholdSummary) =>
+      h.primary_contact
+        ? `${h.primary_contact.first_name ?? ''} ${h.primary_contact.last_name ?? ''}`.trim()
+        : '';
+    const sortValue = sortKey === 'primary_contact' ? contactName : (h: HouseholdSummary) => h.name ?? '';
+
+    const rows = households.filter(household => household && household.id);
+    rows.sort((a, b) => sortValue(a).localeCompare(sortValue(b), undefined, { sensitivity: 'base' }));
+    if (sortDir === 'desc') rows.reverse();
+    return rows;
+  }, [households, sortKey, sortDir]);
+
+  const SortIndicator = ({ column }: { column: HouseholdSortKey }) => {
+    if (sortKey !== column) return null;
+    return sortDir === 'asc'
+      ? <CaretUp className="w-3 h-3" aria-hidden="true" />
+      : <CaretDown className="w-3 h-3" aria-hidden="true" />;
+  };
   
   return (
     <div className="h-full flex flex-col bg-slate-50">
@@ -259,11 +310,29 @@ export function CustomersPage() {
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Household
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                    aria-sort={sortKey === 'name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  >
+                    <button
+                      onClick={() => handleSort('name')}
+                      className="flex items-center gap-1 uppercase tracking-wider hover:text-slate-700"
+                    >
+                      Household
+                      <SortIndicator column="name" />
+                    </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Primary Contact
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                    aria-sort={sortKey === 'primary_contact' ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  >
+                    <button
+                      onClick={() => handleSort('primary_contact')}
+                      className="flex items-center gap-1 uppercase tracking-wider hover:text-slate-700"
+                    >
+                      Primary Contact
+                      <SortIndicator column="primary_contact" />
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Pets
@@ -280,9 +349,7 @@ export function CustomersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {households
-                  .filter(household => household && household.id) // Filter out any invalid households
-                  .map((household) => {
+                {sortedHouseholds.map((household) => {
                   return (
                     <tr
                       key={household.id}

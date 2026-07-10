@@ -205,6 +205,9 @@ export interface TimelineItem {
   [key: string]: any;
 }
 
+// Sort options for the customers list.
+export type HouseholdSortKey = 'name' | 'primary_contact';
+
 // List filters
 export interface CustomerFilters {
   search?: string;
