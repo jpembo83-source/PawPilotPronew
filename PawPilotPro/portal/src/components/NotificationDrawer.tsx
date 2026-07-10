@@ -36,6 +36,7 @@ function renderNotification(n: PortalNotification): Renderer {
     batteryPct?: number;
     note?: string | null;
     hasPhoto?: boolean;
+    reason?: string;
   };
   const pet = p.petName ?? "Your pet";
 
@@ -55,6 +56,20 @@ function renderNotification(n: PortalNotification): Renderer {
       return { Icon: Syringe, accent: "warn", title: "Vaccination not accepted" };
     case "vax.expiring":
       return { Icon: Syringe, accent: "warn", title: "Vaccination expiring soon" };
+
+    /* ----- Pet verification (owner-added pets) --------------------- */
+    case "pet.approved":
+      return {
+        Icon: Dog, accent: "success",
+        title: `${pet} is verified`,
+        body: "Bookings are open — pick them in the booking wizard.",
+      };
+    case "pet.rejected":
+      return {
+        Icon: Dog, accent: "warn",
+        title: `We couldn't verify ${pet}`,
+        body: p.reason || undefined,
+      };
 
     /* ----- Day-feed moments ---------------------------------------- */
     case "moment.shared":

@@ -56,9 +56,11 @@ import { PortalActivityTab } from '../components/household-detail/PortalActivity
 import { DocumentManager } from '../components/DocumentManager';
 import { hasValidWaiver } from '../waiverStatus';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function HouseholdDetailPage() {
   const { householdId } = useParams<{ householdId: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/customers');
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { currentHouseholdDetail, isLoading, error, fetchHouseholdDetail, updateHousehold, deleteHousehold, flags, fetchFlags } = useCustomerStore();
@@ -219,7 +221,7 @@ export function HouseholdDetailPage() {
                 Household ID: {householdId}
               </p>
             )}
-            <Button onClick={() => navigate('/customers')}>
+            <Button onClick={goBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Customers
             </Button>
@@ -300,7 +302,7 @@ export function HouseholdDetailPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/customers')}
+            onClick={goBack}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

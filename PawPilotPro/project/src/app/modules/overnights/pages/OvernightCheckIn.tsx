@@ -36,8 +36,10 @@ import {
 import { toast } from 'sonner';
 import type { OvernightReservation, CheckInRequest } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function OvernightCheckIn() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/overnights');
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
   const selectedLocation = selectedLocationId !== 'ALL'
@@ -192,7 +194,7 @@ export function OvernightCheckIn() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/overnights')}>
+        <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>

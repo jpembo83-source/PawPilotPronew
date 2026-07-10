@@ -33,6 +33,7 @@ import {
 } from '../lib/bulkCheckIn';
 import type { DaycareBooking, CheckInValidation } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function isLate(booking: DaycareBooking): boolean {
@@ -253,6 +254,7 @@ function WalkInPanel({ open, onClose, onBooked, locationId }: WalkInPanelProps) 
 
 export function DaycareCheckIn() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/daycare');
   const { selectedLocationId } = useDashboardStore();
   const { bookings, isLoading, fetchBookings, validateCheckIn, checkIn } = useDaycareStore();
   const isOnline = useConnectivity();
@@ -412,7 +414,7 @@ export function DaycareCheckIn() {
       <div className="bg-white border-b border-[#E2DED8] px-4 py-4 sticky top-0 z-10">
         <div className="flex items-center gap-3 mb-3">
           <button
-            onClick={() => navigate('/daycare')}
+            onClick={goBack}
             aria-label="Back to daycare"
             className="p-1.5 rounded-lg hover:bg-[#F4F3EF] text-[#6B6762] transition-colors"
           >

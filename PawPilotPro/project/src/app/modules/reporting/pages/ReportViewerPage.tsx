@@ -21,6 +21,7 @@ import * as XLSX from 'xlsx';
 import { ReportFilters } from '../components/ReportFilters';
 import { REPORT_DEFINITIONS, REPORT_CATEGORY_LABELS, REPORT_CATEGORY_COLOURS, type ReportId, type ReportColumn } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 const PAGE_SIZE = 25;
 
 function canAccess(role: string, reportId: string): boolean {
@@ -82,6 +83,7 @@ function exportToXlsx(reportTitle: string, rows: any[], columns: ReportColumn[])
 export function ReportViewerPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/reports');
   const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
   const { locations, fetchLocations } = useSettingsStore();
@@ -109,7 +111,7 @@ export function ReportViewerPage() {
     return (
       <div className="p-6 text-center">
         <p className="text-slate-500">Report not found.</p>
-        <Button variant="ghost" onClick={() => navigate('/reports')} className="mt-4">Back to Reports</Button>
+        <Button variant="ghost" onClick={goBack} className="mt-4">Back to Reports</Button>
       </div>
     );
   }
@@ -120,7 +122,7 @@ export function ReportViewerPage() {
         <Warning className="h-10 w-10 text-red-400 mx-auto mb-3" />
         <h2 className="text-lg font-semibold text-slate-800">Access Restricted</h2>
         <p className="text-slate-500 mt-1 text-sm">This report requires Manager or Admin access.</p>
-        <Button variant="ghost" onClick={() => navigate('/reports')} className="mt-4">Back to Reports</Button>
+        <Button variant="ghost" onClick={goBack} className="mt-4">Back to Reports</Button>
       </div>
     );
   }
@@ -139,7 +141,7 @@ export function ReportViewerPage() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate('/reports')} className="mb-4 -ml-2">
+        <Button variant="ghost" onClick={goBack} className="mb-4 -ml-2">
           <ArrowLeft className="h-4 w-4 mr-2" />Back to Reports
         </Button>
         <div className="flex items-center justify-between">

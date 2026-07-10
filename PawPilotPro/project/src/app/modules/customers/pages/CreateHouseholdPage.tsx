@@ -16,8 +16,10 @@ import {
   buildHouseholdPayload,
 } from '../components/forms/HouseholdFormFields';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function CreateHouseholdPage() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/customers');
   const { createHousehold, isLoading } = useCustomerStore();
   const { locations, fetchLocations } = useSettingsStore();
 
@@ -56,7 +58,7 @@ export function CreateHouseholdPage() {
   };
   
   const handleCancel = () => {
-    navigate('/customers');
+    goBack();
   };
   
   return (

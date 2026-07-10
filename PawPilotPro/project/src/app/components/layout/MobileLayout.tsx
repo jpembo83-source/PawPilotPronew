@@ -29,6 +29,7 @@ import { useBetaFeatures } from '../../hooks/useBetaFeatures';
 import { OfflineBanner } from './OfflineBanner';
 import defaultLogo from '../../../assets/logo.svg';
 import { getVisibleNavEntries, groupNavEntries, bottomBarEntries } from './navManifest';
+import { useInboxCounts, formatBadgeCount } from '../../hooks/useInboxCounts';
 
 export function MobileLayout() {
   const { user, logout } = useAuth();
@@ -67,6 +68,15 @@ export function MobileLayout() {
   });
   const bottomNavItems = bottomBarEntries(visibleNavEntries);
   const groupedMenuItems = groupNavEntries(visibleNavEntries);
+
+  // Portal Inbox pending-count badge — same RBAC gate as the nav entry.
+  // Shown on the drawer's Portal Inbox row and (since that entry lives
+  // behind "More") as a count on the More tab itself, so pending portal
+  // work is visible without opening anything.
+  const inboxCounts = useInboxCounts(permissions.canAccessModule('customers'));
+  const inboxBadge = inboxCounts?.total ?? 0;
+  const badgeCountFor = (path: string): number =>
+    path === '/customers/pending-requests' ? inboxBadge : 0;
 
   const activeLocationName =
     selectedLocationId === 'ALL'
@@ -233,6 +243,17 @@ export function MobileLayout() {
             >
               More
             </span>
+            {/* Portal Inbox lives behind More on mobile — surface its
+                pending count here so it's visible without opening the menu. */}
+            {inboxBadge > 0 && (
+              <span
+                aria-label={`Portal Inbox — ${formatBadgeCount(inboxBadge)} pending`}
+                className="absolute rounded-full text-white text-[10px] leading-none font-bold tabular-nums px-1.5 py-[3px] border-2 border-white"
+                style={{ background: 'var(--primary)', top: 4, left: '50%', transform: 'translateX(6px)' }}
+              >
+                {formatBadgeCount(inboxBadge)}
+              </span>
+            )}
           </button>
         </div>
       </nav>
@@ -325,6 +346,15 @@ export function MobileLayout() {
                         >
                           {item.label}
                         </span>
+                        {badgeCountFor(item.path) > 0 && (
+                          <span
+                            aria-label={`${formatBadgeCount(badgeCountFor(item.path))} pending`}
+                            className="ml-auto rounded-full text-white text-[11px] leading-none font-semibold tabular-nums px-1.5 py-1"
+                            style={{ background: 'var(--primary)' }}
+                          >
+                            {formatBadgeCount(badgeCountFor(item.path))}
+                          </span>
+                        )}
                       </NavLink>
                     );
                   })}
