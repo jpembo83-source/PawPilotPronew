@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Textarea } from '../../../components/ui/textarea';
-import { Calendar, CheckCircle2, XCircle, Loader2, AlertTriangle, Sparkles, Gauge } from 'lucide-react';
+import { Label } from '../../../components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Calendar, CheckCircle2, XCircle, Loader2, AlertTriangle, Sparkles, Gauge, PawPrint, Syringe } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../utils/supabase/info';
+import { broadcastMutation } from '../../../lib/realtimeBroadcast';
+import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
+import { ReviewCard, type QueueItem } from './VaxReviewPage';
 
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 
@@ -58,24 +63,78 @@ interface PendingRequest {
   childRequests?: ChildRequest[];
 }
 
+/** Row shape returned by GET /portal-admin/pet-verifications. */
+interface PetVerification {
+  id: string;
+  petId: string;
+  petName: string | null;
+  householdId: string;
+  householdName: string | null;
+  submittedAt: string;
+  photoUrl: string | null;
+  breed: string | null;
+  sex: string | null;
+  dateOfBirth: string | null;
+  microchip: string | null;
+  weightKg: number | null;
+  colour: string | null;
+  neuteredStatus: string | null;
+  petMissing?: boolean;
+}
+
+/** Tab ids double as the ?tab= query value so the vax tab is deep-linkable. */
+const INBOX_TABS = ['bookings', 'pets', 'vaccinations'] as const;
+type InboxTab = (typeof INBOX_TABS)[number];
+
 export function PendingRequestsPage() {
   const [items, setItems] = useState<PendingRequest[]>([]);
+  const [verifications, setVerifications] = useState<PetVerification[]>([]);
+  const [vaxItems, setVaxItems] = useState<QueueItem[]>([]);
   const [snapshots, setSnapshots] = useState<SnapshotMap>({});
   const [loading, setLoading] = useState(true);
+
+  // Active tab lives in the URL (?tab=vaccinations) so the sidebar badge,
+  // the PetProfilePage chip, and the old /customers/vax-review redirect can
+  // all land staff directly on the right queue.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const tab: InboxTab = (INBOX_TABS as readonly string[]).includes(rawTab ?? '')
+    ? (rawTab as InboxTab)
+    : 'bookings';
+  const setTab = (next: string) => {
+    setSearchParams(next === 'bookings' ? {} : { tab: next }, { replace: true });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const headers = await getAuthHeaders();
-      const res = await fetch(`${FN_BASE}/pending-requests`, { headers });
-      if (res.ok) {
-        const body = await res.json();
+      const [reqRes, vRes, vaxRes] = await Promise.all([
+        fetch(`${FN_BASE}/pending-requests`, { headers }),
+        fetch(`${FN_BASE}/pet-verifications`, { headers }),
+        fetch(`${FN_BASE}/vax-queue`, { headers }),
+      ]);
+      if (reqRes.ok) {
+        const body = (await reqRes.json()) as { requests?: PendingRequest[] };
         setItems(body.requests ?? []);
       } else toast.error('Could not load pending requests');
+      if (vRes.ok) {
+        const body = (await vRes.json()) as { items?: PetVerification[] };
+        setVerifications(body.items ?? []);
+      } else toast.error('Could not load pet verifications');
+      if (vaxRes.ok) {
+        const body = (await vaxRes.json()) as { items?: QueueItem[] };
+        setVaxItems(body.items ?? []);
+      } else toast.error('Could not load vaccination queue');
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Approve/reject in another staff client broadcasts on the customers
+  // module (see broadcastMutation calls below) — refresh both queues so
+  // every open inbox agrees.
+  useModuleRealtimeSync('customers', load);
 
   // Whenever the queue changes, fetch a fresh capacity snapshot for every
   // (date, service) line the inbox shows. Server dedupes; we just hand it
@@ -124,7 +183,9 @@ export function PendingRequestsPage() {
           <div>
             <h1 className="text-2xl font-semibold">Pending Requests</h1>
             <p className="text-sm text-muted-foreground">
-              {loading ? 'Loading…' : `${items.length} booking requests from the owner portal`}
+              {loading
+                ? 'Loading…'
+                : `${items.length} booking request${items.length === 1 ? '' : 's'} · ${verifications.length} pet verification${verifications.length === 1 ? '' : 's'} · ${vaxItems.length} vaccination certificate${vaxItems.length === 1 ? '' : 's'}`}
             </p>
           </div>
         </div>
@@ -135,22 +196,104 @@ export function PendingRequestsPage() {
 
       {loading ? (
         <Card><CardContent className="py-12 text-center text-muted-foreground">Loading…</CardContent></Card>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && verifications.length === 0 && vaxItems.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
             <CheckCircle2 className="h-10 w-10 text-primary/40 mx-auto mb-3" />
             <p className="font-medium">Inbox empty</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Owner-submitted bookings will appear here for your approval.
+              Owner-submitted bookings, newly added pets, and vaccination certificates will appear here for your approval.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <ul className="space-y-3">
-          {items.map((r) => <li key={r.id}><RequestRow r={r} snapshots={snapshots} onResolved={load} /></li>)}
-        </ul>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="bookings">
+              <Calendar className="h-4 w-4" />
+              Bookings
+              <QueueCount n={items.length} />
+            </TabsTrigger>
+            <TabsTrigger value="pets">
+              <PawPrint className="h-4 w-4" />
+              Pet verifications
+              <QueueCount n={verifications.length} />
+            </TabsTrigger>
+            <TabsTrigger value="vaccinations">
+              <Syringe className="h-4 w-4" />
+              Vaccinations
+              <QueueCount n={vaxItems.length} />
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="bookings">
+            {items.length === 0 ? (
+              <QueueEmpty text="No pending booking requests." />
+            ) : (
+              <ul className="space-y-3">
+                {items.map((r) => <li key={r.id}><RequestRow r={r} snapshots={snapshots} onResolved={load} /></li>)}
+              </ul>
+            )}
+          </TabsContent>
+
+          <TabsContent value="pets">
+            {verifications.length === 0 ? (
+              <QueueEmpty text="No pets awaiting verification." />
+            ) : (
+              <ul className="space-y-3">
+                {verifications.map((v) => (
+                  <li key={v.id}><PetVerificationRow v={v} onResolved={load} /></li>
+                ))}
+              </ul>
+            )}
+          </TabsContent>
+
+          <TabsContent value="vaccinations">
+            {vaxItems.length === 0 ? (
+              <QueueEmpty text="No vaccination certificates awaiting review." />
+            ) : (
+              <ul className="space-y-4">
+                {vaxItems.map((item) => (
+                  <li key={item.id}>
+                    {/* Review logic lives in VaxReviewPage's ReviewCard; this
+                        wrapper only adds the realtime broadcast so a second
+                        staff client's inbox + badge refresh. */}
+                    <ReviewCard
+                      item={item}
+                      onResolved={() => {
+                        void broadcastMutation('customers', 'vaccination', 'updated', item.petId, { action: 'vax_reviewed' });
+                        void load();
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
     </div>
+  );
+}
+
+/** Per-queue pending count rendered inside a tab trigger. */
+function QueueCount({ n }: { n: number }) {
+  if (n === 0) return null;
+  return (
+    <Badge variant="secondary" className="ml-1 px-1.5 min-w-5 justify-center tabular-nums">
+      {n}
+    </Badge>
+  );
+}
+
+function QueueEmpty({ text }: { text: string }) {
+  return (
+    <Card>
+      <CardContent className="py-10 text-center">
+        <CheckCircle2 className="h-8 w-8 text-primary/40 mx-auto mb-2" />
+        <p className="text-sm text-muted-foreground">{text}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -350,5 +493,136 @@ function CapacityLine({ snap }: { snap: CapacitySnapshot | undefined }) {
          : `${snap.utilizationPercent}% util`}
       </span>
     </div>
+  );
+}
+
+const SEX_LABEL: Record<string, string> = { male: 'Male', female: 'Female', unknown: 'Unknown' };
+const NEUTERED_LABEL: Record<string, string> = { neutered: 'Neutered', intact: 'Intact', unknown: 'Unknown' };
+
+/**
+ * One owner-added pet awaiting identity verification. Approve flips the pet
+ * to verification_status: "verified" server-side (making it bookable on the
+ * portal); reject requires a reason that is surfaced to the owner — same
+ * review idioms as VaxReviewPage's ReviewCard.
+ */
+function PetVerificationRow({ v, onResolved }: { v: PetVerification; onResolved: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+
+  const ageHours = (Date.now() - new Date(v.submittedAt).getTime()) / 3_600_000;
+  const stale = ageHours > 24; // owners are told "usually within a working day"
+
+  async function resolve(action: 'approve' | 'reject') {
+    if (action === 'reject' && reason.trim().length < 3) {
+      toast.error('Reason must be at least 3 characters');
+      return;
+    }
+    setBusy(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${FN_BASE}/pet-verifications/${v.id}/${action}`, {
+        method: 'POST',
+        headers,
+        ...(action === 'reject' ? { body: JSON.stringify({ reason }) } : {}),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.status === 410) {
+        // Pet was deleted from the CRM after submission — the server cleared
+        // the queue entry; refresh so the row disappears.
+        toast.info(body.error ?? 'Pet record no longer exists — request cleared');
+        onResolved();
+        return;
+      }
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+      toast.success(action === 'approve' ? 'Approved — pet is now bookable' : 'Rejected');
+      void broadcastMutation('customers', 'pet', 'updated', v.petId, {
+        action: action === 'approve' ? 'verification_approved' : 'verification_rejected',
+      });
+      onResolved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `${action === 'approve' ? 'Approve' : 'Reject'} failed`);
+    } finally { setBusy(false); }
+  }
+
+  const details: Array<{ label: string; value: string | null }> = [
+    { label: 'Breed', value: v.breed },
+    { label: 'Sex', value: v.sex ? SEX_LABEL[v.sex] ?? v.sex : null },
+    { label: 'Date of birth', value: v.dateOfBirth ? new Date(v.dateOfBirth).toLocaleDateString() : null },
+    { label: 'Microchip', value: v.microchip },
+    { label: 'Weight', value: v.weightKg != null ? `${v.weightKg} kg` : null },
+    { label: 'Colour', value: v.colour },
+    { label: 'Neutered', value: v.neuteredStatus ? NEUTERED_LABEL[v.neuteredStatus] ?? v.neuteredStatus : null },
+  ];
+
+  return (
+    <Card className={stale ? 'border-amber-300' : ''}>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {v.photoUrl ? (
+              <img src={v.photoUrl} alt="" className="h-10 w-10 rounded-full object-cover border" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-primary/10 grid place-items-center">
+                <PawPrint className="h-5 w-5 text-primary" />
+              </div>
+            )}
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                {v.petName ?? 'Unknown pet'}
+                <Badge variant="outline" className="border-primary/30 text-primary text-xs">
+                  New pet
+                </Badge>
+                {stale && <Badge variant="outline" className="border-amber-400 text-amber-700 text-xs gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Stale
+                </Badge>}
+              </CardTitle>
+              <CardDescription>
+                {v.householdName ? (
+                  <Link to={`/customers/${v.householdId}`} className="underline">{v.householdName}</Link>
+                ) : 'Unknown household'}
+                {' · '}
+                submitted {Math.round(ageHours * 10) / 10}h ago
+              </CardDescription>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+          {details.map((d) => (
+            <div key={d.label}>
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">{d.label}</dt>
+              <dd className="font-medium">{d.value ?? '—'}</dd>
+            </div>
+          ))}
+        </dl>
+        {v.petMissing && (
+          <p className="text-sm text-destructive">
+            The pet record was deleted from the CRM — approving or rejecting clears this request.
+          </p>
+        )}
+
+        <div className="flex gap-2 pt-2">
+          <Button onClick={() => void resolve('approve')} disabled={busy} className="flex-1">
+            <CheckCircle2 className="h-4 w-4 mr-2" /> Approve
+          </Button>
+          <Button variant="outline" onClick={() => setRejecting((x) => !x)}
+                  className="border-destructive/30 text-destructive hover:bg-destructive/5">
+            <XCircle className="h-4 w-4 mr-2" /> Reject
+          </Button>
+        </div>
+        {rejecting && (
+          <div className="space-y-2 pt-2 border-t">
+            <Label htmlFor={`pet-reject-${v.id}`}>Reason (visible to the owner)</Label>
+            <Textarea id={`pet-reject-${v.id}`} rows={2} value={reason} onChange={(e) => setReason(e.target.value)}
+                      placeholder="e.g. We couldn't match the microchip number — please double-check it." />
+            <Button onClick={() => void resolve('reject')} disabled={busy} variant="destructive" size="sm">
+              Confirm reject
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -26,12 +26,18 @@ import {
 } from '../../../components/ui/card';
 import { Skeleton } from '../../../components/ui/skeleton';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function PetDetailPage() {
   const { petId } = useParams<{ petId: string }>();
   const navigate = useNavigate();
   const { fetchPetById, isLoading, error } = useCustomerStore();
   const [pet, setPet] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('profile');
+  // History-aware: returns to wherever staff came from (search, inbox,
+  // household…); the household page is only the deep-link fallback.
+  const goBack = useBackNavigation(
+    pet?.household_id ? `/customers/${pet.household_id}` : '/customers',
+  );
 
   useEffect(() => {
     if (petId && petId !== 'new') {
@@ -63,7 +69,7 @@ export function PetDetailPage() {
                 Error: {error}
               </p>
             )}
-            <Button onClick={() => navigate('/customers')}>
+            <Button onClick={goBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Customers
             </Button>
@@ -81,7 +87,7 @@ export function PetDetailPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/customers/${pet.household_id}`)}
+            onClick={goBack}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

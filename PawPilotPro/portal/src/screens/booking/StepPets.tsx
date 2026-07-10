@@ -18,8 +18,11 @@ export function StepPets({ onNext }: { onNext: () => void }) {
   const bookablePets = (data?.pets ?? []).filter(
     (p) => (p.verificationStatus ?? "verified") === "verified",
   );
+  // Only genuinely pending pets get the "awaiting verification" block —
+  // rejected pets carry their own explanation on PetsScreen/PetDetailScreen
+  // and would be misleading under "the team will verify soon" copy.
   const pendingPets = (data?.pets ?? []).filter(
-    (p) => (p.verificationStatus ?? "verified") !== "verified",
+    (p) => p.verificationStatus === "pending_staff_review",
   );
   const pendingCount = pendingPets.length;
 

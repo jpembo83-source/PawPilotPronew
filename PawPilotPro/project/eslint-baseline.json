@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 4030,
-  "warnings": 420
+  "errors": 3960,
+  "warnings": 419
  },
  "files": {
   "eslint.config.js": {
@@ -332,10 +332,6 @@
    "errors": 22,
    "warnings": 1
   },
-  "src/app/modules/customers/components/pet-profile/VaccinationManager.tsx": {
-   "errors": 50,
-   "warnings": 1
-  },
   "src/app/modules/customers/components/pets/CreatePetModal.tsx": {
    "errors": 8,
    "warnings": 2
@@ -349,7 +345,7 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/CreateHouseholdPage.tsx": {
-   "errors": 8,
+   "errors": 7,
    "warnings": 1
   },
   "src/app/modules/customers/pages/CustomersPage.tsx": {
@@ -361,11 +357,11 @@
    "warnings": 10
   },
   "src/app/modules/customers/pages/HouseholdDetailPage.tsx": {
-   "errors": 16,
+   "errors": 14,
    "warnings": 1
   },
   "src/app/modules/customers/pages/PendingRequestsPage.tsx": {
-   "errors": 22,
+   "errors": 20,
    "warnings": 2
   },
   "src/app/modules/customers/pages/PetDetailPage.tsx": {
@@ -373,7 +369,7 @@
    "warnings": 1
   },
   "src/app/modules/customers/pages/PetProfilePage.tsx": {
-   "errors": 44,
+   "errors": 42,
    "warnings": 6
   },
   "src/app/modules/customers/pages/VaxReviewPage.tsx": {
@@ -461,7 +457,7 @@
    "warnings": 0
   },
   "src/app/modules/daycare/pages/DaycareAttendance.tsx": {
-   "errors": 5,
+   "errors": 4,
    "warnings": 0
   },
   "src/app/modules/daycare/pages/DaycareBookings.tsx": {
@@ -485,7 +481,7 @@
    "warnings": 0
   },
   "src/app/modules/grooming/pages/GroomingAppointmentDetail.tsx": {
-   "errors": 26,
+   "errors": 24,
    "warnings": 5
   },
   "src/app/modules/grooming/pages/GroomingAppointments.tsx": {
@@ -493,7 +489,7 @@
    "warnings": 2
   },
   "src/app/modules/grooming/pages/GroomingCheckIn.tsx": {
-   "errors": 13,
+   "errors": 11,
    "warnings": 3
   },
   "src/app/modules/grooming/pages/GroomingDashboard.tsx": {
@@ -501,7 +497,7 @@
    "warnings": 0
   },
   "src/app/modules/grooming/pages/NewGroomingAppointment.tsx": {
-   "errors": 45,
+   "errors": 44,
    "warnings": 7
   },
   "src/app/modules/grooming/store.ts": {
@@ -717,7 +713,7 @@
    "warnings": 1
   },
   "src/app/modules/reporting/pages/ReportViewerPage.tsx": {
-   "errors": 11,
+   "errors": 9,
    "warnings": 4
   },
   "src/app/modules/reporting/pages/ReportsPage.tsx": {
@@ -881,7 +877,7 @@
    "warnings": 1
   },
   "src/app/modules/staff/pages/StaffMemberDetailPage.tsx": {
-   "errors": 9,
+   "errors": 7,
    "warnings": 1
   },
   "src/app/modules/staff/pages/TeamDirectoryTab.tsx": {
@@ -929,7 +925,7 @@
    "warnings": 2
   },
   "src/app/modules/transport/pages/CreateJob.tsx": {
-   "errors": 6,
+   "errors": 5,
    "warnings": 0
   },
   "src/app/modules/transport/pages/DriverDashboard.tsx": {
@@ -941,7 +937,7 @@
    "warnings": 0
   },
   "src/app/modules/transport/pages/JobDetail.tsx": {
-   "errors": 20,
+   "errors": 18,
    "warnings": 0
   },
   "src/app/modules/transport/pages/JobsList.tsx": {

@@ -12,6 +12,7 @@ import { Card } from '../../../components/ui/card';
 import { cn } from '../../../components/ui/utils';
 import type { OvernightCarerInfo, BoarderSummary } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 const DRAG_TYPE = 'BOARDER_CARD';
 
 interface DragItem {
@@ -200,6 +201,7 @@ function CarerColumn({
 
 function PlanningBoardContent() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/overnights');
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
   const selectedLocation = selectedLocationId !== 'ALL'
@@ -287,7 +289,7 @@ function PlanningBoardContent() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/overnights')}>
+          <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

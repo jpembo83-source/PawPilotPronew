@@ -33,9 +33,11 @@ import { toast } from 'sonner';
 import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
 import type { TransportJobWithDetails } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function JobDetail() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/transport');
   const { jobs, vehicles, isLoading, error, activeDriverCount, fetchJobs, fetchVehicles, fetchActiveDrivers, updateJobStatus, assignDriver, deleteJob } = useTransportStore();
   const { locations } = useSettingsStore();
   const { users, fetchUsers } = useUserStore();
@@ -153,7 +155,7 @@ export function JobDetail() {
           <p className="text-slate-500 mb-4">
             {error || 'The transport job you\'re looking for could not be found.'}
           </p>
-          <Button onClick={() => navigate('/transport')}>
+          <Button onClick={goBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Transport
           </Button>
@@ -182,7 +184,7 @@ export function JobDetail() {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/transport')}
+              onClick={goBack}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back

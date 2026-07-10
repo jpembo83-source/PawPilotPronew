@@ -357,6 +357,19 @@ export function OrganisationSettings() {
             </div>
             <p className="mt-1 text-xs text-slate-500">Days allowed after expiry before blocking.</p>
           </div>
+           <div>
+            <label htmlFor="vaccinationSchedule" className="block text-sm font-medium text-slate-700 mb-1">Vaccine Checklist Region</label>
+            <select
+              id="vaccinationSchedule"
+              value={formData.vaccinationSchedule ?? 'uk'}
+              onChange={(e) => handleChange('vaccinationSchedule', e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-primary focus:border-primary text-sm bg-white"
+            >
+              <option value="uk">United Kingdom</option>
+              <option value="ch">Switzerland</option>
+            </select>
+            <p className="mt-1 text-xs text-slate-500">Which regional vaccine list the pet profile checklist offers.</p>
+          </div>
         </div>
       </SettingCard>
       

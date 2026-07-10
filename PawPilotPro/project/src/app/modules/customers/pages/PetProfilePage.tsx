@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, Link } from 'react-router';
 import { useCustomerStore } from '../store';
 import { 
   ArrowLeft, 
@@ -36,6 +36,8 @@ interface PetSummary {
   lastVisit: string | null;
   vaccinationCount: number;
   vaccinationsExpiring: number;
+  /** Owner-uploaded certificates for this pet sitting in the review queue. */
+  vaccinationsPendingReview: number;
 }
 
 const EMPTY_SUMMARY: PetSummary = {
@@ -45,6 +47,7 @@ const EMPTY_SUMMARY: PetSummary = {
   lastVisit: null,
   vaccinationCount: 0,
   vaccinationsExpiring: 0,
+  vaccinationsPendingReview: 0,
 };
 
 // Import tab components
@@ -52,12 +55,21 @@ import { PetOverviewTab } from '../components/pet-profile/PetOverviewTab';
 import { DocumentManager } from '../components/DocumentManager';
 import { PetCareProfileTab } from '../components/pet-profile/PetCareProfileTab';
 import { PetTimelineTab } from '../components/pet-profile/PetTimelineTab';
+import { VaccinationManager } from '../components/pet-profile/VaccinationManager';
 import { EditPetModal } from '../components/modals/EditPetModal';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function PetProfilePage() {
   const { petId } = useParams<{ petId: string }>();
   const navigate = useNavigate();
   const { currentPetProfile, isLoading, fetchPetProfile, updatePet, flags, fetchFlags } = useCustomerStore();
+  // History-aware: returns to wherever staff came from (search, Portal
+  // Inbox, household…); the household pets tab is the deep-link fallback.
+  const goBack = useBackNavigation(
+    currentPetProfile?.household_id
+      ? `/customers/${currentPetProfile.household_id}?tab=pets`
+      : '/customers',
+  );
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const { confirm, confirmDialog } = useConfirmDialog();
@@ -66,6 +78,9 @@ export function PetProfilePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<PetSummary>(EMPTY_SUMMARY);
   const [summaryLoading, setSummaryLoading] = useState(true);
+  // Bumped by the Vaccinations tab after a record change so the stat cards
+  // (vaccination count / expiring) re-fetch without a full page reload.
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
 
   useEffect(() => {
     if (petId) {
@@ -91,10 +106,11 @@ export function PetProfilePage() {
       try {
         const headers = await getAuthHeaders();
 
-        const [docsRes, vaxRes, visitsRes] = await Promise.allSettled([
+        const [docsRes, vaxRes, visitsRes, vaxQueueRes] = await Promise.allSettled([
           fetch(`${API_BASE}/customers/households/${householdId}/documents`, { headers }),
           fetch(`${API_BASE}/pets/${id}/vaccinations`, { headers }),
           fetch(`${API_BASE}/daycare/bookings?pet_id=${id}`, { headers }),
+          fetch(`${API_BASE}/portal-admin/vax-queue/pending-count?petId=${encodeURIComponent(id)}`, { headers }),
         ]);
 
         const now = Date.now();
@@ -121,6 +137,13 @@ export function PetProfilePage() {
             const due = new Date(v.next_due_date).getTime();
             return due >= now && due <= now + 30 * MS_PER_DAY;
           }).length;
+        }
+
+        // Owner-uploaded certificates for this pet awaiting staff review —
+        // powers the "awaiting review" chip on the Vaccinations stat card.
+        if (vaxQueueRes.status === 'fulfilled' && vaxQueueRes.value.ok) {
+          const body = (await vaxQueueRes.value.json().catch(() => ({}))) as { count?: number };
+          next.vaccinationsPendingReview = body.count ?? 0;
         }
 
         // Visits — attended daycare bookings; "recent" = last 90 days
@@ -150,8 +173,9 @@ export function PetProfilePage() {
     };
 
     loadSummary();
+    // summaryRefreshKey is a manual refresh trigger (vaccination edits).
     return () => { cancelled = true; };
-  }, [currentPetProfile?.household_id, currentPetProfile?.id]);
+  }, [currentPetProfile?.household_id, currentPetProfile?.id, summaryRefreshKey]);
   
   // Update preview when pet profile loads
   useEffect(() => {
@@ -261,7 +285,7 @@ export function PetProfilePage() {
             <p className="text-slate-600 mb-4">
               This pet doesn't exist or you don't have permission to view it
             </p>
-            <Button onClick={() => navigate('/customers')}>
+            <Button onClick={goBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Customers
             </Button>
@@ -303,7 +327,7 @@ export function PetProfilePage() {
             variant="ghost"
             size="sm"
             aria-label="Back to household"
-            onClick={() => navigate(`/customers/${pet.household_id}?tab=pets`)}
+            onClick={goBack}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
@@ -391,7 +415,7 @@ export function PetProfilePage() {
             <p className="text-sm text-slate-500 mt-2">
               <button
                 className="text-primary hover:underline"
-                onClick={() => navigate(`/customers/${pet.household_id}?tab=pets`)}
+                onClick={goBack}
               >
                 Back to Household
               </button>
@@ -520,6 +544,15 @@ export function PetProfilePage() {
                         {summary.vaccinationsExpiring} expiring soon
                       </p>
                     )}
+                    {summary.vaccinationsPendingReview > 0 && (
+                      <Link
+                        to="/customers/pending-requests?tab=vaccinations"
+                        className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 rounded-full bg-amber-100 text-amber-800 text-sm font-medium hover:bg-amber-200 transition-colors"
+                      >
+                        <Syringe className="h-3.5 w-3.5" />
+                        {summary.vaccinationsPendingReview} awaiting review
+                      </Link>
+                    )}
                   </>
                 )}
               </div>
@@ -535,19 +568,27 @@ export function PetProfilePage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="care">Care Profile</TabsTrigger>
+          <TabsTrigger value="vaccinations">Vaccinations</TabsTrigger>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="overview">
           <PetOverviewTab pet={currentPetProfile} />
         </TabsContent>
-        
+
         <TabsContent value="documents">
           <DocumentManager householdId={currentPetProfile.household_id} petId={currentPetProfile.id} showHouseholdDocs={true} />
         </TabsContent>
-        
+
         <TabsContent value="care">
           <PetCareProfileTab pet={currentPetProfile} />
+        </TabsContent>
+
+        <TabsContent value="vaccinations">
+          <VaccinationManager
+            petId={currentPetProfile.id}
+            onChanged={() => setSummaryRefreshKey((k) => k + 1)}
+          />
         </TabsContent>
         
         <TabsContent value="timeline">
