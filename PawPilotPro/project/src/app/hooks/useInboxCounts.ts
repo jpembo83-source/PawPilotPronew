@@ -5,6 +5,19 @@ import { useRealtimeSync } from './useRealtimeSync';
 
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 
+/**
+ * Same-tab refresh signal. Realtime broadcasts don't echo back to the client
+ * that sent them (self: false + clientId filter), so the tab that approves or
+ * rejects an inbox item would otherwise keep its stale badge until the next
+ * focus event or the 2-minute fallback. Inbox actions dispatch this event;
+ * every mounted badge (sidebar or mobile) refetches immediately.
+ */
+const INBOX_COUNTS_CHANGED_EVENT = 'pawpilot:inbox-counts-changed';
+
+export function notifyInboxCountsChanged(): void {
+  window.dispatchEvent(new Event(INBOX_COUNTS_CHANGED_EVENT));
+}
+
 /** Response of GET /portal-admin/inbox-counts. */
 export interface InboxCounts {
   pendingRequests: number;
@@ -44,11 +57,13 @@ export function useInboxCounts(enabled: boolean): InboxCounts | null {
       return;
     }
     void load();
-    const onFocus = () => void load();
-    window.addEventListener('focus', onFocus);
-    const interval = window.setInterval(() => void load(), 120_000);
+    const refresh = () => void load();
+    window.addEventListener('focus', refresh);
+    window.addEventListener(INBOX_COUNTS_CHANGED_EVENT, refresh);
+    const interval = window.setInterval(refresh, 120_000);
     return () => {
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener(INBOX_COUNTS_CHANGED_EVENT, refresh);
       window.clearInterval(interval);
     };
   }, [enabled, load]);
