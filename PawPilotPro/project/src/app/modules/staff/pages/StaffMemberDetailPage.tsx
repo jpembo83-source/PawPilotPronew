@@ -10,9 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { ArrowLeft, EnvelopeSimple, Phone, MapPin, CalendarBlank, CheckCircle, Warning, XCircle, CircleNotch } from '@phosphor-icons/react';
 import type { StaffMember } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function StaffMemberDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/staff');
   const { staff, isLoading, fetchStaff } = useStaffStore();
   const [member, setMember] = useState<StaffMember | null>(null);
   
@@ -44,7 +46,7 @@ export function StaffMemberDetailPage() {
       <div className="max-w-4xl mx-auto">
         <Button
           variant="outline"
-          onClick={() => navigate('/staff')}
+          onClick={goBack}
           className="mb-6"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -78,7 +80,7 @@ export function StaffMemberDetailPage() {
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
-          onClick={() => navigate('/staff')}
+          onClick={goBack}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Staff

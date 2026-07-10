@@ -12,8 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import type { Household } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function CreateHouseholdPage() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/customers');
   const { user } = useAuth();
   const { createHousehold, isLoading } = useCustomerStore();
   const { locations, fetchLocations } = useSettingsStore();
@@ -71,7 +73,7 @@ export function CreateHouseholdPage() {
   };
   
   const handleCancel = () => {
-    navigate('/customers');
+    goBack();
   };
   
   return (

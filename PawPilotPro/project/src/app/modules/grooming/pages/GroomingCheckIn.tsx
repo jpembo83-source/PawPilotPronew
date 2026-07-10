@@ -22,9 +22,11 @@ import { toast } from 'sonner';
 import { APPOINTMENT_STATUSES, SERVICE_TYPES } from '../types';
 import type { GroomingCheckInValidation } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function GroomingCheckIn() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/grooming/appointments');
   const { user } = useAuth();
   const {
     selectedAppointment,
@@ -106,7 +108,7 @@ export function GroomingCheckIn() {
   if (!selectedAppointment) {
     return (
       <div className="p-6 space-y-4">
-        <Button variant="ghost" onClick={() => navigate('/grooming/appointments')}>
+        <Button variant="ghost" onClick={goBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Appointments
         </Button>
@@ -126,7 +128,7 @@ export function GroomingCheckIn() {
   return (
     <div className="p-6 space-y-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/grooming/appointments')}>
+        <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>

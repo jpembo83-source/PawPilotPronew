@@ -58,10 +58,18 @@ import { PetTimelineTab } from '../components/pet-profile/PetTimelineTab';
 import { VaccinationManager } from '../components/pet-profile/VaccinationManager';
 import { EditPetModal } from '../components/modals/EditPetModal';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function PetProfilePage() {
   const { petId } = useParams<{ petId: string }>();
   const navigate = useNavigate();
   const { currentPetProfile, isLoading, fetchPetProfile, updatePet, flags, fetchFlags } = useCustomerStore();
+  // History-aware: returns to wherever staff came from (search, Portal
+  // Inbox, household…); the household pets tab is the deep-link fallback.
+  const goBack = useBackNavigation(
+    currentPetProfile?.household_id
+      ? `/customers/${currentPetProfile.household_id}?tab=pets`
+      : '/customers',
+  );
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const { confirm, confirmDialog } = useConfirmDialog();
@@ -277,7 +285,7 @@ export function PetProfilePage() {
             <p className="text-slate-600 mb-4">
               This pet doesn't exist or you don't have permission to view it
             </p>
-            <Button onClick={() => navigate('/customers')}>
+            <Button onClick={goBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Customers
             </Button>
@@ -319,7 +327,7 @@ export function PetProfilePage() {
             variant="ghost"
             size="sm"
             aria-label="Back to household"
-            onClick={() => navigate(`/customers/${pet.household_id}?tab=pets`)}
+            onClick={goBack}
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
@@ -407,7 +415,7 @@ export function PetProfilePage() {
             <p className="text-sm text-slate-500 mt-2">
               <button
                 className="text-primary hover:underline"
-                onClick={() => navigate(`/customers/${pet.household_id}?tab=pets`)}
+                onClick={goBack}
               >
                 Back to Household
               </button>

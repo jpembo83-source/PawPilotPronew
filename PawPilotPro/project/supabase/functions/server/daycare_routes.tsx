@@ -115,6 +115,9 @@ interface AttendanceRecord {
   has_medical_flag: boolean;
   behaviour_notes?: string;
   medical_notes?: string;
+  /** Owner's drop-off handover notes — handlers read these off the live
+   *  attendance board, so they live on the attendance record itself. */
+  handover_notes?: string;
   notes: any[];
   status: 'in_daycare' | 'checked_out';
 }
@@ -1173,7 +1176,27 @@ app.post('/bookings/:id/checkin', async (c) => {
     }
     
     const now = new Date().toISOString();
-    
+
+    // Guard: one active attendance per pet per day. The existing check only
+    // looks at THIS booking's status, so a pet with several bookings (multi-
+    // day, or duplicates) could be "currently in daycare" several times at
+    // once — the live board then shows the same dog stacked up. Active
+    // records from PREVIOUS days are forgotten check-outs; they don't block
+    // today's check-in (the live board surfaces them as missed check-outs
+    // for staff to clear).
+    const todayStr = now.slice(0, 10);
+    const activeIds = ((await kv.getByPrefix('daycare:attendance:active:')) as string[] | null) || [];
+    for (const rawId of activeIds) {
+      let activeId = rawId;
+      try { activeId = JSON.parse(rawId); } catch { /* already a plain string */ }
+      const active = await kv.get(`daycare:attendance:${activeId}`) as AttendanceRecord | null;
+      if (active && active.pet_id === booking.pet_id && active.check_in_time?.slice(0, 10) === todayStr) {
+        return c.json({
+          error: `${booking.pet_name} is already checked in today — check them out first if this is a re-arrival`,
+        }, 409);
+      }
+    }
+
     // Update booking
     booking.check_in_status = 'checked_in';
     booking.actual_check_in_time = now;
@@ -1181,9 +1204,9 @@ app.post('/bookings/:id/checkin', async (c) => {
     booking.checked_in_by_name = user.name;
     booking.handover_notes = handover_notes;
     booking.updated_at = now;
-    
+
     await kv.set(`daycare:booking:${bookingId}`, booking);
-    
+
     // Create attendance record
     const attendanceId = generateId('attend');
     const attendance: AttendanceRecord = {
@@ -1202,6 +1225,9 @@ app.post('/bookings/:id/checkin', async (c) => {
       has_medical_flag: booking.has_medical_flag,
       behaviour_notes: booking.behaviour_notes,
       medical_notes: booking.medical_notes,
+      // Handlers work off the live attendance board — the drop-off handover
+      // must be visible there, not only in the event timeline.
+      handover_notes,
       notes: [],
       status: 'in_daycare',
     };
@@ -1495,11 +1521,22 @@ app.get('/attendance/active', async (c) => {
     
     attendance = attendance.filter(Boolean);
     attendance = filterByLocationPermission(attendance, user);
-    
+
     // Sort by check-in time
     attendance.sort((a, b) => new Date(b.check_in_time).getTime() - new Date(a.check_in_time).getTime());
-    
-    return c.json(attendance);
+
+    // A daycare dog "currently in" since a PREVIOUS calendar day is a missed
+    // check-out, not live attendance — without this flag they pile up on the
+    // board forever (dogs showing 140h+ in daycare) and inflate the count.
+    // Flagged rather than filtered so the UI can surface them for staff to
+    // check out properly (checkout owns the capacity/billing bookkeeping).
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const annotated = attendance.map((a) => ({
+      ...a,
+      stale: (a.check_in_time ?? '').slice(0, 10) < todayStr,
+    }));
+
+    return c.json(annotated);
   } catch (error: any) {
     return internalError(c, 'daycare.activeAttendance', error);
   }

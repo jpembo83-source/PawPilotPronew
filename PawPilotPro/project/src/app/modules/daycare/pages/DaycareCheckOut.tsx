@@ -15,8 +15,10 @@ import {
 import { CheckOutDialog, formatDuration, formatTime } from '../components/CheckOutDialog';
 import type { DaycareBooking } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function DaycareCheckOut() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/daycare');
   const { selectedLocationId } = useDashboardStore();
   const { bookings, isLoading, fetchBookings } = useDaycareStore();
 
@@ -65,7 +67,7 @@ export function DaycareCheckOut() {
       <div className="bg-white border-b border-[#E2DED8] px-4 py-4 sticky top-0 z-10">
         <div className="flex items-center gap-3 mb-3">
           <button
-            onClick={() => navigate('/daycare')}
+            onClick={goBack}
             aria-label="Back to daycare"
             className="p-1.5 rounded-lg hover:bg-[#F4F3EF] text-[#6B6762] transition-colors"
           >
@@ -181,6 +183,14 @@ export function DaycareCheckOut() {
                       </span>
                     )}
                   </div>
+                )}
+                {/* Drop-off handover — the handler doing pickup needs the
+                    morning's instructions in front of them, not in the
+                    timeline. */}
+                {booking.handover_notes && (
+                  <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-1.5">
+                    <span className="font-semibold">Handover:</span> {booking.handover_notes}
+                  </p>
                 )}
               </div>
 
