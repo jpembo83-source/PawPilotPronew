@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
-import { projectId } from '../../../../../utils/supabase/info';
+import { PORTAL_ADMIN_BASE } from '../portalAdmin';
 import {
   derivePortalStatus,
   portalStatusPresentation,
@@ -8,8 +8,6 @@ import {
   type PortalStatus,
   type PortalStatusTone,
 } from '../portalStatus';
-
-const PORTAL_ADMIN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 
 /**
  * Portal status for the household header. Returns null while loading or if

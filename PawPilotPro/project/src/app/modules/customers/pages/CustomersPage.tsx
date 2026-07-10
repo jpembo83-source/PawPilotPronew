@@ -117,6 +117,10 @@ export function CustomersPage() {
     navigate(`/customers/${householdId}`);
   };
   
+  const handleNewCustomer = () => {
+    void navigate('/customers/onboard');
+  };
+
   const handleNewHousehold = () => {
     navigate('/customers/new');
   };
@@ -200,13 +204,20 @@ export function CustomersPage() {
             </button>
             <button
               onClick={handleNewHousehold}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              New Household
+            </button>
+            <button
+              onClick={handleNewCustomer}
               style={{
                 backgroundColor: organisation.primaryColor || '#BA7E74',
               }}
               className="px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 flex items-center gap-2 transition-opacity"
             >
               <Plus className="w-4 h-4" />
-              New Household
+              New Customer
             </button>
             <button
               onClick={handleClearCache}
@@ -331,14 +342,14 @@ export function CustomersPage() {
             </p>
             {activeFiltersCount === 0 && (
               <button
-                onClick={handleNewHousehold}
+                onClick={handleNewCustomer}
                 style={{
                   backgroundColor: organisation.primaryColor || '#BA7E74',
                 }}
                 className="mt-4 px-4 py-2 text-sm font-medium text-white rounded-lg hover:opacity-90 flex items-center gap-2 transition-opacity"
               >
                 <Plus className="w-4 h-4" />
-                New Household
+                New Customer
               </button>
             )}
           </div>

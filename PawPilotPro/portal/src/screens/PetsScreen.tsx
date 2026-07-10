@@ -48,14 +48,14 @@ export function PetsScreen() {
       ) : (
         <ul className="space-y-3">
           {data.pets.map((p, i) => {
-            const pending = p.verificationStatus === "pending_staff_review";
+            const status = p.verificationStatus ?? "verified";
             return (
               <li
                 key={p.id}
                 className="anim-slide-up"
                 style={{ animationDelay: `${i * 60}ms` }}
               >
-                <PetCard pet={p} pending={pending} />
+                <PetCard pet={p} status={status} />
               </li>
             );
           })}
@@ -65,7 +65,7 @@ export function PetsScreen() {
   );
 }
 
-function PetCard({ pet: p, pending }: { pet: Pet; pending: boolean }) {
+function PetCard({ pet: p, status }: { pet: Pet; status: NonNullable<Pet["verificationStatus"]> }) {
   return (
     <Link
       to={`/pets/${p.id}`}
@@ -117,9 +117,14 @@ function PetCard({ pet: p, pending }: { pet: Pet; pending: boolean }) {
             {p.weightKg} kg
           </span>
         )}
-        {pending && (
+        {status === "pending_staff_review" && (
           <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium tracking-wide uppercase">
             Pending review
+          </span>
+        )}
+        {status === "rejected" && (
+          <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-[10px] font-medium tracking-wide uppercase">
+            Not approved
           </span>
         )}
       </div>

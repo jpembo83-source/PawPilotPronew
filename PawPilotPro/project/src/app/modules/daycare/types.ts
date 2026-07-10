@@ -130,11 +130,20 @@ export interface AttendanceRecord {
   has_medical_flag: boolean;
   behaviour_notes?: string;
   medical_notes?: string;
-  
+
+  /** Owner's drop-off handover notes, shown on the live attendance board. */
+  handover_notes?: string;
+
   // Notes during stay
   notes: AttendanceNote[];
-  
+
   status: 'in_daycare' | 'checked_out';
+
+  /**
+   * Computed by GET /attendance/active: checked in on a previous calendar
+   * day and never checked out — a missed check-out, not live attendance.
+   */
+  stale?: boolean;
 }
 
 export interface AttendanceNote {

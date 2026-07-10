@@ -467,21 +467,31 @@ app.get('/appointments/:id/validate-checkin', async (c) => {
       });
     }
     
-    // Check behaviour flag
-    if (appointment.has_behaviour_flag) {
+    // Behaviour / medical warnings read the LIVE pet record — the copies on
+    // the appointment were client-supplied at creation and go stale (same
+    // fix as daycare's validateCheckIn). Appointment snapshot stays as the
+    // fallback when the pet record is gone, failing towards showing.
+    const livePet = (await kv.get(
+      `customer:${tenantId}:pet:${appointment.household_id}:${appointment.pet_id}`,
+    )) as { behaviour_notes?: string; medical_notes?: string } | null;
+    const behaviourNotes = livePet ? livePet.behaviour_notes : appointment.behaviour_notes;
+    const medicalNotes = livePet ? livePet.medical_notes : appointment.medical_notes;
+    const hasBehaviourFlag = livePet ? !!behaviourNotes : appointment.has_behaviour_flag;
+    const hasMedicalFlag = livePet ? !!medicalNotes : appointment.has_medical_flag;
+
+    if (hasBehaviourFlag) {
       warnings.push({
         type: 'warning',
         category: 'behaviour',
-        message: appointment.behaviour_notes || 'Pet has behaviour concerns',
+        message: behaviourNotes || 'Pet has behaviour concerns',
       });
     }
-    
-    // Check medical flag
-    if (appointment.has_medical_flag) {
+
+    if (hasMedicalFlag) {
       warnings.push({
         type: 'warning',
         category: 'medical',
-        message: appointment.medical_notes || 'Pet has medical concerns',
+        message: medicalNotes || 'Pet has medical concerns',
       });
     }
     

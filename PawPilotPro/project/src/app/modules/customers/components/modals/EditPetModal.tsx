@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
+import { Badge } from '../../../../components/ui/badge';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
@@ -12,16 +13,7 @@ import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';
 import type { Pet, PetSex } from '../../types';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../../../../components/ui/alert-dialog';
+import { useUnsavedChangesGuard, formIsDirty } from '../../../../hooks/useUnsavedChangesGuard';
 
 interface EditPetModalProps {
   open: boolean;
@@ -41,6 +33,8 @@ interface PetFormData {
   neutered_status: 'spayed' | 'castrated' | 'none' | '';
   feeding_instructions: string;
   allergies: string;
+  behaviour_notes: string;
+  medical_notes: string;
   vet_name: string;
   vet_phone: string;
   vet_address: string;
@@ -63,6 +57,8 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
     neutered_status: pet.neutered_status || '',
     feeding_instructions: pet.feeding_instructions || '',
     allergies: pet.allergies || '',
+    behaviour_notes: pet.behaviour_notes || '',
+    medical_notes: pet.medical_notes || '',
     vet_name: pet.vet_name || '',
     vet_phone: pet.vet_phone || '',
     vet_address: pet.vet_address || '',
@@ -75,7 +71,6 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
   const [initialFormData, setInitialFormData] = useState<PetFormData>(formData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const { updatePet, fetchPetProfile } = useCustomerStore();
   const { globalEnabledModules } = useSettingsStore();
   
@@ -105,6 +100,8 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
       neutered_status: pet.neutered_status || '',
       feeding_instructions: pet.feeding_instructions || '',
       allergies: pet.allergies || '',
+      behaviour_notes: pet.behaviour_notes || '',
+      medical_notes: pet.medical_notes || '',
       vet_name: pet.vet_name || '',
       vet_phone: pet.vet_phone || '',
       vet_address: pet.vet_address || '',
@@ -118,10 +115,10 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
     setInitialFormData(newFormData);
   }, [pet]);
 
-  // Check if form has been modified
-  const hasUnsavedChanges = (): boolean => {
-    return JSON.stringify(formData) !== JSON.stringify(initialFormData);
-  };
+  const { requestClose, guardDialog } = useUnsavedChangesGuard({
+    isDirty: () => formIsDirty(formData, initialFormData),
+    onClose,
+  });
 
   const handleChange = (field: keyof PetFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -171,6 +168,13 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
         neutered_status: formData.neutered_status || undefined,
         feeding_instructions: formData.feeding_instructions || undefined,
         allergies: formData.allergies || undefined,
+        // Safety notes send the (possibly empty) string rather than
+        // `|| undefined`: undefined keys are dropped by JSON.stringify and
+        // the server spreads the body over the stored record, which would
+        // make a cleared note silently keep its old value. A stale bite
+        // history or medication note must be clearable.
+        behaviour_notes: formData.behaviour_notes.trim(),
+        medical_notes: formData.medical_notes.trim(),
         vet_name: formData.vet_name || undefined,
         vet_phone: formData.vet_phone || undefined,
         vet_address: formData.vet_address || undefined,
@@ -203,24 +207,13 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
     }
   };
 
+  // Every dismissal path (Cancel button, overlay click, Escape) funnels
+  // through here, so a dirty form is always guarded by the discard dialog.
   const handleClose = () => {
     if (!isSubmitting) {
       setError(null);
-      if (hasUnsavedChanges()) {
-        setShowUnsavedWarning(true);
-      } else {
-        onClose();
-      }
+      void requestClose();
     }
-  };
-
-  const handleUnsavedWarningClose = () => {
-    setShowUnsavedWarning(false);
-  };
-
-  const handleUnsavedWarningDiscard = () => {
-    setShowUnsavedWarning(false);
-    onClose();
   };
 
   return (
@@ -386,6 +379,45 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
                 rows={2}
               />
             </div>
+
+            {/* Staff-only safety notes — same fields CreatePetModal collects;
+                these feed the check-in warning system, so they must stay
+                editable after creation. */}
+            <div className="space-y-2">
+              <Label htmlFor="behaviour_notes">
+                Behaviour Notes
+                <Badge variant="outline" className="ml-2 text-xs">Staff Only</Badge>
+              </Label>
+              <Textarea
+                id="behaviour_notes"
+                value={formData.behaviour_notes}
+                onChange={(e) => handleChange('behaviour_notes', e.target.value)}
+                placeholder="e.g., Nervous around loud noises, plays well with other dogs"
+                disabled={isSubmitting}
+                rows={2}
+              />
+              <p className="text-xs text-slate-500">
+                Internal notes about pet behaviour, not visible to customers
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="medical_notes">
+                Medical Notes
+                <Badge variant="outline" className="ml-2 text-xs">Staff Only</Badge>
+              </Label>
+              <Textarea
+                id="medical_notes"
+                value={formData.medical_notes}
+                onChange={(e) => handleChange('medical_notes', e.target.value)}
+                placeholder="e.g., Hip dysplasia, takes medication for arthritis"
+                disabled={isSubmitting}
+                rows={2}
+              />
+              <p className="text-xs text-slate-500">
+                Internal medical information, not visible to customers
+              </p>
+            </div>
           </div>
 
           {/* Veterinary Information */}
@@ -490,26 +522,7 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
           </div>
         </form>
       </DialogContent>
-
-      {/* Unsaved Changes Warning */}
-      <AlertDialog open={showUnsavedWarning} onOpenChange={handleUnsavedWarningClose}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes. Are you sure you want to discard them?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleUnsavedWarningClose}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleUnsavedWarningDiscard}>
-              Discard
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {guardDialog}
     </Dialog>
   );
 }

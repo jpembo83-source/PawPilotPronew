@@ -10,8 +10,10 @@ import { Button } from '@/app/components/ui/button';
 import { CreateTransportJobDialog } from '../components/CreateTransportJobDialog';
 import { format, startOfToday } from 'date-fns';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function CreateJob() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/transport');
   const [showDialog, setShowDialog] = useState(true);
   
   const handleJobCreated = () => {
@@ -28,7 +30,7 @@ export function CreateJob() {
         <div className="mb-6">
           <Button
             variant="ghost"
-            onClick={() => navigate('/transport')}
+            onClick={goBack}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Transport

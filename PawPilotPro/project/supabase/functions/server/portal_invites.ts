@@ -10,8 +10,11 @@ import { inviteEmail } from "./lib/email_templates/invite.ts";
 import { notify, getOwnerEmail, getOwnerName } from "./lib/notify.ts";
 import { vaxApprovedEmail } from "./lib/email_templates/vax_approved.ts";
 import { vaxRejectedEmail } from "./lib/email_templates/vax_rejected.ts";
+import { petApprovedEmail } from "./lib/email_templates/pet_approved.ts";
+import { petRejectedEmail } from "./lib/email_templates/pet_rejected.ts";
 import { internalError, logError } from "./_shared/log.ts";
 import { linkedUserIds } from "./lib/portal_link.ts";
+import { updatePetVaccinationStatus } from "./lib/vaccination_status.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -239,6 +242,22 @@ invites.get("/vax-queue", async (c) => {
   return c.json({ items: enriched });
 });
 
+// Per-pet pending count — powers the "awaiting review" chip on the staff
+// PetProfilePage without paying for the full queue GET (which signs a URL
+// per certificate). Without ?petId it counts the whole tenant queue.
+invites.get("/vax-queue/pending-count", async (c) => {
+  const auth = await readAuth(c);
+  if (!auth) return c.json({ error: "Unauthorized" }, 401);
+  const { tenantId } = auth;
+  const petId = c.req.query("petId") || null;
+
+  const count = ((await kv.getByPrefix(`vax_review_queue:${tenantId}:`)) as any[])
+    .filter((i) => i.status === "pending")
+    .filter((i) => !petId || i.petId === petId)
+    .length;
+  return c.json({ count });
+});
+
 invites.post("/vax-queue/:id/approve", async (c) => {
   const auth = await readAuth(c);
   if (!auth) return c.json({ error: "Unauthorized" }, 401);
@@ -295,6 +314,13 @@ invites.post("/vax-queue/:id/approve", async (c) => {
     reviewedAt: now,
     promotedTo: vaxId,
   });
+
+  // Keep the pet's vaccination_status / vaccination_expiry_date snapshot in
+  // sync — booking creation copies it onto daycare/grooming records. Before
+  // this call, certificate approvals wrote the vaccination record but never
+  // refreshed the snapshot, so approved certs never moved a pet off
+  // "unknown"/"expired".
+  await updatePetVaccinationStatus(entry.petId, tenantId);
 
   const email = await getOwnerEmail(tenantId, entry.householdId);
   const ownerName = await getOwnerName(tenantId, entry.householdId);
@@ -356,6 +382,184 @@ invites.post("/vax-queue/:id/reject", async (c) => {
         ownerName,
         tenantName: tenant?.name ?? "PawPilotPro",
         petName: entry.petName ?? "your pet",
+        reason,
+        portalUrl: `${PORTAL_BASE_URL}/pets/${entry.petId}`,
+      }),
+    } : undefined,
+  });
+
+  return c.json({ ok: true });
+});
+
+// ----- Staff: pet verification queue ------------------------------------
+//
+// Owner-added pets (POST /portal/pets in portal_routes.tsx) land in the pet
+// record itself (`customer:{t}:pet:{hh}:{id}` with
+// verification_status: 'pending_staff_review') plus a queue record at
+// `portal_pet_verification:{t}:{petId}`:
+//   { id, tenantId, householdId, petId, petName, submittedAt, status: "pending" }
+// Review stamps status ("approved" | "rejected" | "cancelled"), reviewedBy,
+// reviewedAt, and rejectionReason onto that record — same lifecycle as
+// vax_review_queue above. Approving flips the pet's verification_status to
+// "verified", which is exactly what the portal booking selector
+// (StepPets.tsx) and the booking-create guard (portal_bookings.ts) filter on.
+
+invites.get("/pet-verifications", async (c) => {
+  const auth = await readAuth(c);
+  if (!auth) return c.json({ error: "Unauthorized" }, 401);
+  const { tenantId } = auth;
+
+  const items = ((await kv.getByPrefix(`portal_pet_verification:${tenantId}:`)) as any[])
+    .filter((i) => i.status === "pending")
+    .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+
+  const enriched = await Promise.all(
+    items.map(async (i) => {
+      const household = await kv.get(`customer:${tenantId}:household:${i.householdId}`);
+      const pet = (await kv.get(`customer:${tenantId}:pet:${i.householdId}:${i.petId}`)) as any;
+      return {
+        id: i.id,
+        petId: i.petId,
+        petName: pet?.name ?? i.petName ?? null,
+        householdId: i.householdId,
+        householdName: (household as any)?.name ?? null,
+        submittedAt: i.submittedAt,
+        // Owner-entered details for the reviewer — straight off the pet record.
+        photoUrl: pet?.photo_url ?? null,
+        breed: pet?.breed ?? null,
+        sex: pet?.sex ?? null,
+        dateOfBirth: pet?.date_of_birth ?? null,
+        microchip: pet?.microchip ?? null,
+        weightKg: pet?.weight_kg ?? null,
+        colour: pet?.colour ?? null,
+        neuteredStatus: pet?.neutered_status ?? null,
+        petMissing: !pet,
+      };
+    }),
+  );
+  return c.json({ items: enriched });
+});
+
+/**
+ * Shared preamble for approve/reject: load the queue entry, refuse if
+ * already handled, and self-heal the queue when the pet record has been
+ * deleted from the CRM since submission (mark the entry "cancelled" and
+ * return 410 so the row disappears on the next refresh instead of sitting
+ * un-actionable forever).
+ */
+async function loadPendingVerification(tenantId: string, id: string, reviewerId: string) {
+  const entry = (await kv.get(`portal_pet_verification:${tenantId}:${id}`)) as any;
+  if (!entry || entry.status !== "pending") return { error: "Not found or already handled" as const, status: 404 as const };
+  const pet = (await kv.get(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`)) as any;
+  if (!pet) {
+    await kv.set(`portal_pet_verification:${tenantId}:${id}`, {
+      ...entry,
+      status: "cancelled",
+      reviewedBy: reviewerId,
+      reviewedAt: new Date().toISOString(),
+    });
+    return { error: "Pet record no longer exists — request cleared" as const, status: 410 as const };
+  }
+  return { entry, pet };
+}
+
+invites.post("/pet-verifications/:id/approve", async (c) => {
+  const auth = await readAuth(c);
+  if (!auth) return c.json({ error: "Unauthorized" }, 401);
+  const { tenantId, user } = auth;
+  const id = c.req.param("id");
+
+  const loaded = await loadPendingVerification(tenantId, id, user.id);
+  if ("error" in loaded) return c.json({ error: loaded.error }, loaded.status);
+  const { entry, pet } = loaded;
+
+  const now = new Date().toISOString();
+  // "verified" is the exact value the portal's booking selector
+  // (StepPets.tsx: verificationStatus === "verified") and the booking-create
+  // guard (portal_bookings.ts) require — this single write makes the pet
+  // bookable and clears the owner's "Pending review" badge.
+  await kv.set(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, {
+    ...pet,
+    verification_status: "verified",
+    updated_at: now,
+  });
+  await kv.set(`portal_pet_verification:${tenantId}:${id}`, {
+    ...entry,
+    status: "approved",
+    reviewedBy: user.id,
+    reviewedAt: now,
+  });
+
+  const email = await getOwnerEmail(tenantId, entry.householdId);
+  const ownerName = await getOwnerName(tenantId, entry.householdId);
+  const tenant = (await kv.get(`customer:${tenantId}:household:${entry.householdId}`)) as any;
+  await notify({
+    tenantId,
+    householdId: entry.householdId,
+    type: "pet.approved",
+    payload: { petId: entry.petId, petName: pet.name ?? entry.petName },
+    link: `/pets/${entry.petId}`,
+    email: email ? {
+      to: email,
+      ...petApprovedEmail({
+        ownerName,
+        tenantName: tenant?.name ?? "PawPilotPro",
+        petName: pet.name ?? entry.petName ?? "your pet",
+        portalUrl: `${PORTAL_BASE_URL}/pets/${entry.petId}`,
+      }),
+    } : undefined,
+  });
+
+  return c.json({ ok: true });
+});
+
+invites.post("/pet-verifications/:id/reject", async (c) => {
+  const auth = await readAuth(c);
+  if (!auth) return c.json({ error: "Unauthorized" }, 401);
+  const { tenantId, user } = auth;
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => null);
+  const reason = body?.reason;
+  if (!reason || typeof reason !== "string" || reason.length < 3) {
+    return c.json({ error: "reason required (min 3 chars)" }, 400);
+  }
+
+  const loaded = await loadPendingVerification(tenantId, id, user.id);
+  if ("error" in loaded) return c.json({ error: loaded.error }, loaded.status);
+  const { entry, pet } = loaded;
+
+  const now = new Date().toISOString();
+  // "rejected" keeps the pet un-bookable (the portal guards check for
+  // "verified") without leaving it stuck as pending — the owner sees a clear
+  // "not approved" state instead of an eternal "pending review" badge.
+  await kv.set(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, {
+    ...pet,
+    verification_status: "rejected",
+    updated_at: now,
+  });
+  await kv.set(`portal_pet_verification:${tenantId}:${id}`, {
+    ...entry,
+    status: "rejected",
+    reviewedBy: user.id,
+    reviewedAt: now,
+    rejectionReason: reason,
+  });
+
+  const email = await getOwnerEmail(tenantId, entry.householdId);
+  const ownerName = await getOwnerName(tenantId, entry.householdId);
+  const tenant = (await kv.get(`customer:${tenantId}:household:${entry.householdId}`)) as any;
+  await notify({
+    tenantId,
+    householdId: entry.householdId,
+    type: "pet.rejected",
+    payload: { petId: entry.petId, petName: pet.name ?? entry.petName, reason },
+    link: `/pets/${entry.petId}`,
+    email: email ? {
+      to: email,
+      ...petRejectedEmail({
+        ownerName,
+        tenantName: tenant?.name ?? "PawPilotPro",
+        petName: pet.name ?? entry.petName ?? "your pet",
         reason,
         portalUrl: `${PORTAL_BASE_URL}/pets/${entry.petId}`,
       }),

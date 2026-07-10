@@ -31,6 +31,7 @@ import { SERVICE_TYPES, type GroomingServiceType } from '../types';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../utils/supabase/info';
 
+import { useBackNavigation } from '../../../components/BackButton';
 interface SearchResult {
   household_id: string;
   household_name: string;
@@ -45,6 +46,7 @@ interface Pet {
 
 export function NewGroomingAppointment() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/grooming/appointments');
   const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
@@ -238,7 +240,7 @@ export function NewGroomingAppointment() {
   return (
     <div className="p-6 space-y-6 max-w-3xl mx-auto">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/grooming/appointments')}>
+        <Button variant="ghost" size="icon" onClick={goBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>

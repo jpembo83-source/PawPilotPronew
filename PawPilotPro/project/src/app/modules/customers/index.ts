@@ -3,6 +3,7 @@
 
 export { CustomersPage } from './pages/CustomersPage';
 export { CreateHouseholdPage } from './pages/CreateHouseholdPage';
+export { OnboardingWizardPage } from './pages/OnboardingWizardPage';
 export { HouseholdDetailPage } from './pages/HouseholdDetailPage';
 export { PetProfilePage } from './pages/PetProfilePage';
 export { BulkImportPage } from './pages/BulkImportPage';

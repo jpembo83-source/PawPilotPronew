@@ -25,6 +25,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip";
 import { getVisibleNavEntries, groupNavEntries, type NavEntry } from './navManifest';
+import { useInboxCounts, formatBadgeCount } from '../../hooks/useInboxCounts';
 
 // Helper for class names if cn doesn't exist yet
 function classNames(...classes: (string | undefined | null | false)[]) {
@@ -81,14 +82,22 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
     items,
   }));
 
+  // Portal Inbox pending-count badge — RBAC-gated exactly like the nav entry
+  // (module 'customers'), so users who can't see the inbox never fetch it.
+  const inboxCounts = useInboxCounts(canAccessModule('customers'));
+  const badgeCountFor = (path: string): number =>
+    path === '/customers/pending-requests' ? (inboxCounts?.total ?? 0) : 0;
+
   const renderNavItem = (item: NavEntry) => {
     const PhosphorIcon = item.icon;
     const label = item.label;
+    const badgeCount = badgeCountFor(item.path);
+    const labelWithCount = badgeCount > 0 ? `${label} — ${formatBadgeCount(badgeCount)} pending` : label;
     const link = (
       <NavLink
         key={item.path}
         to={item.path}
-        aria-label={isCollapsed ? label : undefined}
+        aria-label={isCollapsed ? labelWithCount : undefined}
         className={({ isActive }) => classNames(
           'group relative flex items-center rounded-lg text-[13.5px] font-medium transition-all duration-150',
           isCollapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
@@ -113,6 +122,16 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
             {!isCollapsed && (
               <span className="leading-none tracking-tight">{label}</span>
             )}
+            {/* Pending-count pill (expanded) / dot (collapsed) — the count
+                itself is in the tooltip + aria-label when collapsed. */}
+            {!isCollapsed && badgeCount > 0 && (
+              <span className="ml-auto rounded-full bg-primary text-white text-[11px] leading-none font-semibold tabular-nums px-1.5 py-1">
+                {formatBadgeCount(badgeCount)}
+              </span>
+            )}
+            {isCollapsed && badgeCount > 0 && (
+              <span aria-hidden="true" className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary" />
+            )}
           </>
         )}
       </NavLink>
@@ -124,7 +143,7 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
     return (
       <Tooltip key={item.path}>
         <TooltipTrigger asChild>{link}</TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
+        <TooltipContent side="right">{labelWithCount}</TooltipContent>
       </Tooltip>
     );
   };

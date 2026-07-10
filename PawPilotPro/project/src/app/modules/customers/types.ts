@@ -109,6 +109,7 @@ export interface Pet {
 
 export type DocumentType =
   | 'waiver'
+  | 'vaccination'
   | 'insurance'
   | 'medical'
   | 'photo_id'

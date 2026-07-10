@@ -10,6 +10,12 @@ import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 import { getAuthHeaders } from '../../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../../utils/supabase/info';
 import { derivePortalStatus } from '../../portalStatus';
+import {
+  PORTAL_ADMIN_BASE,
+  callPortalAdmin,
+  sendPortalInviteRequest,
+  notifyPortalActionResult,
+} from '../../portalAdmin';
 
 interface PortalActivityTabProps {
   householdId: string;
@@ -68,16 +74,7 @@ const PORTAL_BASE_URL = (
   (import.meta.env.VITE_PORTAL_PUBLIC_URL as string | undefined)?.replace(/\/+$/, '') ??
   'http://localhost:5175'
 );
-const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/portal-admin`;
 const CUSTOMERS_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
-
-async function callAdmin(path: string, opts: RequestInit = {}) {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${FN_BASE}${path}`, { ...opts, headers: { ...headers, ...(opts.headers ?? {}) } });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
-  return body;
-}
 
 export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
   const [data, setData] = useState<ActivityData | null>(null);
@@ -91,7 +88,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     try {
       const headers = await getAuthHeaders();
       const [activityRes, householdRes] = await Promise.all([
-        fetch(`${FN_BASE}/customers/${householdId}/portal-activity`, { headers }),
+        fetch(`${PORTAL_ADMIN_BASE}/customers/${householdId}/portal-activity`, { headers }),
         fetch(`${CUSTOMERS_BASE}/households/${householdId}`, { headers }),
       ]);
       if (activityRes.ok) setData(await activityRes.json());
@@ -114,15 +111,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
       setBusyAction(id);
       try {
         const body = await fn();
-        if (body?.emailWarning && body?.acceptUrl) {
-          try { await navigator.clipboard.writeText(body.acceptUrl); } catch {}
-          toast.warning('Email delivery skipped — invite link copied to clipboard', {
-            description: body.acceptUrl,
-            duration: 14000,
-          });
-        } else {
-          toast.success(successMsg);
-        }
+        await notifyPortalActionResult(body, successMsg);
         await load();
       } catch (e: any) {
         toast.error(e?.message ?? 'Action failed');
@@ -137,16 +126,13 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
   // that specific contact gets their own portal login for this household.
   const sendInvite = (contactId?: string) => runAction(
     contactId ? `send-invite-${contactId}` : 'send-invite',
-    () => callAdmin(`/customers/${householdId}/portal-invite`, {
-      method: 'POST',
-      ...(contactId ? { body: JSON.stringify({ contactId }) } : {}),
-    }),
+    () => sendPortalInviteRequest(householdId, contactId),
     'Invite email sent',
   );
 
   const resendInvite = () => runAction(
     'resend-invite',
-    () => callAdmin(`/customers/${householdId}/portal-invite/resend`, { method: 'POST' }),
+    () => callPortalAdmin(`/customers/${householdId}/portal-invite/resend`, { method: 'POST' }),
     'Invite re-sent',
   );
 
@@ -159,7 +145,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     if (!confirmed) return;
     return runAction(
       'reset-password',
-      () => callAdmin(`/customers/${householdId}/portal-reset-password`, { method: 'POST' }),
+      () => callPortalAdmin(`/customers/${householdId}/portal-reset-password`, { method: 'POST' }),
       'Password reset email sent',
     );
   };
@@ -173,14 +159,14 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     if (!confirmed) return;
     return runAction(
       'pause',
-      () => callAdmin(`/customers/${householdId}/portal-pause`, { method: 'POST' }),
+      () => callPortalAdmin(`/customers/${householdId}/portal-pause`, { method: 'POST' }),
       'Portal access paused',
     );
   };
 
   const resume = () => runAction(
     'resume',
-    () => callAdmin(`/customers/${householdId}/portal-resume`, { method: 'POST' }),
+    () => callPortalAdmin(`/customers/${householdId}/portal-resume`, { method: 'POST' }),
     'Portal access resumed',
   );
 
@@ -194,7 +180,7 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
     if (!confirmed) return;
     return runAction(
       'revoke',
-      () => callAdmin(`/customers/${householdId}/portal-revoke`, { method: 'POST' }),
+      () => callPortalAdmin(`/customers/${householdId}/portal-revoke`, { method: 'POST' }),
       'Portal access revoked',
     );
   };

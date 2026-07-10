@@ -11,8 +11,10 @@ import { Input } from '../../../components/ui/input';
 import { CareLogForm } from '../components/CareLogForm';
 import { NightlyCareLog, BoarderSummary } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function OvernightCareLogsPage() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/overnights');
   const locations = useSettingsStore((s) => s.locations);
   const { selectedLocationId } = useDashboardStore();
   const {
@@ -132,7 +134,7 @@ export function OvernightCareLogsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/overnights')}>
+          <Button variant="ghost" size="sm" onClick={goBack}>
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
           </Button>

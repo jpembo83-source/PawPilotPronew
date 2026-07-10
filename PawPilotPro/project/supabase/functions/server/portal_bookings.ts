@@ -806,6 +806,36 @@ bookings.get("/portal-admin/pending-requests", async (c) => {
   return c.json({ requests: enriched });
 });
 
+// Lightweight pending counts for the Portal Inbox nav badge — the sidebar
+// and mobile drawer poll this, so it must stay cheap: no household
+// enrichment, no signed URLs, just the same "pending" filters the three
+// queue GETs apply (/portal-admin/pending-requests above, /portal-admin/
+// vax-queue and /portal-admin/pet-verifications in portal_invites.ts).
+bookings.get("/portal-admin/inbox-counts", async (c) => {
+  const auth = await readStaff(c);
+  if (!auth) return c.json({ error: "Unauthorized" }, 401);
+  const { tenantId } = auth;
+
+  const [bookingsAll, vaxAll, petsAll] = await Promise.all([
+    kv.getByPrefix(`portal_booking:${tenantId}:`),
+    kv.getByPrefix(`vax_review_queue:${tenantId}:`),
+    kv.getByPrefix(`portal_pet_verification:${tenantId}:`),
+  ]);
+
+  const pendingRequests = (bookingsAll as any[]).filter(
+    (b) => b.ownerSubmitted && b.status === "pending" && b.kind !== "bundle_child",
+  ).length;
+  const vaxQueue = (vaxAll as any[]).filter((i) => i.status === "pending").length;
+  const petVerifications = (petsAll as any[]).filter((i) => i.status === "pending").length;
+
+  return c.json({
+    pendingRequests,
+    vaxQueue,
+    petVerifications,
+    total: pendingRequests + vaxQueue + petVerifications,
+  });
+});
+
 // =======================================================================
 // Capacity settings (staff-editable per-service daily caps)
 // =======================================================================

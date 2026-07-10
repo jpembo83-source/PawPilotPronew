@@ -44,9 +44,11 @@ import { toast } from 'sonner';
 import { APPOINTMENT_STATUSES, SERVICE_TYPES } from '../types';
 import type { GroomingAppointment, AdditionalCharge } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function GroomingAppointmentDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/grooming/appointments');
   const { user } = useAuth();
   const {
     selectedAppointment,
@@ -197,7 +199,7 @@ export function GroomingAppointmentDetail() {
   if (!selectedAppointment) {
     return (
       <div className="p-6 space-y-4">
-        <Button variant="ghost" onClick={() => navigate('/grooming/appointments')}>
+        <Button variant="ghost" onClick={goBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Appointments
         </Button>
@@ -276,7 +278,7 @@ export function GroomingAppointmentDetail() {
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/grooming/appointments')}>
+          <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

@@ -14,10 +14,12 @@ import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import * as XLSX from 'xlsx';
 import type { CustomerFilters } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 
 export function ExportPage() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/customers');
   const { activeTenantId } = useAuth();
   const { filters } = useCustomerStore();
   
@@ -161,7 +163,7 @@ export function ExportPage() {
       <div className="mb-6">
         <Button
           variant="ghost"
-          onClick={() => navigate('/customers')}
+          onClick={goBack}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />

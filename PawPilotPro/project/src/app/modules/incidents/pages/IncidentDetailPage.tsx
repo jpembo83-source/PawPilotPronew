@@ -26,9 +26,11 @@ import { AssignIncidentDialog } from '../components/AssignIncidentDialog';
 import { CloseIncidentDialog } from '../components/CloseIncidentDialog';
 import { ReopenIncidentDialog } from '../components/ReopenIncidentDialog';
 
+import { useBackNavigation } from '../../../components/BackButton';
 export function IncidentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/incidents');
   const { user } = useAuth();
   const {
     selectedIncident,
@@ -94,7 +96,7 @@ export function IncidentDetailPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate('/incidents')}
+          onClick={goBack}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />

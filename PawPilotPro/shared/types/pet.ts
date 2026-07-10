@@ -25,8 +25,12 @@ export interface Pet {
   weightKg: number;
   photoUrl: string | null;
   notes: string | null;
-  /** Owner-added pets land in "pending_staff_review" until staff verifies. */
-  verificationStatus?: "verified" | "pending_staff_review";
+  /**
+   * Owner-added pets land in "pending_staff_review" until staff verifies;
+   * staff review flips this to "verified" (bookable) or "rejected" (the
+   * reason arrives as a pet.rejected notification + email).
+   */
+  verificationStatus?: "verified" | "pending_staff_review" | "rejected";
   /** True if the owner self-added this pet via the portal. */
   ownerAdded?: boolean;
   /**

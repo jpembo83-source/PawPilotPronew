@@ -20,6 +20,8 @@ export interface OrganisationSettings {
   defaultOperatingHours: string;
   cancellationRule: string;
   vaccinationGracePeriodDays: number;
+  /** Which regional vaccine checklist the pet profile offers ('uk' default). */
+  vaccinationSchedule?: 'uk' | 'ch';
 }
 
 export interface Location {
@@ -82,6 +84,7 @@ export const useSettingsStore = create<SettingsState>()(
         defaultOperatingHours: '07:00 - 19:00',
         cancellationRule: '24h',
         vaccinationGracePeriodDays: 0,
+        vaccinationSchedule: 'uk',
       },
       globalEnabledModules: ['daycare', 'grooming', 'overnights', 'transport'], // Default enabled
       locations: [],

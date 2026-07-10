@@ -18,6 +18,7 @@ import {
 import { CreateReservationModal } from '../components/CreateReservationModal';
 import type { OvernightReservation, ReservationStatus } from '../types';
 
+import { useBackNavigation } from '../../../components/BackButton';
 const STATUS_CONFIG: Record<ReservationStatus, { label: string; className: string }> = {
   booked: { label: 'Booked', className: 'bg-blue-100 text-blue-700 border-blue-200' },
   confirmed: { label: 'Confirmed', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
@@ -32,6 +33,7 @@ const STATUS_CONFIG: Record<ReservationStatus, { label: string; className: strin
 
 export function OvernightReservationsPage() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/overnights');
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
   const { reservations, fetchReservations, isLoading } = useOvernightsStore();
@@ -77,7 +79,7 @@ export function OvernightReservationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/overnights')}>
+          <Button variant="ghost" size="icon" onClick={goBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>

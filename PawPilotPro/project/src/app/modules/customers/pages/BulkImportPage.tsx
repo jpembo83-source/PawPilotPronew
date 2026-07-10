@@ -12,6 +12,7 @@ import { Button } from '../../../components/ui/button';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 
+import { useBackNavigation } from '../../../components/BackButton';
 // Single source of truth for the workbook layout: template headers on the
 // left, import field names (what the server's row schemas expect) on the
 // right. The downloaded template and the upload parser both derive from this,
@@ -158,6 +159,7 @@ interface ImportResult {
 
 export function BulkImportPage() {
   const navigate = useNavigate();
+  const goBack = useBackNavigation('/customers');
   const { user, activeTenantId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -307,7 +309,7 @@ export function BulkImportPage() {
       <div className="mb-6">
         <Button
           variant="ghost"
-          onClick={() => navigate('/customers')}
+          onClick={goBack}
           className="mb-4"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
