@@ -56,6 +56,7 @@ import { NotesTab } from '../components/household-detail/NotesTab';
 import { PortalActivityTab } from '../components/household-detail/PortalActivityTab';
 import { DocumentManager } from '../components/DocumentManager';
 import { ContactLink } from '../components/ContactLink';
+import { PortalStatusChip, usePortalStatus } from '../components/PortalStatusChip';
 
 export function HouseholdDetailPage() {
   const { householdId } = useParams<{ householdId: string }>();
@@ -79,8 +80,14 @@ export function HouseholdDetailPage() {
   // Validate householdId - accept any non-empty ID that's not "new"
   // We'll let the backend validate if it actually exists
   const isValidId = householdId && householdId !== 'new';
-  
+
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
+
+  // Portal status for the header chip; null (loading/failed) renders no chip.
+  // Every role that can open this page can also see the Portal tab (only
+  // Billing is role-gated), so the chip has no extra RBAC condition — if the
+  // Portal tab ever gains a role gate, gate this the same way.
+  const portalStatus = usePortalStatus(isValidId ? householdId : undefined);
   
   // Initialize tab from URL query parameter
   useEffect(() => {
@@ -361,6 +368,9 @@ export function HouseholdDetailPage() {
               <Badge variant={household.status === 'active' ? 'default' : 'secondary'}>
                 {household.status}
               </Badge>
+              {portalStatus && (
+                <PortalStatusChip status={portalStatus} onClick={() => setActiveTab('portal')} />
+              )}
             </div>
             
             {primaryContact && (

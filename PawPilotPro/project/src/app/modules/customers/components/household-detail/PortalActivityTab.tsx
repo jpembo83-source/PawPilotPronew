@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 import { getAuthHeaders } from '../../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../../utils/supabase/info';
+import { derivePortalStatus } from '../../portalStatus';
 
 interface PortalActivityTabProps {
   householdId: string;
@@ -53,6 +54,7 @@ interface HouseholdContact {
 interface ActivityData {
   link: PortalLink | null;
   pendingInvites: PortalInvite[];
+  expiredInvites?: PortalInvite[];
   lastSignInAt?: string | null;
   suspended?: boolean;
   users?: PortalUserInfo[];
@@ -218,6 +220,8 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
   const hasLink = !!data?.link;
   const pending = data?.pendingInvites ?? [];
   const suspended = !!data?.suspended;
+  // Same derivation the household-header chip uses (portalStatus.ts).
+  const portalStatus = derivePortalStatus(data ?? { link: null, pendingInvites: [] });
   const lastSignInAt = data?.lastSignInAt ?? null;
   const users = data?.users ?? [];
   const linkedEmails = new Set(users.map((u) => (u.email ?? '').toLowerCase()).filter(Boolean));
@@ -242,18 +246,25 @@ export function PortalActivityTab({ householdId }: PortalActivityTabProps) {
                 Let this household self-serve booking requests, vaccination uploads, and pet profile views.
               </CardDescription>
             </div>
-            {hasLink ? (
-              suspended ? (
-                <Badge variant="outline" className="border-amber-400 text-amber-700">
-                  <PauseCircle className="h-3 w-3 mr-1" />
-                  Paused
-                </Badge>
-              ) : (
-                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Active
-                </Badge>
-              )
+            {portalStatus.state === 'paused' ? (
+              <Badge variant="outline" className="border-amber-400 text-amber-700">
+                <PauseCircle className="h-3 w-3 mr-1" />
+                Paused
+              </Badge>
+            ) : portalStatus.state === 'active' ? (
+              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Active
+              </Badge>
+            ) : portalStatus.state === 'invite_pending' ? (
+              <Badge variant="outline" className="border-amber-400 text-amber-700">
+                <Clock className="h-3 w-3 mr-1" />
+                Invite pending
+              </Badge>
+            ) : portalStatus.state === 'invite_expired' ? (
+              <Badge variant="outline" className="border-red-400 text-red-700">
+                Invite expired
+              </Badge>
             ) : (
               <Badge variant="outline">Not active</Badge>
             )}
