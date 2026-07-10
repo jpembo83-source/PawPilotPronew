@@ -40,7 +40,7 @@ export function Billing() {
     { id: 'credits' as const, label: 'Credits & Refunds', icon: Receipt },
     { id: 'fees' as const, label: 'Fees & Adjustments', icon: Warning },
     { id: 'exports' as const, label: 'Exports', icon: DownloadSimple },
-    { id: 'settings' as const, label: 'Gear', icon: Gear },
+    { id: 'settings' as const, label: 'Settings', icon: Gear },
   ];
 
   // Filter tabs to only show those the user has permission for

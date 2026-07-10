@@ -155,18 +155,44 @@ const filterByLocationPermission = (items: any[], user: any, locationKey: string
   return items.filter(item => user.locationIds.includes(item[locationKey]));
 };
 
-const LOCATION_CAPACITY_LIMITS: Record<string, number> = {};
+// Location capacity comes from the SAME record the Settings → Locations
+// page writes: `location:{id}` (see app_routes). This used to read a
+// `settings:location:` key that never existed, so EVERY location silently
+// fell back to 19 — and a module-level cache pinned whatever an isolate
+// saw first for its whole lifetime. No cache: one indexed kv.get per call
+// is cheap, and a capacity change in Settings must apply on the next
+// request, not on the next cold start.
+const FALLBACK_LOCATION_CAPACITY = 19;
 
 const resolveLocationCapacity = async (locationId: string): Promise<number> => {
-  if (LOCATION_CAPACITY_LIMITS[locationId]) {
-    return LOCATION_CAPACITY_LIMITS[locationId];
+  const locationData = await kv.get(`location:${locationId}`) as any;
+  const maxDogs = locationData?.capacity?.maxDogs;
+  if (typeof maxDogs === 'number' && maxDogs > 0) {
+    return maxDogs;
   }
-  const locationData = await kv.get(`settings:location:${locationId}`) as any;
-  if (locationData?.capacity?.maxDogs) {
-    LOCATION_CAPACITY_LIMITS[locationId] = locationData.capacity.maxDogs;
-    return locationData.capacity.maxDogs;
-  }
-  return 19;
+  console.warn(JSON.stringify({
+    scope: 'daycare.capacity',
+    msg: 'location record missing capacity.maxDogs — using fallback',
+    locationId,
+    fallback: FALLBACK_LOCATION_CAPACITY,
+  }));
+  return FALLBACK_LOCATION_CAPACITY;
+};
+
+// 'All Locations' is the whole operation, not zero: capacity is the SUM of
+// every location the user is allowed to see, so the dashboard reads e.g.
+// 0/63 across three sites instead of 0/0.
+const sumVisibleLocationCapacity = async (user: AuthenticatedUser): Promise<number> => {
+  const locations = (await kv.getByPrefix('location:')) as any[];
+  const visible = (Array.isArray(locations) ? locations : []).filter((loc) => {
+    if (!loc?.id) return false;
+    if (user.role === 'admin') return true;
+    return Array.isArray(user.locationIds) && user.locationIds.includes(loc.id);
+  });
+  return visible.reduce((sum, loc) => {
+    const maxDogs = loc?.capacity?.maxDogs;
+    return sum + (typeof maxDogs === 'number' && maxDogs > 0 ? maxDogs : FALLBACK_LOCATION_CAPACITY);
+  }, 0);
 };
 
 const calculateRAGStatus = (booked: number, maxCapacity: number): RAGStatus => {
@@ -1568,9 +1594,15 @@ app.get('/stats', async (c) => {
     const todayBookings = bookings.filter(b => b.booking_date === date);
     const activeBookings = todayBookings.filter(b => b.booking_status !== 'cancelled');
     
-    const capacity = locationId && locationId !== 'ALL' 
+    // Specific location: its per-day capacity record. 'ALL': the summed
+    // capacity of every location the user can see — the dashboard's
+    // capacity card must describe the whole operation, not show 0/0.
+    const capacity = locationId && locationId !== 'ALL'
       ? await getCapacity(locationId, date)
-      : { max_capacity: 0, current_checked_in: 0, available_slots: 0, rag_status: 'green' };
+      : await (async () => {
+          const max = await sumVisibleLocationCapacity(user);
+          return { max_capacity: max, current_checked_in: 0, available_slots: max, rag_status: 'green' };
+        })();
     
     const ragStatus = capacity.max_capacity > 0 
       ? calculateRAGStatus(activeBookings.length, capacity.max_capacity) 

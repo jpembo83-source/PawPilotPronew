@@ -5,6 +5,7 @@ import { useSettingsStore } from '../settings/store';
 import type {
   CapacityBookingRecord,
   DailyCapacitySummary,
+  PlannerBooking,
   ServiceCapacity,
   WeeklyCapacityView,
 } from './types';
@@ -30,7 +31,7 @@ function capacityStatus(booked: number, total: number): ServiceCapacity['status'
   return 'available';
 }
 
-function getMaxDogs(locationId?: string): number {
+export function getMaxDogs(locationId?: string): number {
   const { locations } = useSettingsStore.getState();
   if (locationId && locationId !== 'ALL') {
     const loc = locations.find(l => l?.id === locationId);
@@ -70,12 +71,18 @@ interface CapacityState {
   weeklyView: WeeklyCapacityView | null;
   selectedDate: string;
   dailySummary: DailyCapacitySummary | null;
+  /** Every daycare booking in the visible week — feeds the planner grid
+   *  and the per-day list. Includes cancelled (rendered struck-through,
+   *  like the paper register). */
+  weekBookings: PlannerBooking[];
   isLoading: boolean;
+  isLoadingBookings: boolean;
   error: string | null;
   currentLocationId: string | undefined;
   setSelectedDate: (date: string) => void;
   fetchWeeklyCapacity: (startDate: string, locationId?: string) => Promise<void>;
   fetchDailyCapacity: (date: string, locationId?: string) => Promise<void>;
+  fetchWeekBookings: (startDate: string, locationId?: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -83,7 +90,9 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
   weeklyView: null,
   selectedDate: formatDate(new Date()),
   dailySummary: null,
+  weekBookings: [],
   isLoading: false,
+  isLoadingBookings: false,
   error: null,
   currentLocationId: undefined,
 
@@ -185,6 +194,32 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
     } catch (error) {
       const maxDogs = getMaxDogs(resolvedLocationId);
       set({ dailySummary: buildDayCapacity(date, [], maxDogs), error: (error as Error).message, isLoading: false });
+    }
+  },
+
+  fetchWeekBookings: async (startDate, locationId) => {
+    set({ isLoadingBookings: true });
+    try {
+      const headers = await getAuthHeaders();
+      const weekStart = getWeekStart(new Date(startDate));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      const params = new URLSearchParams({
+        start_date: formatDate(weekStart),
+        end_date: formatDate(weekEnd),
+      });
+      if (locationId && locationId !== 'ALL') params.append('location_id', locationId);
+
+      const res = await fetch(`${API_BASE}/daycare/bookings?${params}`, { headers });
+      if (res.ok) {
+        const bookings = (await res.json()) as PlannerBooking[];
+        set({ weekBookings: Array.isArray(bookings) ? bookings : [], isLoadingBookings: false });
+      } else {
+        set({ weekBookings: [], isLoadingBookings: false });
+      }
+    } catch {
+      set({ weekBookings: [], isLoadingBookings: false });
     }
   },
 

@@ -22,6 +22,8 @@ interface CreateBookingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  /** Prefill the booking date (e.g. opened from a capacity planner day). */
+  initialDate?: string;
 }
 
 type ServiceType = 'full_day' | 'half_day_am' | 'half_day_pm';
@@ -42,7 +44,7 @@ interface HouseholdMembership {
   isHalfDay: boolean;
 }
 
-export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBookingDialogProps) {
+export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate }: CreateBookingDialogProps) {
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
   const { searchCustomers, createBooking, isLoading } = useDaycareStore();
@@ -78,6 +80,12 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess }: CreateBoo
       setLocalLocationId(selectedLocationId === 'ALL' ? '' : selectedLocationId);
     }
   }, [open]);
+
+  // Prefill the date when opened from a planner day (falls back to the
+  // close-reset default of today otherwise).
+  useEffect(() => {
+    if (open && initialDate) setBookingDate(initialDate);
+  }, [open, initialDate]);
 
   // Keep localLocationId in sync when dialog opens with a specific location already selected
   useEffect(() => {

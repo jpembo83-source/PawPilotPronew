@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 3963,
+  "errors": 3960,
   "warnings": 419
  },
  "files": {
@@ -209,7 +209,7 @@
    "warnings": 0
   },
   "src/app/modules/capacity/CapacityDashboard.tsx": {
-   "errors": 7,
+   "errors": 4,
    "warnings": 0
   },
   "src/app/modules/capacity/store.ts": {
