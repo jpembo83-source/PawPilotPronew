@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../utils/supabase/info';
 import { broadcastMutation } from '../../../lib/realtimeBroadcast';
+import { notifyInboxCountsChanged } from '../../../hooks/useInboxCounts';
 import { useModuleRealtimeSync } from '../../../hooks/useModuleRealtimeSync';
 import { ReviewCard, type QueueItem } from './VaxReviewPage';
 
@@ -136,6 +137,15 @@ export function PendingRequestsPage() {
   // every open inbox agrees.
   useModuleRealtimeSync('customers', load);
 
+  // After THIS tab actions an item: reload the queues AND poke the nav
+  // badge. Our own realtime broadcast never comes back to us (self: false),
+  // so without the explicit poke the sidebar badge would sit stale until
+  // focus or the 2-minute fallback.
+  const handleResolved = useCallback(() => {
+    notifyInboxCountsChanged();
+    void load();
+  }, [load]);
+
   // Whenever the queue changes, fetch a fresh capacity snapshot for every
   // (date, service) line the inbox shows. Server dedupes; we just hand it
   // a flat list of pairs from both single requests and bundle children.
@@ -231,7 +241,7 @@ export function PendingRequestsPage() {
               <QueueEmpty text="No pending booking requests." />
             ) : (
               <ul className="space-y-3">
-                {items.map((r) => <li key={r.id}><RequestRow r={r} snapshots={snapshots} onResolved={load} /></li>)}
+                {items.map((r) => <li key={r.id}><RequestRow r={r} snapshots={snapshots} onResolved={handleResolved} /></li>)}
               </ul>
             )}
           </TabsContent>
@@ -242,7 +252,7 @@ export function PendingRequestsPage() {
             ) : (
               <ul className="space-y-3">
                 {verifications.map((v) => (
-                  <li key={v.id}><PetVerificationRow v={v} onResolved={load} /></li>
+                  <li key={v.id}><PetVerificationRow v={v} onResolved={handleResolved} /></li>
                 ))}
               </ul>
             )}
@@ -262,7 +272,7 @@ export function PendingRequestsPage() {
                       item={item}
                       onResolved={() => {
                         void broadcastMutation('customers', 'vaccination', 'updated', item.petId, { action: 'vax_reviewed' });
-                        void load();
+                        handleResolved();
                       }}
                     />
                   </li>
@@ -313,6 +323,9 @@ function RequestRow({ r, snapshots, onResolved }: { r: PendingRequest; snapshots
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
       toast.success('Approved');
+      // Other staff clients' inboxes + badges hear about the decision too —
+      // pet verifications and vax reviews already broadcast; bookings didn't.
+      void broadcastMutation('customers', 'booking', 'updated', r.id, { action: 'request_approved' });
       onResolved();
     } catch (e: any) { toast.error(e?.message ?? 'Approve failed'); } finally { setBusy(false); }
   }
@@ -330,6 +343,7 @@ function RequestRow({ r, snapshots, onResolved }: { r: PendingRequest; snapshots
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
       toast.success('Declined');
+      void broadcastMutation('customers', 'booking', 'updated', r.id, { action: 'request_declined' });
       onResolved();
     } catch (e: any) { toast.error(e?.message ?? 'Decline failed'); } finally { setBusy(false); }
   }
