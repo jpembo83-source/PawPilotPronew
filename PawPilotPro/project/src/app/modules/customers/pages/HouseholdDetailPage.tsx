@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useCustomerStore } from '../store';
 import { useDaycareStore } from '../../daycare/store';
+import { useBillingStore } from '../../billing/store';
 import { usePackagesStore } from '../../packages/store';
 import { useAuth } from '../../../context/AuthContext';
 import { useCurrency } from '../../../utils/currency';
@@ -54,6 +55,8 @@ import { BillingTab } from '../components/household-detail/BillingTab';
 import { NotesTab } from '../components/household-detail/NotesTab';
 import { PortalActivityTab } from '../components/household-detail/PortalActivityTab';
 import { DocumentManager } from '../components/DocumentManager';
+import { ContactLink } from '../components/ContactLink';
+import { PortalStatusChip, usePortalStatus } from '../components/PortalStatusChip';
 import { hasValidWaiver } from '../waiverStatus';
 
 import { useBackNavigation } from '../../../components/BackButton';
@@ -68,6 +71,8 @@ export function HouseholdDetailPage() {
   const { globalEnabledModules } = useSettingsStore();
   const { fetchCustomerPackages, customerPackages } = usePackagesStore();
   const [householdBookingCount, setHouseholdBookingCount] = useState(0);
+  // null = not loaded (billing unreachable or still fetching); render "—", never a fake 0
+  const [outstandingBalance, setOutstandingBalance] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -78,8 +83,14 @@ export function HouseholdDetailPage() {
   // Validate householdId - accept any non-empty ID that's not "new"
   // We'll let the backend validate if it actually exists
   const isValidId = householdId && householdId !== 'new';
-  
+
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
+
+  // Portal status for the header chip; null (loading/failed) renders no chip.
+  // Every role that can open this page can also see the Portal tab (only
+  // Billing is role-gated), so the chip has no extra RBAC condition — if the
+  // Portal tab ever gains a role gate, gate this the same way.
+  const portalStatus = usePortalStatus(isValidId ? householdId : undefined);
   
   // Initialize tab from URL query parameter
   useEffect(() => {
@@ -112,6 +123,11 @@ export function HouseholdDetailPage() {
 
       // Fetch membership/packages for this household
       fetchCustomerPackages(householdId!).catch(() => {});
+
+      // Fetch outstanding balance from billing
+      useBillingStore.getState().fetchHouseholdBalance(householdId)
+        .then(setOutstandingBalance)
+        .catch(() => setOutstandingBalance(null));
     }
   }, [householdId, isValidId]);
   
@@ -244,7 +260,7 @@ export function HouseholdDetailPage() {
     totalDocuments: documents.length,
     expiredDocuments: documents.filter(d => d.expiry_date && new Date(d.expiry_date) < new Date()).length,
     totalBookings: householdBookingCount,
-    outstandingBalance: 0, // TODO: Get from billing once implemented
+    outstandingBalance,
   };
   
   const primaryContact = contacts.find(c => c.is_primary) || contacts[0];
@@ -359,35 +375,35 @@ export function HouseholdDetailPage() {
               <Badge variant={household.status === 'active' ? 'default' : 'secondary'}>
                 {household.status}
               </Badge>
+              {portalStatus && (
+                <PortalStatusChip status={portalStatus} onClick={() => setActiveTab('portal')} />
+              )}
             </div>
             
             {primaryContact && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
                 <div className="flex items-center gap-1 min-w-0">
                   <EnvelopeSimple className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{primaryContact.email}</span>
+                  <ContactLink
+                    kind="email"
+                    value={primaryContact.email}
+                    contactName={`${primaryContact.first_name} ${primaryContact.last_name}`}
+                    className="truncate"
+                  />
                 </div>
                 <div className="flex items-center gap-1">
                   <Phone className="h-4 w-4 shrink-0" />
-                  {primaryContact.phone}
+                  <ContactLink
+                    kind="phone"
+                    value={primaryContact.phone}
+                    contactName={`${primaryContact.first_name} ${primaryContact.last_name}`}
+                  />
                 </div>
               </div>
             )}
             
             {/* Status Flags */}
             <div className="flex flex-wrap gap-2 mt-3">
-              {/* Debug info - remove after testing */}
-              {flags.length === 0 && (
-                <div className="text-xs text-slate-400 italic">
-                  No flags loaded - check console for details
-                </div>
-              )}
-              {flags.length > 0 && householdFlags.length === 0 && (
-                <div className="text-xs text-slate-400 italic">
-                  {flags.length} flag(s) exist but none are household-level and active
-                </div>
-              )}
-              
               {household.payment_hold && (
                 <Badge variant="destructive">
                   <Prohibit className="h-3 w-3 mr-1" />
@@ -498,7 +514,11 @@ export function HouseholdDetailPage() {
               <div>
                 <p className="text-sm text-slate-600 mb-1">Balance</p>
                 <p className="text-2xl font-bold">
-                  {formatCurrency(summary.outstandingBalance)}
+                  {summary.outstandingBalance === null ? (
+                    <span title="Balance unavailable — billing didn't respond">—</span>
+                  ) : (
+                    formatCurrency(summary.outstandingBalance)
+                  )}
                 </p>
               </div>
               <Receipt className="h-8 w-8 text-slate-400" />

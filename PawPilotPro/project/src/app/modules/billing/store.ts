@@ -320,6 +320,7 @@ interface BillingState {
   // Actions
   fetchOverview: (locationId?: string) => Promise<void>;
   fetchInvoices: (filters?: BillingListFilters) => Promise<void>;
+  fetchHouseholdBalance: (householdId: string) => Promise<number>;
   fetchInvoice: (id: string) => Promise<void>;
   createInvoice: (data: CreateInvoicePayload) => Promise<Invoice>;
   issueInvoice: (id: string, dueDays?: number, issuedBy?: string) => Promise<void>;
@@ -419,6 +420,26 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       set({ error: message, loading: false });
       console.error('Error fetching invoices:', error);
     }
+  },
+
+  // Outstanding balance for one household: non-void invoices with balance
+  // remaining — the same rule the server's /billing/overview uses. Returns
+  // the sum without touching the shared invoices list or loading state.
+  fetchHouseholdBalance: async (householdId) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(
+      `${BASE_URL}/invoices?household_id=${encodeURIComponent(householdId)}`,
+      { headers },
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch household invoices');
+    }
+
+    const { invoices } = (await response.json()) as { invoices: Invoice[] };
+    return invoices
+      .filter(inv => inv.status !== 'void' && inv.balance > 0)
+      .reduce((sum, inv) => sum + inv.balance, 0);
   },
 
   fetchInvoice: async (id) => {

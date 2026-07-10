@@ -22,6 +22,7 @@ import {
   ArrowSquareOut,
   Star
 } from '@phosphor-icons/react';
+import { ContactLink } from '../ContactLink';
 
 interface OverviewTabProps {
   household: Household & { 
@@ -91,12 +92,20 @@ export function OverviewTab({ household }: OverviewTabProps) {
                   <div className="flex items-center gap-3 mt-2 text-sm text-slate-600">
                     <div className="flex items-center gap-1">
                       <EnvelopeSimple className="h-3 w-3" />
-                      {contact.email}
+                      <ContactLink
+                        kind="email"
+                        value={contact.email}
+                        contactName={`${contact.first_name} ${contact.last_name}`}
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
                     <Phone className="h-3 w-3" />
-                    {contact.phone}
+                    <ContactLink
+                      kind="phone"
+                      value={contact.phone}
+                      contactName={`${contact.first_name} ${contact.last_name}`}
+                    />
                   </div>
                 </div>
               </div>

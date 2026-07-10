@@ -206,6 +206,9 @@ export interface TimelineItem {
   [key: string]: any;
 }
 
+// Sort options for the customers list.
+export type HouseholdSortKey = 'name' | 'primary_contact';
+
 // List filters
 export interface CustomerFilters {
   search?: string;
@@ -374,6 +377,15 @@ export interface HouseholdSummary extends Household {
   contacts_count?: number;
   pets_count?: number;
   primary_contact?: HouseholdContact;
+}
+
+// Paginated households list response (server envelope, same shape as the
+// messaging threads list).
+export interface HouseholdListPage {
+  households: HouseholdSummary[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 // Household as returned by the detail endpoint (includes related records).

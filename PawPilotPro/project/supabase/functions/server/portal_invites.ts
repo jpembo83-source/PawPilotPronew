@@ -169,9 +169,12 @@ invites.get("/customers/:customerId/portal-activity", async (c) => {
 
   const link = (await kv.get(`portal_users:${tenantId}:${householdId}`)) as any;
   const allInvites = (await kv.getByPrefix(`portal_invites:${tenantId}:`)) as any[];
-  const pending = allInvites.filter(
-    (i) => i.customerId === householdId && !i.consumedAt && new Date(i.expiresAt) > new Date(),
-  );
+  const now = new Date();
+  const householdInvites = allInvites.filter((i) => i.customerId === householdId && !i.consumedAt);
+  const pending = householdInvites.filter((i) => new Date(i.expiresAt) > now);
+  // Unconsumed invites past expiry — lets the staff UI distinguish
+  // "invite expired" from "never invited" (portalStatus.ts derivation).
+  const expired = householdInvites.filter((i) => new Date(i.expiresAt) <= now);
 
   // Phase E enrichment — surface auth-side facts (last sign-in, suspended)
   // so the staff portal-activity UI can show a real account-state picture
@@ -205,7 +208,7 @@ invites.get("/customers/:customerId/portal-activity", async (c) => {
     }
   }
 
-  return c.json({ link, pendingInvites: pending, lastSignInAt, suspended, users });
+  return c.json({ link, pendingInvites: pending, expiredInvites: expired, lastSignInAt, suspended, users });
 });
 
 // ----- Staff: vax review queue -----------------------------------------

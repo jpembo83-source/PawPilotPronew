@@ -25,6 +25,8 @@ import {
   CardTitle,
 } from '../../../components/ui/card';
 import { Skeleton } from '../../../components/ui/skeleton';
+import { ContactLink } from '../components/ContactLink';
+import type { Pet } from '../types';
 
 import { useBackNavigation } from '../../../components/BackButton';
 export function PetDetailPage() {
@@ -377,7 +379,13 @@ export function PetDetailPage() {
                   {pet.vet_phone && (
                     <div>
                       <p className="text-sm font-medium text-slate-600">Phone</p>
-                      <p className="text-base">{pet.vet_phone}</p>
+                      <p className="text-base">
+                        <ContactLink
+                          kind="phone"
+                          value={(pet as Pet).vet_phone}
+                          contactName={(pet as Pet).vet_name}
+                        />
+                      </p>
                     </div>
                   )}
                   {pet.vet_address && (

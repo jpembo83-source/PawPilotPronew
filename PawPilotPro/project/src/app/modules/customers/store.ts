@@ -19,14 +19,26 @@ import type {
   ApiErrorResponse,
   HouseholdSummary,
   HouseholdDetail,
+  HouseholdListPage,
+  HouseholdSortKey,
   DocumentDeleteResponse,
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 
+export const HOUSEHOLD_PAGE_SIZE = 50;
+
+export interface HouseholdPageOptions {
+  filters?: CustomerFilters;
+  page?: number; // 1-based
+  sort?: HouseholdSortKey;
+  dir?: 'asc' | 'desc';
+}
+
 interface CustomerState {
   // Data
   households: HouseholdSummary[];
+  householdsTotal: number; // filtered total across all pages (fetchHouseholdsPage)
   selectedHousehold: HouseholdDetail | null;
   currentHouseholdDetail: HouseholdDetail | null;
   currentPetProfile: Pet | null;
@@ -57,6 +69,7 @@ interface CustomerState {
   
   // Actions - Households
   fetchHouseholds: (filters?: CustomerFilters) => Promise<void>;
+  fetchHouseholdsPage: (options?: HouseholdPageOptions) => Promise<void>;
   fetchHouseholdById: (id: string) => Promise<void>;
   fetchHouseholdDetail: (id: string) => Promise<void>; // Alias
   createHousehold: (data: Partial<Household>) => Promise<Household>;
@@ -114,6 +127,7 @@ interface CustomerState {
 export const useCustomerStore = create<CustomerState>((set, get) => ({
   // Initial State
   households: [],
+  householdsTotal: 0,
   selectedHousehold: null,
   currentHouseholdDetail: null,
   currentPetProfile: null,
@@ -159,11 +173,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       if (currentFilters.location_id) params.append('location_id', currentFilters.location_id);
       
       const url = params.toString() ? `${BASE_URL}/households?${params.toString()}` : `${BASE_URL}/households`;
-      
-      console.log('[fetchHouseholds] Fetching from:', url);
-      
-      console.log('[fetchHouseholds] Fetching from:', url);
-      
+
       const response = await fetch(url, {
         headers: await getAuthHeaders(),
       });
@@ -171,14 +181,12 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       if (!response.ok) {
         const error = await response.json() as ApiErrorResponse;
         console.error('[fetchHouseholds] Error response:', error);
-        console.error('[fetchHouseholds] Error response:', error);
         throw new Error(error.error || 'Failed to fetch households');
       }
       
       const rawHouseholds = await response.json() as HouseholdSummary[];
       const households = rawHouseholds.filter((h) => h.id && h.id.startsWith('hh-'));
-      console.log('[fetchHouseholds] Received households:', households.length, 'households');
-      
+
       set({ households, isLoading: false });
     } catch (error) {
       console.error('Fetch households error:', error);
@@ -186,7 +194,49 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       throw error;
     }
   },
-  
+
+  // Paginated variant for the customers list page. Filters, sort, and paging
+  // all compose server-side; fetchHouseholds above stays full-list for the
+  // picker modals and export, which need every household.
+  fetchHouseholdsPage: async (options?: HouseholdPageOptions) => {
+    set({ isLoading: true, error: null });
+    try {
+      const params = new URLSearchParams();
+      const currentFilters = options?.filters || get().filters;
+
+      if (currentFilters.search) params.append('search', currentFilters.search);
+      if (currentFilters.status) params.append('status', currentFilters.status);
+      if (currentFilters.vip !== undefined) params.append('vip', currentFilters.vip.toString());
+      if (currentFilters.payment_hold !== undefined) params.append('payment_hold', currentFilters.payment_hold.toString());
+      if (currentFilters.location_id) params.append('location_id', currentFilters.location_id);
+
+      const page = Math.max(options?.page ?? 1, 1);
+      params.append('limit', String(HOUSEHOLD_PAGE_SIZE));
+      params.append('offset', String((page - 1) * HOUSEHOLD_PAGE_SIZE));
+      if (options?.sort) params.append('sort', options.sort);
+      if (options?.dir) params.append('dir', options.dir);
+
+      const response = await fetch(`${BASE_URL}/households?${params.toString()}`, {
+        headers: await getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json() as ApiErrorResponse;
+        console.error('[fetchHouseholdsPage] Error response:', error);
+        throw new Error(error.error || 'Failed to fetch households');
+      }
+
+      const data = await response.json() as HouseholdListPage;
+      const households = data.households.filter((h) => h.id && h.id.startsWith('hh-'));
+
+      set({ households, householdsTotal: data.total, isLoading: false });
+    } catch (error) {
+      console.error('Fetch households page error:', error);
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
   fetchHouseholdById: async (id: string) => {
     set({ isLoading: true, error: null });
     try {

@@ -6,6 +6,7 @@ import { z } from 'npm:zod';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
+import { listHouseholds, HouseholdRecord, ContactRecord, PetRecord } from './lib/household_list.ts';
 
 const app = new Hono();
 
@@ -33,129 +34,47 @@ app.get('/households', async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
-    
-    console.log('[List Households] Starting fetch for tenantId:', tenantId);
-    
-    // Get query params
+
     const search = c.req.query('search');
     const status = c.req.query('status');
     const vip = c.req.query('vip');
     const payment_hold = c.req.query('payment_hold');
     const location_id = c.req.query('location_id');
-    
-    console.log('[List Households] Filters:', { search, status, vip, payment_hold, location_id });
-    
-    // Get all households for tenant
-    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`);
-    
-    console.log('[List Households] Raw households from KV:', allHouseholds.length);
-    console.log('[List Households] First household type:', typeof allHouseholds[0]);
-    // KV store returns already-parsed objects, not JSON strings
-    let households = allHouseholds;
-    
-    // Fetch ALL contacts and pets for this tenant in bulk (optimization to avoid N+1 queries)
-    const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`);
-    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
-    
-    console.log('[List Households] Contacts:', allContacts.length, 'Pets:', allPets.length);
-    
-    // Parse and group by household_id for fast lookup
-    const contactsByHousehold = new Map<string, any[]>();
-    const petsByHousehold = new Map<string, any[]>();
-    
-    // KV store returns already-parsed objects, not JSON strings
-    allContacts.forEach((contact: any) => {
-      const householdId = contact.household_id;
-      if (!contactsByHousehold.has(householdId)) {
-        contactsByHousehold.set(householdId, []);
-      }
-      contactsByHousehold.get(householdId)!.push(contact);
+    const sort = c.req.query('sort');
+    const dir = c.req.query('dir');
+    const limitParam = c.req.query('limit');
+    const offsetParam = c.req.query('offset');
+
+    // Fetch the tenant's households plus ALL contacts and pets in bulk
+    // (avoids N+1 lookups; KV returns already-parsed objects).
+    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`) as HouseholdRecord[];
+    const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`) as ContactRecord[];
+    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`) as PetRecord[];
+
+    // Pagination is opt-in so existing consumers that expect the full array
+    // (export, grooming search, picker modals) keep working unchanged.
+    const paginated = limitParam !== undefined || offsetParam !== undefined;
+    const limit = Math.min(Math.max(parseInt(limitParam || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(offsetParam || '0', 10) || 0, 0);
+
+    const { rows, total } = listHouseholds(allHouseholds, allContacts, allPets, {
+      search,
+      status,
+      vip: vip === 'true',
+      payment_hold: payment_hold === 'true',
+      location_id,
+      sort: sort === 'primary_contact' ? 'primary_contact' : 'name',
+      dir: dir === 'desc' ? 'desc' : 'asc',
+      limit: paginated ? limit : undefined,
+      offset: paginated ? offset : undefined,
     });
-    
-    // KV store returns already-parsed objects, not JSON strings
-    allPets.forEach((pet: any) => {
-      const householdId = pet.household_id;
-      if (!petsByHousehold.has(householdId)) {
-        petsByHousehold.set(householdId, []);
-      }
-      petsByHousehold.get(householdId)!.push(pet);
-    });
-    
-    // Apply filters
-    if (search) {
-      const searchLower = search.toLowerCase();
-      households = households.filter((h: any) => {
-        // Search in household name
-        if (h.name?.toLowerCase().includes(searchLower)) {
-          return true;
-        }
-        
-        // Search in contact information
-        const householdContacts = contactsByHousehold.get(h.id) || [];
-        const contactMatch = householdContacts.some((c: any) => 
-          c.first_name?.toLowerCase().includes(searchLower) ||
-          c.last_name?.toLowerCase().includes(searchLower) ||
-          c.email?.toLowerCase().includes(searchLower) ||
-          c.phone?.toLowerCase().includes(searchLower)
-        );
-        if (contactMatch) {
-          return true;
-        }
-        
-        // Search in pet names
-        const householdPets = petsByHousehold.get(h.id) || [];
-        const petMatch = householdPets.some((p: any) => 
-          p.name?.toLowerCase().includes(searchLower)
-        );
-        if (petMatch) {
-          return true;
-        }
-        
-        return false;
-      });
+
+    if (paginated) {
+      // Same envelope shape as the messaging threads list.
+      return c.json({ households: rows, total, limit, offset });
     }
-    
-    if (status) {
-      households = households.filter((h: any) => h.status === status);
-    }
-    
-    if (vip === 'true') {
-      households = households.filter((h: any) => h.vip === true);
-    }
-    
-    if (payment_hold === 'true') {
-      households = households.filter((h: any) => h.payment_hold === true);
-    }
-    
-    if (location_id) {
-      households = households.filter((h: any) => h.primary_location_id === location_id);
-    }
-    
-    // Enrich households with contact and pet counts (now done in-memory, much faster)
-    const enriched = households.map((household: any) => {
-      const householdContacts = contactsByHousehold.get(household.id) || [];
-      const householdPets = petsByHousehold.get(household.id) || [];
-      const primaryContact = householdContacts.find((c: any) => c.id === household.primary_contact_id);
-      
-      return {
-        ...household,
-        contacts_count: householdContacts.length,
-        pets_count: householdPets.length,
-        primary_contact: primaryContact || null,
-      };
-    });
-    
-    console.log('[List Households] After enrichment:', enriched.length, 'households');
-    if (enriched.length > 0) {
-      console.log('[List Households] First enriched household:', {
-        id: enriched[0].id,
-        name: enriched[0].name,
-        contacts_count: enriched[0].contacts_count,
-        pets_count: enriched[0].pets_count
-      });
-    }
-    
-    return c.json(enriched);
+
+    return c.json(rows);
   } catch (error: any) {
     return internalError(c, 'customers.listHouseholds', error);
   }
