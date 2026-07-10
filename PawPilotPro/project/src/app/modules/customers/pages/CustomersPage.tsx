@@ -3,47 +3,72 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { MagnifyingGlass, Plus, DownloadSimple, UploadSimple, Warning, Star, CurrencyDollar, FileDashed, MapPin, ArrowClockwise, CaretUp, CaretDown } from '@phosphor-icons/react';
-import { useCustomerStore } from '../store';
+import { MagnifyingGlass, Plus, DownloadSimple, UploadSimple, Warning, Star, CurrencyDollar, FileDashed, MapPin, ArrowClockwise, CaretUp, CaretDown, CaretRight } from '@phosphor-icons/react';
+import { useCustomerStore, HOUSEHOLD_PAGE_SIZE } from '../store';
 import { useSettingsStore } from '../../settings/store';
-import type { CustomerFilters, HouseholdSortKey, HouseholdSummary } from '../types';
+import type { CustomerFilters, HouseholdSortKey } from '../types';
 import { ContactLink } from '../components/ContactLink';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '../../../components/ui/pagination';
 import { toast } from 'sonner';
 
 export function CustomersPage() {
   const navigate = useNavigate();
   const {
     households,
+    householdsTotal,
     isLoading,
     error,
     filters,
-    fetchHouseholds,
+    fetchHouseholdsPage,
     setFilters,
     clearFilters,
     reset,
   } = useCustomerStore();
-  
+
   const { organisation, locations, fetchLocations } = useSettingsStore();
-  
+
   const [searchInput, setSearchInput] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sortKey, setSortKey] = useState<HouseholdSortKey>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [page, setPage] = useState(1);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const totalPages = Math.max(1, Math.ceil(householdsTotal / HOUSEHOLD_PAGE_SIZE));
+
   useEffect(() => {
-    fetchHouseholds().catch((err) => {
+    fetchHouseholdsPage({ page: 1, sort: sortKey, dir: sortDir }).catch((err) => {
       toast.error('Failed to load customers');
       console.error(err);
     });
     fetchLocations(); // Fetch locations for display
   }, []);
 
+  // Any change to search/filters/sort restarts from page 1 so the page
+  // window always describes the current result set.
+  const refetchFromPageOne = (
+    newFilters: CustomerFilters,
+    sort: HouseholdSortKey = sortKey,
+    dir: 'asc' | 'desc' = sortDir,
+  ) => {
+    setPage(1);
+    fetchHouseholdsPage({ filters: newFilters, page: 1, sort, dir })
+      .catch(() => {}); // store surfaces the error state
+  };
+
   const runSearch = (value: string) => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     const newFilters = { ...filters, search: value || undefined };
     setFilters(newFilters);
-    fetchHouseholds(newFilters).catch(() => {}); // store surfaces the error state
+    refetchFromPageOne(newFilters);
   };
 
   // Debounced live search (350ms, matching CreateBookingDialog); Enter and
@@ -63,24 +88,29 @@ export function CustomersPage() {
   };
 
   const handleSort = (key: HouseholdSortKey) => {
-    if (sortKey === key) {
-      setSortDir(dir => (dir === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
+    const nextDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+    setSortKey(key);
+    setSortDir(nextDir);
+    refetchFromPageOne(filters, key, nextDir);
   };
-  
+
+  const goToPage = (target: number) => {
+    const next = Math.min(Math.max(target, 1), totalPages);
+    if (next === page) return;
+    setPage(next);
+    fetchHouseholdsPage({ page: next, sort: sortKey, dir: sortDir }).catch(() => {});
+  };
+
   const handleFilterChange = (key: keyof CustomerFilters, value: any) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
-    fetchHouseholds(newFilters);
+    refetchFromPageOne(newFilters);
   };
-  
+
   const handleClearFilters = () => {
     clearFilters();
     setSearchInput('');
-    fetchHouseholds({});
+    refetchFromPageOne({});
   };
   
   const handleRowClick = (householdId: string) => {
@@ -100,8 +130,9 @@ export function CustomersPage() {
       setSearchInput('');
       
       // Fetch fresh data from server
-      await fetchHouseholds({});
-      
+      setPage(1);
+      await fetchHouseholdsPage({ filters: {}, page: 1, sort: sortKey, dir: sortDir });
+
       toast.success('Cache cleared and data refreshed successfully');
     } catch (error: any) {
       console.error('Failed to refresh data:', error);
@@ -113,19 +144,25 @@ export function CustomersPage() {
   
   const activeFiltersCount = Object.values(filters).filter(v => v !== undefined && v !== '').length;
 
-  // Client-side sort over the loaded set; default alphabetical by household.
-  const sortedHouseholds = useMemo(() => {
-    const contactName = (h: HouseholdSummary) =>
-      h.primary_contact
-        ? `${h.primary_contact.first_name ?? ''} ${h.primary_contact.last_name ?? ''}`.trim()
-        : '';
-    const sortValue = sortKey === 'primary_contact' ? contactName : (h: HouseholdSummary) => h.name ?? '';
+  // The server returns the page already filtered and ordered (sort/dir are
+  // sent with every fetch); the guard here only drops malformed records.
+  const visibleHouseholds = households.filter(household => household && household.id);
 
-    const rows = households.filter(household => household && household.id);
-    rows.sort((a, b) => sortValue(a).localeCompare(sortValue(b), undefined, { sensitivity: 'base' }));
-    if (sortDir === 'desc') rows.reverse();
-    return rows;
-  }, [households, sortKey, sortDir]);
+  // Numbered pagination items: first/last/current±1, gaps as ellipsis.
+  const pageNumbers = useMemo<Array<number | 'ellipsis'>>(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const wanted = [...new Set([1, page - 1, page, page + 1, totalPages])]
+      .filter(p => p >= 1 && p <= totalPages)
+      .sort((a, b) => a - b);
+    const items: Array<number | 'ellipsis'> = [];
+    wanted.forEach((p, i) => {
+      if (i > 0 && p - wanted[i - 1] > 1) items.push('ellipsis');
+      items.push(p);
+    });
+    return items;
+  }, [page, totalPages]);
 
   const SortIndicator = ({ column }: { column: HouseholdSortKey }) => {
     if (sortKey !== column) return null;
@@ -142,7 +179,7 @@ export function CustomersPage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900">Customers</h1>
             <p className="text-sm text-slate-500 mt-1">
-              {households.length} {households.length === 1 ? 'household' : 'households'}
+              {householdsTotal} {householdsTotal === 1 ? 'household' : 'households'}
             </p>
           </div>
 
@@ -306,7 +343,71 @@ export function CustomersPage() {
             )}
           </div>
         ) : (
-          <div className="bg-white m-6 rounded-lg border border-slate-200 overflow-hidden">
+          <>
+          {/* Mobile: card list (below 768px), following the daycare check-in card idiom */}
+          <div className="md:hidden px-4 pt-4 space-y-3">
+            {visibleHouseholds.map((household) => {
+              const contact = household.primary_contact;
+              const petsCount = household.pets_count || 0;
+              const cardLabel =
+                `Open ${household.name || 'Unnamed Household'}` +
+                (household.vip ? ', VIP' : '') +
+                (household.payment_hold ? ', payment hold' : '');
+              return (
+                <button
+                  key={household.id}
+                  onClick={() => handleRowClick(household.id)}
+                  aria-label={cardLabel}
+                  className="w-full bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-4 text-left hover:shadow-sm active:scale-[0.99] transition-all"
+                >
+                  <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg font-bold text-slate-500">
+                      {(household.name || '?').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="font-semibold text-sm text-slate-900 truncate">
+                        {household.name || 'Unnamed Household'}
+                      </span>
+                      {household.vip && (
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500 flex-shrink-0" aria-hidden="true" />
+                      )}
+                    </div>
+                    {contact && (
+                      <p className="text-sm text-slate-600 truncate">
+                        {contact.first_name} {contact.last_name}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-sm text-slate-500">
+                        {petsCount} {petsCount === 1 ? 'pet' : 'pets'}
+                      </span>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${
+                          household.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-slate-100 text-slate-800'
+                        }`}
+                      >
+                        {household.status}
+                      </span>
+                      {household.payment_hold && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                          <CurrencyDollar className="w-3.5 h-3.5" />
+                          Payment Hold
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <CaretRight className="w-4 h-4 text-slate-300 flex-shrink-0" aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop: table (768px and up) */}
+          <div className="hidden md:block bg-white m-6 rounded-lg border border-slate-200 overflow-hidden">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -349,7 +450,7 @@ export function CustomersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {sortedHouseholds.map((household) => {
+                {visibleHouseholds.map((household) => {
                   return (
                     <tr
                       key={household.id}
@@ -429,6 +530,50 @@ export function CustomersPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination — filters/search/sort are preserved across pages
+              because every page fetch re-sends them from store state. */}
+          {totalPages > 1 && (
+            <div className="pb-6 px-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      aria-disabled={page === 1}
+                      className={`touch-target ${page === 1 ? 'pointer-events-none opacity-50' : ''}`}
+                      onClick={(e) => { e.preventDefault(); goToPage(page - 1); }}
+                    />
+                  </PaginationItem>
+                  {pageNumbers.map((item, index) => (
+                    <PaginationItem key={item === 'ellipsis' ? `ellipsis-${index}` : item}>
+                      {item === 'ellipsis' ? (
+                        <PaginationEllipsis />
+                      ) : (
+                        <PaginationLink
+                          href="#"
+                          isActive={item === page}
+                          className="touch-target"
+                          onClick={(e) => { e.preventDefault(); goToPage(item); }}
+                        >
+                          {item}
+                        </PaginationLink>
+                      )}
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      aria-disabled={page === totalPages}
+                      className={`touch-target ${page === totalPages ? 'pointer-events-none opacity-50' : ''}`}
+                      onClick={(e) => { e.preventDefault(); goToPage(page + 1); }}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>

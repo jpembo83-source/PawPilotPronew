@@ -378,6 +378,15 @@ export interface HouseholdSummary extends Household {
   primary_contact?: HouseholdContact;
 }
 
+// Paginated households list response (server envelope, same shape as the
+// messaging threads list).
+export interface HouseholdListPage {
+  households: HouseholdSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // Household as returned by the detail endpoint (includes related records).
 export interface HouseholdDetail extends Household {
   contacts?: HouseholdContact[];
