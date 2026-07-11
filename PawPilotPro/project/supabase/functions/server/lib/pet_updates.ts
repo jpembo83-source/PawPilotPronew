@@ -1,19 +1,28 @@
-// Pet updates — the "how is my dog right now" feed (portal spec §Home).
+// Pet updates — the "how is my dog right now" feed (portal spec §Home) plus
+// the photo-moderation model.
 //
-// Storage: KV, per Phase 4 direction (the Postgres migration is a DRAFT and
-// nothing has been applied — docs/PHASE4_DATA_MIGRATION.md). The key family
-// follows the tenant-prefixed convention the Phase 4 doc identifies as the
-// correct one, and is date-scoped so "today for this pet" is a single narrow
-// prefix scan rather than a load-everything list:
-//
-//   pet_update:{tenantId}:{date}:{petId}:{id}
-//
-// This maps 1:1 onto a future `pet_updates` table
-// (tenant_id, date, pet_id, id) without reshaping records.
+// Storage is HYBRID during Phase 4:
+//   * checked_in / checked_out feed events stay on the legacy KV family
+//     (they are daycare-ops exhaust; they migrate with the daycare entity):
+//       pet_update:{tenantId}:{date}:{petId}:{id}
+//   * photo / note moments live in Postgres `pet_updates`
+//     (migrations/20260711120000_phase4_pet_updates_stage0.sql) via
+//     lib/pet_updates_store.ts — the moderation queue and the all-time
+//     gallery are relational workloads that would be full prefix scans here.
+// Day feeds merge both sources with mergeDayFeeds().
 
 import * as kv from "../kv_store.tsx";
 
 export type PetUpdateType = "checked_in" | "checked_out" | "photo" | "note";
+
+/**
+ * Moderation lifecycle. Photos are born `pending` and only reach the owner
+ * once a manager approves them; text-only notes (and check-in/out events)
+ * auto-approve — the curation gate exists for images, not operational facts.
+ * Legacy KV rows written before the gate carry no status: treat as approved
+ * (they were published immediately under the old model).
+ */
+export type PetUpdateStatus = "pending" | "approved" | "rejected";
 
 /** Private bucket for moment photos. Reads are signed-URL only. */
 export const MOMENTS_BUCKET = "pet-moments";
@@ -37,6 +46,41 @@ export interface PetUpdate {
   created_by_id: string;
   created_by_name: string;
   created_at: string; // ISO timestamp
+  /** Moderation state. Absent on legacy KV rows — read via effectiveStatus(). */
+  status?: PetUpdateStatus;
+  /** Manager-editable owner-facing caption; distinct from the operator's text. */
+  caption?: string;
+  /** Internal-only — never serialised to the portal. */
+  rejected_reason?: string;
+  reviewed_by_id?: string;
+  reviewed_by_name?: string;
+  reviewed_at?: string; // ISO timestamp
+}
+
+/** Legacy rows pre-date the gate and were published immediately: approved. */
+export function effectiveStatus(update: Pick<PetUpdate, "status">): PetUpdateStatus {
+  return update.status ?? "approved";
+}
+
+/** The curation gate, in one place: owners only ever see approved updates. */
+export function isVisibleToOwner(update: Pick<PetUpdate, "status">): boolean {
+  return effectiveStatus(update) === "approved";
+}
+
+/** Owner-facing text: the manager's caption wins over the operator's note. */
+export function ownerFacingText(update: Pick<PetUpdate, "text" | "caption">): string | null {
+  return update.caption ?? update.text ?? null;
+}
+
+/** Merge the legacy KV day feed with Postgres moments: dedupe by id, oldest
+ *  first. Both stores are authoritative for disjoint types (KV: check-in/out
+ *  events + pre-gate moments; Postgres: gated moments), but a backfill could
+ *  produce overlap — Postgres rows win. */
+export function mergeDayFeeds(kvRows: PetUpdate[], pgRows: PetUpdate[]): PetUpdate[] {
+  const byId = new Map<string, PetUpdate>();
+  for (const row of kvRows) byId.set(row.id, row);
+  for (const row of pgRows) byId.set(row.id, row);
+  return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
 export function petUpdateKey(update: Pick<PetUpdate, "tenant_id" | "date" | "pet_id" | "id">): string {
@@ -75,6 +119,9 @@ export function buildPetUpdate(args: BuildArgs): PetUpdate {
     created_by_id: args.createdById,
     created_by_name: args.createdByName,
     created_at: createdAt,
+    // The moderation gate applies to images only: a photo must pass a manager
+    // before the owner sees it. Notes and check-in/out events auto-approve.
+    status: args.type === "photo" ? "pending" : "approved",
   };
   const text = args.text?.trim();
   if (text) update.text = text;

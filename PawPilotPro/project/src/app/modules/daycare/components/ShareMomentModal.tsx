@@ -85,7 +85,13 @@ export function ShareMomentModal({ open, onClose, pet }: ShareMomentModalProps) 
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || 'Failed to share');
       }
-      toast.success(`Shared to ${pet.name}'s day`);
+      // Photos go through the manager review queue before the owner sees
+      // them; text-only notes publish straight away.
+      toast.success(
+        photo
+          ? `Sent for review — it reaches ${pet.name}'s owner once approved`
+          : `Shared to ${pet.name}'s day`,
+      );
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to share');
@@ -103,7 +109,7 @@ export function ShareMomentModal({ open, onClose, pet }: ShareMomentModalProps) 
             Share a moment{pet ? ` — ${pet.name}` : ''}
           </DialogTitle>
           <DialogDescription>
-            Owners see this in the app straight away.
+            Photos are checked by a manager before the owner sees them; notes go straight away.
           </DialogDescription>
         </DialogHeader>
 

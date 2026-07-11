@@ -13,6 +13,11 @@ import {
   petUpdateKey,
   petUpdateDayPrefix,
   listPetUpdatesForDay,
+  effectiveStatus,
+  isVisibleToOwner,
+  ownerFacingText,
+  mergeDayFeeds,
+  type PetUpdate,
 } from '../../supabase/functions/server/lib/pet_updates.ts';
 import * as kv from '../../supabase/functions/server/kv_store.tsx';
 
@@ -68,5 +73,39 @@ describe('pet_updates', () => {
     const rows = await listPetUpdatesForDay('t1', 'p1', '2026-07-03');
     expect(kv.getByPrefix).toHaveBeenCalledWith('pet_update:t1:2026-07-03:p1:');
     expect(rows.map(r => r.type)).toEqual(['checked_in', 'photo']);
+  });
+
+  it('photos are born pending; notes and check-in/out events auto-approve', () => {
+    const base = { tenantId: 't1', petId: 'p', petName: 'Rex', createdById: 's1', createdByName: 'Sam', at: AT };
+    expect(buildPetUpdate({ ...base, type: 'photo', photoPath: 'x.jpg' }).status).toBe('pending');
+    expect(buildPetUpdate({ ...base, type: 'note', text: 'hi' }).status).toBe('approved');
+    expect(buildPetUpdate({ ...base, type: 'checked_in' }).status).toBe('approved');
+    expect(buildPetUpdate({ ...base, type: 'checked_out' }).status).toBe('approved');
+  });
+
+  it('the owner-visibility gate: only approved (or legacy status-less) rows pass', () => {
+    expect(effectiveStatus({})).toBe('approved'); // legacy KV row, pre-gate
+    expect(isVisibleToOwner({})).toBe(true);
+    expect(isVisibleToOwner({ status: 'approved' })).toBe(true);
+    expect(isVisibleToOwner({ status: 'pending' })).toBe(false);
+    expect(isVisibleToOwner({ status: 'rejected' })).toBe(false);
+  });
+
+  it("owner-facing text prefers the manager's caption over the operator's note", () => {
+    expect(ownerFacingText({ text: 'op note', caption: 'manager caption' })).toBe('manager caption');
+    expect(ownerFacingText({ text: 'op note' })).toBe('op note');
+    expect(ownerFacingText({})).toBeNull();
+  });
+
+  it('mergeDayFeeds dedupes by id (Postgres wins) and sorts oldest first', () => {
+    const mk = (id: string, iso: string, extra?: Partial<PetUpdate>): PetUpdate => ({
+      id, tenant_id: 't1', pet_id: 'p1', pet_name: 'Rex', date: '2026-07-03',
+      type: 'photo', created_by_id: 's', created_by_name: 'S', created_at: iso, ...extra,
+    });
+    const kvRows = [mk('a', '2026-07-03T12:00:00Z'), mk('b', '2026-07-03T08:00:00Z')];
+    const pgRows = [mk('a', '2026-07-03T12:00:00Z', { status: 'pending' }), mk('c', '2026-07-03T10:00:00Z')];
+    const merged = mergeDayFeeds(kvRows, pgRows);
+    expect(merged.map(r => r.id)).toEqual(['b', 'c', 'a']);
+    expect(merged.find(r => r.id === 'a')?.status).toBe('pending'); // pg row won
   });
 });
