@@ -137,6 +137,26 @@ test.describe('server RBAC gates on mutating operational endpoints @smoke', () =
     expect(deleteStatus, 'assistant_manager must be forbidden on delete').toBe(403);
   });
 
+  test('staff operational workflows are untouched: reads and check-in still pass the gates', async ({ request }) => {
+    skipUnlessConfigured('staff');
+    const token = await signIn('staff');
+
+    // Viewing: reads were never gated — staff must still get 200s.
+    const listRes = await request.get(`${FN_BASE}/customers/households`, {
+      headers: headers(token), failOnStatusCode: false,
+    });
+    expect(listRes.status(), 'staff must still be able to list households').toBe(200);
+
+    // Check-in: gated inline by daycare's own permission model, which allows
+    // staff. A nonexistent booking proves the role gate passes (404, not 403)
+    // without touching real data.
+    const checkinStatus = (await request.post(`${FN_BASE}/daycare/bookings/${FAKE_ID}/checkin`, {
+      headers: headers(token), data: {}, failOnStatusCode: false,
+    })).status();
+    expect(checkinStatus, 'staff check-in must not be role-blocked').not.toBe(403);
+    expect(checkinStatus).toBeLessThan(500);
+  });
+
   test('403 responses are generic: correlation ID, no role details leaked', async ({ request }) => {
     skipUnlessConfigured('staff');
     const token = await signIn('staff');
