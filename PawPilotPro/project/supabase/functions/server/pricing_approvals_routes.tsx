@@ -1,6 +1,6 @@
-import { Hono } from "npm:hono";
+import { Context, Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
-import { requireAuth } from "./_shared/auth.ts";
+import { requireAuth, AuthenticatedUser } from "./_shared/auth.ts";
 import { internalError } from "./_shared/log.ts";
 
 const routes = new Hono();
@@ -12,18 +12,20 @@ routes.use("*", requireAuth);
 // HELPER FUNCTIONS
 // ============================================================================
 
-const getUserFromContext = () => {
-  // TODO: Extract from auth token
-  return { id: 'system', name: 'Admin', role: 'admin' };
-};
+// The real verified user (set by requireAuth; role from app_metadata). The
+// previous stub returned a hardcoded admin, which made every hasPermission
+// check below pass for any authenticated user and stamped audit logs "Admin".
+const getUserFromContext = (c: Context): AuthenticatedUser => c.get('user');
 
-const hasPermission = (user: any, permission: string): boolean => {
+const hasPermission = (user: AuthenticatedUser, permission: string): boolean => {
   // Admin has all permissions
   if (user.role === 'admin') return true;
-  
-  // Manager has pricing authority (can activate, approve, override)
+
+  // Manager has pricing authority (can activate, approve, override — and may
+  // also submit for approval, since manager authority supersets assistant
+  // manager's propose-only access)
   if (user.role === 'manager') {
-    if (['pricing:approve', 'pricing:activate', 'pricing:override', 'pricing:edit'].includes(permission)) {
+    if (['pricing:approve', 'pricing:activate', 'pricing:override', 'pricing:edit', 'pricing:propose'].includes(permission)) {
       return true;
     }
   }
@@ -62,7 +64,7 @@ const createAuditLog = async (action: string, entityType: string, entityId: stri
 // DIRECT ACTIVATION (Admin/Manager only - no approval needed)
 routes.post("/price-book/activate", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:activate')) {
       return c.json({ error: 'Insufficient permissions to activate price books directly' }, 403);
     }
@@ -137,7 +139,7 @@ routes.post("/price-book/activate", async (c) => {
 
 routes.post("/price-book/submit", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:propose')) {
       return c.json({ error: 'Insufficient permissions to submit price books' }, 403);
     }
@@ -192,7 +194,7 @@ routes.post("/price-book/submit", async (c) => {
 
 routes.post("/price-book/approve", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:approve')) {
       return c.json({ error: 'Insufficient permissions to approve price books' }, 403);
     }
@@ -277,7 +279,7 @@ routes.post("/price-book/approve", async (c) => {
 
 routes.post("/price-book/reject", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:approve')) {
       return c.json({ error: 'Insufficient permissions to reject price books' }, 403);
     }
@@ -340,7 +342,7 @@ routes.post("/price-book/reject", async (c) => {
 // DIRECT ACTIVATION (Admin/Manager only - no approval needed)
 routes.post("/location-override/activate", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:override')) {
       return c.json({ error: 'Insufficient permissions to activate location overrides directly' }, 403);
     }
@@ -400,7 +402,7 @@ routes.post("/location-override/activate", async (c) => {
 
 routes.post("/location-override/propose", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:propose')) {
       return c.json({ error: 'Insufficient permissions to propose location overrides' }, 403);
     }
@@ -469,7 +471,7 @@ routes.post("/location-override/propose", async (c) => {
 
 routes.post("/location-override/approve", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:approve')) {
       return c.json({ error: 'Insufficient permissions to approve location overrides' }, 403);
     }
@@ -543,7 +545,7 @@ routes.post("/location-override/approve", async (c) => {
 
 routes.post("/location-override/reject", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:approve')) {
       return c.json({ error: 'Insufficient permissions to reject location overrides' }, 403);
     }
@@ -604,7 +606,7 @@ routes.post("/location-override/reject", async (c) => {
 
 routes.post("/impact-preview", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     if (!hasPermission(user, 'pricing:approve')) {
       return c.json({ error: 'Insufficient permissions to view impact preview' }, 403);
     }
@@ -706,7 +708,7 @@ routes.post("/impact-preview", async (c) => {
 
 routes.get("/approvals/pending", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     const approvals = await kv.getByPrefix('approval:');
     
     if (!approvals) {
@@ -740,7 +742,7 @@ routes.get("/approvals/pending", async (c) => {
 
 routes.get("/approvals/history", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     const approvals = await kv.getByPrefix('approval:');
     
     if (!approvals) {
@@ -769,7 +771,7 @@ routes.get("/approvals/history", async (c) => {
 
 routes.get("/audit-log", async (c) => {
   try {
-    const user = getUserFromContext();
+    const user = getUserFromContext(c);
     const entityType = c.req.query('entityType');
     const entityId = c.req.query('entityId');
     
