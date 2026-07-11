@@ -1,0 +1,61 @@
+# Phase 4 / Customers — run the parity/drift verifier LIVE against a Supabase
+# project. Local sessions can't reach *.supabase.co (network policy), so the
+# verifier runs here with the service-role key fetched at runtime from the
+# Management API via the existing SUPABASE_ACCESS_TOKEN secret — no stored
+# credentials.
+#
+# Target selection: PawPilotPro/project/scripts/phase4/verify-target.txt
+#   line 1 — project ref (e.g. ihdbnwlmqhsrslstbbqn or ruahrxkfgfyshuxykiay)
+#   line 2 — optional literal "expect" to pin the rehearsal-fixture counts
+# Pushing a change to that file on `staging` triggers the run.
+name: Phase 4 verify (parity / drift)
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'PawPilotPro/project/scripts/phase4/verify-target.txt'
+      - '.github/workflows/phase4-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Run verify-customers-backfill against target
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: PawPilotPro/project
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: PawPilotPro/project/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm ci --prefix ../shared
+      - name: Run verifier
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          TARGET_REF=$(sed -n 1p scripts/phase4/verify-target.txt | tr -d '[:space:]')
+          MODE=$(sed -n 2p scripts/phase4/verify-target.txt | tr -d '[:space:]')
+          echo "target: $TARGET_REF (mode: ${MODE:-live})"
+          SUPABASE_SERVICE_ROLE_KEY=$(TARGET_REF="$TARGET_REF" node -e "
+            fetch('https://api.supabase.com/v1/projects/' + process.env.TARGET_REF + '/api-keys?reveal=true', {
+              headers: { Authorization: 'Bearer ' + process.env.SUPABASE_ACCESS_TOKEN },
+            }).then((r) => r.json()).then((keys) => {
+              const svc = keys.find((k) => k.name === 'service_role' || k.id === 'service_role');
+              if (!svc || !svc.api_key) { console.error('service_role key not found'); process.exit(1); }
+              console.log(svc.api_key);
+            }).catch((e) => { console.error(e.message); process.exit(1); });
+          ")
+          echo "::add-mask::$SUPABASE_SERVICE_ROLE_KEY"
+          export SUPABASE_URL="https://${TARGET_REF}.supabase.co"
+          export SUPABASE_SERVICE_ROLE_KEY
+          if [ "$MODE" = "expect" ]; then
+            npx --yes tsx scripts/phase4/verify-customers-backfill.ts \
+              --expect scripts/phase4/fixtures/customers-kv-fixture.expected.json
+          else
+            npx --yes tsx scripts/phase4/verify-customers-backfill.ts
+          fi
