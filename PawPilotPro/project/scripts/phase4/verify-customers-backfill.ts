@@ -120,6 +120,16 @@ interface Failure {
 
 const CANONICAL_TENANT = "demo-tenant-001";
 
+/** Tenant-alias canonicalisation (owner decision 2026-07-11) — MUST mirror
+ *  phase4_backfill.canonical_tenant() in the backfill migration. Exactly
+ *  these two legacy segments mean demo-tenant-001; anything else passes
+ *  through unchanged (and so still fails the canonical-tenant gate). */
+const TENANT_ALIASES: Record<string, string> = {
+  "ee4c3a1d-d391-44e6-b9bd-5f1aab2351b5": CANONICAL_TENANT,
+  "demo-tenant": CANONICAL_TENANT,
+};
+const canonicalTenant = (t: string): string => TENANT_ALIASES[t] ?? t;
+
 const FAMILIES: FamilySpec[] = [
   {
     family: "household",
@@ -127,7 +137,7 @@ const FAMILIES: FamilySpec[] = [
     orphanTable: "households_orphaned",
     schema: householdSchema,
     match: (s) => s[2] === "household" && s.length === 4,
-    keyFields: (s) => ({ id: s[3], tenant_id: s[1] }),
+    keyFields: (s) => ({ id: s[3], tenant_id: canonicalTenant(s[1]) }),
     defaults: { status: "active", vip: false, payment_hold: false },
     fields: [
       "id", "tenant_id", "external_id", "name", "status", "vip",
@@ -144,7 +154,7 @@ const FAMILIES: FamilySpec[] = [
     orphanTable: "contacts_orphaned",
     schema: contactSchema,
     match: (s) => s[2] === "contact" && s.length === 5,
-    keyFields: (s) => ({ id: s[4], tenant_id: s[1], household_id: s[3] }),
+    keyFields: (s) => ({ id: s[4], tenant_id: canonicalTenant(s[1]), household_id: s[3] }),
     defaults: {
       is_primary: false, is_emergency_contact: false,
       marketing_consent: false, sms_consent: false, email_consent: false,
@@ -165,7 +175,7 @@ const FAMILIES: FamilySpec[] = [
     orphanTable: "pets_orphaned",
     schema: petSchema,
     match: (s) => s[2] === "pet" && s.length === 5,
-    keyFields: (s) => ({ id: s[4], tenant_id: s[1], household_id: s[3] }),
+    keyFields: (s) => ({ id: s[4], tenant_id: canonicalTenant(s[1]), household_id: s[3] }),
     defaults: {
       vaccination_status: "unknown", daycare_enrolled: false,
       grooming_enrolled: false, transport_enrolled: false,
@@ -191,7 +201,7 @@ const FAMILIES: FamilySpec[] = [
     orphanTable: "customer_documents_orphaned",
     schema: customerDocumentSchema,
     match: (s) => s[2] === "document" && s.length === 5,
-    keyFields: (s) => ({ id: s[4], tenant_id: s[1], household_id: s[3] }),
+    keyFields: (s) => ({ id: s[4], tenant_id: canonicalTenant(s[1]), household_id: s[3] }),
     defaults: {
       document_type: "other", file_size: 0,
       mime_type: "application/octet-stream",
@@ -210,7 +220,7 @@ const FAMILIES: FamilySpec[] = [
     orphanTable: "household_notes_orphaned",
     schema: householdNoteSchema,
     match: (s) => s[2] === "household" && s.length === 6 && s[4] === "note",
-    keyFields: (s) => ({ id: s[5], tenant_id: s[1], household_id: s[3] }),
+    keyFields: (s) => ({ id: s[5], tenant_id: canonicalTenant(s[1]), household_id: s[3] }),
     defaults: { visibility: "internal", is_pinned: false },
     fields: [
       "id", "tenant_id", "household_id", "title", "content", "category",
@@ -226,7 +236,7 @@ const FAMILIES: FamilySpec[] = [
     orphanTable: "household_flags_orphaned",
     schema: householdFlagSchema,
     match: (s) => s[2] === "household" && s.length === 6 && s[4] === "flag",
-    keyFields: (s) => ({ id: s[5], tenant_id: s[1], household_id: s[3] }),
+    keyFields: (s) => ({ id: s[5], tenant_id: canonicalTenant(s[1]), household_id: s[3] }),
     defaults: { is_active: true },
     fields: [
       "id", "tenant_id", "household_id", "pet_id", "flag_key", "severity",
@@ -255,8 +265,8 @@ const FAMILIES: FamilySpec[] = [
     match: (s) => s[2] === "activity" && (s.length === 4 || s.length === 5),
     keyFields: (s) =>
       s.length === 5
-        ? { id: s[4], tenant_id: s[1] }
-        : { id: s[3], tenant_id: s[1] },
+        ? { id: s[4], tenant_id: canonicalTenant(s[1]) }
+        : { id: s[3], tenant_id: canonicalTenant(s[1]) },
     defaults: {},
     fields: [
       "id", "tenant_id", "household_id", "pet_id", "activity_type", "title",

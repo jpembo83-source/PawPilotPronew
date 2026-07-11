@@ -8,6 +8,9 @@
 --   * both activity key variants (4-segment and 5-segment)
 --   * every quarantine reason the migration can emit
 --   * the non-canonical-tenant graph (quarantined per owner decision)
+--   * TENANT-ALIAS records ('demo-tenant' and the ee4c3a1d-… uuid — owner
+--     decision 2026-07-11): canonicalised to demo-tenant-001 and MIGRATED,
+--     while the unrelated 'ee4c-fixture-tenant' graph still quarantines
 --   * a dangling households.primary_contact_id (fixup + FK VALIDATE path)
 --   * an activity whose household never migrated (soft FK — must still land)
 --   * a duplicate blob id under two households (second key quarantined)
@@ -48,6 +51,10 @@ insert into public.kv_store_fc003b23 (key, value) values
 ('customer:ee4c-fixture-tenant:household:hh_foreign_001', jsonb_build_object(
   'id','hh_foreign_001','tenant_id','ee4c-fixture-tenant','name','Foreign Tenant Family',
   'created_at','2026-06-05T12:00:00.000Z','updated_at','2026-06-05T12:00:00.000Z')),
+-- TENANT ALIAS: 'demo-tenant' segment + alias blob tenant → migrates as demo-tenant-001
+('customer:demo-tenant:household:hh_alias_001', jsonb_build_object(
+  'id','hh_alias_001','tenant_id','demo-tenant','name','Alias Tenant Family',
+  'created_at','2026-06-06T08:00:00.000Z','updated_at','2026-06-06T08:00:00.000Z')),
 
 -- ---- contacts (kv 9 → migrate 4, quarantine 5) -----------------------------
 ('customer:demo-tenant-001:contact:hh_fix_001:con_fix_001', jsonb_build_object(
@@ -85,6 +92,11 @@ insert into public.kv_store_fc003b23 (key, value) values
   'id','con_foreign_001','household_id','hh_foreign_001',
   'first_name','Foreign','last_name','Contact','is_primary',true,
   'created_at','2026-06-05T12:05:00.000Z','updated_at','2026-06-05T12:05:00.000Z')),
+-- TENANT ALIAS: uuid alias segment, child of the alias household → migrates
+('customer:ee4c3a1d-d391-44e6-b9bd-5f1aab2351b5:contact:hh_alias_001:con_alias_001', jsonb_build_object(
+  'id','con_alias_001','household_id','hh_alias_001',
+  'first_name','Alias','last_name','Primary','is_primary',true,
+  'created_at','2026-06-06T08:05:00.000Z','updated_at','2026-06-06T08:05:00.000Z')),
 -- duplicate blob id under two households: first key wins, second quarantined
 ('customer:demo-tenant-001:contact:hh_fix_001:con_dupid', jsonb_build_object(
   'id','con_dupid','household_id','hh_fix_001',

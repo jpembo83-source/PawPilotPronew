@@ -16,12 +16,17 @@
 --     diverted, byte-for-byte, into a *_orphaned quarantine table with a
 --     reason. Quarantine tables have RLS enabled and NO policies: only the
 --     service role / owner can touch them.
---   * legacy_kv_key on every migrated row = the exact source KV key.
---   * tenant_id is stamped from the key's {t} segment. Production is
---     single-tenant (ratified §7.2): keys whose tenant segment is not
---     'demo-tenant-001' are quarantined with reason 'non_canonical_tenant'
---     (owner decision 2026-07-02 — one legacy household graph written under
---     stale tenant ids ee4c3a1d-… / demo-tenant; preserved for later triage).
+--   * legacy_kv_key on every migrated row = the exact source KV key
+--     (including a legacy alias tenant segment, when present — deletes and
+--     the drift check match on the byte-exact key).
+--   * tenant_id is stamped from the key's {t} segment AFTER tenant-alias
+--     canonicalisation (owner decision 2026-07-11): production is
+--     single-tenant and the legacy segments
+--     'ee4c3a1d-d391-44e6-b9bd-5f1aab2351b5' and 'demo-tenant' are ALIASES of
+--     'demo-tenant-001' — records under them migrate with the canonical
+--     tenant_id. ONLY those two exact aliases resolve; any other
+--     non-canonical tenant still quarantines as 'non_canonical_tenant'.
+--     (Supersedes the 2026-07-02 triage decision that quarantined them.)
 --   * ~25% of prod customer keys are double-JSON-encoded (value is a jsonb
 --     string containing the object — an older write path). These are decoded
 --     transparently; values that do not decode to an object are quarantined.
@@ -97,6 +102,19 @@ create schema phase4_backfill;
 create function phase4_backfill.try_jsonb(t text) returns jsonb
 language plpgsql immutable set search_path = '' as $$
 begin return t::jsonb; exception when others then return null; end $$;
+
+-- Tenant-alias canonicalisation (owner decision 2026-07-11): exactly these
+-- two legacy segments mean demo-tenant-001. Anything else passes through
+-- unchanged, so genuinely foreign tenants still fail base_reject below —
+-- this is a closed alias list, not a blanket accept.
+create function phase4_backfill.canonical_tenant(t text) returns text
+language sql immutable set search_path = '' as $$
+  select case t
+    when 'ee4c3a1d-d391-44e6-b9bd-5f1aab2351b5' then 'demo-tenant-001'
+    when 'demo-tenant' then 'demo-tenant-001'
+    else t
+  end
+$$;
 
 -- Timestamp/date parsing mirrors the FROZEN CONTRACT, not Postgres:
 -- z.string().datetime() accepts only ISO-8601 UTC ("…T…Z"), z isoDate only
@@ -178,12 +196,14 @@ from public.kv_store_fc003b23,
      lateral (select string_to_array(key, ':') as segs) s
 where key like 'customer:%';
 
--- Shared first-gate checks, identical for every family.
+-- Shared first-gate checks, identical for every family. The tenant segment
+-- is canonicalised through the alias map before the check, so aliased keys
+-- migrate and only genuinely foreign tenants quarantine.
 create function phase4_backfill.base_reject(v jsonb, tenant text) returns text
 language sql immutable set search_path = '' as $$
   select case
     when v is null or jsonb_typeof(v) <> 'object' then 'undecodable_value'
-    when tenant <> 'demo-tenant-001' then 'non_canonical_tenant'
+    when phase4_backfill.canonical_tenant(tenant) <> 'demo-tenant-001' then 'non_canonical_tenant'
   end
 $$;
 
@@ -209,7 +229,9 @@ select key, raw_value, segs, v,
       when row_number() over (partition by segs[4] order by key) > 1 then 'duplicate_id'
       when coalesce(v->>'id', '') = '' then 'missing_id'
       when v->>'id' <> segs[4] then 'id_key_mismatch'
-      when v->>'tenant_id' is not null and v->>'tenant_id' <> segs[2] then 'tenant_key_mismatch'
+      when v->>'tenant_id' is not null
+        and phase4_backfill.canonical_tenant(v->>'tenant_id')
+          <> phase4_backfill.canonical_tenant(segs[2]) then 'tenant_key_mismatch'
       when coalesce(v->>'name', '') = '' then 'missing_name'
       when phase4_backfill.iso_ts(v->>'created_at') is null then 'invalid_created_at'
       when phase4_backfill.iso_ts(v->>'updated_at') is null then 'invalid_updated_at'
@@ -236,7 +258,7 @@ insert into public.households
    internal_notes, created_by, created_at, updated_at, legacy_kv_key)
 select
   segs[4],
-  segs[2],
+  phase4_backfill.canonical_tenant(segs[2]),
   v->>'external_id',
   v->>'name',
   coalesce(v->>'status', 'active'),
@@ -268,7 +290,9 @@ select key, raw_value, segs, v,
       when row_number() over (partition by segs[5] order by key) > 1 then 'duplicate_id'
       when coalesce(v->>'id', '') = '' then 'missing_id'
       when v->>'id' <> segs[5] then 'id_key_mismatch'
-      when v->>'tenant_id' is not null and v->>'tenant_id' <> segs[2] then 'tenant_key_mismatch'
+      when v->>'tenant_id' is not null
+        and phase4_backfill.canonical_tenant(v->>'tenant_id')
+          <> phase4_backfill.canonical_tenant(segs[2]) then 'tenant_key_mismatch'
       when v->>'household_id' is not null and v->>'household_id' <> segs[4] then 'household_key_mismatch'
       when not exists (select 1 from public.households h where h.id = segs[4]) then 'missing_household'
       when coalesce(v->>'first_name', '') = '' then 'missing_first_name'
@@ -321,7 +345,7 @@ insert into public.contacts
    email_consent, created_at, updated_at, legacy_kv_key)
 select
   segs[5],
-  segs[2],
+  phase4_backfill.canonical_tenant(segs[2]),
   segs[4],
   v->>'first_name',
   v->>'last_name',
@@ -377,7 +401,9 @@ select key, raw_value, segs, v,
       when row_number() over (partition by segs[5] order by key) > 1 then 'duplicate_id'
       when coalesce(v->>'id', '') = '' then 'missing_id'
       when v->>'id' <> segs[5] then 'id_key_mismatch'
-      when v->>'tenant_id' is not null and v->>'tenant_id' <> segs[2] then 'tenant_key_mismatch'
+      when v->>'tenant_id' is not null
+        and phase4_backfill.canonical_tenant(v->>'tenant_id')
+          <> phase4_backfill.canonical_tenant(segs[2]) then 'tenant_key_mismatch'
       when v->>'household_id' is not null and v->>'household_id' <> segs[4] then 'household_key_mismatch'
       when not exists (select 1 from public.households h where h.id = segs[4]) then 'missing_household'
       when coalesce(v->>'name', '') = '' then 'missing_name'
@@ -421,7 +447,7 @@ insert into public.pets
    updated_at, legacy_kv_key)
 select
   segs[5],
-  segs[2],
+  phase4_backfill.canonical_tenant(segs[2]),
   segs[4],
   v->>'name',
   v->>'photo_url',
@@ -472,7 +498,9 @@ select key, raw_value, segs, v,
       when row_number() over (partition by segs[5] order by key) > 1 then 'duplicate_id'
       when coalesce(v->>'id', '') = '' then 'missing_id'
       when v->>'id' <> segs[5] then 'id_key_mismatch'
-      when v->>'tenant_id' is not null and v->>'tenant_id' <> segs[2] then 'tenant_key_mismatch'
+      when v->>'tenant_id' is not null
+        and phase4_backfill.canonical_tenant(v->>'tenant_id')
+          <> phase4_backfill.canonical_tenant(segs[2]) then 'tenant_key_mismatch'
       when v->>'household_id' is not null and v->>'household_id' <> segs[4] then 'household_key_mismatch'
       when not exists (select 1 from public.households h where h.id = segs[4]) then 'missing_household'
       when coalesce(v->>'pet_id', '') <> ''
@@ -498,7 +526,7 @@ insert into public.customer_documents
    uploaded_at, legacy_kv_key)
 select
   segs[5],
-  segs[2],
+  phase4_backfill.canonical_tenant(segs[2]),
   segs[4],
   nullif(v->>'pet_id', ''),
   coalesce(v->>'document_type', 'other'),
@@ -529,7 +557,9 @@ select key, raw_value, segs, v,
       when row_number() over (partition by segs[6] order by key) > 1 then 'duplicate_id'
       when coalesce(v->>'id', '') = '' then 'missing_id'
       when v->>'id' <> segs[6] then 'id_key_mismatch'
-      when v->>'tenant_id' is not null and v->>'tenant_id' <> segs[2] then 'tenant_key_mismatch'
+      when v->>'tenant_id' is not null
+        and phase4_backfill.canonical_tenant(v->>'tenant_id')
+          <> phase4_backfill.canonical_tenant(segs[2]) then 'tenant_key_mismatch'
       when v->>'household_id' is not null and v->>'household_id' <> segs[4] then 'household_key_mismatch'
       when not exists (select 1 from public.households h where h.id = segs[4]) then 'missing_household'
       when coalesce(v->>'content', '') = '' then 'missing_content'
@@ -558,7 +588,7 @@ insert into public.household_notes
    is_pinned, created_by, created_at, updated_at, deleted_at, legacy_kv_key)
 select
   segs[6],
-  segs[2],
+  phase4_backfill.canonical_tenant(segs[2]),
   segs[4],
   v->>'title',
   v->>'content',
@@ -586,7 +616,9 @@ select key, raw_value, segs, v,
       when row_number() over (partition by segs[6] order by key) > 1 then 'duplicate_id'
       when coalesce(v->>'id', '') = '' then 'missing_id'
       when v->>'id' <> segs[6] then 'id_key_mismatch'
-      when v->>'tenant_id' is not null and v->>'tenant_id' <> segs[2] then 'tenant_key_mismatch'
+      when v->>'tenant_id' is not null
+        and phase4_backfill.canonical_tenant(v->>'tenant_id')
+          <> phase4_backfill.canonical_tenant(segs[2]) then 'tenant_key_mismatch'
       when v->>'household_id' is not null and v->>'household_id' <> segs[4] then 'household_key_mismatch'
       when not exists (select 1 from public.households h where h.id = segs[4]) then 'missing_household'
       when coalesce(v->>'pet_id', '') <> ''
@@ -615,7 +647,7 @@ insert into public.household_flags
    reason, created_by, created_at, updated_at, legacy_kv_key)
 select
   segs[6],
-  segs[2],
+  phase4_backfill.canonical_tenant(segs[2]),
   segs[4],
   nullif(v->>'pet_id', ''),
   v->>'flag_key',
@@ -681,7 +713,9 @@ select key, raw_value, segs, nseg, v,
         then 'duplicate_id'
       when coalesce(v->>'id', '') = '' then 'missing_id'
       when v->>'id' <> (case when nseg = 5 then segs[5] else segs[4] end) then 'id_key_mismatch'
-      when v->>'tenant_id' is not null and v->>'tenant_id' <> segs[2] then 'tenant_key_mismatch'
+      when v->>'tenant_id' is not null
+        and phase4_backfill.canonical_tenant(v->>'tenant_id')
+          <> phase4_backfill.canonical_tenant(segs[2]) then 'tenant_key_mismatch'
       when coalesce(v->>'household_id', '') = '' then 'missing_household_id'
       when nseg = 5 and v->>'household_id' <> segs[4] then 'household_key_mismatch'
       when coalesce(v->>'activity_type', '') = '' then 'missing_activity_type'
@@ -703,7 +737,7 @@ insert into public.customer_activities
    occurred_at, created_by, created_by_name, legacy_kv_key)
 select
   act_id,
-  segs[2],
+  phase4_backfill.canonical_tenant(segs[2]),
   v->>'household_id',
   nullif(v->>'pet_id', ''),
   v->>'activity_type',
@@ -744,8 +778,12 @@ alter table public.households validate constraint households_primary_contact_fk;
 
 -- ---------------------------------------------------------------------------
 -- 12. Re-run convergence: a key quarantined on an earlier run that has since
---     migrated (KV data fixed) leaves quarantine, keeping the parity equation
---     exact: KV keys = migrated rows + quarantined keys, per family.
+--     migrated (KV data fixed, or — as with the 2026-07-11 tenant-alias
+--     decision — the rules corrected) leaves quarantine, keeping the parity
+--     equation exact: KV keys = migrated rows + quarantined keys, per family.
+--     This is what empties the *_orphaned tables of the alias-tenant rows on
+--     the canonicalisation re-run: their legacy_kv_key (original alias key)
+--     now has a migrated row, so the quarantine row is deleted here.
 -- ---------------------------------------------------------------------------
 
 delete from public.households_orphaned q
