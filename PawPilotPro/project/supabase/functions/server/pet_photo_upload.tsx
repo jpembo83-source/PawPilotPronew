@@ -2,6 +2,7 @@ import { Hono } from "npm:hono";
 import { createClient } from "npm:@supabase/supabase-js";
 import { requireAuth } from "./_shared/auth.ts";
 import { internalError } from "./_shared/log.ts";
+import { PET_PHOTOS_BUCKET, signPetPhotoUrl } from "./lib/pet_photos.ts";
 
 const app = new Hono();
 
@@ -55,28 +56,28 @@ app.post("/upload", async (c) => {
     
     // Upload to Supabase Storage using service role (bypasses RLS)
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("make-fc003b23-pet-photos")
+      .from(PET_PHOTOS_BUCKET)
       .upload(filePath, buffer, {
         contentType: file.type,
         cacheControl: "3600",
         upsert: true,
       });
-    
+
     if (uploadError) {
       console.error("[Pet Photo Upload] Upload error:", uploadError);
       return internalError(c, 'pet_photo.postUpload', uploadError);
     }
-    
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from("make-fc003b23-pet-photos")
-      .getPublicUrl(filePath);
-    
-    console.log(`[Pet Photo Upload] ✓ Uploaded photo for pet ${petId}: ${publicUrl}`);
-    
-    return c.json({ 
+
+    // The bucket is private: `url` is a short-lived signed URL for immediate
+    // preview. The client persists it via PUT /customers/pets/:id, where
+    // applyPetPhotoWrite() reduces it back to the storage path.
+    const url = await signPetPhotoUrl(filePath);
+
+    console.log(`[Pet Photo Upload] ✓ Uploaded photo for pet ${petId}: ${filePath}`);
+
+    return c.json({
       success: true,
-      url: publicUrl,
+      url,
       path: filePath
     });
     

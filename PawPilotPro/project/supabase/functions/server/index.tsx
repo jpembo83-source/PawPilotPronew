@@ -104,11 +104,12 @@ app.get("/make-server-fc003b23/health", (c) => {
     if (!bucketExists) {
       console.log('[Storage Init] Creating pet photos bucket...');
       const { error } = await supabase.storage.createBucket(bucketName, {
-        public: true,
+        // PRIVATE: pet photos are served exclusively via short-lived signed
+        // URLs (lib/pet_photos.ts). Reads and writes both go through the
+        // service-role server — no public access.
+        public: false,
         fileSizeLimit: 5242880, // 5MB
         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-        // Disable RLS to allow public uploads from authenticated users
-        // The bucket is public for reading, but we handle upload permissions via auth
       });
       
       if (error) {

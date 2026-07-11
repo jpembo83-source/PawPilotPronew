@@ -7,6 +7,7 @@ import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { listHouseholds, HouseholdRecord, ContactRecord, PetRecord } from './lib/household_list.ts';
+import { applyPetPhotoWrite, signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
 
 const app = new Hono();
 
@@ -186,11 +187,13 @@ app.get('/households/:id', async (c) => {
     const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`);
     const documents = await kv.getByPrefix(`customer:${tenantId}:document:${householdId}:`);
     
-    // KV store returns already-parsed objects, not JSON strings
+    // KV store returns already-parsed objects, not JSON strings.
+    // Pet photos live in a private bucket — photo_url is minted (signed)
+    // per response, the stored value is a storage path.
     return c.json({
       ...householdData,
       contacts: contacts,
-      pets: pets,
+      pets: await withSignedPetPhotos(pets as Record<string, unknown>[]),
       documents: documents,
     });
   } catch (error: any) {
@@ -597,9 +600,9 @@ app.get('/households/:household_id/pets', async (c) => {
     const householdId = c.req.param('household_id');
     
     const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`);
-    
-    // KV store returns already-parsed objects, not JSON strings
-    return c.json(pets);
+
+    // photo_url is signed at response time (private bucket).
+    return c.json(await withSignedPetPhotos(pets as Record<string, unknown>[]));
   } catch (error: any) {
     return internalError(c, 'customers.listPets', error);
   }
@@ -621,8 +624,9 @@ app.get('/pets/:id', async (c) => {
     if (!existingPet) {
       return c.json({ error: 'Pet not found' }, 404);
     }
-    
-    return c.json(existingPet);
+
+    const [wire] = await withSignedPetPhotos([existingPet as Record<string, unknown>]);
+    return c.json(wire);
   } catch (error: any) {
     return internalError(c, 'customers.getPet', error);
   }
@@ -642,12 +646,13 @@ app.post('/households/:household_id/pets', async (c) => {
       return c.json({ error: 'Pet name is required' }, 400);
     }
     
+    // applyPetPhotoWrite (below) normalises the photo onto photo_path —
+    // bucket references are stored as storage paths, never URLs.
     const pet = {
       id: generateId('pet'),
       tenant_id: tenantId,
       household_id: householdId,
       name: body.name,
-      photo_url: body.photo_url,
       breed: body.breed,
       sex: body.sex,
       date_of_birth: body.date_of_birth,
@@ -674,9 +679,10 @@ app.post('/households/:household_id/pets', async (c) => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    
+    applyPetPhotoWrite(pet, body.photo_path ?? body.photo_url);
+
     await kv.set(`customer:${tenantId}:pet:${householdId}:${pet.id}`, pet);
-    
+
     // Create activity event
     const activity = {
       id: generateId('act'),
@@ -689,8 +695,8 @@ app.post('/households/:household_id/pets', async (c) => {
       created_by: userId,
     };
     await kv.set(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity);
-    
-    return c.json(pet);
+
+    return c.json({ ...pet, photo_url: await signPetPhotoUrl(storedPetPhoto(pet)) });
   } catch (error: any) {
     return internalError(c, 'customers.createPet', error);
   }
@@ -727,7 +733,16 @@ app.put('/pets/:id', async (c) => {
       created_at: petData.created_at,
       updated_at: new Date().toISOString(),
     };
-    
+    // Photo writes persist as a storage path (photo_path), never a URL —
+    // clients echo back the signed URL the upload endpoint returned, and a
+    // photo_url of null/'' clears photo_path too (remove-photo flow).
+    if ('photo_path' in body || 'photo_url' in body || 'photoUrl' in body) {
+      const incoming = 'photo_path' in body
+        ? body.photo_path
+        : ('photo_url' in body ? body.photo_url : body.photoUrl);
+      applyPetPhotoWrite(updated, incoming);
+    }
+
     await kv.set(`customer:${tenantId}:pet:${householdId}:${petId}`, updated);
     
     // Create activity event for pet update
@@ -745,8 +760,8 @@ app.put('/pets/:id', async (c) => {
       created_at: new Date().toISOString(),
     };
     await kv.set(`customer:${tenantId}:activity:${activity.id}`, activity);
-    
-    return c.json(updated);
+
+    return c.json({ ...updated, photo_url: await signPetPhotoUrl(storedPetPhoto(updated)) });
   } catch (error: any) {
     return internalError(c, 'customers.updatePet', error);
   }

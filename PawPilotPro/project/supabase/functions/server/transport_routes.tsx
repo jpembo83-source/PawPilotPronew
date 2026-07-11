@@ -10,6 +10,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
+import { signPetPhotoUrl, storedPetPhoto } from './lib/pet_photos.ts';
 
 const app = new Hono();
 
@@ -446,7 +447,8 @@ app.get('/jobs', async (c) => {
         return {
           ...job,
           pet_name: pet?.name || 'Unknown',
-          pet_photo_url: pet?.photo_url || null,
+          // Private bucket — mint a signed URL from the stored path.
+          pet_photo_url: await signPetPhotoUrl(storedPetPhoto(pet)),
           household_name: household?.name || 'Unknown',
           contact_name: contact ? `${contact.first_name} ${contact.last_name}` : null,
           contact_phone: contact?.phone || null,
@@ -506,7 +508,8 @@ app.get('/jobs/:id', async (c) => {
     const enrichedJob = {
       ...job,
       pet_name: pet?.name || 'Unknown',
-      pet_photo_url: pet?.photo_url || null,
+      // Private bucket — mint a signed URL from the stored path.
+      pet_photo_url: await signPetPhotoUrl(storedPetPhoto(pet)),
       household_name: household?.name || 'Unknown',
       contact_name: contact ? `${contact.first_name} ${contact.last_name}` : null,
       contact_phone: contact?.phone || null,
