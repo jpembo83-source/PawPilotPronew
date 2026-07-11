@@ -10,6 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
+import {
+  HEADER_IMAGE_SCRIM,
+  HEADER_IMAGE_TEXT_SHADOW,
+  headerImageOpacity,
+  headerObjectPosition,
+} from '../headerImageStyle';
 
 /**
  * Previously rendered a Customise button + customise-mode header swap
@@ -74,30 +80,64 @@ export function DashboardHeader() {
     user?.user_metadata?.full_name?.split(' ')[0] ||
     '';
 
+  // Per-location header image — only for a specific location that has one.
+  // 'ALL' and image-less locations keep the plain header, byte for byte.
+  const headerImage =
+    selectedLocationId !== 'ALL' && selectedLocation?.headerImageUrl
+      ? {
+          url: selectedLocation.headerImageUrl,
+          opacity: headerImageOpacity(selectedLocation.headerImageStrength),
+          objectPosition: headerObjectPosition(selectedLocation.headerImageFocalPoint),
+        }
+      : null;
+  const textShadow = headerImage ? { textShadow: HEADER_IMAGE_TEXT_SHADOW } : undefined;
+  const frosted = headerImage ? 'bg-white/70 backdrop-blur-md' : '';
+
   return (
-    <div className="bg-white border-b border-[#E2DED8] px-6 md:px-8 py-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="relative overflow-hidden bg-white border-b border-[#E2DED8] px-6 md:px-8 py-5">
+      {headerImage && (
+        <>
+          <img
+            src={headerImage.url}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ opacity: headerImage.opacity, objectPosition: headerImage.objectPosition }}
+          />
+          {/* Always-on readability scrim — legibility never depends on the
+              photo (contrast math in headerImageStyle.ts). */}
+          <div className="absolute inset-0" style={{ background: HEADER_IMAGE_SCRIM }} aria-hidden="true" />
+        </>
+      )}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 
         {/* Left: greeting + meta */}
         <div className="space-y-0.5">
 
           {/* Date + location breadcrumb */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-tertiary-foreground uppercase tracking-wide">
+            <span
+              className="text-xs font-medium text-tertiary-foreground uppercase tracking-wide"
+              style={textShadow}
+            >
               {getFormattedDate()}
             </span>
             <span className="text-[#E2DED8] text-xs">·</span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full bg-primary-tint text-primary">
+            <span
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${
+                headerImage ? `${frosted} text-primary border border-white/60` : 'bg-primary-tint text-primary'
+              }`}
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
               {locationLabel}
             </span>
           </div>
 
-          <h1 className="text-2xl font-bold text-[#1C1916]">
+          <h1 className="text-2xl font-bold text-[#1C1916]" style={textShadow}>
             {getGreeting()}{firstName ? `, ${firstName} 👋` : ' 👋'}
           </h1>
 
-          <p className="text-sm text-[#6B6762]">
+          <p className="text-sm text-[#6B6762]" style={textShadow}>
             Here's what's happening today.
           </p>
         </div>
@@ -108,7 +148,7 @@ export function DashboardHeader() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="h-9 gap-2 text-sm font-medium border-[#E2DED8] text-[#44403C] hover:bg-[#F4F3EF]"
+                className={`h-9 gap-2 text-sm font-medium border-[#E2DED8] text-[#44403C] hover:bg-[#F4F3EF] ${frosted}`}
               >
                 <CalendarIcon className="h-4 w-4 text-primary" />
                 {getRangeLabel(dateRange)}
