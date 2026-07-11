@@ -10,6 +10,7 @@
 
 import { Context } from "npm:hono";
 import { createClient } from "npm:@supabase/supabase-js";
+import { logWarn } from "./log.ts";
 
 export type Role = 'admin' | 'manager' | 'assistant_manager' | 'staff';
 
@@ -155,4 +156,34 @@ export async function requireAuth(c: Context, next: () => Promise<void>) {
   }
   c.set('user', user);
   await next();
+}
+
+/**
+ * Hono middleware factory: only the given roles get past this point.
+ * Must be registered AFTER `requireAuth` — it reads the already-verified user
+ * from context (role sourced from app_metadata by validateUserToken). If no
+ * user is present the request is treated as unauthenticated (401), never
+ * fail-open. On a role miss the client gets a generic 403 + correlation ID;
+ * who was denied what is logged server-side only.
+ */
+export function requireRole(...allowed: Role[]) {
+  return async (c: Context, next: () => Promise<void>) => {
+    const user = c.get('user') as AuthenticatedUser | undefined;
+    if (!user) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    if (!allowed.includes(user.role)) {
+      const correlationId = crypto.randomUUID();
+      logWarn('rbac.role_denied', {
+        correlationId,
+        userId: user.id,
+        role: user.role,
+        allowed,
+        method: c.req.method,
+        path: c.req.path,
+      });
+      return c.json({ error: 'forbidden', correlationId }, 403);
+    }
+    await next();
+  };
 }
