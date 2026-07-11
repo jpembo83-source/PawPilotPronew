@@ -25,6 +25,10 @@ jobs:
           cache: npm
           cache-dependency-path: PawPilotPro/project/package-lock.json
       - run: npm ci --legacy-peer-deps
+      - name: Install shared contract package deps
+        # scripts/phase4/* import ../shared/schemas/*; without shared's
+        # node_modules (zod), type-aware lint/typecheck see error types.
+        run: npm ci --prefix ../shared
       - name: Lint (baseline-gated)
         run: npm run lint:check
       - name: Typecheck frontend (baseline-gated)
