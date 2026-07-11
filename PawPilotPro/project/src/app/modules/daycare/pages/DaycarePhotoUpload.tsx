@@ -14,6 +14,7 @@ import {
   Camera,
   Check,
   CircleNotch,
+  Images,
   UploadSimple,
   Warning,
   X,
@@ -42,7 +43,8 @@ export function DaycarePhotoUpload() {
   const { selectedLocationId } = useDashboardStore();
   const { locations, fetchLocations } = useSettingsStore();
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const libraryInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<QueuedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   // One dump = one batch: the server issues the id on the first file and the
@@ -105,7 +107,8 @@ export function DaycarePhotoUpload() {
       }
       return merged.slice(0, MAX_FILES);
     });
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (libraryInputRef.current) libraryInputRef.current.value = '';
   };
 
   const removeFile = (key: string) => {
@@ -226,22 +229,43 @@ export function DaycarePhotoUpload() {
         </div>
       )}
 
-      {/* Picker */}
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading || files.length >= MAX_FILES}
-        className="w-full h-32 rounded-2xl border-2 border-dashed border-[#D4CFC9] hover:border-primary hover:bg-primary-tint transition-colors flex flex-col items-center justify-center gap-1.5 text-[#6B6762] disabled:opacity-40"
-      >
-        <Camera size={28} weight="duotone" />
-        <span className="text-sm font-medium">
-          {files.length === 0 ? 'Tap to snap or pick photos' : 'Add more photos'}
-        </span>
-      </button>
+      {/* Picker — two paths on purpose: `capture` forces the camera on
+          phones (great for snapping in the yard, but it BYPASSES the photo
+          library), so a second capture-less input is required to let
+          operators upload photos already on the phone. */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={uploading || files.length >= MAX_FILES}
+          className="h-28 rounded-2xl border-2 border-dashed border-[#D4CFC9] hover:border-primary hover:bg-primary-tint transition-colors flex flex-col items-center justify-center gap-1.5 text-[#6B6762] disabled:opacity-40"
+        >
+          <Camera size={26} weight="duotone" />
+          <span className="text-sm font-medium">Take photos</span>
+        </button>
+        <button
+          onClick={() => libraryInputRef.current?.click()}
+          disabled={uploading || files.length >= MAX_FILES}
+          className="h-28 rounded-2xl border-2 border-dashed border-[#D4CFC9] hover:border-primary hover:bg-primary-tint transition-colors flex flex-col items-center justify-center gap-1.5 text-[#6B6762] disabled:opacity-40"
+        >
+          <Images size={26} weight="duotone" />
+          <span className="text-sm font-medium">
+            {files.length === 0 ? 'Upload from phone' : 'Add more'}
+          </span>
+        </button>
+      </div>
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        multiple
+        onChange={e => addFiles(e.target.files)}
+        className="hidden"
+      />
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
         multiple
         onChange={e => addFiles(e.target.files)}
         className="hidden"
