@@ -32,7 +32,7 @@ describe('requireRole — role gate on mutating routes', () => {
     const app = gatedApp(['admin', 'manager'], 'staff');
     const res = await app.request('/guarded', { method: 'POST' });
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as { error: string; correlationId: string };
     expect(body.error).toBe('forbidden');
     expect(body.correlationId).toMatch(/^[0-9a-f-]{36}$/);
     // Generic response only: neither the caller's role nor the required roles leak.
@@ -61,6 +61,6 @@ describe('requireRole — role gate on mutating routes', () => {
     const app = gatedApp(['admin', 'manager']);
     const res = await app.request('/guarded', { method: 'POST' });
     expect(res.status).toBe(401);
-    expect((await res.json()).error).toBe('unauthorized');
+    expect(((await res.json()) as { error: string }).error).toBe('unauthorized');
   });
 });

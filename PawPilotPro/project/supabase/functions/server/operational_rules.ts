@@ -1,6 +1,6 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
-import { requireAuth } from './_shared/auth.ts';
+import { requireAuth, requireRole } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 
 const app = new Hono();
@@ -178,7 +178,7 @@ app.get(`${PREFIX}/:ruleId`, async (c) => {
 });
 
 // POST /operational-rules - Create new rule
-app.post(`${PREFIX}`, async (c) => {
+app.post(`${PREFIX}`, requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
     const ruleId = generateId('rule');
@@ -242,7 +242,7 @@ app.post(`${PREFIX}`, async (c) => {
 });
 
 // PATCH /operational-rules/:ruleId - Update rule
-app.patch(`${PREFIX}/:ruleId`, async (c) => {
+app.patch(`${PREFIX}/:ruleId`, requireRole('admin', 'manager'), async (c) => {
   try {
     const { ruleId } = c.req.param();
     const updates = await c.req.json();
@@ -307,7 +307,7 @@ app.patch(`${PREFIX}/:ruleId`, async (c) => {
 });
 
 // DELETE /operational-rules/:ruleId - Delete rule
-app.delete(`${PREFIX}/:ruleId`, async (c) => {
+app.delete(`${PREFIX}/:ruleId`, requireRole('admin'), async (c) => {
   try {
     const { ruleId } = c.req.param();
     const { deletedBy, deletedByName, reason } = await c.req.json();
