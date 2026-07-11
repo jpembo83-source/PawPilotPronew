@@ -61,34 +61,53 @@ async function fetchServiceKey() {
   ok('service key', 'fetched at runtime via SUPABASE_ACCESS_TOKEN');
 }
 
+/** Management-API SQL runner (the GoTrue admin create endpoint 500s on this
+ *  project, so the user is provisioned the same way the operator does it). */
+async function mgmtSql(query) {
+  const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${MGMT_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+  if (!res.ok) throw new Error(`management sql failed: ${res.status}`);
+  return res.json();
+}
+
 /** Random throwaway staff user for this run only; deleted in cleanup. */
 async function createExerciseUser() {
-  const res = await fetch(`${URL_BASE}/auth/v1/admin/users`, {
-    method: 'POST',
-    headers: {
-      apikey: SERVICE_KEY,
-      Authorization: `Bearer ${SERVICE_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      email: EMAIL,
-      password: PASSWORD,
-      email_confirm: true,
-      app_metadata: { role: 'admin', tenant_id: 'demo-tenant-001' },
-    }),
-  });
-  if (!res.ok) throw new Error(`admin create user failed: ${res.status} ${await res.text()}`);
-  EXERCISE_USER_ID = (await res.json()).id;
+  EXERCISE_USER_ID = randomUUID();
+  // EMAIL/PASSWORD are per-run randoms — interpolation is safe by construction.
+  await mgmtSql(`
+    insert into auth.users
+      (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+       raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+       confirmation_token, recovery_token, email_change_token_new, email_change)
+    values
+      ('00000000-0000-0000-0000-000000000000', '${EXERCISE_USER_ID}', 'authenticated', 'authenticated',
+       '${EMAIL}', extensions.crypt('${PASSWORD}', extensions.gen_salt('bf')), now(),
+       '{"provider":"email","providers":["email"],"role":"admin","tenant_id":"demo-tenant-001"}'::jsonb,
+       '{}'::jsonb, now(), now(), '', '', '', '');
+    insert into auth.identities
+      (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+    values
+      (gen_random_uuid(), '${EXERCISE_USER_ID}', '${EXERCISE_USER_ID}',
+       jsonb_build_object('sub', '${EXERCISE_USER_ID}', 'email', '${EMAIL}', 'email_verified', true),
+       'email', now(), now(), now());
+  `);
   ok('exercise user', 'random throwaway staff user created');
 }
 
 async function deleteExerciseUser() {
-  if (!EXERCISE_USER_ID || !SERVICE_KEY) return;
-  const res = await fetch(`${URL_BASE}/auth/v1/admin/users/${EXERCISE_USER_ID}`, {
-    method: 'DELETE',
-    headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
-  });
-  console.log(res.ok ? 'OK   exercise user deleted' : `WARN exercise user delete → ${res.status}`);
+  if (!EXERCISE_USER_ID) return;
+  try {
+    await mgmtSql(`
+      delete from auth.identities where user_id = '${EXERCISE_USER_ID}';
+      delete from auth.users where id = '${EXERCISE_USER_ID}';
+    `);
+    console.log('OK   exercise user deleted');
+  } catch (err) {
+    console.log(`WARN exercise user delete failed: ${err instanceof Error ? err.message : err}`);
+  }
 }
 
 async function signIn() {
