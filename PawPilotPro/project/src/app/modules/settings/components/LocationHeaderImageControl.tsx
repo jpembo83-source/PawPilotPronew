@@ -105,9 +105,13 @@ export function LocationHeaderImageControl({ locationId, formData, setFormData }
       body.append('strength', String(strength));
       body.append('focalX', '0.5');
       body.append('focalY', '0.5');
+      // Multipart: strip the JSON Content-Type the shared util adds — the
+      // browser sets the boundary itself (same pattern as ShareMomentModal).
+      const auth: Record<string, string> = { ...(await getAuthHeaders()) };
+      delete auth['Content-Type'];
       const res = await fetch(`${API_URL}/locations/${locationId}/header-image`, {
         method: 'POST',
-        headers: await getAuthHeaders(),
+        headers: auth,
         body,
       });
       if (!res.ok) {
