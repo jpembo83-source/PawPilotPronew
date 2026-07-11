@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 3864,
+  "errors": 3863,
   "warnings": 414
  },
  "files": {
@@ -469,7 +469,7 @@
    "warnings": 0
   },
   "src/app/modules/daycare/pages/DaycareDashboard.tsx": {
-   "errors": 37,
+   "errors": 36,
    "warnings": 0
   },
   "src/app/modules/daycare/store.ts": {
