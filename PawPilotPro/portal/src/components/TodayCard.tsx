@@ -1,4 +1,5 @@
-import { Camera, LogIn, LogOut, MessageCircle } from "lucide-react";
+import { Camera, ChevronRight, LogIn, LogOut, MessageCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { Skeleton } from "@/components/Skeleton";
 
@@ -104,6 +105,13 @@ export function TodayCard({ petId, petName }: { petId: string; petName: string }
             </li>
           ))}
         </ul>
+        <Link
+          to={`/gallery?pet=${petId}`}
+          className="press mt-3.5 inline-flex items-center gap-1 text-[13px] font-semibold text-primary"
+        >
+          See all photos
+          <ChevronRight size={14} strokeWidth={2.4} aria-hidden="true" />
+        </Link>
       </div>
     </section>
   );

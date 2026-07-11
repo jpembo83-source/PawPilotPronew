@@ -28,6 +28,11 @@ history. So these files alone do not reproduce prod exactly.
 | `20260625085232_harden_function_search_path.sql` | Exact SQL of the live prod migration. **Prod parity.** |
 | `20260625120000_active_schema_baseline.sql` | The active app schema staging was provisioned from: `kv_store` + `app` helpers + customer tables + RLS. Idempotent; no-op on prod. |
 
+## Pending (files here, NOT yet applied to prod or staging)
+| File | Purpose |
+|---|---|
+| `20260711120000_phase4_pet_updates_stage0.sql` | Phase 4 stage 0 for the `pet_updates` family (photo moderation queue + client gallery). **Must be applied (staging → prod) before deploying the edge function that ships with it** — `POST /pet-updates/moment` writes to this table. Depends on the `app.*` helpers from the customers stage-0 migration. |
+
 ## Staging
 **MDC-staging** (`ihdbnwlmqhsrslstbbqn`) was provisioned from
 `20260625120000_active_schema_baseline.sql` only — the schema the daycare

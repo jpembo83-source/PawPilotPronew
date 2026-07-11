@@ -36,6 +36,7 @@ function renderNotification(n: PortalNotification): Renderer {
     batteryPct?: number;
     note?: string | null;
     hasPhoto?: boolean;
+    photoCount?: number;
     reason?: string;
   };
   const pet = p.petName ?? "Your pet";
@@ -72,12 +73,22 @@ function renderNotification(n: PortalNotification): Renderer {
       };
 
     /* ----- Day-feed moments ---------------------------------------- */
-    case "moment.shared":
+    case "moment.shared": {
+      // Approvals arrive batched: one notification per pet, photoCount deep.
+      const count = p.photoCount ?? (p.hasPhoto ? 1 : 0);
       return {
         Icon: Camera, accent: "primary",
-        title: `A moment from ${pet}'s day`,
-        body: p.note || (p.hasPhoto ? "The team shared a new photo." : undefined),
+        title: count > 1
+          ? `${count} new photos of ${pet} 🐾`
+          : `A moment from ${pet}'s day`,
+        body: p.note ||
+          (count > 1
+            ? "Fresh from the yard — see them in the gallery."
+            : count === 1
+              ? "The team shared a new photo."
+              : undefined),
       };
+    }
 
     /* ----- Tracker / collar events -------------------------------- */
     case "tracker.zone_left":

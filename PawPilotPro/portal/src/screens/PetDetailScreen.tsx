@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ChevronLeft, Plus, Pencil, Phone, MapPin, Heart, AlertCircle, Bluetooth, Activity, Stethoscope, Waves, Navigation, Clock, BatteryFull, BatteryMedium, BatteryLow, BatteryCharging } from "lucide-react";
+import { ChevronLeft, Plus, Pencil, Phone, MapPin, Heart, AlertCircle, Bluetooth, Activity, Stethoscope, Waves, Navigation, Clock, BatteryFull, BatteryMedium, BatteryLow, BatteryCharging, Images } from "lucide-react";
 import { usePortalQuery } from "@/hooks/usePortalQuery";
 import { Skeleton } from "@/components/Skeleton";
 import { Sparkline } from "@/components/Sparkline";
@@ -193,13 +193,20 @@ export function PetDetailScreen() {
       </Link>
 
       {/* Secondary actions */}
-      <div className="grid grid-cols-4 gap-2 mb-6">
+      <div className="grid grid-cols-5 gap-2 mb-6">
         <Link
           to={`/pets/${id}/timeline`}
           className="press inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-card border border-border text-[11px] font-medium hover:border-primary/40"
         >
           <Activity size={14} strokeWidth={2.2} />
           Timeline
+        </Link>
+        <Link
+          to={`/gallery?pet=${id}`}
+          className="press inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-card border border-border text-[11px] font-medium hover:border-primary/40"
+        >
+          <Images size={14} strokeWidth={2.2} />
+          Photos
         </Link>
         <Link
           to={`/pets/${id}/tracker`}
