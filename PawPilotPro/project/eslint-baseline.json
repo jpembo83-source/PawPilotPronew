@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3916,
-  "warnings": 416
+  "errors": 3906,
+  "warnings": 415
  },
  "files": {
   "eslint.config.js": {
@@ -289,8 +289,8 @@
    "warnings": 0
   },
   "src/app/modules/customers/components/household-detail/NotesTab.tsx": {
-   "errors": 21,
-   "warnings": 1
+   "errors": 11,
+   "warnings": 0
   },
   "src/app/modules/customers/components/household-detail/OverviewTab.tsx": {
    "errors": 10,

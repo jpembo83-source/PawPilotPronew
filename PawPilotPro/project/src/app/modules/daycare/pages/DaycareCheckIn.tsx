@@ -24,6 +24,7 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useConnectivity } from '../../../hooks/useConnectivity';
+import { useRealtimeSync } from '../../../hooks/useRealtimeSync';
 import {
   sectionOf,
   blockedReasons,
@@ -277,6 +278,13 @@ export function DaycareCheckIn() {
   const todayFormatted = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
   useEffect(() => { load(); }, [selectedLocationId]);
+
+  // Flags gate check-in, so when another station creates or clears one this
+  // list refreshes quietly. The tap-time validate call and the check-in POST
+  // both re-read flags server-side, so this is list freshness, not the gate.
+  useRealtimeSync('customers', (event) => {
+    if (event.entity === 'flag') void load();
+  });
 
   const load = async () => {
     try {

@@ -57,6 +57,7 @@ import { PetCareProfileTab } from '../components/pet-profile/PetCareProfileTab';
 import { PetTimelineTab } from '../components/pet-profile/PetTimelineTab';
 import { VaccinationManager } from '../components/pet-profile/VaccinationManager';
 import { EditPetModal } from '../components/modals/EditPetModal';
+import { FlagEditorModal } from '../components/FlagEditorModal';
 
 import { useBackNavigation } from '../../../components/BackButton';
 export function PetProfilePage() {
@@ -72,6 +73,7 @@ export function PetProfilePage() {
   );
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
   const { confirm, confirmDialog } = useConfirmDialog();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -423,7 +425,15 @@ export function PetProfilePage() {
           </div>
         </div>
         
-        <Button variant="outline" onClick={() => setShowEditModal(true)}>Edit Pet</Button>
+        <div className="flex gap-2">
+          {/* Front-desk fast path: reactive behaviour at drop-off → flag →
+              live check-in warning, without leaving the pet profile. */}
+          <Button variant="outline" onClick={() => setShowFlagModal(true)}>
+            <FlagIcon className="h-4 w-4 mr-2" />
+            Add Flag
+          </Button>
+          <Button variant="outline" onClick={() => setShowEditModal(true)}>Edit Pet</Button>
+        </div>
       </div>
       
       {/* Alert Banner */}
@@ -457,12 +467,22 @@ export function PetProfilePage() {
                     </p>
                   ))}
                 </div>
-                <button
-                  onClick={() => setActiveTab('care')}
-                  className="mt-3 text-sm font-medium text-red-900 underline underline-offset-2 hover:text-red-700 transition-colors"
-                >
-                  See Care Profile for full details
-                </button>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                  <button
+                    onClick={() => setActiveTab('care')}
+                    className="text-sm font-medium text-red-900 underline underline-offset-2 hover:text-red-700 transition-colors"
+                  >
+                    See Care Profile for full details
+                  </button>
+                  {petFlags.length > 0 && (
+                    <Link
+                      to={`/customers/${pet.household_id}?tab=notes`}
+                      className="text-sm font-medium text-red-900 underline underline-offset-2 hover:text-red-700 transition-colors"
+                    >
+                      Manage flags (edit / clear)
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -603,6 +623,16 @@ export function PetProfilePage() {
         pet={pet}
         onPetUpdated={() => fetchPetProfile(pet.id)}
       />
+      {/* Add Flag Modal — fixed to this pet; the store append updates the
+          alert banner and Active Flags count without a refetch */}
+      {showFlagModal && (
+        <FlagEditorModal
+          open={showFlagModal}
+          onClose={() => setShowFlagModal(false)}
+          householdId={pet.household_id}
+          fixedPet={pet}
+        />
+      )}
       {confirmDialog}
     </div>
   );

@@ -7,6 +7,7 @@ import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
+import { flagCheckInIssues } from './lib/flag_gate.ts';
 
 const app = new Hono();
 
@@ -294,7 +295,19 @@ app.post('/appointments/:id/check-in', async (c) => {
     if (!existing) {
       return c.json({ error: 'Appointment not found' }, 404);
     }
-    
+
+    // Block-severity operational flags prevent check-in server-side; the
+    // validate-checkin call is advisory only. Same enforcement as daycare's
+    // check-in route, scoped to the flag gate so existing vaccination
+    // semantics on this route are unchanged.
+    const flagRecords = await kv.getByPrefix(
+      `customer:${tenantId}:household:${existing.household_id}:flag:`,
+    );
+    const { blockers } = flagCheckInIssues(flagRecords, existing.pet_id);
+    if (blockers.length > 0) {
+      return c.json({ error: 'Check-in blocked', blockers }, 400);
+    }
+
     const updated = {
       ...existing,
       status: 'checked_in',
@@ -503,7 +516,17 @@ app.get('/appointments/:id/validate-checkin', async (c) => {
         message: 'Severe matting detected - additional time/charges may apply',
       });
     }
-    
+
+    // Operational flags — LIVE read (same fix as daycare's validateCheckIn):
+    // warn flags must be acknowledged, block flags prevent check-in until
+    // cleared, regardless of when the appointment was created.
+    const flagRecords = await kv.getByPrefix(
+      `customer:${tenantId}:household:${appointment.household_id}:flag:`,
+    );
+    const flagIssues = flagCheckInIssues(flagRecords, appointment.pet_id);
+    blockers.push(...flagIssues.blockers);
+    warnings.push(...flagIssues.warnings);
+
     return c.json({
       can_check_in: blockers.length === 0,
       blockers,

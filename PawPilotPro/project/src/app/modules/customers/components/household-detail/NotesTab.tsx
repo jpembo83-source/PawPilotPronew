@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Household, HouseholdContact, Pet, PetDocument, HouseholdNote, HouseholdFlag, NoteCategory, FlagKey, FlagSeverity } from '../../types';
+import { Household, HouseholdContact, Pet, PetDocument, HouseholdNote, HouseholdFlag, NoteCategory } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, FileText, PushPin, Warning, Flag, ShieldWarning, Star, Truck, Scissors, House, PencilSimple, Trash, X } from '@phosphor-icons/react';
+import { Plus, FileText, PushPin, Warning, Flag, PencilSimple, Trash, X } from '@phosphor-icons/react';
 import { useAuth } from '../../../../context/AuthContext';
 import { useCustomerStore } from '../../store';
+import { FlagEditorModal } from '../FlagEditorModal';
+import { getFlagIcon, getFlagLabel, getSeverityColor } from '../../flagMeta';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { Label } from '../../../../components/ui/label';
 import { Textarea } from '../../../../components/ui/textarea';
@@ -26,7 +28,7 @@ interface NotesTabProps {
 
 export function NotesTab({ household }: NotesTabProps) {
   const { user } = useAuth();
-  const { notes, flags, fetchNotes, fetchFlags, createNote, deleteNote, updateNote, createFlag, updateFlag, deleteFlag } = useCustomerStore();
+  const { notes, flags, fetchNotes, fetchFlags } = useCustomerStore();
   
   const [showAddNote, setShowAddNote] = useState(false);
   const [showAddFlag, setShowAddFlag] = useState(false);
@@ -126,11 +128,14 @@ export function NotesTab({ household }: NotesTabProps) {
       />
       
       {/* Add Flag Modal */}
-      <AddFlagModal
-        open={showAddFlag}
-        onClose={() => setShowAddFlag(false)}
-        household={household}
-      />
+      {showAddFlag && (
+        <FlagEditorModal
+          open={showAddFlag}
+          onClose={() => setShowAddFlag(false)}
+          householdId={household.id}
+          pets={household.pets ?? []}
+        />
+      )}
     </div>
   );
 }
@@ -259,12 +264,22 @@ function NoteCard({ note, household }: { note: HouseholdNote; household: Househo
 function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Household & { pets?: Pet[] } }) {
   const { deleteFlag, updateFlag } = useCustomerStore();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const { confirm, confirmDialog } = useConfirmDialog();
+
+  // Flags gate check-in, so both ways of clearing one (deactivate, delete)
+  // go through the styled confirm and spell out the consequence.
+  const gateNote =
+    flag.severity === 'block'
+      ? 'This flag currently blocks check-in — clearing it lets check-ins proceed.'
+      : flag.severity === 'warn'
+      ? 'This flag currently shows a warning at check-in.'
+      : '';
 
   const handleDelete = async () => {
     const confirmed = await confirm({
       title: 'Remove this flag?',
-      description: 'This flag will be permanently removed.',
+      description: `This flag will be permanently removed. ${gateNote}`.trim(),
       confirmLabel: 'Remove',
       destructive: true,
     });
@@ -282,6 +297,15 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
   };
 
   const handleToggleActive = async () => {
+    if (flag.is_active) {
+      const confirmed = await confirm({
+        title: 'Deactivate this flag?',
+        description: `The flag stays on record but stops applying. ${gateNote}`.trim(),
+        confirmLabel: 'Deactivate',
+        destructive: true,
+      });
+      if (!confirmed) return;
+    }
     try {
       await updateFlag(flag.id, { is_active: !flag.is_active });
     } catch (error) {
@@ -289,36 +313,10 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
       toast.error('Failed to update flag — please try again');
     }
   };
-  
+
   const linkedPet = household.pets?.find(p => p.id === flag.pet_id);
-  
-  const getFlagIcon = (key: FlagKey) => {
-    switch (key) {
-      case 'vip': return Star;
-      case 'behaviour_caution': return Warning;
-      case 'medical_caution': return ShieldWarning;
-      case 'payment_hold': return Warning;
-      case 'transport_instructions': return Truck;
-      case 'grooming_restrictions': return Scissors;
-      case 'overnight_restrictions': return House;
-      default: return Flag;
-    }
-  };
-  
-  const getFlagLabel = (key: FlagKey) => {
-    return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  };
-  
-  const getSeverityColor = (severity: FlagSeverity) => {
-    switch (severity) {
-      case 'info': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'warn': return 'bg-amber-100 text-amber-800 border-amber-300';
-      case 'block': return 'bg-red-100 text-red-800 border-red-300';
-    }
-  };
-  
   const Icon = getFlagIcon(flag.flag_key);
-  
+
   return (
     <div className={`p-3 border rounded-lg flex items-start justify-between ${getSeverityColor(flag.severity)} ${!flag.is_active ? 'opacity-50' : ''}`}>
       <div className="flex items-start gap-3 flex-1">
@@ -347,6 +345,14 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
         <Button
           variant="ghost"
           size="sm"
+          onClick={() => setShowEdit(true)}
+          title="Edit severity or reason"
+        >
+          <PencilSimple className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleToggleActive}
           title={flag.is_active ? 'Deactivate' : 'Activate'}
         >
@@ -361,6 +367,14 @@ function FlagCard({ flag, household }: { flag: HouseholdFlag; household: Househo
           <Trash className="h-4 w-4" />
         </Button>
       </div>
+      {showEdit && (
+        <FlagEditorModal
+          open={showEdit}
+          onClose={() => setShowEdit(false)}
+          householdId={flag.household_id}
+          flag={flag}
+        />
+      )}
       {confirmDialog}
     </div>
   );
@@ -659,173 +673,5 @@ function EditNoteModal({ open, onClose, note, household }: { open: boolean; onCl
   );
 }
 
-// Add Flag Modal
-function AddFlagModal({ open, onClose, household }: { open: boolean; onClose: () => void; household: Household & { pets?: Pet[] } }) {
-  const { createFlag } = useCustomerStore();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const initialFlagFormData = {
-    flag_key: 'behaviour_caution' as FlagKey,
-    severity: 'warn' as FlagSeverity,
-    is_active: true,
-    reason: '',
-    pet_id: null as string | null,
-  };
-  const [formData, setFormData] = useState(initialFlagFormData);
-
-  // Every dismissal path (Cancel button, overlay click, Escape) funnels
-  // through requestClose, so a dirty form is always guarded.
-  const { requestClose, guardDialog } = useUnsavedChangesGuard({
-    isDirty: () => formIsDirty(formData, initialFlagFormData),
-    onClose: () => {
-      setFormData(initialFlagFormData);
-      onClose();
-    },
-    description: "This flag hasn't been created yet. Closing now will lose what you've entered.",
-  });
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    setIsSubmitting(true);
-    try {
-      const data: any = {
-        flag_key: formData.flag_key,
-        severity: formData.severity,
-        is_active: formData.is_active,
-      };
-      
-      if (formData.reason.trim()) {
-        data.reason = formData.reason;
-      }
-      
-      // Only include pet_id if it's a valid pet UUID (not null)
-      if (formData.pet_id) {
-        // Verify the pet exists in the household before sending
-        const petExists = household.pets?.some(p => p.id === formData.pet_id);
-
-        if (petExists) {
-          data.pet_id = formData.pet_id;
-        } else {
-          console.error('Pet ID not found in household pets list');
-          toast.error('Selected pet not found in household');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-      
-      await createFlag(household.id, data);
-      toast.success('Flag created successfully');
-      onClose();
-      // Reset form
-      setFormData({
-        flag_key: 'behaviour_caution',
-        severity: 'warn',
-        is_active: true,
-        reason: '',
-        pet_id: null,
-      });
-    } catch (error) {
-      console.error('Failed to create flag:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create flag');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) void requestClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Operational Flag</DialogTitle>
-          <DialogDescription>
-            Create a flag to mark important operational information
-          </DialogDescription>
-        </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="flag_key">Flag Type *</Label>
-            <Select
-              value={formData.flag_key}
-              onValueChange={(value) => setFormData({ ...formData, flag_key: value as FlagKey })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="vip">VIP</SelectItem>
-                <SelectItem value="behaviour_caution">Behaviour Caution</SelectItem>
-                <SelectItem value="medical_caution">Medical Caution</SelectItem>
-                <SelectItem value="payment_hold">Payment Hold</SelectItem>
-                <SelectItem value="transport_instructions">Transport Instructions</SelectItem>
-                <SelectItem value="grooming_restrictions">Grooming Restrictions</SelectItem>
-                <SelectItem value="overnight_restrictions">Overnight Restrictions</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div>
-            <Label htmlFor="severity">Severity *</Label>
-            <Select
-              value={formData.severity}
-              onValueChange={(value) => setFormData({ ...formData, severity: value as FlagSeverity })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="info">Info - For reference only</SelectItem>
-                <SelectItem value="warn">Warn - Requires attention</SelectItem>
-                <SelectItem value="block">Block - Prevents action</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {household.pets && household.pets.length > 0 && (
-            <div>
-              <Label htmlFor="pet_id">Link to Pet (optional)</Label>
-              <div className="text-xs text-muted-foreground mb-2">
-                Select a pet or leave as household-wide
-              </div>
-              <Select
-                value={formData.pet_id || 'household-wide'}
-                onValueChange={(value) => setFormData({ ...formData, pet_id: value === 'household-wide' ? null : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="household-wide">Household-wide (all pets)</SelectItem>
-                  {household.pets.map(pet => (
-                    <SelectItem key={pet.id} value={pet.id}>{pet.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          
-          <div>
-            <Label htmlFor="reason">Reason / Details</Label>
-            <Textarea
-              id="reason"
-              value={formData.reason}
-              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-              placeholder="Enter details about this flag..."
-              rows={3}
-            />
-          </div>
-          
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => void requestClose()}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating...' : 'Create Flag'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-      {guardDialog}
-    </Dialog>
-  );
-}
+// Flag create/edit lives in the shared FlagEditorModal (also used by the
+// pet profile header) — see components/FlagEditorModal.tsx.
