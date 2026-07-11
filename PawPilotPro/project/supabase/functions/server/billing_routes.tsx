@@ -3,7 +3,7 @@
 
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
-import { requireAuth } from './_shared/auth.ts';
+import { requireAuth, requireRole } from './_shared/auth.ts';
 
 const app = new Hono();
 
@@ -336,7 +336,7 @@ app.get('/invoices/:id', async (c) => {
   }
 });
 
-app.post('/invoices', async (c) => {
+app.post('/invoices', requireRole('admin', 'manager'), async (c) => {
   try {
     const data = await c.req.json();
     const { household_id, household_name, location_id, location_name, line_items, created_by } = data;
@@ -415,7 +415,7 @@ app.post('/invoices', async (c) => {
   }
 });
 
-app.patch('/invoices/:id/issue', async (c) => {
+app.patch('/invoices/:id/issue', requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -450,7 +450,7 @@ app.patch('/invoices/:id/issue', async (c) => {
   }
 });
 
-app.patch('/invoices/:id/void', async (c) => {
+app.patch('/invoices/:id/void', requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -537,7 +537,7 @@ app.get('/payments/:id', async (c) => {
   }
 });
 
-app.post('/payments', async (c) => {
+app.post('/payments', requireRole('admin', 'manager'), async (c) => {
   try {
     const data = await c.req.json();
     const { household_id, household_name, location_id, amount, method, provider_reference, notes, created_by } = data;
@@ -570,7 +570,7 @@ app.post('/payments', async (c) => {
   }
 });
 
-app.post('/payments/:id/allocate', async (c) => {
+app.post('/payments/:id/allocate', requireRole('admin', 'manager'), async (c) => {
   try {
     const paymentId = c.req.param('id');
     const data = await c.req.json();
@@ -669,7 +669,7 @@ app.get('/subscriptions', async (c) => {
   }
 });
 
-app.post('/subscriptions', async (c) => {
+app.post('/subscriptions', requireRole('admin', 'manager'), async (c) => {
   try {
     const data = await c.req.json();
     const { household_id, household_name, plan_id, plan_name, plan_version, pet_ids, monthly_price, billing_method, created_by } = data;
@@ -707,7 +707,7 @@ app.post('/subscriptions', async (c) => {
   }
 });
 
-app.patch('/subscriptions/:id/pause', async (c) => {
+app.patch('/subscriptions/:id/pause', requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -736,7 +736,7 @@ app.patch('/subscriptions/:id/pause', async (c) => {
   }
 });
 
-app.patch('/subscriptions/:id/cancel', async (c) => {
+app.patch('/subscriptions/:id/cancel', requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param('id');
     const data = await c.req.json();
@@ -792,7 +792,7 @@ app.get('/credits', async (c) => {
   }
 });
 
-app.post('/credits', async (c) => {
+app.post('/credits', requireRole('admin', 'manager'), async (c) => {
   try {
     const data = await c.req.json();
     const { household_id, household_name, amount, reason, source, expires_days, created_by } = data;
@@ -845,7 +845,7 @@ app.get('/refunds', async (c) => {
   }
 });
 
-app.post('/refunds', async (c) => {
+app.post('/refunds', requireRole('admin', 'manager'), async (c) => {
   try {
     const data = await c.req.json();
     const { payment_id, invoice_id, household_id, household_name, amount, method, provider_reference, reason, approved_by, created_by } = data;
@@ -911,7 +911,7 @@ app.get('/fees', async (c) => {
   }
 });
 
-app.post('/fees', async (c) => {
+app.post('/fees', requireRole('admin', 'manager'), async (c) => {
   try {
     const data = await c.req.json();
     const { household_id, household_name, location_id, fee_type, amount, reason, booking_reference, created_by } = data;
@@ -951,7 +951,7 @@ app.post('/fees', async (c) => {
 // EXPORTS & RECONCILIATION
 // ============================================================================
 
-app.post('/exports', async (c) => {
+app.post('/exports', requireRole('admin', 'manager'), async (c) => {
   try {
     const data = await c.req.json();
     const { export_type, scope, format, filters, created_by } = data;
@@ -1010,7 +1010,7 @@ app.get('/reconciliation/unallocated-payments', async (c) => {
 // SEED DATA (FOR TESTING)
 // ============================================================================
 
-app.post('/seed', async (c) => {
+app.post('/seed', requireRole('admin', 'manager'), async (c) => {
   try {
     console.log('Seeding billing data...');
 
