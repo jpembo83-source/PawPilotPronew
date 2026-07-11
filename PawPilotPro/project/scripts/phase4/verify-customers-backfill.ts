@@ -1,10 +1,24 @@
 /**
- * Phase 4 / Customers — STAGE 1 parity verification.
+ * Phase 4 / Customers — STAGE 1 parity verification + STAGE 2 drift check.
  *
- * Proves the KV → Postgres backfill (20260702093000_phase4_customers_backfill.sql)
- * moved every `customer:*` key somewhere accountable, and that what it moved is
- * faithful to the source and valid against the frozen record contract
+ * Stage 1: proves the KV → Postgres backfill (20260702093000_…) moved every
+ * `customer:*` key somewhere accountable, and that what it moved is faithful
+ * to the source and valid against the frozen record contract
  * (shared/schemas/customers.ts).
+ *
+ * Stage 2 (dual-write window): the SAME checks are the drift check — run
+ * nightly. Dual-written rows stamp legacy_kv_key, so the reconcile equation
+ * (KV keys = rows + quarantined) and the row↔blob fidelity diff keep holding;
+ * any KV write whose Postgres mirror failed shows up as a reconcile or
+ * fidelity failure. Target: zero drift. Two stage-2 realities are classified,
+ * reported, and kept OUT of the failure count:
+ *   * STALE QUARANTINE — a key quarantined by the stage-1 backfill that has
+ *     since been deleted from KV (or superseded by a valid dual-written row).
+ *     The quarantine row is an audit artifact, not drift.
+ *   * KV-ORPHANED LINKS — note_pets keys whose note or pet no longer exists
+ *     in KV. The staff cascade delete has never removed link keys (KV leak,
+ *     pre-dates Phase 4) while Postgres FKs cascade them away; such links
+ *     have no Postgres counterpart by design. Reported per run.
  *
  * Checks, per entity family:
  *   1. RECONCILE   — KV key count === migrated rows (legacy_kv_key != null)
@@ -386,6 +400,10 @@ interface FamilyReport {
   contractFailures: number;
   fidelityMismatches: number;
   checksumMatches: number;
+  /** Quarantine rows whose key left KV or now has a migrated row (audit artifacts, not drift). */
+  staleQuarantine: number;
+  /** note_pets only: KV link keys whose note/pet no longer exists in KV (pre-Phase-4 KV leak). */
+  kvOrphanLinks: number;
 }
 
 async function main(): Promise<void> {
@@ -405,17 +423,32 @@ async function main(): Promise<void> {
 
   const classified = new Map<string, KvPair[]>();
   let unclassified = 0;
+  const unclassifiedKeys = new Set<string>();
   for (const pair of kv) {
     const segs = pair.key.split(":");
     const spec = FAMILIES.find((f) => f.match(segs));
     if (!spec) {
       unclassified += 1;
+      unclassifiedKeys.add(pair.key);
       continue;
     }
     const list = classified.get(spec.family) ?? [];
     list.push(pair);
     classified.set(spec.family, list);
   }
+
+  // Stage-2 drift classification inputs: which keys/ids still exist in KV.
+  const kvKeySet = new Set(kv.map((p) => p.key));
+  const kvNoteIds = new Set(
+    (classified.get("note") ?? []).map((p) => p.key.split(":")[5]),
+  );
+  const kvPetIds = new Set(
+    (classified.get("pet") ?? []).map((p) => p.key.split(":")[4]),
+  );
+  const isLiveLinkKey = (key: string): boolean => {
+    const s = key.split(":");
+    return kvNoteIds.has(s[3]) && kvPetIds.has(s[5]);
+  };
 
   for (const spec of FAMILIES) {
     const kvPairs = classified.get(spec.family) ?? [];
@@ -426,6 +459,31 @@ async function main(): Promise<void> {
         ? rows // link table has no legacy_kv_key; stage 1 rows are all backfill
         : rows.filter((r) => r.legacy_kv_key != null);
 
+    // Keys of rows already mirrored/migrated (per family, for staleness).
+    const migratedKeys = new Set(
+      spec.family === "note_pet"
+        ? migratedRows.map(
+            (r) =>
+              `customer:${CANONICAL_TENANT}:note:${String(r.note_id)}:pet:${String(r.pet_id)}`,
+          )
+        : migratedRows.map((r) => String(r.legacy_kv_key)),
+    );
+
+    // Stage-2 drift classification (see header): the reconcile equation runs
+    // over live KV keys vs live quarantine rows; audit artifacts are counted
+    // separately and never hide a real mismatch.
+    const liveKvPairs =
+      spec.family === "note_pet"
+        ? kvPairs.filter((p) => isLiveLinkKey(p.key))
+        : kvPairs;
+    const liveOrphans = orphans.filter((o) => {
+      const key = String(o.legacy_kv_key);
+      if (!kvKeySet.has(key)) return false; // key deleted from KV since
+      if (migratedKeys.has(key)) return false; // superseded by a live row
+      if (spec.family === "note_pet" && !isLiveLinkKey(key)) return false;
+      return true;
+    });
+
     const report: FamilyReport = {
       family: spec.family,
       kvKeys: kvPairs.length,
@@ -435,20 +493,25 @@ async function main(): Promise<void> {
       contractFailures: 0,
       fidelityMismatches: 0,
       checksumMatches: 0,
+      staleQuarantine: orphans.length - liveOrphans.length,
+      kvOrphanLinks:
+        spec.family === "note_pet" ? kvPairs.length - liveKvPairs.length : 0,
     };
     for (const o of orphans) {
       const reason = String(o.reason);
       report.quarantineReasons[reason] = (report.quarantineReasons[reason] ?? 0) + 1;
     }
 
-    // 1. RECONCILE
-    if (report.kvKeys !== report.migrated + report.quarantined) {
+    // 1. RECONCILE (drift check): live KV keys = live rows + live quarantine.
+    if (liveKvPairs.length !== report.migrated + liveOrphans.length) {
       failures.push({
         check: "reconcile",
         family: spec.family,
         detail:
-          `KV keys ${report.kvKeys} !== migrated ${report.migrated} ` +
-          `+ quarantined ${report.quarantined}`,
+          `KV keys ${liveKvPairs.length} !== migrated ${report.migrated} ` +
+          `+ quarantined ${liveOrphans.length}` +
+          (report.staleQuarantine > 0 ? ` (stale quarantine ${report.staleQuarantine})` : "") +
+          (report.kvOrphanLinks > 0 ? ` (kv-orphaned links ${report.kvOrphanLinks})` : ""),
       });
     }
 
@@ -561,13 +624,21 @@ async function main(): Promise<void> {
     reports.push(report);
   }
 
-  // Unclassified keys reconcile against the catch-all quarantine.
+  // Unclassified keys reconcile against the catch-all quarantine (rows whose
+  // key has since left KV are stale audit artifacts, same as per-family).
   const unclassifiedQuarantined = (tables["customer_keys_orphaned"] ?? []).length;
-  if (unclassified !== unclassifiedQuarantined) {
+  const unclassifiedLive = (tables["customer_keys_orphaned"] ?? []).filter((o) =>
+    unclassifiedKeys.has(String(o.legacy_kv_key)),
+  ).length;
+  if (unclassified !== unclassifiedLive) {
     failures.push({
       check: "reconcile",
       family: "unclassified",
-      detail: `KV unclassified ${unclassified} !== customer_keys_orphaned ${unclassifiedQuarantined}`,
+      detail:
+        `KV unclassified ${unclassified} !== customer_keys_orphaned ${unclassifiedLive}` +
+        (unclassifiedQuarantined !== unclassifiedLive
+          ? ` (stale quarantine ${unclassifiedQuarantined - unclassifiedLive})`
+          : ""),
     });
   }
 
@@ -621,8 +692,8 @@ async function main(): Promise<void> {
   }
 
   // ---- report ----
-  console.log("Phase 4 / Customers stage-1 backfill parity report");
-  console.log("===================================================");
+  console.log("Phase 4 / Customers — KV↔Postgres parity & drift report");
+  console.log("========================================================");
   for (const r of reports) {
     const reasons = Object.entries(r.quarantineReasons)
       .map(([k, n]) => `${k}×${n}`)
@@ -632,7 +703,9 @@ async function main(): Promise<void> {
         `migrated=${String(r.migrated).padStart(4)}  ` +
         `quarantined=${String(r.quarantined).padStart(3)}` +
         `${reasons ? `  [${reasons}]` : ""}  ` +
-        `checksum-match=${r.checksumMatches}/${r.migrated}`,
+        `checksum-match=${r.checksumMatches}/${r.migrated}` +
+        (r.staleQuarantine > 0 ? `  stale-quarantine=${r.staleQuarantine}` : "") +
+        (r.kvOrphanLinks > 0 ? `  kv-orphaned-links=${r.kvOrphanLinks}` : ""),
     );
   }
   console.log(

@@ -3,6 +3,8 @@ import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { updatePetVaccinationStatus } from './lib/vaccination_status.ts';
+// Phase 4 stage 2: customer:* KV mutations are mirrored to Postgres.
+import { dualWriteCustomers, dwSet } from './lib/customers_dualwrite.ts';
 
 const app = new Hono();
 
@@ -159,6 +161,7 @@ app.post('/make-server-fc003b23/pets/:petId/vaccinations', async (c) => {
       created_at: now,
     };
     await kv.set(`customer:${tenantId}:activity:${activityId}`, activity);
+    await dualWriteCustomers([dwSet(`customer:${tenantId}:activity:${activityId}`, activity)]);
 
     return c.json({ vaccination }, 201);
   } catch (error: any) {
@@ -231,6 +234,7 @@ app.put('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', async (
       created_at: now,
     };
     await kv.set(`customer:${tenantId}:activity:${activityId}`, activity);
+    await dualWriteCustomers([dwSet(`customer:${tenantId}:activity:${activityId}`, activity)]);
 
     return c.json({ vaccination: updated });
   } catch (error: any) {
@@ -286,6 +290,7 @@ app.delete('/make-server-fc003b23/pets/:petId/vaccinations/:vaccinationId', asyn
       created_at: now,
     };
     await kv.set(`customer:${tenantId}:activity:${activityId}`, activity);
+    await dualWriteCustomers([dwSet(`customer:${tenantId}:activity:${activityId}`, activity)]);
 
     return c.json({ success: true });
   } catch (error: any) {
