@@ -1,6 +1,6 @@
-import { Hono } from "npm:hono";
+import { Context, Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
-import { requireAuth } from "./_shared/auth.ts";
+import { requireAuth, requireRole } from "./_shared/auth.ts";
 import { internalError } from "./_shared/log.ts";
 
 const routes = new Hono();
@@ -12,13 +12,10 @@ routes.use("*", requireAuth);
 // HELPER FUNCTIONS
 // ============================================================================
 
-const getUserFromContext = () => {
-  // In production, extract from JWT token
-  return { id: 'system', name: 'Admin' };
-};
-
-const addAuditFields = (data: any, isUpdate = false) => {
-  const user = getUserFromContext();
+// Audit fields carry the real verified user (set by requireAuth), not a stub.
+// deno-lint-ignore no-explicit-any
+const addAuditFields = (c: Context, data: any, isUpdate = false) => {
+  const user = c.get('user');
   const now = new Date().toISOString();
   
   if (isUpdate) {
@@ -52,10 +49,10 @@ routes.get("/services", async (c) => {
   }
 });
 
-routes.post("/services", async (c) => {
+routes.post("/services", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const service = addAuditFields(body);
+    const service = addAuditFields(c, body);
     await kv.set(`service:${service.id}`, service);
     return c.json(service);
   } catch (e: any) {
@@ -63,14 +60,14 @@ routes.post("/services", async (c) => {
   }
 });
 
-routes.put("/services/:id", async (c) => {
+routes.put("/services/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
     const existing = await kv.get(`service:${id}`);
     if (!existing) return c.json({ error: "Service not found" }, 404);
     
-    const updated = addAuditFields({ ...existing, ...body }, true);
+    const updated = addAuditFields(c, { ...existing, ...body }, true);
     await kv.set(`service:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
@@ -78,7 +75,7 @@ routes.put("/services/:id", async (c) => {
   }
 });
 
-routes.delete("/services/:id", async (c) => {
+routes.delete("/services/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     await kv.del(`service:${id}`);
@@ -101,10 +98,10 @@ routes.get("/price-books", async (c) => {
   }
 });
 
-routes.post("/price-books", async (c) => {
+routes.post("/price-books", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const priceBook = addAuditFields(body);
+    const priceBook = addAuditFields(c, body);
     await kv.set(`price-book:${priceBook.id}`, priceBook);
     return c.json(priceBook);
   } catch (e: any) {
@@ -112,14 +109,14 @@ routes.post("/price-books", async (c) => {
   }
 });
 
-routes.put("/price-books/:id", async (c) => {
+routes.put("/price-books/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
     const existing = await kv.get(`price-book:${id}`);
     if (!existing) return c.json({ error: "Price book not found" }, 404);
     
-    const updated = addAuditFields({ ...existing, ...body }, true);
+    const updated = addAuditFields(c, { ...existing, ...body }, true);
     await kv.set(`price-book:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
@@ -140,10 +137,10 @@ routes.get("/memberships", async (c) => {
   }
 });
 
-routes.post("/memberships", async (c) => {
+routes.post("/memberships", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const membership = addAuditFields(body);
+    const membership = addAuditFields(c, body);
     await kv.set(`membership:${membership.id}`, membership);
     return c.json(membership);
   } catch (e: any) {
@@ -151,14 +148,14 @@ routes.post("/memberships", async (c) => {
   }
 });
 
-routes.put("/memberships/:id", async (c) => {
+routes.put("/memberships/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
     const existing = await kv.get(`membership:${id}`);
     if (!existing) return c.json({ error: "Membership not found" }, 404);
     
-    const updated = addAuditFields({ ...existing, ...body }, true);
+    const updated = addAuditFields(c, { ...existing, ...body }, true);
     await kv.set(`membership:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
@@ -186,10 +183,10 @@ routes.get("/location-overrides", async (c) => {
   }
 });
 
-routes.post("/location-overrides", async (c) => {
+routes.post("/location-overrides", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const override = addAuditFields(body);
+    const override = addAuditFields(c, body);
     await kv.set(`location-override:${override.id}`, override);
     return c.json(override);
   } catch (e: any) {
@@ -197,14 +194,14 @@ routes.post("/location-overrides", async (c) => {
   }
 });
 
-routes.put("/location-overrides/:id", async (c) => {
+routes.put("/location-overrides/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
     const existing = await kv.get(`location-override:${id}`);
     if (!existing) return c.json({ error: "Override not found" }, 404);
     
-    const updated = addAuditFields({ ...existing, ...body }, true);
+    const updated = addAuditFields(c, { ...existing, ...body }, true);
     await kv.set(`location-override:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
@@ -212,7 +209,7 @@ routes.put("/location-overrides/:id", async (c) => {
   }
 });
 
-routes.delete("/location-overrides/:id", async (c) => {
+routes.delete("/location-overrides/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     await kv.del(`location-override:${id}`);
@@ -235,10 +232,10 @@ routes.get("/multi-dog-rules", async (c) => {
   }
 });
 
-routes.post("/multi-dog-rules", async (c) => {
+routes.post("/multi-dog-rules", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const rule = addAuditFields(body);
+    const rule = addAuditFields(c, body);
     await kv.set(`multi-dog-rule:${rule.id}`, rule);
     return c.json(rule);
   } catch (e: any) {
@@ -246,14 +243,14 @@ routes.post("/multi-dog-rules", async (c) => {
   }
 });
 
-routes.put("/multi-dog-rules/:id", async (c) => {
+routes.put("/multi-dog-rules/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
     const existing = await kv.get(`multi-dog-rule:${id}`);
     if (!existing) return c.json({ error: "Rule not found" }, 404);
     
-    const updated = addAuditFields({ ...existing, ...body }, true);
+    const updated = addAuditFields(c, { ...existing, ...body }, true);
     await kv.set(`multi-dog-rule:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
@@ -274,10 +271,10 @@ routes.get("/packages", async (c) => {
   }
 });
 
-routes.post("/packages", async (c) => {
+routes.post("/packages", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const pkg = addAuditFields(body);
+    const pkg = addAuditFields(c, body);
     await kv.set(`package:${pkg.id}`, pkg);
     return c.json(pkg);
   } catch (e: any) {
@@ -298,10 +295,10 @@ routes.get("/fee-rules", async (c) => {
   }
 });
 
-routes.post("/fee-rules", async (c) => {
+routes.post("/fee-rules", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const rule = addAuditFields(body);
+    const rule = addAuditFields(c, body);
     await kv.set(`fee-rule:${rule.id}`, rule);
     return c.json(rule);
   } catch (e: any) {
@@ -309,14 +306,14 @@ routes.post("/fee-rules", async (c) => {
   }
 });
 
-routes.put("/fee-rules/:id", async (c) => {
+routes.put("/fee-rules/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
     const existing = await kv.get(`fee-rule:${id}`);
     if (!existing) return c.json({ error: "Fee rule not found" }, 404);
     
-    const updated = addAuditFields({ ...existing, ...body }, true);
+    const updated = addAuditFields(c, { ...existing, ...body }, true);
     await kv.set(`fee-rule:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
@@ -337,10 +334,10 @@ routes.get("/discount-rules", async (c) => {
   }
 });
 
-routes.post("/discount-rules", async (c) => {
+routes.post("/discount-rules", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
-    const rule = addAuditFields(body);
+    const rule = addAuditFields(c, body);
     await kv.set(`discount-rule:${rule.id}`, rule);
     return c.json(rule);
   } catch (e: any) {
@@ -348,14 +345,14 @@ routes.post("/discount-rules", async (c) => {
   }
 });
 
-routes.put("/discount-rules/:id", async (c) => {
+routes.put("/discount-rules/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
     const existing = await kv.get(`discount-rule:${id}`);
     if (!existing) return c.json({ error: "Discount rule not found" }, 404);
     
-    const updated = addAuditFields({ ...existing, ...body }, true);
+    const updated = addAuditFields(c, { ...existing, ...body }, true);
     await kv.set(`discount-rule:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {

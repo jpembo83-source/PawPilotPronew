@@ -30,6 +30,7 @@ import { PulseScreen } from "@/screens/PulseScreen";
 import { WhereaboutsScreen } from "@/screens/WhereaboutsScreen";
 import { TrackerUpsellScreen } from "@/screens/TrackerUpsellScreen";
 import { MembershipsScreen } from "@/screens/MembershipsScreen";
+import { GalleryScreen } from "@/screens/GalleryScreen";
 
 export const router = createBrowserRouter([
   {
@@ -67,6 +68,7 @@ export const router = createBrowserRouter([
           { path: "/pets/:id/pulse", element: <PulseScreen /> },
           { path: "/pets/:id/whereabouts", element: <WhereaboutsScreen /> },
           { path: "/tracker/upsell", element: <TrackerUpsellScreen /> },
+          { path: "/gallery", element: <GalleryScreen /> },
           { path: "/memberships", element: <MembershipsScreen /> },
           { path: "/account", element: <AccountScreen /> },
           { path: "/account/household", element: <HouseholdScreen /> },

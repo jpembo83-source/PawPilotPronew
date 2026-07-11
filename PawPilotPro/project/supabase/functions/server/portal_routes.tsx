@@ -10,7 +10,18 @@ import * as kv from "./kv_store.tsx";
 import { internalError } from "./_shared/log.ts";
 import { isLinkedPortalUser, withLinkedUser } from "./lib/portal_link.ts";
 import { notify, PortalNotificationType } from "./lib/notify.ts";
-import { listPetUpdatesForDay, withSignedPhotoUrls } from "./lib/pet_updates.ts";
+import {
+  isVisibleToOwner,
+  listPetUpdatesForDay,
+  mergeDayFeeds,
+  ownerFacingText,
+  withSignedPhotoUrls,
+} from "./lib/pet_updates.ts";
+import {
+  decodeGalleryCursor,
+  listApprovedGallery,
+  listMomentsForDay,
+} from "./lib/pet_updates_store.ts";
 import {
   PET_PHOTOS_BUCKET,
   applyPetPhotoWrite,
@@ -399,13 +410,21 @@ portal.get("/pets/:id/updates", async (c) => {
     if (!pet) return c.json({ error: "Not found" }, 404);
 
     const date = c.req.query("date") || new Date().toISOString().split("T")[0];
-    const updates = await listPetUpdatesForDay(tenantId, id, date);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    // Merge the legacy KV feed (check-in/out events, pre-gate moments) with
+    // Postgres moments, then apply the curation gate: owners ONLY ever see
+    // approved updates — pending/rejected photos never get a signed URL here.
+    const [kvRows, pgRows] = await Promise.all([
+      listPetUpdatesForDay(tenantId, id, date),
+      listMomentsForDay(admin, tenantId, id, date),
+    ]);
+    const updates = mergeDayFeeds(kvRows, pgRows).filter(isVisibleToOwner);
 
     let wire: Array<import("./lib/pet_updates.ts").PetUpdate & { photo_url?: string }> = updates;
     if (updates.some((u) => u.photo_path)) {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
       wire = await withSignedPhotoUrls(admin, updates);
     }
 
@@ -415,13 +434,111 @@ portal.get("/pets/:id/updates", async (c) => {
       updates: wire.map((u) => ({
         id: u.id,
         type: u.type,
-        text: u.text ?? null,
+        text: ownerFacingText(u),
         photoUrl: u.photo_url ?? null,
         createdAt: u.created_at,
       })),
     });
   } catch (error) {
     return internalError(c, "portal.petUpdates", error);
+  }
+});
+
+// Gallery — every APPROVED photo moment for the caller's household across
+// time (optionally one pet), keyset-paginated, newest first. The status
+// filter lives in listApprovedGallery: signed URLs are only ever minted for
+// approved rows, so the curation gate holds at the data layer, not the UI.
+portal.get("/gallery", async (c) => {
+  try {
+    const auth = await readPortalUser(c);
+    if ("error" in auth) return c.json({ error: auth.error }, auth.status as 401 | 403);
+    const { tenantId, householdId } = auth;
+
+    const petId = c.req.query("pet_id") || undefined;
+    const rawCursor = c.req.query("cursor");
+    const cursor = rawCursor ? decodeGalleryCursor(rawCursor) : undefined;
+    if (rawCursor && !cursor) return c.json({ error: "Invalid cursor" }, 400);
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    // Scope is the caller's own household from app_metadata — a pet_id only
+    // narrows within it, it can never widen the scope.
+    const page = await listApprovedGallery(admin, tenantId, {
+      householdId,
+      petId,
+      cursor: cursor ?? undefined,
+    });
+    const signed = await withSignedPhotoUrls(admin, page.items);
+    return c.json({
+      items: signed
+        .filter((u) => u.photo_url)
+        .map((u) => ({
+          id: u.id,
+          petId: u.pet_id,
+          petName: u.pet_name,
+          text: ownerFacingText(u),
+          photoUrl: u.photo_url ?? null,
+          createdAt: u.created_at,
+        })),
+      nextCursor: page.nextCursor,
+    });
+  } catch (error) {
+    return internalError(c, "portal.gallery", error);
+  }
+});
+
+// Download manifest — signed URLs for every approved photo (household or one
+// pet), for client-side "download all" / save-to-camera-roll. Returning a
+// manifest instead of a server-built zip keeps edge-function CPU/memory flat
+// (spec §6.4); the client fetches each file itself.
+const GALLERY_DOWNLOAD_MAX = 500;
+
+portal.get("/gallery/download", async (c) => {
+  try {
+    const auth = await readPortalUser(c);
+    if ("error" in auth) return c.json({ error: auth.error }, auth.status as 401 | 403);
+    const { tenantId, householdId } = auth;
+    const petId = c.req.query("pet_id") || undefined;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    const all: import("./lib/pet_updates.ts").PetUpdate[] = [];
+    let cursor: string | undefined;
+    while (all.length < GALLERY_DOWNLOAD_MAX) {
+      const page = await listApprovedGallery(admin, tenantId, {
+        householdId,
+        petId,
+        cursor: cursor ? decodeGalleryCursor(cursor) ?? undefined : undefined,
+        limit: 100,
+      });
+      all.push(...page.items);
+      if (!page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    const capped = all.slice(0, GALLERY_DOWNLOAD_MAX);
+
+    const signed = await withSignedPhotoUrls(admin, capped);
+    return c.json({
+      files: signed
+        .filter((u) => u.photo_url)
+        .map((u) => {
+          const ext = u.photo_path?.split(".").pop() ?? "jpg";
+          const day = u.created_at.split("T")[0];
+          return {
+            name: `${u.pet_name || "pet"}-${day}-${u.id}.${ext}`,
+            url: u.photo_url,
+            createdAt: u.created_at,
+            petName: u.pet_name,
+          };
+        }),
+      truncated: all.length >= GALLERY_DOWNLOAD_MAX,
+    });
+  } catch (error) {
+    return internalError(c, "portal.galleryDownload", error);
   }
 });
 

@@ -19,6 +19,7 @@ import {
   SignOut,
   Plus,
   XCircle,
+  Camera,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 
@@ -53,6 +54,9 @@ export function DaycareDashboard() {
   };
 
   const canCreate = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'assistant_manager' || user?.role === 'staff';
+  // The photo curation gate is a management call — mirrors CAN_REVIEW_ROLES
+  // on the server (pet_updates_routes).
+  const canReviewPhotos = user?.role === 'admin' || user?.role === 'manager';
 
   // Derived values
   const checkedIn = stats?.checked_in_count || 0;
@@ -263,6 +267,16 @@ export function DaycareDashboard() {
             <UsersThree className="h-6 w-6 text-primary" />
             <span className="font-medium text-sm text-[#1C1916]">Attendance</span>
           </button>
+
+          {canReviewPhotos && (
+            <button
+              className="bg-white rounded-2xl border border-[#E2DED8] p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary hover:bg-primary-tint transition-colors active:scale-[0.98]"
+              onClick={() => { void navigate('/daycare/photo-review'); }}
+            >
+              <Camera className="h-6 w-6 text-primary" />
+              <span className="font-medium text-sm text-[#1C1916]">Photo Review</span>
+            </button>
+          )}
         </div>
       </div>
 

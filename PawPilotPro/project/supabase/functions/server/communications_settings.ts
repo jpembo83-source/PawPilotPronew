@@ -1,6 +1,6 @@
 import { Hono } from "npm:hono";
 import * as kv from "./kv_store.tsx";
-import { requireAuth } from "./_shared/auth.ts";
+import { requireAuth, requireRole } from "./_shared/auth.ts";
 import { internalError } from "./_shared/log.ts";
 
 const app = new Hono();
@@ -70,7 +70,7 @@ app.get("/make-server-fc003b23/communications/channels", async (c) => {
   }
 });
 
-app.put("/make-server-fc003b23/communications/channels/:id", async (c) => {
+app.put("/make-server-fc003b23/communications/channels/:id", requireRole('admin'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -119,7 +119,7 @@ app.get("/make-server-fc003b23/communications/sender-identities", async (c) => {
   }
 });
 
-app.post("/make-server-fc003b23/communications/sender-identities", async (c) => {
+app.post("/make-server-fc003b23/communications/sender-identities", requireRole('admin'), async (c) => {
   try {
     const body = await c.req.json();
     const id = `sender-${Date.now()}`;
@@ -152,7 +152,7 @@ app.post("/make-server-fc003b23/communications/sender-identities", async (c) => 
   }
 });
 
-app.put("/make-server-fc003b23/communications/sender-identities/:id", async (c) => {
+app.put("/make-server-fc003b23/communications/sender-identities/:id", requireRole('admin'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -190,7 +190,7 @@ app.put("/make-server-fc003b23/communications/sender-identities/:id", async (c) 
   }
 });
 
-app.delete("/make-server-fc003b23/communications/sender-identities/:id", async (c) => {
+app.delete("/make-server-fc003b23/communications/sender-identities/:id", requireRole('admin'), async (c) => {
   try {
     const id = c.req.param("id");
     
@@ -255,7 +255,7 @@ app.get("/make-server-fc003b23/communications/consent-policy", async (c) => {
   }
 });
 
-app.put("/make-server-fc003b23/communications/consent-policy", async (c) => {
+app.put("/make-server-fc003b23/communications/consent-policy", requireRole('admin'), async (c) => {
   try {
     const body = await c.req.json();
     
@@ -305,7 +305,7 @@ app.get("/make-server-fc003b23/communications/templates", async (c) => {
   }
 });
 
-app.post("/make-server-fc003b23/communications/templates", async (c) => {
+app.post("/make-server-fc003b23/communications/templates", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
     const id = `template-${Date.now()}`;
@@ -355,7 +355,7 @@ app.get("/make-server-fc003b23/communications/templates/:id", async (c) => {
   }
 });
 
-app.put("/make-server-fc003b23/communications/templates/:id", async (c) => {
+app.put("/make-server-fc003b23/communications/templates/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -393,7 +393,7 @@ app.put("/make-server-fc003b23/communications/templates/:id", async (c) => {
   }
 });
 
-app.delete("/make-server-fc003b23/communications/templates/:id", async (c) => {
+app.delete("/make-server-fc003b23/communications/templates/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     
@@ -434,7 +434,7 @@ app.get("/make-server-fc003b23/communications/automation", async (c) => {
   }
 });
 
-app.post("/make-server-fc003b23/communications/automation", async (c) => {
+app.post("/make-server-fc003b23/communications/automation", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
     const id = `automation-${Date.now()}`;
@@ -485,7 +485,7 @@ app.get("/make-server-fc003b23/communications/automation/:id", async (c) => {
   }
 });
 
-app.put("/make-server-fc003b23/communications/automation/:id", async (c) => {
+app.put("/make-server-fc003b23/communications/automation/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -524,7 +524,7 @@ app.put("/make-server-fc003b23/communications/automation/:id", async (c) => {
   }
 });
 
-app.delete("/make-server-fc003b23/communications/automation/:id", async (c) => {
+app.delete("/make-server-fc003b23/communications/automation/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     
@@ -565,7 +565,7 @@ app.get("/make-server-fc003b23/communications/slas", async (c) => {
   }
 });
 
-app.post("/make-server-fc003b23/communications/slas", async (c) => {
+app.post("/make-server-fc003b23/communications/slas", requireRole('admin', 'manager'), async (c) => {
   try {
     const body = await c.req.json();
     const id = `sla-${Date.now()}`;
@@ -598,7 +598,7 @@ app.post("/make-server-fc003b23/communications/slas", async (c) => {
   }
 });
 
-app.put("/make-server-fc003b23/communications/slas/:id", async (c) => {
+app.put("/make-server-fc003b23/communications/slas/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();
@@ -636,7 +636,7 @@ app.put("/make-server-fc003b23/communications/slas/:id", async (c) => {
   }
 });
 
-app.delete("/make-server-fc003b23/communications/slas/:id", async (c) => {
+app.delete("/make-server-fc003b23/communications/slas/:id", requireRole('admin', 'manager'), async (c) => {
   try {
     const id = c.req.param("id");
     
@@ -743,7 +743,7 @@ app.get("/make-server-fc003b23/communications/permissions", async (c) => {
   }
 });
 
-app.put("/make-server-fc003b23/communications/permissions/:id", async (c) => {
+app.put("/make-server-fc003b23/communications/permissions/:id", requireRole('admin'), async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json();

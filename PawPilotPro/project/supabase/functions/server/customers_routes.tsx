@@ -4,7 +4,7 @@
 import { Hono } from 'npm:hono';
 import { z } from 'npm:zod';
 import * as kv from './kv_store.tsx';
-import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { requireAuth, requireRole, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { listHouseholds, HouseholdRecord, ContactRecord, PetRecord } from './lib/household_list.ts';
 import { applyPetPhotoWrite, signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
@@ -202,7 +202,7 @@ app.get('/households/:id', async (c) => {
 });
 
 // Create household
-app.post('/households', async (c) => {
+app.post('/households', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -253,7 +253,7 @@ app.post('/households', async (c) => {
 });
 
 // Update household
-app.put('/households/:id', async (c) => {
+app.put('/households/:id', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -300,7 +300,7 @@ app.put('/households/:id', async (c) => {
 });
 
 // Delete household
-app.delete('/households/:id', async (c) => {
+app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -421,7 +421,7 @@ app.get('/households/:household_id/contacts', async (c) => {
 });
 
 // Create contact
-app.post('/households/:household_id/contacts', async (c) => {
+app.post('/households/:household_id/contacts', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -486,7 +486,7 @@ app.post('/households/:household_id/contacts', async (c) => {
 });
 
 // Update contact
-app.put('/contacts/:id', async (c) => {
+app.put('/contacts/:id', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -554,7 +554,7 @@ app.put('/contacts/:id', async (c) => {
 });
 
 // Delete contact
-app.delete('/contacts/:id', async (c) => {
+app.delete('/contacts/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -633,7 +633,7 @@ app.get('/pets/:id', async (c) => {
 });
 
 // Create pet
-app.post('/households/:household_id/pets', async (c) => {
+app.post('/households/:household_id/pets', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -703,7 +703,7 @@ app.post('/households/:household_id/pets', async (c) => {
 });
 
 // Update pet
-app.put('/pets/:id', async (c) => {
+app.put('/pets/:id', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -829,7 +829,7 @@ app.get('/households/:household_id/documents', async (c) => {
 });
 
 // Create document metadata (actual file upload happens client-side to storage)
-app.post('/households/:household_id/documents', async (c) => {
+app.post('/households/:household_id/documents', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -912,7 +912,7 @@ app.post('/households/:household_id/documents', async (c) => {
 });
 
 // Delete document
-app.delete('/households/:household_id/documents/:id', async (c) => {
+app.delete('/households/:household_id/documents/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -999,7 +999,7 @@ app.get('/document-alerts', async (c) => {
 // SEED DATA - Initialize sample households for testing
 // ============================================================================
 
-app.post('/seed-data', async (c) => {
+app.post('/seed-data', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -1334,7 +1334,7 @@ const importBodySchema = z.object({
   pets: z.array(z.unknown()).default([]),
 });
 
-app.post('/import', async (c) => {
+app.post('/import', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -1917,7 +1917,7 @@ app.get('/households/:id/notes', async (c) => {
 });
 
 // Create household note
-app.post('/households/:id/notes', async (c) => {
+app.post('/households/:id/notes', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -1996,7 +1996,7 @@ app.post('/households/:id/notes', async (c) => {
 });
 
 // Update household note
-app.patch('/notes/:id', async (c) => {
+app.patch('/notes/:id', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -2020,9 +2020,8 @@ app.patch('/notes/:id', async (c) => {
       return c.json({ error: 'Note not found' }, 404);
     }
     
-    // Check permission: only author or admin can edit
-    // For now, we allow all authenticated users (add permission check in production)
-    
+    // Role gate enforced by requireRole on this route (admin/manager/assistant
+    // manager). Author-level granularity is the follow-up permission matrix.
     const body = await c.req.json();
     const { title, content, category, visibility, is_pinned, pet_ids } = body;
     
@@ -2083,7 +2082,7 @@ app.patch('/notes/:id', async (c) => {
 });
 
 // Delete household note (soft delete)
-app.delete('/notes/:id', async (c) => {
+app.delete('/notes/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -2149,7 +2148,7 @@ app.get('/households/:id/flags', async (c) => {
 });
 
 // Create or update household flag
-app.post('/households/:id/flags', async (c) => {
+app.post('/households/:id/flags', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -2262,7 +2261,7 @@ app.post('/households/:id/flags', async (c) => {
 });
 
 // Update household flag
-app.patch('/flags/:id', async (c) => {
+app.patch('/flags/:id', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -2348,7 +2347,7 @@ app.patch('/flags/:id', async (c) => {
 });
 
 // Delete household flag
-app.delete('/flags/:id', async (c) => {
+app.delete('/flags/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
@@ -2427,7 +2426,7 @@ app.delete('/flags/:id', async (c) => {
 // ============================================================================
 
 // Clear all flags and timeline events (for fresh start)
-app.delete('/clear-timeline-data', async (c) => {
+app.delete('/clear-timeline-data', requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
