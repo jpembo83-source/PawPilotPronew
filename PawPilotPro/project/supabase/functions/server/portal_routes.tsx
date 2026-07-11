@@ -22,6 +22,13 @@ import {
   listApprovedGallery,
   listMomentsForDay,
 } from "./lib/pet_updates_store.ts";
+import {
+  PET_PHOTOS_BUCKET,
+  applyPetPhotoWrite,
+  signPetPhotoUrl,
+  signPetPhotoUrls,
+  storedPetPhoto,
+} from "./lib/pet_photos.ts";
 
 const portal = new Hono();
 
@@ -317,6 +324,10 @@ portal.get("/pets", async (c) => {
     }
   }
 
+  // Private bucket: resolve stored photo references (paths or legacy URLs)
+  // to short-lived signed URLs in one storage round-trip.
+  const photoByStored = await signPetPhotoUrls(pets.map((p) => storedPetPhoto(p)));
+
   const normalized = pets.map((p) => ({
     id: p.id,
     tenantId,
@@ -325,7 +336,7 @@ portal.get("/pets", async (c) => {
     breed: p.breed ?? "",
     dob: p.date_of_birth || p.dob || new Date(0).toISOString(),
     weightKg: p.weight_kg ?? p.weightKg ?? 0,
-    photoUrl: p.photo_url ?? p.photoUrl ?? null,
+    photoUrl: photoByStored.get(storedPetPhoto(p) ?? "") ?? null,
     notes: p.notes ?? null,
     // Surface verification state so the UI can show owner-added pets as
     // "Pending team verification" and exclude them from booking selectors.
@@ -364,7 +375,7 @@ portal.get("/pets/:id", async (c) => {
     console.warn("[portal] hasTracker single-pet lookup failed", e);
   }
 
-  const wire = petToWire(pet, tenantId, householdId) as any;
+  const wire = await petToWire(pet, tenantId, householdId) as any;
   wire.hasTracker = hasTracker;
 
   return c.json({
@@ -535,7 +546,9 @@ portal.get("/gallery/download", async (c) => {
 // across GET /portal/pets (list), GET /portal/pets/:id (detail), and the
 // PATCH response below. Read tolerantly (snake_case OR camelCase) since
 // older records pre-date the v2 schema; write only snake_case.
-function petToWire(pet: any, tenantId: string, householdId: string) {
+// Async because photoUrl is minted here: the pet-photos bucket is private,
+// so the wire shape carries a short-lived signed URL, never a stored one.
+async function petToWire(pet: any, tenantId: string, householdId: string) {
   return {
     id: pet.id,
     tenantId,
@@ -545,7 +558,7 @@ function petToWire(pet: any, tenantId: string, householdId: string) {
     sex: pet.sex ?? "unknown",
     dob: pet.date_of_birth || pet.dob || new Date(0).toISOString(),
     weightKg: pet.weight_kg ?? pet.weightKg ?? 0,
-    photoUrl: pet.photo_url ?? pet.photoUrl ?? null,
+    photoUrl: await signPetPhotoUrl(storedPetPhoto(pet)),
     microchip: pet.microchip ?? null,
     colour: pet.colour ?? pet.color ?? null,
     neuteredStatus: pet.neutered_status ?? "unknown",
@@ -573,7 +586,10 @@ const petPatchSchema = z.object({
   // on this schema uses — without it, the moment any client sends "" to
   // unset a photo (mirroring the breed/microchip/etc convention) the
   // request 400s with a confusing "Invalid url" zod message.
-  photo_url: z.string().trim().url().max(500).nullable().optional().or(z.literal("")),
+  // max(2048): signed URLs (which a client may echo back) carry a token and
+  // routinely exceed the old 500-char cap; applyPetPhotoWrite reduces them
+  // to the storage path before anything is persisted.
+  photo_url: z.string().trim().url().max(2048).nullable().optional().or(z.literal("")),
   breed: z.string().trim().max(80).optional().or(z.literal("")),
   sex: z.enum(["male", "female", "unknown"]).optional(),
   date_of_birth: z.string().trim().max(40).optional().or(z.literal("")),
@@ -626,9 +642,12 @@ portal.patch("/pets/:id", async (c) => {
     last_edited_by_owner_id: user.id,
     last_edited_by_owner_fields: fieldsTouched,
   };
+  // Photo writes persist as a storage path (photo_path), never a URL —
+  // signed/public URLs echoed by clients are reduced here.
+  if ("photo_url" in apply) applyPetPhotoWrite(updated, apply.photo_url);
   await kv.set(`customer:${tenantId}:pet:${householdId}:${id}`, updated);
 
-  return c.json({ ok: true, pet: petToWire(updated, tenantId, householdId) });
+  return c.json({ ok: true, pet: await petToWire(updated, tenantId, householdId) });
 });
 
 // ----- Owner: vax certificate upload -----------------------------------
@@ -1638,7 +1657,7 @@ portal.post("/pets/:id/photo", async (c) => {
   const buffer = new Uint8Array(await file.arrayBuffer());
 
   const { error: upErr } = await admin.storage
-    .from("make-fc003b23-pet-photos")
+    .from(PET_PHOTOS_BUCKET)
     .upload(filePath, buffer, {
       contentType: file.type,
       cacheControl: "3600",
@@ -1648,33 +1667,23 @@ portal.post("/pets/:id/photo", async (c) => {
     return internalError(c, 'portal.petPhotoUpload', upErr);
   }
 
-  const { data: { publicUrl } } = admin.storage
-    .from("make-fc003b23-pet-photos")
-    .getPublicUrl(filePath);
-
-  // Cache-bust the URL so the staff app and the portal both pick up the
-  // new image without stale-CDN stickiness.
-  const cacheBustedUrl = `${publicUrl}?v=${Date.now()}`;
-
   // Persist on the canonical pet record — staff reads use the same key.
   //
-  // We write BOTH photo_url (the v2 snake_case canonical field) AND photoUrl
-  // (camelCase). petToWire() resolves with `photo_url ?? photoUrl`, so if we
-  // only wrote photoUrl we'd see the "flash then revert" bug: the spread of
-  // ...pet preserves the OLD photo_url, petToWire picks that one first, and
-  // the new photoUrl is shadowed forever.  Setting photo_url here is the
-  // single line that makes the new URL the one the GET handler returns.
-  // (Staff-side readers also key off photo_url under the v2 schema, so this
-  // is the correct canonical field — the camelCase one is belt-and-braces
-  // for any read path that still falls through to it.)
-  const updatedPet = {
-    ...pet,
-    photo_url: cacheBustedUrl,
-    photoUrl: cacheBustedUrl,
-    updated_at: new Date().toISOString(),
-    photo_updated_by: "owner",
-    photo_updated_at: new Date().toISOString(),
-  };
+  // The bucket is private, so the record stores the STORAGE PATH
+  // (photo_path); every read path mints a fresh signed URL from it. The
+  // legacy photo_url/photoUrl fields are cleared so no stale public URL can
+  // shadow the new photo (petToWire and staff readers resolve via
+  // storedPetPhoto, which prefers photo_path). Cache-busting is free now:
+  // each mint carries a fresh token, so ?v= is no longer needed.
+  const updatedPet = applyPetPhotoWrite(
+    {
+      ...pet,
+      updated_at: new Date().toISOString(),
+      photo_updated_by: "owner",
+      photo_updated_at: new Date().toISOString(),
+    },
+    filePath,
+  );
   await kv.set(`customer:${tenantId}:pet:${householdId}:${petId}`, updatedPet);
 
   // Optional audit ping for the staff team — tells them a household updated
@@ -1685,11 +1694,11 @@ portal.post("/pets/:id/photo", async (c) => {
       tenantId, householdId, petId,
       updatedBy: auth.user?.email ?? auth.user?.id ?? "owner",
       at: now,
-      photoUrl: cacheBustedUrl,
+      photoPath: filePath,
     });
   } catch { /* non-fatal */ }
 
-  return c.json({ ok: true, photoUrl: cacheBustedUrl });
+  return c.json({ ok: true, photoUrl: await signPetPhotoUrl(filePath) });
 });
 
 portal.post("/pets/:id/tracker/ble", async (c) => {
@@ -2422,7 +2431,8 @@ portal.delete("/contacts/:id", async (c) => {
 // in the same review queue pattern as the vax uploads.
 const petAddSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  photo_url: z.string().trim().url().max(500).nullable().optional().or(z.literal("")),
+  // max(2048): same signed-URL headroom as petPatchSchema above.
+  photo_url: z.string().trim().url().max(2048).nullable().optional().or(z.literal("")),
   breed: z.string().trim().max(80).optional().or(z.literal("")),
   sex: z.enum(["male", "female", "unknown"]).optional(),
   dob: z.string().trim().max(40).optional().or(z.literal("")),
@@ -2648,12 +2658,12 @@ portal.post("/pets", async (c) => {
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  const pet = {
+  // applyPetPhotoWrite: bucket references persist as photo_path, never a URL.
+  const pet = applyPetPhotoWrite({
     id,
     tenant_id: tenantId,
     household_id: householdId,
     name: d.name,
-    photo_url: d.photo_url || null,
     breed: d.breed || null,
     sex: d.sex ?? "unknown",
     date_of_birth: d.dob || null,
@@ -2665,7 +2675,7 @@ portal.post("/pets", async (c) => {
     verification_status: "pending_staff_review",
     created_at: now,
     updated_at: now,
-  };
+  }, d.photo_url || null);
   await kv.set(`customer:${tenantId}:pet:${householdId}:${id}`, pet);
   await kv.set(`portal_pet_verification:${tenantId}:${id}`, {
     id,

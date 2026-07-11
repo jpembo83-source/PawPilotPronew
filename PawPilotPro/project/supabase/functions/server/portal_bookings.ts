@@ -13,6 +13,7 @@ import { notify, getOwnerEmail, getOwnerName } from "./lib/notify.ts";
 import { bookingReceivedEmail } from "./lib/email_templates/booking_received.ts";
 import { bookingConfirmedEmail } from "./lib/email_templates/booking_confirmed.ts";
 import { bookingDeclinedEmail } from "./lib/email_templates/booking_declined.ts";
+import { storedPetPhoto } from "./lib/pet_photos.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -1173,7 +1174,9 @@ async function replicatePortalToDaycare(
       household_name: householdName,
       pet_id: petId,
       pet_name: pet?.name ?? "Pet",
-      pet_photo_url: pet?.photo_url ?? pet?.photoUrl ?? null,
+      // Storage path (or legacy URL) — staff read endpoints sign it at
+      // response time; never persist a signed URL on the booking.
+      pet_photo_url: storedPetPhoto(pet),
       location_id: locationId,
       location_name: locationName,
       service_id: service === "overnights" ? "service_overnight_owner_portal" : "service_daycare_owner_portal",

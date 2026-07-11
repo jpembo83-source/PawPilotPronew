@@ -15,6 +15,7 @@ import { petRejectedEmail } from "./lib/email_templates/pet_rejected.ts";
 import { internalError, logError } from "./_shared/log.ts";
 import { linkedUserIds } from "./lib/portal_link.ts";
 import { updatePetVaccinationStatus } from "./lib/vaccination_status.ts";
+import { signPetPhotoUrl, storedPetPhoto } from "./lib/pet_photos.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -424,8 +425,10 @@ invites.get("/pet-verifications", async (c) => {
         householdId: i.householdId,
         householdName: (household as any)?.name ?? null,
         submittedAt: i.submittedAt,
-        // Owner-entered details for the reviewer — straight off the pet record.
-        photoUrl: pet?.photo_url ?? null,
+        // Owner-entered details for the reviewer — straight off the pet
+        // record, with the photo resolved to a short-lived signed URL
+        // (private bucket; the record stores a storage path).
+        photoUrl: await signPetPhotoUrl(storedPetPhoto(pet)),
         breed: pet?.breed ?? null,
         sex: pet?.sex ?? null,
         dateOfBirth: pet?.date_of_birth ?? null,

@@ -8,6 +8,7 @@ import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
+import { petPhotoPathFromStored, signPetPhotoUrl, withSignedPetPhotos } from './lib/pet_photos.ts';
 
 const app = new Hono();
 
@@ -144,7 +145,8 @@ app.get('/appointments', async (c) => {
       return timeA.localeCompare(timeB);
     });
     
-    return c.json(appointments);
+    // pet_photo_url is stored as a storage path — sign per response.
+    return c.json(await withSignedPetPhotos(appointments as Record<string, unknown>[], 'pet_photo_url'));
   } catch (e: any) {
     return internalError(c, 'grooming.listAppointments', e);
   }
@@ -161,8 +163,8 @@ app.get('/appointments/:id', async (c) => {
     if (!appointment) {
       return c.json({ error: 'Appointment not found' }, 404);
     }
-    
-    return c.json(appointment);
+
+    return c.json({ ...appointment, pet_photo_url: await signPetPhotoUrl(appointment.pet_photo_url) });
   } catch (e: any) {
     return internalError(c, 'grooming.getAppointment', e);
   }
@@ -184,7 +186,9 @@ app.post('/appointments', async (c) => {
       household_name: body.household_name || 'Unknown',
       pet_id: body.pet_id,
       pet_name: body.pet_name || 'Unknown',
-      pet_photo_url: body.pet_photo_url,
+      // Clients send whatever URL they rendered (signed, or legacy public) —
+      // persist the storage path; read endpoints re-sign it per response.
+      pet_photo_url: petPhotoPathFromStored(body.pet_photo_url) ?? body.pet_photo_url ?? null,
       pet_breed: body.pet_breed,
       pet_size: body.pet_size,
       location_id: body.location_id || 'default',
@@ -216,8 +220,8 @@ app.post('/appointments', async (c) => {
     };
     
     await kv.set(`grooming-apt:${tenantId}:${appointment.id}`, appointment);
-    
-    return c.json(appointment, 201);
+
+    return c.json({ ...appointment, pet_photo_url: await signPetPhotoUrl(appointment.pet_photo_url) }, 201);
   } catch (e: any) {
     return internalError(c, 'grooming.createAppointment', e);
   }
@@ -241,10 +245,14 @@ app.patch('/appointments/:id', async (c) => {
       ...body,
       updated_at: new Date().toISOString(),
     };
-    
+    // Never persist a URL a client echoed back — reduce to the storage path.
+    if ('pet_photo_url' in body) {
+      updated.pet_photo_url = petPhotoPathFromStored(body.pet_photo_url) ?? body.pet_photo_url ?? null;
+    }
+
     await kv.set(`grooming-apt:${tenantId}:${id}`, updated);
     
-    return c.json(updated);
+    return c.json({ ...updated, pet_photo_url: await signPetPhotoUrl(updated.pet_photo_url) });
   } catch (e: any) {
     return internalError(c, 'grooming.updateAppointment', e);
   }
@@ -276,7 +284,7 @@ app.post('/appointments/:id/cancel', async (c) => {
     
     await kv.set(`grooming-apt:${tenantId}:${id}`, updated);
     
-    return c.json(updated);
+    return c.json({ ...updated, pet_photo_url: await signPetPhotoUrl(updated.pet_photo_url) });
   } catch (e: any) {
     return internalError(c, 'grooming.cancelAppointment', e);
   }
@@ -323,7 +331,7 @@ app.post('/appointments/:id/check-in', async (c) => {
     
     await kv.set(`grooming-apt:${tenantId}:${id}`, updated);
     
-    return c.json(updated);
+    return c.json({ ...updated, pet_photo_url: await signPetPhotoUrl(updated.pet_photo_url) });
   } catch (e: any) {
     return internalError(c, 'grooming.checkIn', e);
   }
@@ -371,7 +379,7 @@ app.post('/appointments/:id/start', async (c) => {
       }
     }
     
-    return c.json(updated);
+    return c.json({ ...updated, pet_photo_url: await signPetPhotoUrl(updated.pet_photo_url) });
   } catch (e: any) {
     return internalError(c, 'grooming.startAppointment', e);
   }
@@ -410,7 +418,7 @@ app.post('/appointments/:id/complete', async (c) => {
       }
     }
     
-    return c.json(updated);
+    return c.json({ ...updated, pet_photo_url: await signPetPhotoUrl(updated.pet_photo_url) });
   } catch (e: any) {
     return internalError(c, 'grooming.completeAppointment', e);
   }
@@ -444,7 +452,7 @@ app.post('/appointments/:id/check-out', async (c) => {
     
     await kv.set(`grooming-apt:${tenantId}:${id}`, updated);
     
-    return c.json(updated);
+    return c.json({ ...updated, pet_photo_url: await signPetPhotoUrl(updated.pet_photo_url) });
   } catch (e: any) {
     return internalError(c, 'grooming.checkOut', e);
   }
@@ -587,7 +595,8 @@ app.get('/queue', async (c) => {
       };
     });
     
-    return c.json(queue);
+    // Queue items carry the stored path — sign per response.
+    return c.json(await withSignedPetPhotos(queue as Record<string, unknown>[], 'pet_photo_url'));
   } catch (e: any) {
     return internalError(c, 'grooming.queue', e);
   }

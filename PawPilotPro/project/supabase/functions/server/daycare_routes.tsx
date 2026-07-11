@@ -9,6 +9,7 @@ import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { buildPetUpdate, recordPetUpdate } from './lib/pet_updates.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
+import { signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
 
 const app = new Hono();
 
@@ -445,7 +446,7 @@ app.get('/search-customers', async (c) => {
             id: p.id,
             name: p.name,
             breed: p.breed,
-            photo_url: p.photo_url,
+            photo_url: storedPetPhoto(p),
             behaviour_notes: p.behaviour_notes,
             medical_notes: p.medical_notes,
             vaccination_status: p.vaccination_status || 'unknown',
@@ -471,7 +472,7 @@ app.get('/search-customers', async (c) => {
               id: p.id,
               name: p.name,
               breed: p.breed,
-              photo_url: p.photo_url,
+              photo_url: storedPetPhoto(p),
               behaviour_notes: p.behaviour_notes,
               medical_notes: p.medical_notes,
               vaccination_status: p.vaccination_status || 'unknown',
@@ -503,7 +504,7 @@ app.get('/search-customers', async (c) => {
               id: p.id,
               name: p.name,
               breed: p.breed,
-              photo_url: p.photo_url,
+              photo_url: storedPetPhoto(p),
               behaviour_notes: p.behaviour_notes,
               medical_notes: p.medical_notes,
               vaccination_status: p.vaccination_status || 'unknown',
@@ -515,7 +516,12 @@ app.get('/search-customers', async (c) => {
       }
     });
     
-    return c.json(results.slice(0, 20)); // Limit to 20 results
+    // Sign pet photos on the trimmed result set only (private bucket).
+    const trimmed = results.slice(0, 20);
+    for (const r of trimmed) {
+      r.pets = await withSignedPetPhotos(r.pets);
+    }
+    return c.json(trimmed); // Limit to 20 results
   } catch (error: any) {
     return internalError(c, 'daycare.searchCustomers', error);
   }
@@ -823,8 +829,9 @@ app.get('/bookings', async (c) => {
       if (dateCompare !== 0) return dateCompare;
       return (b.planned_start_time || '').localeCompare(a.planned_start_time || '');
     });
-    
-    return c.json(bookings);
+
+    // pet_photo_url is stored as a storage path — sign per response.
+    return c.json(await withSignedPetPhotos(bookings as unknown as Record<string, unknown>[], 'pet_photo_url'));
   } catch (error: any) {
     return internalError(c, 'daycare.listBookings', error);
   }
@@ -851,8 +858,8 @@ app.get('/bookings/:id', async (c) => {
     if (filtered.length === 0) {
       return c.json({ error: 'Access denied' }, 403);
     }
-    
-    return c.json(booking);
+
+    return c.json({ ...booking, pet_photo_url: await signPetPhotoUrl(booking.pet_photo_url) });
   } catch (error: any) {
     return internalError(c, 'daycare.getBooking', error);
   }
@@ -985,7 +992,8 @@ app.post('/bookings', async (c) => {
       household_name: household.name,
       pet_id,
       pet_name: pet.name,
-      pet_photo_url: pet.photo_url,
+      // Storage path (or legacy URL) — read endpoints sign it per response.
+      pet_photo_url: storedPetPhoto(pet),
       location_id,
       location_name,
       service_id,
@@ -1063,7 +1071,7 @@ app.post('/bookings', async (c) => {
       }
     }
     
-    return c.json(booking, 201);
+    return c.json({ ...booking, pet_photo_url: await signPetPhotoUrl(booking.pet_photo_url) }, 201);
   } catch (error: any) {
     return internalError(c, 'daycare.createBooking', error);
   }
@@ -1131,7 +1139,7 @@ app.post('/bookings/:id/cancel', async (c) => {
       }
     }
     
-    return c.json(booking);
+    return c.json({ ...booking, pet_photo_url: await signPetPhotoUrl(booking.pet_photo_url) });
   } catch (error: any) {
     return internalError(c, 'daycare.cancelBooking', error);
   }
@@ -1308,7 +1316,11 @@ app.post('/bookings/:id/checkin', async (c) => {
       console.error('[daycare.checkIn] pet_update write failed (non-fatal):', feedError);
     }
 
-    return c.json({ booking, attendance });
+    const petPhotoUrl = await signPetPhotoUrl(booking.pet_photo_url);
+    return c.json({
+      booking: { ...booking, pet_photo_url: petPhotoUrl },
+      attendance: { ...attendance, pet_photo_url: petPhotoUrl },
+    });
   } catch (error: any) {
     return internalError(c, 'daycare.checkIn', error);
   }
@@ -1418,7 +1430,7 @@ app.post('/bookings/:id/checkout', async (c) => {
       console.error('[daycare.checkOut] pet_update write failed (non-fatal):', feedError);
     }
 
-    return c.json(booking);
+    return c.json({ ...booking, pet_photo_url: await signPetPhotoUrl(booking.pet_photo_url) });
   } catch (error: any) {
     return internalError(c, 'daycare.checkOut', error);
   }
@@ -1577,7 +1589,8 @@ app.get('/attendance/active', async (c) => {
       stale: (a.check_in_time ?? '').slice(0, 10) < todayStr,
     }));
 
-    return c.json(annotated);
+    // pet_photo_url on attendance records is a storage path — sign per response.
+    return c.json(await withSignedPetPhotos(annotated as unknown as Record<string, unknown>[], 'pet_photo_url'));
   } catch (error: any) {
     return internalError(c, 'daycare.activeAttendance', error);
   }
