@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3906,
-  "warnings": 415
+  "errors": 3864,
+  "warnings": 414
  },
  "files": {
   "eslint.config.js": {
@@ -315,10 +315,6 @@
   "src/app/modules/customers/components/modals/EditPetModal.tsx": {
    "errors": 5,
    "warnings": 3
-  },
-  "src/app/modules/customers/components/pet-profile/PetDocumentsTab.tsx": {
-   "errors": 42,
-   "warnings": 1
   },
   "src/app/modules/customers/components/pet-profile/PetOverviewTab.tsx": {
    "errors": 3,
