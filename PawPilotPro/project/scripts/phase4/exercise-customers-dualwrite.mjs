@@ -1,4 +1,6 @@
 // Phase 4 / Customers — STAGE 2 dual-write end-to-end exercise.
+// (Requires 20260711230000_phase4_app_schema_grants — the PostgREST read-back
+// evaluates the stage-0 RLS policies, which call the app.* JWT helpers.)
 //
 // Drives the DEPLOYED edge function through real staff create/update/delete
 // flows and, after every step, reads the Postgres side back via PostgREST
