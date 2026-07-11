@@ -359,7 +359,15 @@ where h.id = s.hh_id
 -- 5. pets — customer:{t}:pet:{hh}:{id}
 --    numeric(5,2)/numeric(6,2) range guards prevent insert-time overflow;
 --    out-of-range values are data errors → quarantine, not truncation.
+--
+--    photo_path was added to the KV record AFTER stage 0 shipped (private
+--    pet-photo bucket work: bucket references persist as a storage path,
+--    never a URL, and legacy photo_url/photoUrl are cleared on write — see
+--    lib/pet_photos.ts). The column is added here so the canonical photo
+--    reference is not dropped; photo_url still carries external URLs only.
 -- ---------------------------------------------------------------------------
+
+alter table public.pets add column if not exists photo_path text;
 
 create table phase4_backfill.pet as
 select key, raw_value, segs, v,
@@ -404,7 +412,7 @@ where reject_reason is not null
 on conflict (legacy_kv_key) do nothing;
 
 insert into public.pets
-  (id, tenant_id, household_id, name, photo_url, breed, sex, date_of_birth,
+  (id, tenant_id, household_id, name, photo_url, photo_path, breed, sex, date_of_birth,
    age_years, microchip, weight_kg, colour, address, neutered_status,
    behaviour_notes, medical_notes, feeding_instructions, allergies, vet_name,
    vet_phone, vet_address, vaccination_status, vaccination_expiry_date,
@@ -417,6 +425,7 @@ select
   segs[4],
   v->>'name',
   v->>'photo_url',
+  v->>'photo_path',
   v->>'breed',
   v->>'sex',
   phase4_backfill.iso_date(v->>'date_of_birth'),

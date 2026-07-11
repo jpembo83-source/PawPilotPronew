@@ -98,6 +98,7 @@ insert into public.kv_store_fc003b23 (key, value) values
 -- ---- pets (kv 6 → migrate 3, quarantine 3) ---------------------------------
 ('customer:demo-tenant-001:pet:hh_fix_001:pet_fix_001', jsonb_build_object(
   'id','pet_fix_001','tenant_id','demo-tenant-001','household_id','hh_fix_001',
+  'photo_path','pet-photos/demo-tenant-001/pet_fix_001.jpg',
   'name','Rex','breed','Labrador','sex','male','date_of_birth','2020-05-01',
   'age_years',6.1,'microchip','985112345678903','weight_kg',22.5,
   'colour','black','address',jsonb_build_object('line1','1 Test Way'),

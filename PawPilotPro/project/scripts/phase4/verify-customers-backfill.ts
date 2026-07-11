@@ -159,7 +159,7 @@ const FAMILIES: FamilySpec[] = [
       verification_status: "verified",
     },
     fields: [
-      "id", "tenant_id", "household_id", "name", "photo_url", "breed", "sex",
+      "id", "tenant_id", "household_id", "name", "photo_url", "photo_path", "breed", "sex",
       "date_of_birth", "age_years", "microchip", "weight_kg", "colour",
       "address", "neutered_status", "behaviour_notes", "medical_notes",
       "feeding_instructions", "allergies", "vet_name", "vet_phone",

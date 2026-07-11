@@ -91,7 +91,12 @@ export const petSchema = z.object({
   tenant_id: z.string().min(1),
   household_id: idSchema,
   name: z.string().min(1),
+  /** External http(s) photo URL only — bucket photos live in photo_path. */
   photo_url: z.string().nullish(),
+  /** Canonical private-bucket photo reference (storage object path, never a
+   *  URL — lib/pet_photos.ts applyPetPhotoWrite). Post-dates the original
+   *  freeze; added with the stage-1 backfill. */
+  photo_path: z.string().nullish(),
   breed: z.string().nullish(),
   sex: z.string().nullish(),
   date_of_birth: isoDate.nullish(),
