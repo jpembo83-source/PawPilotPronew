@@ -40,6 +40,11 @@ export default tseslint.config(
     files: ['*.config.js', '*.config.ts', '*.config.mjs', 'scripts/**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
+      // Merge, don't replace: disableTypeChecked carries
+      // parserOptions.projectService=false, which redefining languageOptions
+      // wholesale used to clobber — every scripts/*.mjs then failed to parse
+      // ("not found by the project service") and sat in the baseline.
+      ...tseslint.configs.disableTypeChecked.languageOptions,
       globals: globals.node,
     },
   },

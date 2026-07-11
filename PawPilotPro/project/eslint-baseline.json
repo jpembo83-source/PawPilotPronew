@@ -1,24 +1,12 @@
 {
  "totals": {
-  "errors": 3863,
+  "errors": 3859,
   "warnings": 414
  },
  "files": {
-  "eslint.config.js": {
-   "errors": 1,
-   "warnings": 0
-  },
-  "postcss.config.mjs": {
-   "errors": 1,
-   "warnings": 0
-  },
   "scripts/backfill-app-metadata-role.ts": {
    "errors": 24,
    "warnings": 2
-  },
-  "scripts/lint-baseline.mjs": {
-   "errors": 1,
-   "warnings": 0
   },
   "scripts/migrate-icons.mjs": {
    "errors": 1,
@@ -1011,10 +999,6 @@
   "tests/unit/setup.ts": {
    "errors": 1,
    "warnings": 1
-  },
-  "vitest.config.ts": {
-   "errors": 1,
-   "warnings": 0
   }
  }
 }

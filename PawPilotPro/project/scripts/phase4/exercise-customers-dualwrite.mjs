@@ -47,21 +47,7 @@ function fail(step, detail) {
   console.error(`FAIL ${step} — ${detail}`);
 }
 
-let SERVICE_KEY = '';
 let EXERCISE_USER_ID = '';
-
-/** Service-role key fetched at runtime from the Management API — never stored. */
-async function fetchServiceKey() {
-  const res = await fetch(`https://api.supabase.com/v1/projects/${REF}/api-keys?reveal=true`, {
-    headers: { Authorization: `Bearer ${MGMT_TOKEN}` },
-  });
-  if (!res.ok) throw new Error(`management api-keys fetch failed: ${res.status}`);
-  const keys = await res.json();
-  const svc = keys.find((k) => k.name === 'service_role' || k.id === 'service_role');
-  if (!svc?.api_key) throw new Error('service_role key not found in management API response');
-  SERVICE_KEY = svc.api_key;
-  ok('service key', 'fetched at runtime via SUPABASE_ACCESS_TOKEN');
-}
 
 /** Management-API SQL runner (the GoTrue admin create endpoint 500s on this
  *  project, so the user is provisioned the same way the operator does it). */
@@ -165,7 +151,6 @@ function compare(step, kvObj, pgRow, fields) {
 }
 
 async function main() {
-  await fetchServiceKey();
   await createExerciseUser();
   await signIn();
 
@@ -230,7 +215,8 @@ async function main() {
     ['id', 'household_id', 'document_type', 'name', 'file_name', 'storage_path', 'file_size', 'mime_type']);
   await api('DELETE', `/households/${hh.id}/documents/${doc.id}`);
   const docGone = await pg('customer_documents', `id=eq.${doc.id}&select=id`);
-  docGone.length === 0 ? ok('document delete mirrored') : fail('document delete', 'PG row survived');
+  if (docGone.length === 0) ok('document delete mirrored');
+  else fail('document delete', 'PG row survived');
 
   // ---- flag create (vip → household sync) + delete ---------------------------
   const flag = await api('POST', `/households/${hh.id}/flags`, {
@@ -242,23 +228,27 @@ async function main() {
     (await pg('households', `id=eq.${hh.id}&select=vip`))[0], ['vip']);
   await api('DELETE', `/flags/${flag.id}`);
   const flagGone = await pg('household_flags', `id=eq.${flag.id}&select=id`);
-  flagGone.length === 0 ? ok('flag delete mirrored') : fail('flag delete', 'PG row survived');
+  if (flagGone.length === 0) ok('flag delete mirrored');
+  else fail('flag delete', 'PG row survived');
   compare('household.vip unsynced', { vip: false },
     (await pg('households', `id=eq.${hh.id}&select=vip`))[0], ['vip']);
 
   // ---- contact delete (non-primary) ------------------------------------------
   await api('DELETE', `/contacts/${ada.id}`);
   const adaGone = await pg('contacts', `id=eq.${ada.id}&select=id`);
-  adaGone.length === 0 ? ok('contact delete mirrored') : fail('contact delete', 'PG row survived');
+  if (adaGone.length === 0) ok('contact delete mirrored');
+  else fail('contact delete', 'PG row survived');
 
   // ---- activity feed parity: every KV-visible activity exists in PG ----------
   const kvActivities = await api('GET', `/households/${hh.id}/activity`);
   const pgActivities = await pg('customer_activities', `household_id=eq.${hh.id}&select=id`);
   const pgIds = new Set(pgActivities.map((a) => a.id));
   const missing = (kvActivities ?? []).filter((a) => !pgIds.has(a.id));
-  missing.length === 0
-    ? ok('activity parity', `${(kvActivities ?? []).length} KV activities all present in PG (PG total ${pgActivities.length})`)
-    : fail('activity parity', `missing in PG: ${missing.map((a) => a.id).join(',')}`);
+  if (missing.length === 0) {
+    ok('activity parity', `${(kvActivities ?? []).length} KV activities all present in PG (PG total ${pgActivities.length})`);
+  } else {
+    fail('activity parity', `missing in PG: ${missing.map((a) => a.id).join(',')}`);
+  }
 
   // ---- CASCADE DELETE (the big multi-key flow) --------------------------------
   await api('DELETE', `/households/${hh.id}`);
@@ -269,9 +259,11 @@ async function main() {
     pg('household_notes', `household_id=eq.${hh.id}&select=id`),
     pg('household_flags', `household_id=eq.${hh.id}&select=id`),
   ]);
-  leftovers.every((rows) => rows.length === 0)
-    ? ok('cascade delete mirrored', 'household/contacts/pets/notes/flags all gone from PG')
-    : fail('cascade delete', `leftovers: ${leftovers.map((r) => r.length).join('/')}`);
+  if (leftovers.every((rows) => rows.length === 0)) {
+    ok('cascade delete mirrored', 'household/contacts/pets/notes/flags all gone from PG');
+  } else {
+    fail('cascade delete', `leftovers: ${leftovers.map((r) => r.length).join('/')}`);
+  }
 
   // ---- clear-timeline: both stores must stay IDENTICAL ------------------------
   // (A pre-existing route bug reconstructs 4-segment keys, so activities stored
@@ -284,9 +276,11 @@ async function main() {
   const pgLeftIds = new Set(pgActLeft.map((a) => a.id));
   const sameSurvivors =
     kvLeftIds.size === pgLeftIds.size && [...kvLeftIds].every((id) => pgLeftIds.has(id));
-  sameSurvivors
-    ? ok('clear-timeline parity', `both stores kept the same ${kvLeftIds.size} five-segment-keyed activities (pre-existing KV purge bug, faithfully mirrored)`)
-    : fail('clear-timeline parity', `kv=${kvLeftIds.size} pg=${pgLeftIds.size} survivors differ`);
+  if (sameSurvivors) {
+    ok('clear-timeline parity', `both stores kept the same ${kvLeftIds.size} five-segment-keyed activities (pre-existing KV purge bug, faithfully mirrored)`);
+  } else {
+    fail('clear-timeline parity', `kv=${kvLeftIds.size} pg=${pgLeftIds.size} survivors differ`);
+  }
 
   console.log(failures === 0
     ? '\nEXERCISE PASSED: every flow mirrored KV → Postgres with zero divergence.'
