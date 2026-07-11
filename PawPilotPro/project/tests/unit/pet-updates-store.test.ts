@@ -33,7 +33,7 @@ function fakeAdmin(results: ScriptedResult[]) {
     calls.push({ method, args });
     return builder;
   };
-  for (const m of ['from', 'select', 'insert', 'update', 'eq', 'neq', 'or', 'order', 'limit']) {
+  for (const m of ['from', 'select', 'insert', 'update', 'eq', 'neq', 'not', 'or', 'order', 'limit']) {
     builder[m] = chain(m);
   }
   builder.maybeSingle = (...args: unknown[]) => {
@@ -47,7 +47,8 @@ function fakeAdmin(results: ScriptedResult[]) {
 function mkRow(overrides: Partial<PetUpdateRow> = {}): PetUpdateRow {
   return {
     id: 'pupd_1', tenant_id: 't1', pet_id: 'p1', pet_name: 'Rex',
-    household_id: 'hh1', booking_id: null, date: '2026-07-11', type: 'photo',
+    household_id: 'hh1', booking_id: null, location_id: null, upload_batch_id: null,
+    date: '2026-07-11', type: 'photo',
     text: null, caption: null, photo_path: 'tenant/t1/pets/p1/moments/x.jpg',
     status: 'pending', rejected_reason: null, created_by_id: 's1',
     created_by_name: 'Sam', reviewed_by_id: null, reviewed_by_name: null,
@@ -106,6 +107,51 @@ describe('pet_updates_store', () => {
       action: 'approve', reviewerId: 'm1', reviewerName: 'Mia',
     });
     expect(result).toMatchObject({ ok: true, changed: false });
+  });
+
+  it('round-trips an unassigned bulk capture (no pet, location + batch kept)', () => {
+    const update = buildPetUpdate({
+      tenantId: 't1', type: 'photo', photoPath: 'tenant/t1/unassigned/b1/x.jpg',
+      locationId: 'loc-1', uploadBatchId: 'b1',
+      createdById: 's1', createdByName: 'Sam', at: AT,
+    });
+    const row = petUpdateToRow(update);
+    expect(row.pet_id).toBeNull();
+    expect(row.location_id).toBe('loc-1');
+    expect(row.upload_batch_id).toBe('b1');
+    expect(rowToPetUpdate(row)).toEqual(update);
+  });
+
+  it('approving an UNASSIGNED photo without a pet is refused (must assign first)', async () => {
+    const unassignedRow = mkRow({ pet_id: null, pet_name: null, household_id: null });
+    const { admin, calls } = fakeAdmin([
+      { data: null, error: null },          // update matched no rows (pet_id IS NULL excluded)
+      { data: unassignedRow, error: null }, // follow-up read: still pending, unassigned
+    ]);
+    const result = await reviewPetUpdate(admin, 't1', 'pupd_1', {
+      action: 'approve', reviewerId: 'm1', reviewerName: 'Mia',
+    });
+    expect(result).toEqual({ ok: false, reason: 'unassigned' });
+    // The invariant lives in the WHERE clause, not just the fallback read.
+    expect(calls.some(c => c.method === 'not' && c.args[0] === 'pet_id')).toBe(true);
+  });
+
+  it('assign + approve is one transition: pet fields land in the same patch', async () => {
+    const approvedRow = mkRow({
+      status: 'approved', pet_id: 'p9', pet_name: 'Bella', household_id: 'hh9',
+    });
+    const { admin, calls } = fakeAdmin([{ data: approvedRow, error: null }]);
+    const result = await reviewPetUpdate(admin, 't1', 'pupd_1', {
+      action: 'approve', reviewerId: 'm1', reviewerName: 'Mia', at: AT,
+      assign: { petId: 'p9', petName: 'Bella', householdId: 'hh9' },
+    });
+    expect(result).toMatchObject({ ok: true, changed: true });
+    const update = calls.find(c => c.method === 'update');
+    expect(update?.args[0]).toMatchObject({
+      status: 'approved', pet_id: 'p9', pet_name: 'Bella', household_id: 'hh9',
+    });
+    // With an assignment the pet_id-not-null guard must NOT apply.
+    expect(calls.some(c => c.method === 'not')).toBe(false);
   });
 
   it('reviewing a moment that does not exist in the tenant is not_found', async () => {
