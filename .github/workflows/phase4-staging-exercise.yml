@@ -1,0 +1,37 @@
+# Phase 4 / Customers stage-2 — dual-write end-to-end exercise against STAGING.
+#
+# Drives the deployed staging edge function through real create/update/delete
+# flows and asserts KV↔Postgres parity after every step (see the script).
+# Runs on pushes to `staging` that touch the exercise script, so a staging
+# function deploy + exercise land as one push.
+#
+# NO stored credentials: the existing SUPABASE_ACCESS_TOKEN secret fetches the
+# staging service-role key at runtime, the script mints a random throwaway
+# staff user for the run and deletes it afterwards. The anon key below is a
+# public client key by design.
+name: Phase 4 staging dual-write exercise
+
+on:
+  push:
+    branches: [staging]
+    paths:
+      - 'PawPilotPro/project/scripts/phase4/exercise-customers-dualwrite.mjs'
+      - '.github/workflows/phase4-staging-exercise.yml'
+  workflow_dispatch:
+
+jobs:
+  exercise:
+    name: Exercise customer flows on staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run dual-write exercise
+        env:
+          STAGING_URL: https://ihdbnwlmqhsrslstbbqn.supabase.co
+          STAGING_REF: ihdbnwlmqhsrslstbbqn
+          STAGING_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloZGJud2xtcWhzcnNsc3RiYnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzOTA0MzAsImV4cCI6MjA5Nzk2NjQzMH0.FExedDEbLu1ZGDJ__NLlnSPVjqz1rnLJdmnDwHK9bTA
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node PawPilotPro/project/scripts/phase4/exercise-customers-dualwrite.mjs

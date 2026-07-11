@@ -8,6 +8,9 @@ import { requireAuth, requireRole, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { listHouseholds, HouseholdRecord, ContactRecord, PetRecord } from './lib/household_list.ts';
 import { applyPetPhotoWrite, signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
+// Phase 4 stage 2: every customer:* KV mutation is mirrored to Postgres.
+// Non-fatal, loud-on-failure; KV stays authoritative (no read changes).
+import { dualWriteCustomers, dwSet, dwDel, type CustomerDualWriteOp } from './lib/customers_dualwrite.ts';
 
 const app = new Hono();
 
@@ -245,7 +248,12 @@ app.post('/households', requireRole('admin', 'manager', 'assistant_manager'), as
       created_by: userId,
     };
     await kv.set(`customer:${tenantId}:activity:${household.id}:${activity.id}`, activity);
-    
+
+    await dualWriteCustomers([
+      dwSet(`customer:${tenantId}:household:${household.id}`, household),
+      dwSet(`customer:${tenantId}:activity:${household.id}:${activity.id}`, activity),
+    ]);
+
     return c.json(household);
   } catch (error: any) {
     return internalError(c, 'customers.createHousehold', error);
@@ -292,7 +300,12 @@ app.put('/households/:id', requireRole('admin', 'manager', 'assistant_manager'),
       created_by: userId,
     };
     await kv.set(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity);
-    
+
+    await dualWriteCustomers([
+      dwSet(`customer:${tenantId}:household:${householdId}`, updated),
+      dwSet(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity),
+    ]);
+
     return c.json(updated);
   } catch (error: any) {
     return internalError(c, 'customers.updateHousehold', error);
@@ -314,19 +327,25 @@ app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
     // KV store returns already-parsed objects, not JSON strings
     const householdData = existing;
     
+    // Postgres mirror of every customer:* delete below, applied as ONE
+    // transaction at the end (multi-key flow — must not partially apply).
+    const dw: CustomerDualWriteOp[] = [];
+
     // Delete all related data for this household
     // 1. Delete all contacts
     const contacts = await kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`);
     // KV store returns already-parsed objects, not JSON strings
     for (const contact of contacts) {
       await kv.del(`customer:${tenantId}:contact:${householdId}:${contact.id}`);
+      dw.push(dwDel(`customer:${tenantId}:contact:${householdId}:${contact.id}`));
     }
-    
+
     // 2. Delete all pets
     const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`);
     // KV store returns already-parsed objects, not JSON strings
     for (const pet of pets) {
       await kv.del(`customer:${tenantId}:pet:${householdId}:${pet.id}`);
+      dw.push(dwDel(`customer:${tenantId}:pet:${householdId}:${pet.id}`));
     }
 
     // 3. Delete all daycare bookings
@@ -366,6 +385,7 @@ app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
     // KV store returns already-parsed objects, not JSON strings
     for (const doc of documents) {
       await kv.del(`customer:${tenantId}:document:${householdId}:${doc.id}`);
+      dw.push(dwDel(`customer:${tenantId}:document:${householdId}:${doc.id}`));
     }
     
     // 8. Delete all notes
@@ -373,6 +393,7 @@ app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
     // KV store returns already-parsed objects, not JSON strings
     for (const note of notes) {
       await kv.del(`customer:${tenantId}:household:${householdId}:note:${note.id}`);
+      dw.push(dwDel(`customer:${tenantId}:household:${householdId}:note:${note.id}`));
     }
     
     // 9. Delete all flags
@@ -380,6 +401,7 @@ app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
     // KV store returns already-parsed objects, not JSON strings
     for (const flag of flags) {
       await kv.del(`customer:${tenantId}:household:${householdId}:flag:${flag.id}`);
+      dw.push(dwDel(`customer:${tenantId}:household:${householdId}:flag:${flag.id}`));
     }
     
     // 10. Delete all activity events
@@ -388,12 +410,16 @@ app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
     for (const activity of activities) {
       if (activity.household_id === householdId) {
         await kv.del(`customer:${tenantId}:activity:${activity.id}`);
+        dw.push(dwDel(`customer:${tenantId}:activity:${activity.id}`));
       }
     }
-    
+
     // 11. Finally, delete the household itself
     await kv.del(`customer:${tenantId}:household:${householdId}`);
-    
+    dw.push(dwDel(`customer:${tenantId}:household:${householdId}`));
+
+    await dualWriteCustomers(dw);
+
     return c.json({ message: `Household "${householdData.name}" deleted successfully` });
   } catch (error: any) {
     return internalError(c, 'customers.deleteHousehold', error);
@@ -454,7 +480,12 @@ app.post('/households/:household_id/contacts', requireRole('admin', 'manager', '
     };
     
     await kv.set(`customer:${tenantId}:contact:${householdId}:${contact.id}`, contact);
-    
+
+    // Multi-key flow: contact (+ household pointer) mirror in one transaction.
+    const dw: CustomerDualWriteOp[] = [
+      dwSet(`customer:${tenantId}:contact:${householdId}:${contact.id}`, contact),
+    ];
+
     // If this is primary contact, update household
     if (contact.is_primary) {
       const household = await kv.get(`customer:${tenantId}:household:${householdId}`);
@@ -464,9 +495,10 @@ app.post('/households/:household_id/contacts', requireRole('admin', 'manager', '
         householdData.primary_contact_id = contact.id;
         householdData.updated_at = new Date().toISOString();
         await kv.set(`customer:${tenantId}:household:${householdId}`, householdData);
+        dw.push(dwSet(`customer:${tenantId}:household:${householdId}`, householdData));
       }
     }
-    
+
     // Create activity event
     const activity = {
       id: generateId('act'),
@@ -478,7 +510,10 @@ app.post('/households/:household_id/contacts', requireRole('admin', 'manager', '
       created_by: userId,
     };
     await kv.set(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity);
-    
+    dw.push(dwSet(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity));
+
+    await dualWriteCustomers(dw);
+
     return c.json(contact);
   } catch (error: any) {
     return internalError(c, 'customers.createContact', error);
@@ -519,11 +554,17 @@ app.put('/contacts/:id', requireRole('admin', 'manager', 'assistant_manager'), a
       updated_at: new Date().toISOString(),
     };
     
+    // Primary-contact flip is THE multi-key flow: unsets + household pointer +
+    // the promoted contact mirror to Postgres as one transaction. Op order
+    // matters (unsets before the promotion) — the partial unique index
+    // contacts_one_primary_per_household_uq is evaluated per statement.
+    const dw: CustomerDualWriteOp[] = [];
+
     // If this became primary contact, unset any other primary contacts in the household
     if (updated.is_primary && !contactData.is_primary) {
       // Find all contacts in this household
       const householdContacts = await kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`);
-      
+
       // Unset is_primary for all other contacts
       // KV store returns already-parsed objects, not JSON strings
       for (const contact of householdContacts) {
@@ -531,9 +572,10 @@ app.put('/contacts/:id', requireRole('admin', 'manager', 'assistant_manager'), a
           contact.is_primary = false;
           contact.updated_at = new Date().toISOString();
           await kv.set(`customer:${tenantId}:contact:${householdId}:${contact.id}`, contact);
+          dw.push(dwSet(`customer:${tenantId}:contact:${householdId}:${contact.id}`, contact));
         }
       }
-      
+
       // Update household primary_contact_id
       const household = await kv.get(`customer:${tenantId}:household:${householdId}`);
       if (household) {
@@ -542,11 +584,15 @@ app.put('/contacts/:id', requireRole('admin', 'manager', 'assistant_manager'), a
         householdData.primary_contact_id = contactId;
         householdData.updated_at = new Date().toISOString();
         await kv.set(`customer:${tenantId}:household:${householdId}`, householdData);
+        dw.push(dwSet(`customer:${tenantId}:household:${householdId}`, householdData));
       }
     }
-    
+
     await kv.set(`customer:${tenantId}:contact:${householdId}:${contactId}`, updated);
-    
+    dw.push(dwSet(`customer:${tenantId}:contact:${householdId}:${contactId}`, updated));
+
+    await dualWriteCustomers(dw);
+
     return c.json(updated);
   } catch (error: any) {
     return internalError(c, 'customers.updateContact', error);
@@ -581,7 +627,11 @@ app.delete('/contacts/:id', requireRole('admin', 'manager'), async (c) => {
     }
     
     await kv.del(`customer:${tenantId}:contact:${householdId}:${contactId}`);
-    
+
+    await dualWriteCustomers([
+      dwDel(`customer:${tenantId}:contact:${householdId}:${contactId}`),
+    ]);
+
     return c.json({ success: true });
   } catch (error: any) {
     return internalError(c, 'customers.deleteContact', error);
@@ -696,6 +746,11 @@ app.post('/households/:household_id/pets', requireRole('admin', 'manager', 'assi
     };
     await kv.set(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity);
 
+    await dualWriteCustomers([
+      dwSet(`customer:${tenantId}:pet:${householdId}:${pet.id}`, pet),
+      dwSet(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity),
+    ]);
+
     return c.json({ ...pet, photo_url: await signPetPhotoUrl(storedPetPhoto(pet)) });
   } catch (error: any) {
     return internalError(c, 'customers.createPet', error);
@@ -760,6 +815,11 @@ app.put('/pets/:id', requireRole('admin', 'manager', 'assistant_manager'), async
       created_at: new Date().toISOString(),
     };
     await kv.set(`customer:${tenantId}:activity:${activity.id}`, activity);
+
+    await dualWriteCustomers([
+      dwSet(`customer:${tenantId}:pet:${householdId}:${petId}`, updated),
+      dwSet(`customer:${tenantId}:activity:${activity.id}`, activity),
+    ]);
 
     return c.json({ ...updated, photo_url: await signPetPhotoUrl(storedPetPhoto(updated)) });
   } catch (error: any) {
@@ -904,7 +964,12 @@ app.post('/households/:household_id/documents', requireRole('admin', 'manager', 
       created_at: now,
     };
     await kv.set(`customer:${tenantId}:activity:${activityId}`, activity);
-    
+
+    await dualWriteCustomers([
+      dwSet(`customer:${tenantId}:document:${householdId}:${document.id}`, document),
+      dwSet(`customer:${tenantId}:activity:${activityId}`, activity),
+    ]);
+
     return c.json({ document }, 201);
   } catch (error: any) {
     return internalError(c, 'customers.createDocument', error);
@@ -921,9 +986,13 @@ app.delete('/households/:household_id/documents/:id', requireRole('admin', 'mana
     
     // Try to delete the document
     await kv.del(`customer:${tenantId}:document:${householdId}:${documentId}`);
-    
+
+    await dualWriteCustomers([
+      dwDel(`customer:${tenantId}:document:${householdId}:${documentId}`),
+    ]);
+
     // Note: Actual file deletion from storage should be handled separately
-    
+
     return c.json({ success: true });
   } catch (error: any) {
     return internalError(c, 'customers.deleteDocument', error);
@@ -1021,16 +1090,25 @@ app.post('/seed-data', requireRole('admin', 'manager'), async (c) => {
     // If force reseed, clear all existing customer data for this tenant
     if (forceReseed && existing.length > 0) {
       console.log(`[Seed] Force reseed: clearing ${existing.length} existing households`);
+      const clearOps: CustomerDualWriteOp[] = [];
       for (const household of existing) {
         // Delete contacts
         const contacts = await kv.getByPrefix(`customer:${tenantId}:contact:${household.id}:`);
-        for (const contact of contacts) await kv.del(`customer:${tenantId}:contact:${household.id}:${contact.id}`);
+        for (const contact of contacts) {
+          await kv.del(`customer:${tenantId}:contact:${household.id}:${contact.id}`);
+          clearOps.push(dwDel(`customer:${tenantId}:contact:${household.id}:${contact.id}`));
+        }
         // Delete pets
         const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${household.id}:`);
-        for (const pet of pets) await kv.del(`customer:${tenantId}:pet:${household.id}:${pet.id}`);
+        for (const pet of pets) {
+          await kv.del(`customer:${tenantId}:pet:${household.id}:${pet.id}`);
+          clearOps.push(dwDel(`customer:${tenantId}:pet:${household.id}:${pet.id}`));
+        }
         // Delete household
         await kv.del(`customer:${tenantId}:household:${household.id}`);
+        clearOps.push(dwDel(`customer:${tenantId}:household:${household.id}`));
       }
+      await dualWriteCustomers(clearOps);
       console.log('[Seed] Cleared existing data');
     }
     
@@ -1096,8 +1174,10 @@ app.post('/seed-data', requireRole('admin', 'manager'), async (c) => {
     ];
     
     // Save households and create contacts/pets
+    const seedOps: CustomerDualWriteOp[] = [];
     for (const household of households) {
       await kv.set(`customer:${tenantId}:household:${household.id}`, household);
+      seedOps.push(dwSet(`customer:${tenantId}:household:${household.id}`, household));
       
       // Create primary contact
       const contact = {
@@ -1119,10 +1199,12 @@ app.post('/seed-data', requireRole('admin', 'manager'), async (c) => {
       };
       
       await kv.set(`customer:${tenantId}:contact:${household.id}:${contact.id}`, contact);
-      
+      seedOps.push(dwSet(`customer:${tenantId}:contact:${household.id}:${contact.id}`, contact));
+
       // Update household with primary contact
       household.primary_contact_id = contact.id;
       await kv.set(`customer:${tenantId}:household:${household.id}`, household);
+      seedOps.push(dwSet(`customer:${tenantId}:household:${household.id}`, household));
       
       // Create sample pets
       const petNames = household.name.includes('Smith') 
@@ -1162,6 +1244,7 @@ app.post('/seed-data', requireRole('admin', 'manager'), async (c) => {
         };
         
         await kv.set(`customer:${tenantId}:pet:${household.id}:${pet.id}`, pet);
+        seedOps.push(dwSet(`customer:${tenantId}:pet:${household.id}:${pet.id}`, pet));
         console.log('[Seed] Created pet:', pet.name, 'for household:', household.name);
         
         // Create daycare bookings for this pet (today and next 3 weekdays)
@@ -1199,6 +1282,8 @@ app.post('/seed-data', requireRole('admin', 'manager'), async (c) => {
       }
     }
     
+    await dualWriteCustomers(seedOps);
+
     // Verify data was created
     const verify = await kv.getByPrefix(`customer:${tenantId}:household:`);
     const bookings = await kv.getByPrefix(`daycare:booking:`);
@@ -1682,6 +1767,10 @@ app.post('/import', requireRole('admin', 'manager'), async (c) => {
         const slice = keys.slice(i, i + CHUNK);
         await kv.mset(slice, slice.map((k) => staged.get(k)));
       }
+      // Mirror the whole import to Postgres in one transaction.
+      await dualWriteCustomers(
+        keys.map((k) => dwSet(k, staged.get(k) as Record<string, unknown>)),
+      );
     }
 
     // success reflects "the file was processed", not "every row was clean" —
@@ -1969,7 +2058,12 @@ app.post('/households/:id/notes', requireRole('admin', 'manager', 'assistant_man
     
     // Save note
     await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, note);
-    
+
+    // Note + link mirror in one transaction (note first — links FK onto it).
+    const dw: CustomerDualWriteOp[] = [
+      dwSet(`customer:${tenantId}:household:${householdId}:note:${noteId}`, note),
+    ];
+
     // Save pet associations if provided
     if (pet_ids && pet_ids.length > 0) {
       for (const petId of pet_ids) {
@@ -1981,14 +2075,20 @@ app.post('/households/:id/notes', requireRole('admin', 'manager', 'assistant_man
               `customer:${tenantId}:note:${noteId}:pet:${petId}`,
               { tenant_id: tenantId, note_id: noteId, pet_id: petId }
             );
+            dw.push(dwSet(
+              `customer:${tenantId}:note:${noteId}:pet:${petId}`,
+              { tenant_id: tenantId, note_id: noteId, pet_id: petId },
+            ));
           }
         }
       }
     }
-    
+
+    await dualWriteCustomers(dw);
+
     // Return note with pet_ids
     const noteWithPets = { ...note, pet_ids };
-    
+
     return c.json(noteWithPets, 201);
   } catch (error: any) {
     return internalError(c, 'customers.createNote', error);
@@ -2046,15 +2146,19 @@ app.patch('/notes/:id', requireRole('admin', 'manager', 'assistant_manager'), as
     
     // Save updated note
     await kv.set(noteKey, note);
-    
+
+    // Note + link rewrites mirror in one transaction (deletes before adds).
+    const dw: CustomerDualWriteOp[] = [dwSet(noteKey, note)];
+
     // Update pet associations if provided
     if (pet_ids !== undefined) {
       // Delete existing associations
       const existingLinks = await kv.getByPrefix(`customer:${tenantId}:note:${noteId}:pet:`);
       for (const linkData of existingLinks) {
         await kv.del(`customer:${tenantId}:note:${noteId}:pet:${linkData.pet_id}`);
+        dw.push(dwDel(`customer:${tenantId}:note:${noteId}:pet:${linkData.pet_id}`));
       }
-      
+
       // Add new associations
       if (pet_ids.length > 0) {
         for (const petId of pet_ids) {
@@ -2065,11 +2169,17 @@ app.patch('/notes/:id', requireRole('admin', 'manager', 'assistant_manager'), as
                 `customer:${tenantId}:note:${noteId}:pet:${petId}`,
                 { tenant_id: tenantId, note_id: noteId, pet_id: petId }
               );
+              dw.push(dwSet(
+                `customer:${tenantId}:note:${noteId}:pet:${petId}`,
+                { tenant_id: tenantId, note_id: noteId, pet_id: petId },
+              ));
             }
           }
         }
       }
     }
+
+    await dualWriteCustomers(dw);
     
     // Get current pet_ids
     const petLinks = await kv.getByPrefix(`customer:${tenantId}:note:${noteId}:pet:`);
@@ -2111,7 +2221,9 @@ app.delete('/notes/:id', requireRole('admin', 'manager'), async (c) => {
     note.deleted_by = userId;
     
     await kv.set(noteKey, note);
-    
+
+    await dualWriteCustomers([dwSet(noteKey, note)]);
+
     return c.json({ message: 'Note deleted successfully' });
   } catch (error: any) {
     return internalError(c, 'customers.deleteNote', error);
@@ -2218,18 +2330,25 @@ app.post('/households/:id/flags', requireRole('admin', 'manager', 'assistant_man
     
     // Save flag
     await kv.set(`customer:${tenantId}:household:${householdId}:flag:${flagId}`, flag);
-    
+
+    // Multi-key flow (flag + household sync + activity): one PG transaction.
+    const dw: CustomerDualWriteOp[] = [
+      dwSet(`customer:${tenantId}:household:${householdId}:flag:${flagId}`, flag),
+    ];
+
     // Sync with household fields for VIP and payment_hold
     const household = householdStr;
     if (flag_key === 'vip') {
       household.vip = is_active;
       await kv.set(`customer:${tenantId}:household:${householdId}`, household);
+      dw.push(dwSet(`customer:${tenantId}:household:${householdId}`, household));
     } else if (flag_key === 'payment_hold') {
       household.payment_hold = is_active;
       if (reason) {
         household.hold_reason = reason;
       }
       await kv.set(`customer:${tenantId}:household:${householdId}`, household);
+      dw.push(dwSet(`customer:${tenantId}:household:${householdId}`, household));
     }
     
     // Create activity event for flag
@@ -2253,7 +2372,10 @@ app.post('/households/:id/flags', requireRole('admin', 'manager', 'assistant_man
       created_at: now,
     };
     await kv.set(`customer:${tenantId}:activity:${activity.id}`, activity);
-    
+    dw.push(dwSet(`customer:${tenantId}:activity:${activity.id}`, activity));
+
+    await dualWriteCustomers(dw);
+
     return c.json(flag, 201);
   } catch (error: any) {
     return internalError(c, 'customers.createFlag', error);
@@ -2300,7 +2422,10 @@ app.patch('/flags/:id', requireRole('admin', 'manager', 'assistant_manager'), as
     
     // Save updated flag
     await kv.set(flagKey, flag);
-    
+
+    // Multi-key flow (flag + activity + household sync): one PG transaction.
+    const dw: CustomerDualWriteOp[] = [dwSet(flagKey, flag)];
+
     // Create activity event for flag update
     const flagLabel = flag.flag_key.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const now = new Date().toISOString();
@@ -2323,7 +2448,8 @@ app.patch('/flags/:id', requireRole('admin', 'manager', 'assistant_manager'), as
       created_at: now,
     };
     await kv.set(`customer:${tenantId}:activity:${activity.id}`, activity);
-    
+    dw.push(dwSet(`customer:${tenantId}:activity:${activity.id}`, activity));
+
     // Sync with household fields for VIP and payment_hold
     if (flag.flag_key === 'vip' || flag.flag_key === 'payment_hold') {
       const householdStr = await kv.get(`customer:${tenantId}:household:${flag.household_id}`);
@@ -2337,9 +2463,12 @@ app.patch('/flags/:id', requireRole('admin', 'manager', 'assistant_manager'), as
           }
         }
         await kv.set(`customer:${tenantId}:household:${flag.household_id}`, householdStr);
+        dw.push(dwSet(`customer:${tenantId}:household:${flag.household_id}`, householdStr));
       }
     }
-    
+
+    await dualWriteCustomers(dw);
+
     return c.json(flag);
   } catch (error: any) {
     return internalError(c, 'customers.updateFlag', error);
@@ -2375,7 +2504,10 @@ app.delete('/flags/:id', requireRole('admin', 'manager'), async (c) => {
     
     // Delete flag
     await kv.del(flagKey);
-    
+
+    // Multi-key flow (flag delete + activity + household sync): one PG transaction.
+    const dw: CustomerDualWriteOp[] = [dwDel(flagKey)];
+
     // Create activity event for flag removal
     const flagLabel = flag.flag_key.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const now = new Date().toISOString();
@@ -2398,7 +2530,8 @@ app.delete('/flags/:id', requireRole('admin', 'manager'), async (c) => {
       created_at: now,
     };
     await kv.set(`customer:${tenantId}:activity:${activity.id}`, activity);
-    
+    dw.push(dwSet(`customer:${tenantId}:activity:${activity.id}`, activity));
+
     // Sync with household fields for VIP and payment_hold
     if (flag.flag_key === 'vip' || flag.flag_key === 'payment_hold') {
       const householdDaDataa = await kv.get(`customer:${tenantId}:household:${flag.household_id}`);
@@ -2412,9 +2545,12 @@ app.delete('/flags/:id', requireRole('admin', 'manager'), async (c) => {
           household.payment_hold = false;
         }
         await kv.set(`customer:${tenantId}:household:${flag.household_id}`, household);
+        dw.push(dwSet(`customer:${tenantId}:household:${flag.household_id}`, household));
       }
     }
-    
+
+    await dualWriteCustomers(dw);
+
     return c.json({ message: 'Flag deleted successfully' });
   } catch (error: any) {
     return internalError(c, 'customers.deleteFlag', error);
@@ -2432,7 +2568,10 @@ app.delete('/clear-timeline-data', requireRole('admin', 'manager'), async (c) =>
     const tenantId = user.tenantId;
     
     console.log(`[Clear Timeline Data] Clearing all flags and activities for tenant ${tenantId}`);
-    
+
+    // Bulk clear is a multi-key flow: mirror every del/set in one PG transaction.
+    const dw: CustomerDualWriteOp[] = [];
+
     // Delete all flags
     const allFlags = await kv.getByPrefix(`customer:${tenantId}:`);
     const flagKeys = [];
@@ -2448,6 +2587,7 @@ app.delete('/clear-timeline-data', requireRole('admin', 'manager'), async (c) =>
     
     if (flagKeys.length > 0) {
       await kv.mdel(flagKeys);
+      for (const key of flagKeys) dw.push(dwDel(key));
       console.log(`[Clear Timeline Data] Deleted ${flagKeys.length} flags`);
     }
     
@@ -2461,6 +2601,7 @@ app.delete('/clear-timeline-data', requireRole('admin', 'manager'), async (c) =>
     
     if (activityKeys.length > 0) {
       await kv.mdel(activityKeys);
+      for (const key of activityKeys) dw.push(dwDel(key));
       console.log(`[Clear Timeline Data] Deleted ${activityKeys.length} activities`);
     }
     
@@ -2479,6 +2620,7 @@ app.delete('/clear-timeline-data', requireRole('admin', 'manager'), async (c) =>
     
     if (noteKeys.length > 0) {
       await kv.mdel(noteKeys);
+      for (const key of noteKeys) dw.push(dwDel(key));
       console.log(`[Clear Timeline Data] Deleted ${noteKeys.length} notes`);
     }
     
@@ -2492,10 +2634,13 @@ app.delete('/clear-timeline-data', requireRole('admin', 'manager'), async (c) =>
         household.vip = false;
         household.payment_hold = false;
         await kv.set(`customer:${tenantId}:household:${household.id}`, household);
+        dw.push(dwSet(`customer:${tenantId}:household:${household.id}`, household));
       }
     }
-    
-    return c.json({ 
+
+    await dualWriteCustomers(dw);
+
+    return c.json({
       message: 'All flags, activities, and notes cleared successfully',
       deleted: {
         flags: flagKeys.length,
@@ -2719,7 +2864,11 @@ app.post('/activity', async (c) => {
     
     // Save activity
     await kv.set(`customer:${tenantId}:activity:${activityId}`, activity);
-    
+
+    await dualWriteCustomers([
+      dwSet(`customer:${tenantId}:activity:${activityId}`, activity),
+    ]);
+
     return c.json(activity, 201);
   } catch (error: any) {
     return internalError(c, 'customers.createActivity', error);

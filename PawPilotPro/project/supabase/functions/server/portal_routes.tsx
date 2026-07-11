@@ -29,6 +29,9 @@ import {
   signPetPhotoUrls,
   storedPetPhoto,
 } from "./lib/pet_photos.ts";
+// Phase 4 stage 2: every customer:* KV mutation is mirrored to Postgres.
+// Non-fatal, loud-on-failure; KV stays authoritative (no read changes).
+import { dualWriteCustomers, dwSet, dwDel, type CustomerDualWriteOp } from "./lib/customers_dualwrite.ts";
 
 const portal = new Hono();
 
@@ -646,6 +649,7 @@ portal.patch("/pets/:id", async (c) => {
   // signed/public URLs echoed by clients are reduced here.
   if ("photo_url" in apply) applyPetPhotoWrite(updated, apply.photo_url);
   await kv.set(`customer:${tenantId}:pet:${householdId}:${id}`, updated);
+  await dualWriteCustomers([dwSet(`customer:${tenantId}:pet:${householdId}:${id}`, updated)]);
 
   return c.json({ ok: true, pet: await petToWire(updated, tenantId, householdId) });
 });
@@ -1685,6 +1689,7 @@ portal.post("/pets/:id/photo", async (c) => {
     filePath,
   );
   await kv.set(`customer:${tenantId}:pet:${householdId}:${petId}`, updatedPet);
+  await dualWriteCustomers([dwSet(`customer:${tenantId}:pet:${householdId}:${petId}`, updatedPet)]);
 
   // Optional audit ping for the staff team — tells them a household updated
   // a photo without requiring them to diff KV manually.
@@ -2112,7 +2117,7 @@ portal.post("/pets/:id/edit-request", async (c) => {
   // (kept for a future dedicated queue); without this note the owner's
   // "staff will review" promise was a dead letter.
   const noteId = crypto.randomUUID();
-  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, {
+  const editRequestNote = {
     id: noteId,
     tenant_id: tenantId,
     household_id: householdId,
@@ -2127,12 +2132,15 @@ portal.post("/pets/:id/edit-request", async (c) => {
     created_by_name: "Pet portal",
     created_at: now,
     updated_at: now,
-  });
-  await kv.set(`customer:${tenantId}:note:${noteId}:pet:${id}`, {
-    tenant_id: tenantId,
-    note_id: noteId,
-    pet_id: id,
-  });
+  };
+  const editRequestLink = { tenant_id: tenantId, note_id: noteId, pet_id: id };
+  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, editRequestNote);
+  await kv.set(`customer:${tenantId}:note:${noteId}:pet:${id}`, editRequestLink);
+  // Note + link mirror in one transaction (note first — the link FKs onto it).
+  await dualWriteCustomers([
+    dwSet(`customer:${tenantId}:household:${householdId}:note:${noteId}`, editRequestNote),
+    dwSet(`customer:${tenantId}:note:${noteId}:pet:${id}`, editRequestLink),
+  ]);
 
   return c.json({ ok: true, id: reqId });
 });
@@ -2173,7 +2181,7 @@ portal.post("/memberships/interest", async (c) => {
   const noteId = crypto.randomUUID();
   const now = new Date().toISOString();
   const subject = tier === "general" ? "memberships" : `the "${tier}" membership plan`;
-  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, {
+  const membershipNote = {
     id: noteId,
     tenant_id: tenantId,
     household_id: householdId,
@@ -2189,7 +2197,11 @@ portal.post("/memberships/interest", async (c) => {
     created_by_name: "Pet portal",
     created_at: now,
     updated_at: now,
-  });
+  };
+  await kv.set(`customer:${tenantId}:household:${householdId}:note:${noteId}`, membershipNote);
+  await dualWriteCustomers([
+    dwSet(`customer:${tenantId}:household:${householdId}:note:${noteId}`, membershipNote),
+  ]);
   await kv.set(markerKey, { submittedAt: now, noteId });
   return c.json({ ok: true });
 });
@@ -2275,6 +2287,7 @@ portal.patch("/household", async (c) => {
     updated_at: new Date().toISOString(),
   };
   await kv.set(`customer:${tenantId}:household:${householdId}`, updated);
+  await dualWriteCustomers([dwSet(`customer:${tenantId}:household:${householdId}`, updated)]);
   return c.json({
     ok: true,
     household: { id: updated.id, name: updated.name ?? "", address: updated.address ?? "" },
@@ -2302,28 +2315,42 @@ const contactBaseSchema = z.object({
 
 const contactPatchSchema = contactBaseSchema.partial();
 
-async function setPrimaryContact(tenantId: string, householdId: string, newPrimaryId: string) {
+// Returns the Postgres mirror ops for the flip so the caller can batch them
+// with its own contact write into ONE transaction (multi-key flow). Demotions
+// come first in the returned array — the partial unique index
+// contacts_one_primary_per_household_uq is evaluated per statement.
+async function setPrimaryContact(
+  tenantId: string,
+  householdId: string,
+  newPrimaryId: string,
+): Promise<CustomerDualWriteOp[]> {
+  const dw: CustomerDualWriteOp[] = [];
   // Demote all other primaries first (the staff app enforces a single primary).
   const all = (await kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`)) as any[];
   await Promise.all(
     all
       .filter((c) => c.id !== newPrimaryId && c.is_primary)
-      .map((c) =>
-        kv.set(`customer:${tenantId}:contact:${householdId}:${c.id}`, {
+      .map((c) => {
+        const demoted = {
           ...c,
           is_primary: false,
           updated_at: new Date().toISOString(),
-        }),
-      ),
+        };
+        dw.push(dwSet(`customer:${tenantId}:contact:${householdId}:${c.id}`, demoted));
+        return kv.set(`customer:${tenantId}:contact:${householdId}:${c.id}`, demoted);
+      }),
   );
   const household = (await kv.get(`customer:${tenantId}:household:${householdId}`)) as any;
   if (household) {
-    await kv.set(`customer:${tenantId}:household:${householdId}`, {
+    const updatedHousehold = {
       ...household,
       primary_contact_id: newPrimaryId,
       updated_at: new Date().toISOString(),
-    });
+    };
+    await kv.set(`customer:${tenantId}:household:${householdId}`, updatedHousehold);
+    dw.push(dwSet(`customer:${tenantId}:household:${householdId}`, updatedHousehold));
   }
+  return dw;
 }
 
 portal.post("/contacts", async (c) => {
@@ -2357,7 +2384,12 @@ portal.post("/contacts", async (c) => {
   };
   await kv.set(`customer:${tenantId}:contact:${householdId}:${id}`, contact);
 
-  if (contact.is_primary) await setPrimaryContact(tenantId, householdId, id);
+  // Mirror as ONE transaction. When the new contact is primary, the flip's
+  // demotions must precede its insert (partial unique index, per-statement).
+  const dw: CustomerDualWriteOp[] = [];
+  if (contact.is_primary) dw.push(...(await setPrimaryContact(tenantId, householdId, id)));
+  dw.push(dwSet(`customer:${tenantId}:contact:${householdId}:${id}`, contact));
+  await dualWriteCustomers(dw);
 
   return c.json({ ok: true, contact });
 });
@@ -2396,7 +2428,11 @@ portal.patch("/contacts/:id", async (c) => {
   };
   await kv.set(`customer:${tenantId}:contact:${householdId}:${id}`, updated);
 
-  if (d.is_primary === true) await setPrimaryContact(tenantId, householdId, id);
+  // Mirror as ONE transaction; demotions precede the promotion (see above).
+  const dw: CustomerDualWriteOp[] = [];
+  if (d.is_primary === true) dw.push(...(await setPrimaryContact(tenantId, householdId, id)));
+  dw.push(dwSet(`customer:${tenantId}:contact:${householdId}:${id}`, updated));
+  await dualWriteCustomers(dw);
 
   return c.json({ ok: true, contact: updated });
 });
@@ -2416,6 +2452,7 @@ portal.delete("/contacts/:id", async (c) => {
     );
   }
   await kv.del(`customer:${tenantId}:contact:${householdId}:${id}`);
+  await dualWriteCustomers([dwDel(`customer:${tenantId}:contact:${householdId}:${id}`)]);
   return c.json({ ok: true });
 });
 
@@ -2612,6 +2649,7 @@ portal.post("/documents", async (c) => {
     owner_uploaded: true,
   };
   await kv.set(`customer:${tenantId}:document:${householdId}:${id}`, doc);
+  await dualWriteCustomers([dwSet(`customer:${tenantId}:document:${householdId}:${id}`, doc)]);
 
   return c.json({ ok: true, document: doc });
 });
@@ -2643,6 +2681,7 @@ portal.delete("/documents/:id", async (c) => {
     }
   }
   await kv.del(`customer:${tenantId}:document:${householdId}:${id}`);
+  await dualWriteCustomers([dwDel(`customer:${tenantId}:document:${householdId}:${id}`)]);
   return c.json({ ok: true });
 });
 
@@ -2677,6 +2716,9 @@ portal.post("/pets", async (c) => {
     updated_at: now,
   }, d.photo_url || null);
   await kv.set(`customer:${tenantId}:pet:${householdId}:${id}`, pet);
+  await dualWriteCustomers([
+    dwSet(`customer:${tenantId}:pet:${householdId}:${id}`, pet as Record<string, unknown>),
+  ]);
   await kv.set(`portal_pet_verification:${tenantId}:${id}`, {
     id,
     tenantId,
