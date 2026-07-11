@@ -858,10 +858,12 @@ bookings.get("/portal-admin/settings/capacity", async (c) => {
   const stored = ((await kv.get(`settings:capacity:${tenantId}`)) as CapacityConfig | null) ?? {};
   // Always return ALL services with current + default values so the UI can
   // render a complete form even on a fresh tenant. defaults[] echoes what
-  // the snapshot endpoint would fall back to per service.
+  // the snapshot endpoint would fall back to per service — for daycare
+  // that's the summed location capacity, not the legacy constant.
+  const daycareDef = await daycareDefaultCap();
   const out: Record<string, { daily: number; isDefault: boolean; default: number }> = {};
   for (const svc of SERVICE_KEYS) {
-    const def = DEFAULT_CAPS[svc];
+    const def = svc === "daycare" ? daycareDef : DEFAULT_CAPS[svc];
     const cur = stored[svc]?.daily;
     out[svc] = {
       daily: typeof cur === "number" ? cur : def,
@@ -930,6 +932,21 @@ const DEFAULT_CAPS: Record<string, number> = {
   transport: 12,
 };
 
+// The daycare default is NOT the constant above when locations are
+// configured: it's the SUM of every location's capacity.maxDogs
+// (Settings → Locations) — the same number the dashboard's All Locations
+// view and the capacity planner show. The hardcoded 30 remains only as
+// the last resort for a tenant with no location records. An explicit
+// tenant-wide cap saved via settings:capacity:{tenantId} still wins.
+const daycareDefaultCap = async (): Promise<number> => {
+  const locations = (await kv.getByPrefix("location:")) as any[];
+  const sum = (Array.isArray(locations) ? locations : []).reduce((acc: number, loc: any) => {
+    const maxDogs = loc?.capacity?.maxDogs;
+    return acc + (typeof maxDogs === "number" && maxDogs > 0 ? maxDogs : 0);
+  }, 0);
+  return sum > 0 ? sum : DEFAULT_CAPS.daycare;
+};
+
 bookings.post("/portal-admin/capacity-snapshot", async (c) => {
   const auth = await readStaff(c);
   if (!auth) return c.json({ error: "Unauthorized" }, 401);
@@ -949,10 +966,13 @@ bookings.post("/portal-admin/capacity-snapshot", async (c) => {
   for (const p of pairs) uniquePairs.set(uniqueKey(p), p);
 
   // Capacity config — { daycare: { daily: N }, overnights: { daily: N }, ... }
+  // Explicit tenant caps win; the daycare fallback is the summed location
+  // capacity so the approval line agrees with the dashboard and planner.
   const capacityConfig =
     ((await kv.get(`settings:capacity:${tenantId}`)) as Record<string, { daily?: number }> | null) ?? {};
+  const daycareDef = await daycareDefaultCap();
   const capFor = (svc: string): number =>
-    capacityConfig[svc]?.daily ?? DEFAULT_CAPS[svc] ?? 30;
+    capacityConfig[svc]?.daily ?? (svc === "daycare" ? daycareDef : DEFAULT_CAPS[svc]) ?? 30;
 
   // Pre-load all four service KVs once — the booking volume is moderate and
   // looping per pair is much cheaper than N round-trips.
@@ -1203,11 +1223,13 @@ async function replicatePortalToDaycare(
         id: `cap_${locationId}_${bookingDate}`,
         location_id: locationId,
         date: bookingDate,
-        max_capacity: location?.capacity?.maxDogs ?? 30,
+        // 19 matches daycare_routes' FALLBACK_LOCATION_CAPACITY — a record
+        // created at 30 here would flap to 19 on the next daycare read.
+        max_capacity: location?.capacity?.maxDogs ?? 19,
         current_bookings: 0,
       };
       cap.current_bookings = (cap.current_bookings ?? 0) + 1;
-      cap.available_slots = Math.max(0, (cap.max_capacity ?? 30) - cap.current_bookings);
+      cap.available_slots = Math.max(0, (cap.max_capacity ?? 19) - cap.current_bookings);
       cap.is_full = cap.available_slots <= 0;
       cap.updated_at = now;
       await kv.set(capKey, cap);
