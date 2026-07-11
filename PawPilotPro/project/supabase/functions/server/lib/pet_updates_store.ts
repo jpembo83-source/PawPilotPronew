@@ -20,10 +20,13 @@ export const PET_UPDATES_TABLE = "pet_updates";
 export interface PetUpdateRow {
   id: string;
   tenant_id: string;
-  pet_id: string;
+  /** NULL = unassigned bulk capture (pending, awaiting a manager's dog pick). */
+  pet_id: string | null;
   pet_name: string | null;
   household_id: string | null;
   booking_id: string | null;
+  location_id: string | null;
+  upload_batch_id: string | null;
   date: string;
   type: PetUpdateType;
   text: string | null;
@@ -44,10 +47,12 @@ export function petUpdateToRow(u: PetUpdate): PetUpdateRow {
   return {
     id: u.id,
     tenant_id: u.tenant_id,
-    pet_id: u.pet_id,
+    pet_id: u.pet_id ?? null,
     pet_name: u.pet_name ?? null,
     household_id: u.household_id ?? null,
     booking_id: u.booking_id ?? null,
+    location_id: u.location_id ?? null,
+    upload_batch_id: u.upload_batch_id ?? null,
     date: u.date,
     type: u.type,
     text: u.text ?? null,
@@ -69,8 +74,6 @@ export function rowToPetUpdate(row: PetUpdateRow): PetUpdate {
   const u: PetUpdate = {
     id: row.id,
     tenant_id: row.tenant_id,
-    pet_id: row.pet_id,
-    pet_name: row.pet_name ?? "",
     date: row.date,
     type: row.type,
     created_by_id: row.created_by_id,
@@ -78,6 +81,10 @@ export function rowToPetUpdate(row: PetUpdateRow): PetUpdate {
     created_at: row.created_at,
     status: row.status,
   };
+  if (row.pet_id) u.pet_id = row.pet_id;
+  if (row.pet_name) u.pet_name = row.pet_name;
+  if (row.location_id) u.location_id = row.location_id;
+  if (row.upload_batch_id) u.upload_batch_id = row.upload_batch_id;
   if (row.text) u.text = row.text;
   if (row.caption) u.caption = row.caption;
   if (row.photo_path) u.photo_path = row.photo_path;
@@ -210,6 +217,15 @@ export async function listApprovedGallery(
 
 // ---- review (approve / reject) ----------------------------------------------
 
+/** Manager's dog pick, applied atomically with approval. All three fields
+ *  are resolved server-side from the pet record — never trusted from the
+ *  client beyond the pet_id lookup key. */
+export interface PetAssignment {
+  petId: string;
+  petName: string;
+  householdId?: string;
+}
+
 export interface ReviewArgs {
   action: "approve" | "reject";
   reviewerId: string;
@@ -218,13 +234,15 @@ export interface ReviewArgs {
   caption?: string;
   /** Internal-only, set on reject. */
   rejectedReason?: string;
+  /** Assign this dog atomically with approval (bulk-capture flow). */
+  assign?: PetAssignment;
   /** Injectable for tests; defaults to now. */
   at?: Date;
 }
 
 export type ReviewResult =
   | { ok: true; update: PetUpdate; changed: boolean }
-  | { ok: false; reason: "not_found" };
+  | { ok: false; reason: "not_found" | "unassigned" };
 
 /**
  * Transition a moment's status. Any state may be re-reviewed (a manager can
@@ -232,6 +250,10 @@ export type ReviewResult =
  * clause excludes rows already in the target state so concurrent reviews of
  * the same moment resolve to exactly one `changed: true` — the caller only
  * notifies the household on that one.
+ *
+ * Approval requires a pet: an unassigned row (pet_id NULL) can only be
+ * approved together with an `assign`; without one the WHERE clause refuses
+ * the transition and the result is `{ ok: false, reason: "unassigned" }`.
  */
 export async function reviewPetUpdate(
   admin: SupabaseClient,
@@ -249,23 +271,32 @@ export async function reviewPetUpdate(
   if (args.action === "approve" && args.caption !== undefined) {
     patch.caption = args.caption.trim() || null;
   }
+  if (args.action === "approve" && args.assign) {
+    patch.pet_id = args.assign.petId;
+    patch.pet_name = args.assign.petName;
+    if (args.assign.householdId) patch.household_id = args.assign.householdId;
+  }
   if (args.action === "reject" && args.rejectedReason !== undefined) {
     patch.rejected_reason = args.rejectedReason.trim() || null;
   }
 
-  const { data, error } = await admin
+  let query = admin
     .from(PET_UPDATES_TABLE)
     .update(patch)
     .eq("tenant_id", tenantId)
     .eq("id", id)
-    .neq("status", target)
-    .select()
-    .maybeSingle();
+    .neq("status", target);
+  if (args.action === "approve" && !args.assign) {
+    // The gate's invariant: no approval without a pet. Enforced in the WHERE
+    // clause so a concurrent assign can't be raced past.
+    query = query.not("pet_id", "is", null);
+  }
+  const { data, error } = await query.select().maybeSingle();
   if (error) throw error;
   if (data) return { ok: true, update: rowToPetUpdate(data as PetUpdateRow), changed: true };
 
-  // No row transitioned: either it is already in the target state (idempotent
-  // success — do not re-notify) or it does not exist in this tenant.
+  // No row transitioned: already in the target state (idempotent success —
+  // do not re-notify), refused because it is unassigned, or missing.
   const { data: existing, error: readError } = await admin
     .from(PET_UPDATES_TABLE)
     .select("*")
@@ -274,7 +305,11 @@ export async function reviewPetUpdate(
     .maybeSingle();
   if (readError) throw readError;
   if (!existing) return { ok: false, reason: "not_found" };
-  return { ok: true, update: rowToPetUpdate(existing as PetUpdateRow), changed: false };
+  const row = existing as PetUpdateRow;
+  if (args.action === "approve" && !args.assign && !row.pet_id && row.status !== "approved") {
+    return { ok: false, reason: "unassigned" };
+  }
+  return { ok: true, update: rowToPetUpdate(row), changed: false };
 }
 
 // ---- notification batching ---------------------------------------------------
@@ -304,8 +339,10 @@ export function groupApprovedForNotification(updates: PetUpdate[]): ApprovalNoti
     } else {
       groups.set(key, {
         householdId: u.household_id,
-        petId: u.pet_id,
-        petName: u.pet_name,
+        // Approval requires assignment, so approved rows always carry a pet;
+        // the fallback only guards the type.
+        petId: u.pet_id ?? "",
+        petName: u.pet_name ?? "your pet",
         photoCount: u.type === "photo" ? 1 : 0,
         note,
       });

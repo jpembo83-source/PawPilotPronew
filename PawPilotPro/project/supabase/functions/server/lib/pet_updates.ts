@@ -31,8 +31,14 @@ export const MOMENT_SIGNED_URL_TTL_SECONDS = 60 * 30; // matches docs-download T
 export interface PetUpdate {
   id: string;
   tenant_id: string;
-  pet_id: string;
-  pet_name: string;
+  /**
+   * Absent on UNASSIGNED bulk-captured photos (pending + no pet): the
+   * operator dumped photos without choosing a dog and the manager assigns
+   * one at approval. Approval REQUIRES a pet (enforced in reviewPetUpdate),
+   * so approved rows always carry pet_id. KV feed rows always have a pet.
+   */
+  pet_id?: string;
+  pet_name?: string;
   /** YYYY-MM-DD — denormalised into the key for cheap daily reads. */
   date: string;
   type: PetUpdateType;
@@ -48,6 +54,11 @@ export interface PetUpdate {
   created_at: string; // ISO timestamp
   /** Moderation state. Absent on legacy KV rows — read via effectiveStatus(). */
   status?: PetUpdateStatus;
+  /** Where a bulk-captured photo was taken; scopes the manager's candidate
+   *  roster to that location's checked-in dogs. */
+  location_id?: string;
+  /** Groups one operator dump for review ergonomics. */
+  upload_batch_id?: string;
   /** Manager-editable owner-facing caption; distinct from the operator's text. */
   caption?: string;
   /** Internal-only — never serialised to the portal. */
@@ -83,7 +94,16 @@ export function mergeDayFeeds(kvRows: PetUpdate[], pgRows: PetUpdate[]): PetUpda
   return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
-export function petUpdateKey(update: Pick<PetUpdate, "tenant_id" | "date" | "pet_id" | "id">): string {
+/** True for a bulk-captured photo awaiting a manager's dog assignment. */
+export function isUnassigned(update: Pick<PetUpdate, "pet_id">): boolean {
+  return !update.pet_id;
+}
+
+/** KV feed keys are always pet-scoped — unassigned rows live in Postgres
+ *  only and never get a KV key. */
+export function petUpdateKey(
+  update: Pick<PetUpdate, "tenant_id" | "date" | "id"> & { pet_id: string },
+): string {
   return `pet_update:${update.tenant_id}:${update.date}:${update.pet_id}:${update.id}`;
 }
 
@@ -93,8 +113,9 @@ export function petUpdateDayPrefix(tenantId: string, date: string, petId: string
 
 interface BuildArgs {
   tenantId: string;
-  petId: string;
-  petName: string;
+  /** Optional for bulk-captured photos — the manager assigns at approval. */
+  petId?: string;
+  petName?: string;
   type: PetUpdateType;
   createdById: string;
   createdByName: string;
@@ -102,6 +123,8 @@ interface BuildArgs {
   photoPath?: string;
   bookingId?: string;
   householdId?: string;
+  locationId?: string;
+  uploadBatchId?: string;
   /** Injectable for tests; defaults to now. */
   at?: Date;
 }
@@ -112,8 +135,6 @@ export function buildPetUpdate(args: BuildArgs): PetUpdate {
   const update: PetUpdate = {
     id: `pupd_${at.getTime()}_${crypto.randomUUID().slice(0, 8)}`,
     tenant_id: args.tenantId,
-    pet_id: args.petId,
-    pet_name: args.petName,
     date: createdAt.split("T")[0],
     type: args.type,
     created_by_id: args.createdById,
@@ -123,18 +144,28 @@ export function buildPetUpdate(args: BuildArgs): PetUpdate {
     // before the owner sees it. Notes and check-in/out events auto-approve.
     status: args.type === "photo" ? "pending" : "approved",
   };
+  if (args.petId) update.pet_id = args.petId;
+  if (args.petName) update.pet_name = args.petName;
   const text = args.text?.trim();
   if (text) update.text = text;
   if (args.photoPath) update.photo_path = args.photoPath;
   if (args.bookingId) update.booking_id = args.bookingId;
   if (args.householdId) update.household_id = args.householdId;
+  if (args.locationId) update.location_id = args.locationId;
+  if (args.uploadBatchId) update.upload_batch_id = args.uploadBatchId;
   return update;
 }
 
-/** Persist an update. Callers on hot paths (check-in/out) must treat failures
- *  as non-fatal — the feed is best-effort and must never block operations. */
+/** Persist an update to the KV feed. KV rows are always pet-scoped —
+ *  unassigned bulk captures go to Postgres only, never here. Callers on hot
+ *  paths (check-in/out) must treat failures as non-fatal — the feed is
+ *  best-effort and must never block operations. */
 export async function recordPetUpdate(update: PetUpdate): Promise<void> {
-  await kv.set(petUpdateKey(update), update);
+  const petId = update.pet_id;
+  if (!petId) {
+    throw new Error("[pet_updates] recordPetUpdate requires a pet-scoped update.");
+  }
+  await kv.set(petUpdateKey({ ...update, pet_id: petId }), update);
 }
 
 /** All of a pet's updates for one day, oldest first. */

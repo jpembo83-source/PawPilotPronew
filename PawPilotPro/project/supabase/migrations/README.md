@@ -18,6 +18,8 @@ history. So these files alone do not reproduce prod exactly.
 20260623183120     fix_security_lints
 20260623220200     harden_function_security     ← added here
 20260625085232     harden_function_search_path  ← added here
+20260704223126     fix_double_stringified_kv_values
+20260711101218     phase4_pet_updates_stage0    (repo file: 20260711120000_…; applied 2026-07-11 to staging + prod, RLS asserted, KV moments backfilled)
 ```
 
 ## Added in this change
@@ -31,7 +33,7 @@ history. So these files alone do not reproduce prod exactly.
 ## Pending (files here, NOT yet applied to prod or staging)
 | File | Purpose |
 |---|---|
-| `20260711120000_phase4_pet_updates_stage0.sql` | Phase 4 stage 0 for the `pet_updates` family (photo moderation queue + client gallery). **Must be applied (staging → prod) before deploying the edge function that ships with it** — `POST /pet-updates/moment` writes to this table. Depends on the `app.*` helpers from the customers stage-0 migration. After applying to each env, assert RLS is live: `select relrowsecurity from pg_class where relname = 'pet_updates';` must return `true`. Then backfill legacy KV moments: `scripts/phase4/backfill-pet-updates-from-kv.ts` (idempotent; photo/note only). |
+| `20260711160000_phase4_pet_updates_bulk_capture.sql` | Bulk capture with assign-at-approval: `pet_id` becomes NULLABLE (unassigned = pending + no pet), adds `location_id` + `upload_batch_id` + queue/batch indexes. Additive + idempotent. **Apply (staging → prod) before deploying the function that writes the new columns.** After applying, re-assert RLS: `select relrowsecurity from pg_class where relname = 'pet_updates';` → `true`. |
 
 ## Staging
 **MDC-staging** (`ihdbnwlmqhsrslstbbqn`) was provisioned from

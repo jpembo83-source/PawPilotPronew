@@ -23,6 +23,7 @@ import {
   mergeDayFeeds,
   withSignedPhotoUrls,
   MOMENTS_BUCKET,
+  type PetUpdate,
 } from "./lib/pet_updates.ts";
 import {
   decodeGalleryCursor,
@@ -33,7 +34,16 @@ import {
   listReviewQueue,
   reviewPetUpdate,
   type ApprovalNotificationGroup,
+  type PetAssignment,
 } from "./lib/pet_updates_store.ts";
+import {
+  candidatesFromBookings,
+  resolvePetById,
+  searchPetCandidates,
+  type CandidatePet,
+} from "./lib/photo_candidates.ts";
+import { signPetPhotoUrl } from "./lib/pet_photos.ts";
+import * as kv from "./kv_store.tsx";
 import { notify } from "./lib/notify.ts";
 
 const app = new Hono();
@@ -67,6 +77,123 @@ async function ensureMomentsBucket(admin: ReturnType<typeof createClient>) {
   }
   bucketEnsured = true;
 }
+
+/** The tenant's pet records (customer:{t}:pet:{hh}:{id}) — the server-side
+ *  source of truth for assignment and the search fallback. */
+const loadTenantPets = (tenantId: string) => kv.getByPrefix(`customer:${tenantId}:pet:`);
+
+/** Operators may only upload into a location they belong to. Users with no
+ *  locationIds (typically admins) are unrestricted — matches the staff app's
+ *  location-switcher semantics. locationIds comes from app_metadata via
+ *  requireAuth, never from the request. */
+function canUseLocation(user: AuthenticatedUser, locationId: string): boolean {
+  return user.locationIds.length === 0 || user.locationIds.includes(locationId);
+}
+
+function validatePhotoFile(file: File): string | null {
+  if (!file.type.startsWith("image/")) return "File must be an image";
+  if (file.size > MAX_PHOTO_BYTES) return "Photo must be under 5MB";
+  return null;
+}
+
+async function uploadMomentPhoto(
+  admin: ReturnType<typeof createClient>,
+  path: string,
+  file: File,
+): Promise<string | null> {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  const { error } = await admin.storage
+    .from(MOMENTS_BUCKET)
+    .upload(path, buffer, { contentType: file.type, upsert: false });
+  return error ? error.message : null;
+}
+
+const photoExt = (name: string) =>
+  (name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+
+const MAX_UPLOAD_FILES = 20;
+
+// Bulk capture: MULTIPLE photos, dog optional — zero decisions in the yard.
+// Each file becomes one `pending` row; without a pet_id the row is
+// UNASSIGNED (pet_id NULL) and the manager picks the dog at approval. No
+// owner notification fires here under any circumstances (photos only notify
+// at approve time). Clients may pass back the returned upload_batch_id on
+// subsequent requests so a sequential per-file uploader forms one batch.
+app.post("/upload", async (c) => {
+  try {
+    const user = c.get("user") as AuthenticatedUser;
+    if (!CAN_POST_ROLES.includes(user.role)) {
+      return c.json({ error: "Access denied" }, 403);
+    }
+
+    const formData = await c.req.formData();
+    const locationId = (formData.get("location_id") as string | null)?.trim();
+    const petId = (formData.get("pet_id") as string | null)?.trim() || undefined;
+    const clientBatchId = (formData.get("upload_batch_id") as string | null)?.trim() || undefined;
+    const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+
+    if (!locationId) return c.json({ error: "location_id is required" }, 400);
+    if (!canUseLocation(user, locationId)) return c.json({ error: "Access denied" }, 403);
+    if (files.length === 0) return c.json({ error: "Add at least one photo" }, 400);
+    if (files.length > MAX_UPLOAD_FILES) {
+      return c.json({ error: `Too many photos (max ${MAX_UPLOAD_FILES} per upload)` }, 400);
+    }
+    if (clientBatchId && !/^[0-9a-f-]{36}$/i.test(clientBatchId)) {
+      return c.json({ error: "Invalid upload_batch_id" }, 400);
+    }
+
+    // If the operator DID pick a dog, resolve name + household server-side —
+    // the client only ever supplies the lookup key.
+    let assign: PetAssignment | undefined;
+    if (petId) {
+      const resolved = resolvePetById(await loadTenantPets(user.tenantId), petId);
+      if (!resolved) return c.json({ error: "Pet not found" }, 400);
+      assign = resolved;
+    }
+
+    const admin = getAdmin();
+    await ensureMomentsBucket(admin);
+    const uploadBatchId = clientBatchId ?? crypto.randomUUID();
+
+    let uploaded = 0;
+    const failed: Array<{ name: string; error: string }> = [];
+    for (const file of files) {
+      const invalid = validatePhotoFile(file);
+      if (invalid) {
+        failed.push({ name: file.name, error: invalid });
+        continue;
+      }
+      const id = crypto.randomUUID();
+      // Tenant-prefixed path: isolation is structural, not advisory.
+      const photoPath = assign
+        ? `tenant/${user.tenantId}/pets/${assign.petId}/moments/${id}.${photoExt(file.name)}`
+        : `tenant/${user.tenantId}/unassigned/${uploadBatchId}/${id}.${photoExt(file.name)}`;
+      const upErr = await uploadMomentPhoto(admin, photoPath, file);
+      if (upErr) {
+        console.error("[pet_updates.upload] storage upload failed:", upErr);
+        failed.push({ name: file.name, error: "Upload failed" });
+        continue;
+      }
+      await insertPetUpdate(admin, buildPetUpdate({
+        tenantId: user.tenantId,
+        petId: assign?.petId,
+        petName: assign?.petName,
+        householdId: assign?.householdId,
+        type: "photo",
+        photoPath,
+        locationId,
+        uploadBatchId,
+        createdById: user.id,
+        createdByName: user.name,
+      }));
+      uploaded += 1;
+    }
+
+    return c.json({ upload_batch_id: uploadBatchId, uploaded, failed });
+  } catch (error) {
+    return internalError(c, "pet_updates.upload", error);
+  }
+});
 
 /** One `moment.shared` per household+pet batch ("3 new photos of Rex"), fired
  *  at approve time. Best-effort — a notification failure never fails the
@@ -216,8 +343,49 @@ app.get("/review-queue", async (c) => {
   }
 });
 
+// Candidate dogs for assigning an unassigned photo: the roster CHECKED IN at
+// the photo's location on its date (same KV source as daycare
+// /attendance/today), or — with ?q= — a name search across the tenant's pets
+// as the fallback. Profile photos are served as short-lived signed URLs.
+app.get("/review-queue/candidates", async (c) => {
+  try {
+    const user = c.get("user") as AuthenticatedUser;
+    if (!CAN_REVIEW_ROLES.includes(user.role)) {
+      return c.json({ error: "Access denied" }, 403);
+    }
+    const locationId = c.req.query("location_id") || undefined;
+    const date = c.req.query("date") || new Date().toISOString().split("T")[0];
+    const q = c.req.query("q")?.trim();
+
+    let candidates: CandidatePet[];
+    if (q) {
+      candidates = searchPetCandidates(await loadTenantPets(user.tenantId), q);
+    } else {
+      const bookings = await kv.getByPrefix("daycare:booking:");
+      candidates = candidatesFromBookings(bookings, { date, locationId });
+    }
+
+    const withPhotos = await Promise.all(candidates.map(async (candidate) => ({
+      pet_id: candidate.pet_id,
+      pet_name: candidate.pet_name,
+      household_id: candidate.household_id ?? null,
+      photo_url: candidate.pet_photo_stored
+        ? await signPetPhotoUrl(candidate.pet_photo_stored)
+        : null,
+      source: candidate.source,
+    })));
+    return c.json({ candidates: withPhotos, date, locationId: locationId ?? null });
+  } catch (error) {
+    return internalError(c, "pet_updates.candidates", error);
+  }
+});
+
 const approveBodySchema = z.object({
   caption: z.string().trim().max(280).optional(),
+  // Manager's dog pick for an unassigned photo — assignment and approval are
+  // one atomic transition. Only the id is trusted; name/household resolve
+  // server-side.
+  pet_id: z.string().trim().min(1).optional(),
 });
 
 // Approve one moment: stamps the reviewer, optionally sets the owner-facing
@@ -232,14 +400,27 @@ app.post("/moment/:id/approve", async (c) => {
     const body = approveBodySchema.safeParse(await c.req.json().catch(() => ({})));
     if (!body.success) return c.json({ error: "Invalid request" }, 400);
 
+    let assign: PetAssignment | undefined;
+    if (body.data.pet_id) {
+      const resolved = resolvePetById(await loadTenantPets(user.tenantId), body.data.pet_id);
+      if (!resolved) return c.json({ error: "Pet not found" }, 400);
+      assign = resolved;
+    }
+
     const admin = getAdmin();
     const result = await reviewPetUpdate(admin, user.tenantId, c.req.param("id"), {
       action: "approve",
       reviewerId: user.id,
       reviewerName: user.name,
       caption: body.data.caption,
+      assign,
     });
-    if (!result.ok) return c.json({ error: "Not found" }, 404);
+    if (!result.ok) {
+      if (result.reason === "unassigned") {
+        return c.json({ error: "Assign a dog before approving" }, 400);
+      }
+      return c.json({ error: "Not found" }, 404);
+    }
 
     if (result.changed) {
       await notifyApprovedGroups(user.tenantId, groupApprovedForNotification([result.update]));
@@ -252,11 +433,20 @@ app.post("/moment/:id/approve", async (c) => {
 });
 
 const bulkApproveBodySchema = z.object({
-  ids: z.array(z.string().trim().min(1)).min(1).max(100),
+  // Legacy shape: approve already-assigned moments by id.
+  ids: z.array(z.string().trim().min(1)).max(100).optional(),
+  // Assign-and-approve shape: the manager's dog picks, applied atomically
+  // with approval. pet_id optional per item (already-assigned rows).
+  items: z.array(z.object({
+    id: z.string().trim().min(1),
+    pet_id: z.string().trim().min(1).optional(),
+  })).max(100).optional(),
+}).refine((b) => (b.ids?.length ?? 0) + (b.items?.length ?? 0) > 0, {
+  message: "Nothing to approve",
 });
 
-// Bulk approve ("approve all for Rex"): one notification per household+pet
-// batch rather than one push per photo.
+// Bulk approve ("approve all for Rex" / "approve this dump"): one
+// notification per household+pet batch rather than one push per photo.
 app.post("/moments/approve", async (c) => {
   try {
     const user = c.get("user") as AuthenticatedUser;
@@ -266,20 +456,46 @@ app.post("/moments/approve", async (c) => {
     const body = bulkApproveBodySchema.safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: "Invalid request" }, 400);
 
+    const work: Array<{ id: string; petId?: string }> = [
+      ...(body.data.ids ?? []).map((id) => ({ id })),
+      ...(body.data.items ?? []).map((item) => ({ id: item.id, petId: item.pet_id })),
+    ];
+
+    // One tenant pet scan for the whole batch — every assignment resolves
+    // name + household server-side from the same snapshot.
+    const needsPets = work.some((w) => w.petId);
+    const tenantPets = needsPets ? await loadTenantPets(user.tenantId) : [];
+
     const admin = getAdmin();
-    const approved: import("./lib/pet_updates.ts").PetUpdate[] = [];
+    const approved: PetUpdate[] = [];
     let notFound = 0;
-    for (const id of body.data.ids) {
+    let unassigned = 0;
+    let petNotFound = 0;
+    for (const { id, petId } of work) {
+      let assign: PetAssignment | undefined;
+      if (petId) {
+        const resolved = resolvePetById(tenantPets, petId);
+        if (!resolved) {
+          petNotFound += 1;
+          continue;
+        }
+        assign = resolved;
+      }
       const result = await reviewPetUpdate(admin, user.tenantId, id, {
         action: "approve",
         reviewerId: user.id,
         reviewerName: user.name,
+        assign,
       });
-      if (!result.ok) notFound += 1;
-      else if (result.changed) approved.push(result.update);
+      if (!result.ok) {
+        if (result.reason === "unassigned") unassigned += 1;
+        else notFound += 1;
+      } else if (result.changed) {
+        approved.push(result.update);
+      }
     }
     await notifyApprovedGroups(user.tenantId, groupApprovedForNotification(approved));
-    return c.json({ approved: approved.length, notFound });
+    return c.json({ approved: approved.length, notFound, unassigned, petNotFound });
   } catch (error) {
     return internalError(c, "pet_updates.bulkApprove", error);
   }
