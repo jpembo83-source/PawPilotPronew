@@ -31,7 +31,7 @@ history. So these files alone do not reproduce prod exactly.
 ## Pending (files here, NOT yet applied to prod or staging)
 | File | Purpose |
 |---|---|
-| `20260711120000_phase4_pet_updates_stage0.sql` | Phase 4 stage 0 for the `pet_updates` family (photo moderation queue + client gallery). **Must be applied (staging → prod) before deploying the edge function that ships with it** — `POST /pet-updates/moment` writes to this table. Depends on the `app.*` helpers from the customers stage-0 migration. |
+| `20260711120000_phase4_pet_updates_stage0.sql` | Phase 4 stage 0 for the `pet_updates` family (photo moderation queue + client gallery). **Must be applied (staging → prod) before deploying the edge function that ships with it** — `POST /pet-updates/moment` writes to this table. Depends on the `app.*` helpers from the customers stage-0 migration. After applying to each env, assert RLS is live: `select relrowsecurity from pg_class where relname = 'pet_updates';` must return `true`. Then backfill legacy KV moments: `scripts/phase4/backfill-pet-updates-from-kv.ts` (idempotent; photo/note only). |
 
 ## Staging
 **MDC-staging** (`ihdbnwlmqhsrslstbbqn`) was provisioned from
