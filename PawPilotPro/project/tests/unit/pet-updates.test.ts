@@ -34,8 +34,9 @@ describe('pet_updates', () => {
     expect(u.created_at).toBe('2026-07-03T08:42:00.000Z');
     expect(u.type).toBe('checked_in');
     expect(u.text).toBeUndefined();
-    expect(petUpdateKey(u)).toBe(`pet_update:t1:2026-07-03:pet-1:${u.id}`);
-    expect(petUpdateKey(u).startsWith(petUpdateDayPrefix('t1', '2026-07-03', 'pet-1'))).toBe(true);
+    const keyed = { ...u, pet_id: 'pet-1' };
+    expect(petUpdateKey(keyed)).toBe(`pet_update:t1:2026-07-03:pet-1:${u.id}`);
+    expect(petUpdateKey(keyed).startsWith(petUpdateDayPrefix('t1', '2026-07-03', 'pet-1'))).toBe(true);
   });
 
   it('trims note text and drops empty text entirely', () => {
@@ -58,7 +59,7 @@ describe('pet_updates', () => {
     const a = buildPetUpdate({ tenantId: 't', petId: 'p', petName: 'R', type: 'note', text: 'a', createdById: 's', createdByName: 'S', at: AT });
     const b = buildPetUpdate({ tenantId: 't', petId: 'p', petName: 'R', type: 'note', text: 'b', createdById: 's', createdByName: 'S', at: AT });
     expect(a.id).not.toBe(b.id);
-    expect(petUpdateKey(a)).not.toBe(petUpdateKey(b));
+    expect(petUpdateKey({ ...a, pet_id: 'p' })).not.toBe(petUpdateKey({ ...b, pet_id: 'p' }));
   });
 
   it('lists a day oldest-first regardless of KV return order', async () => {
@@ -73,6 +74,30 @@ describe('pet_updates', () => {
     const rows = await listPetUpdatesForDay('t1', 'p1', '2026-07-03');
     expect(kv.getByPrefix).toHaveBeenCalledWith('pet_update:t1:2026-07-03:p1:');
     expect(rows.map(r => r.type)).toEqual(['checked_in', 'photo']);
+  });
+
+  it('bulk-captured photos build UNASSIGNED: no pet, pending, batch + location kept', () => {
+    const u = buildPetUpdate({
+      tenantId: 't1', type: 'photo', photoPath: 'tenant/t1/unassigned/b1/x.jpg',
+      locationId: 'loc-1', uploadBatchId: 'b1',
+      createdById: 's1', createdByName: 'Sam', at: AT,
+    });
+    expect(u.pet_id).toBeUndefined();
+    expect(u.pet_name).toBeUndefined();
+    expect(u.status).toBe('pending');
+    expect(u.location_id).toBe('loc-1');
+    expect(u.upload_batch_id).toBe('b1');
+  });
+
+  it('recordPetUpdate refuses unassigned rows — the KV feed is pet-scoped', async () => {
+    const { recordPetUpdate } = await import('../../supabase/functions/server/lib/pet_updates.ts');
+    vi.mocked(kv.set).mockClear();
+    const u = buildPetUpdate({
+      tenantId: 't1', type: 'photo', photoPath: 'x.jpg',
+      createdById: 's1', createdByName: 'Sam', at: AT,
+    });
+    await expect(recordPetUpdate(u)).rejects.toThrow(/pet-scoped/);
+    expect(kv.set).not.toHaveBeenCalled();
   });
 
   it('photos are born pending; notes and check-in/out events auto-approve', () => {

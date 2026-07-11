@@ -268,6 +268,16 @@ export function DaycareDashboard() {
             <span className="font-medium text-sm text-[#1C1916]">Attendance</span>
           </button>
 
+          {canCreate && (
+            <button
+              className="bg-white rounded-2xl border border-[#E2DED8] p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary hover:bg-primary-tint transition-colors active:scale-[0.98]"
+              onClick={() => { void navigate('/daycare/photo-upload'); }}
+            >
+              <Camera className="h-6 w-6 text-primary" />
+              <span className="font-medium text-sm text-[#1C1916]">Add Photos</span>
+            </button>
+          )}
+
           {canReviewPhotos && (
             <button
               className="bg-white rounded-2xl border border-[#E2DED8] p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary hover:bg-primary-tint transition-colors active:scale-[0.98]"
