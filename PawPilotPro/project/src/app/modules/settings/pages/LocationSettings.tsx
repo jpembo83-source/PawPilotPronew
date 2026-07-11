@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, MagnifyingGlass, MapPin, DotsThree, Power, PencilSimple, Trash } from '@phosphor-icons/react';
 import { useSettingsStore, Location } from '../store';
 import { MODULES } from '../constants/modules';
+import { LocationHeaderImageControl } from '../components/LocationHeaderImageControl';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import {
@@ -375,7 +376,13 @@ export function LocationSettings() {
                     </div>
                   </div>
                 </div>
-                
+
+                <LocationHeaderImageControl
+                  locationId={editingLocation?.id ?? null}
+                  formData={formData}
+                  setFormData={setFormData}
+                />
+
                 <div className="col-span-2 border-t border-slate-100 pt-4 mt-2">
                   <h4 className="text-sm font-medium text-slate-900 mb-3">Enabled Modules</h4>
                   <div className="space-y-3">

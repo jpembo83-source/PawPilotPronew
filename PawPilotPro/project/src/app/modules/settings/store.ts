@@ -38,6 +38,16 @@ export interface Location {
     smallDogLimit: number;
     largeDogLimit: number;
   };
+  /** Storage object path of the dashboard header image (private
+   *  tenant-assets bucket). Set only by the upload endpoint. */
+  headerImagePath?: string | null;
+  /** Image visibility 0–100 under the fixed readability scrim. */
+  headerImageStrength?: number;
+  /** Focal point for object-position, each axis 0–1 (default centre). */
+  headerImageFocalPoint?: { x: number; y: number } | null;
+  /** Short-lived signed URL minted by the server on every read. Never a
+   *  public URL; never persisted client-side. */
+  headerImageUrl?: string | null;
 }
 
 export interface SettingsState {
