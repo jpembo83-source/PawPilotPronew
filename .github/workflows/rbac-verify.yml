@@ -1,0 +1,117 @@
+# Scratch verification workflow (verify/rbac-smoke branch only).
+#
+# Runs the RBAC role-gate smoke spec against a DEPLOYED environment. The
+# remote dev session cannot reach *.supabase.co (network egress policy), so
+# the probes run here instead. Credentials are never committed: smoke-user
+# passwords are generated per run, applied via the Supabase Management API
+# (same SUPABASE_ACCESS_TOKEN secret the deploy workflow uses), masked in
+# logs, and scrambled again when the run ends.
+#
+# TARGET=staging: resets passwords of the four pre-created rbac-smoke role
+#   users on MDC-staging and runs the full per-role matrix.
+# TARGET=prod: creates ONE temporary staff user on prod, asserts staff→403
+#   on the guarded endpoints (per-role allow tests skip), then deletes the
+#   user in an always() step.
+name: RBAC gate verification
+
+on:
+  push:
+    branches: [verify/rbac-smoke]
+
+jobs:
+  verify:
+    name: Verify role gates
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      TARGET: staging
+    defaults:
+      run:
+        working-directory: PawPilotPro/project
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: PawPilotPro/project/package-lock.json
+      - run: npm ci --legacy-peer-deps
+
+      - name: Resolve target project
+        id: target
+        run: |
+          if [ "$TARGET" = "prod" ]; then
+            echo "ref=ruahrxkfgfyshuxykiay" >> "$GITHUB_OUTPUT"
+            # anon keys are public client keys by design
+            echo "anon=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1YWhyeGtmZ2Z5c2h1eHlraWF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NDUxMTcsImV4cCI6MjA4MjQyMTExN30.gG65FbgAYdrjbLAgKJRscIGwbcHwyuEAGa5M_o_fYeU" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=ihdbnwlmqhsrslstbbqn" >> "$GITHUB_OUTPUT"
+            echo "anon=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImloZGJud2xtcWhzcnNsc3RiYnFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzOTA0MzAsImV4cCI6MjA5Nzk2NjQzMH0.FExedDEbLu1ZGDJ__NLlnSPVjqz1rnLJdmnDwHK9bTA" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare smoke identities (ephemeral password, never logged)
+        run: |
+          set -euo pipefail
+          PW="$(openssl rand -hex 20)"
+          echo "::add-mask::$PW"
+          echo "SMOKE_PW=$PW" >> "$GITHUB_ENV"
+          if [ "$TARGET" = "prod" ]; then
+            SQL=$(cat <<EOSQL
+          do \$body\$
+          declare uid uuid := gen_random_uuid();
+          begin
+            delete from auth.identities where user_id in (select id from auth.users where email = 'rbac-smoke-staff@pawpilot.test');
+            delete from auth.users where email = 'rbac-smoke-staff@pawpilot.test';
+            insert into auth.users (instance_id, id, aud, role, email, encrypted_password,
+              email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+              created_at, updated_at, confirmation_token, recovery_token,
+              email_change_token_new, email_change)
+            values ('00000000-0000-0000-0000-000000000000', uid, 'authenticated', 'authenticated',
+              'rbac-smoke-staff@pawpilot.test', crypt('$PW', gen_salt('bf')), now(),
+              '{"provider":"email","providers":["email"],"role":"staff"}'::jsonb,
+              '{}'::jsonb, now(), now(), '', '', '', '');
+            insert into auth.identities (id, user_id, identity_data, provider, provider_id,
+              last_sign_in_at, created_at, updated_at)
+            values (gen_random_uuid(), uid,
+              jsonb_build_object('sub', uid::text, 'email', 'rbac-smoke-staff@pawpilot.test', 'email_verified', true),
+              'email', uid::text, now(), now(), now());
+          end \$body\$;
+          EOSQL
+            )
+          else
+            SQL="update auth.users set encrypted_password = crypt('$PW', gen_salt('bf')), updated_at = now() where email like 'rbac-smoke-%@pawpilot.test';"
+          fi
+          jq -n --arg q "$SQL" '{query: $q}' | curl -sfS -X POST \
+            "https://api.supabase.com/v1/projects/${{ steps.target.outputs.ref }}/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" -d @- > /dev/null
+          echo "smoke identities ready on $TARGET"
+
+      - name: Run RBAC role-gate smoke spec
+        env:
+          VITE_SUPABASE_URL: https://${{ steps.target.outputs.ref }}.supabase.co
+          VITE_SUPABASE_ANON_KEY: ${{ steps.target.outputs.anon }}
+          TEST_STAFF_EMAIL: rbac-smoke-staff@pawpilot.test
+        run: |
+          export TEST_STAFF_PASSWORD="$SMOKE_PW"
+          if [ "$TARGET" != "prod" ]; then
+            export TEST_ADMIN_EMAIL=rbac-smoke-admin@pawpilot.test TEST_ADMIN_PASSWORD="$SMOKE_PW"
+            export TEST_MANAGER_EMAIL=rbac-smoke-manager@pawpilot.test TEST_MANAGER_PASSWORD="$SMOKE_PW"
+            export TEST_ASSISTANT_MANAGER_EMAIL=rbac-smoke-assistant-manager@pawpilot.test TEST_ASSISTANT_MANAGER_PASSWORD="$SMOKE_PW"
+          fi
+          npx playwright test -c pw-verify.config.ts
+
+      - name: Cleanup smoke identities
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "$TARGET" = "prod" ]; then
+            SQL="delete from auth.identities where user_id in (select id from auth.users where email = 'rbac-smoke-staff@pawpilot.test'); delete from auth.users where email = 'rbac-smoke-staff@pawpilot.test';"
+          else
+            SQL="update auth.users set encrypted_password = crypt(md5(random()::text), gen_salt('bf')), updated_at = now() where email like 'rbac-smoke-%@pawpilot.test';"
+          fi
+          jq -n --arg q "$SQL" '{query: $q}' | curl -sfS -X POST \
+            "https://api.supabase.com/v1/projects/${{ steps.target.outputs.ref }}/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" -d @- > /dev/null
+          echo "smoke identities neutralised on $TARGET"
