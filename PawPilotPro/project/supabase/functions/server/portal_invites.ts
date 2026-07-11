@@ -8,6 +8,8 @@ import * as kv from "./kv_store.tsx";
 import { getEmailSender } from "./lib/email.ts";
 import { inviteEmail } from "./lib/email_templates/invite.ts";
 import { notify, getOwnerEmail, getOwnerName } from "./lib/notify.ts";
+// Phase 4 stage 2: customer:* KV mutations are mirrored to Postgres.
+import { dualWriteCustomers, dwSet } from "./lib/customers_dualwrite.ts";
 import { vaxApprovedEmail } from "./lib/email_templates/vax_approved.ts";
 import { vaxRejectedEmail } from "./lib/email_templates/vax_rejected.ts";
 import { petApprovedEmail } from "./lib/email_templates/pet_approved.ts";
@@ -481,11 +483,15 @@ invites.post("/pet-verifications/:id/approve", async (c) => {
   // (StepPets.tsx: verificationStatus === "verified") and the booking-create
   // guard (portal_bookings.ts) require — this single write makes the pet
   // bookable and clears the owner's "Pending review" badge.
-  await kv.set(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, {
+  const approvedPet = {
     ...pet,
     verification_status: "verified",
     updated_at: now,
-  });
+  };
+  await kv.set(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, approvedPet);
+  await dualWriteCustomers([
+    dwSet(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, approvedPet),
+  ]);
   await kv.set(`portal_pet_verification:${tenantId}:${id}`, {
     ...entry,
     status: "approved",
@@ -535,11 +541,15 @@ invites.post("/pet-verifications/:id/reject", async (c) => {
   // "rejected" keeps the pet un-bookable (the portal guards check for
   // "verified") without leaving it stuck as pending — the owner sees a clear
   // "not approved" state instead of an eternal "pending review" badge.
-  await kv.set(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, {
+  const rejectedPet = {
     ...pet,
     verification_status: "rejected",
     updated_at: now,
-  });
+  };
+  await kv.set(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, rejectedPet);
+  await dualWriteCustomers([
+    dwSet(`customer:${tenantId}:pet:${entry.householdId}:${entry.petId}`, rejectedPet),
+  ]);
   await kv.set(`portal_pet_verification:${tenantId}:${id}`, {
     ...entry,
     status: "rejected",

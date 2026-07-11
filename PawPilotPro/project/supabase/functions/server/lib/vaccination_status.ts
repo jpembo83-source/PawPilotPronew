@@ -10,6 +10,8 @@
 // on an object — so every route in that file 500'd and this recalc never ran.
 
 import * as kv from "../kv_store.tsx";
+// Phase 4 stage 2: customer:* KV mutations are mirrored to Postgres.
+import { dualWriteCustomers, dwSet } from "./customers_dualwrite.ts";
 
 export interface VaccinationStatusResult {
   status: "up_to_date" | "expiring_soon" | "expired" | "unknown";
@@ -63,10 +65,14 @@ export async function updatePetVaccinationStatus(petId: string, tenantId: string
   }
 
   const { status, expiry_date } = await calculatePetVaccinationStatus(petId, tenantId);
-  await kv.set(`customer:${tenantId}:pet:${pet.household_id}:${petId}`, {
+  const refreshed = {
     ...pet,
     vaccination_status: status,
     vaccination_expiry_date: expiry_date,
     updated_at: new Date().toISOString(),
-  });
+  };
+  await kv.set(`customer:${tenantId}:pet:${pet.household_id}:${petId}`, refreshed);
+  await dualWriteCustomers([
+    dwSet(`customer:${tenantId}:pet:${pet.household_id}:${petId}`, refreshed),
+  ]);
 }
