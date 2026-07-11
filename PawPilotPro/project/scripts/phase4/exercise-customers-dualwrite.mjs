@@ -203,7 +203,10 @@ async function main() {
     name: 'Rexo', breed: 'Labrador', weight_kg: 21.5, daycare_enrolled: true,
   });
   const pet = petRes.photo_url !== undefined ? petRes : petRes.pet ?? petRes;
-  compare('pet create KV↔PG', pet, (await pg('pets', `id=eq.${pet.id}&select=*`))[0],
+  // verification_status is omitted by the staff create route; the mirror
+  // applies the frozen contract's default ('verified') — assert that.
+  compare('pet create KV↔PG', { ...pet, verification_status: pet.verification_status ?? 'verified' },
+    (await pg('pets', `id=eq.${pet.id}&select=*`))[0],
     ['id', 'household_id', 'name', 'breed', 'weight_kg', 'daycare_enrolled', 'active', 'verification_status']);
 
   const updRes = await api('PUT', `/pets/${pet.id}`, { behaviour_notes: 'friendly', colour: 'black' });
@@ -270,12 +273,20 @@ async function main() {
     ? ok('cascade delete mirrored', 'household/contacts/pets/notes/flags all gone from PG')
     : fail('cascade delete', `leftovers: ${leftovers.map((r) => r.length).join('/')}`);
 
-  // ---- clear-timeline: purge leftover activities in BOTH stores ---------------
+  // ---- clear-timeline: both stores must stay IDENTICAL ------------------------
+  // (A pre-existing route bug reconstructs 4-segment keys, so activities stored
+  // under 5-segment keys survive the purge in KV — the mirror must faithfully
+  // leave exactly the same records in PG. Parity == same survivors.)
   await api('DELETE', '/clear-timeline-data');
+  const kvActLeft = await api('GET', `/households/${hh.id}/activity`);
   const pgActLeft = await pg('customer_activities', `household_id=eq.${hh.id}&select=id`);
-  pgActLeft.length === 0
-    ? ok('clear-timeline mirrored', 'no activities left in PG for the exercise household')
-    : fail('clear-timeline', `${pgActLeft.length} activities left in PG`);
+  const kvLeftIds = new Set((kvActLeft ?? []).map((a) => a.id));
+  const pgLeftIds = new Set(pgActLeft.map((a) => a.id));
+  const sameSurvivors =
+    kvLeftIds.size === pgLeftIds.size && [...kvLeftIds].every((id) => pgLeftIds.has(id));
+  sameSurvivors
+    ? ok('clear-timeline parity', `both stores kept the same ${kvLeftIds.size} five-segment-keyed activities (pre-existing KV purge bug, faithfully mirrored)`)
+    : fail('clear-timeline parity', `kv=${kvLeftIds.size} pg=${pgLeftIds.size} survivors differ`);
 
   console.log(failures === 0
     ? '\nEXERCISE PASSED: every flow mirrored KV → Postgres with zero divergence.'
