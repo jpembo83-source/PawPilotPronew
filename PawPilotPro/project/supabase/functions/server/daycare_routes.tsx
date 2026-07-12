@@ -52,6 +52,9 @@ interface DaycareBooking {
   service_name: string;
   service_type: 'hourly' | 'half_day' | 'full_day' | 'trial_day' | 'membership';
   booking_date: string;
+  /** Set when this booking is one day of a multi-day day-visit range, so the
+   *  days can be listed/managed together. Single bookings leave it unset. */
+  booking_group_id?: string;
   planned_start_time?: string;
   planned_end_time?: string;
   booking_status: BookingStatus;
@@ -888,6 +891,7 @@ app.post('/bookings', async (c) => {
       planned_end_time,
       customer_notes,
       requires_transport,
+      booking_group_id,
     } = body;
     
     // Validation
@@ -1000,6 +1004,7 @@ app.post('/bookings', async (c) => {
       service_name,
       service_type,
       booking_date,
+      booking_group_id: typeof booking_group_id === 'string' ? booking_group_id : undefined,
       planned_start_time,
       planned_end_time,
       booking_status: 'confirmed',

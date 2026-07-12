@@ -28,13 +28,24 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 
+/** Household/pet/dates handed over from another booking flow (e.g. the daycare
+ *  dialog's "Overnight boarding" branch) so this modal opens at its details
+ *  step instead of making the operator search again. */
+export interface ReservationPrefill {
+  household: any;
+  pet: any;
+  startDate?: string;
+  endDate?: string;
+}
+
 interface CreateReservationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  prefill?: ReservationPrefill | null;
 }
 
-export function CreateReservationModal({ open, onOpenChange, onSuccess }: CreateReservationModalProps) {
+export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill }: CreateReservationModalProps) {
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
   const { createReservation, calculateBilling, isLoading } = useOvernightsStore();
@@ -82,8 +93,20 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
       tomorrow.setDate(tomorrow.getDate() + 1);
       const dayAfter = new Date();
       dayAfter.setDate(dayAfter.getDate() + 2);
-      setStartDate(tomorrow.toISOString().split('T')[0]);
-      setEndDate(dayAfter.toISOString().split('T')[0]);
+      const defaultStart = tomorrow.toISOString().split('T')[0];
+      const defaultEnd = dayAfter.toISOString().split('T')[0];
+
+      if (prefill?.household && prefill?.pet) {
+        // Handed over from another flow — skip search and land on details.
+        setSelectedHousehold(prefill.household);
+        setSelectedPet(prefill.pet);
+        setStartDate(prefill.startDate || defaultStart);
+        setEndDate(prefill.endDate || defaultEnd);
+        setStep('details');
+      } else {
+        setStartDate(defaultStart);
+        setEndDate(defaultEnd);
+      }
     }
   }, [open]);
 
