@@ -29,12 +29,21 @@ const WEEKDAY_CHIPS: { day: Weekday; label: string }[] = [
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
+/** Skip search/pet-select and open straight on the details step for a known
+ *  pet (e.g. "Book" from the pet profile). */
+export interface BookingPrefill {
+  household: { household_id: string; household_name?: string; pets?: any[] };
+  pet: { id: string; name: string; [k: string]: any };
+}
+
 interface CreateBookingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
   /** Prefill the booking date (e.g. opened from a capacity planner day). */
   initialDate?: string;
+  /** Pet/household to book for, skipping the search step. */
+  prefill?: BookingPrefill | null;
 }
 
 type ServiceType = 'full_day' | 'half_day_am' | 'half_day_pm';
@@ -55,7 +64,7 @@ interface HouseholdMembership {
   isHalfDay: boolean;
 }
 
-export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate }: CreateBookingDialogProps) {
+export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate, prefill }: CreateBookingDialogProps) {
   const { selectedLocationId } = useDashboardStore();
   const { locations, globalEnabledModules } = useSettingsStore();
   const { searchCustomers, createBooking, isLoading } = useDaycareStore();
@@ -119,6 +128,16 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
   useEffect(() => {
     if (open && initialDate) setBookingDate(initialDate);
   }, [open, initialDate]);
+
+  // Opened for a known pet (e.g. "Book" on the pet profile) — skip search and
+  // pet-select and land on the details step.
+  useEffect(() => {
+    if (open && prefill?.household && prefill?.pet) {
+      setSelectedHousehold(prefill.household);
+      setSelectedPet(prefill.pet);
+      setStep('details');
+    }
+  }, [open, prefill]);
 
   // Keep localLocationId in sync when dialog opens with a specific location already selected
   useEffect(() => {
