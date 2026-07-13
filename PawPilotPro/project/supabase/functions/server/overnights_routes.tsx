@@ -27,6 +27,21 @@ function getUserInfo(user: AuthenticatedUser) {
   };
 }
 
+/** Default nightly boarding rate when a location has none configured. */
+const DEFAULT_OVERNIGHT_RATE = 45;
+
+/**
+ * The configured nightly rate for a location (Overnights → Capacity), the
+ * source of truth for boarding pricing. Falls back to DEFAULT_OVERNIGHT_RATE
+ * when unset or non-positive.
+ */
+async function getOvernightRate(tenantId: string, locationId: string | undefined): Promise<number> {
+  if (!locationId) return DEFAULT_OVERNIGHT_RATE;
+  const capacity = await kv.get(`overnight:${tenantId}:capacity:${locationId}`) as { pricePerNight?: unknown } | null;
+  const rate = capacity?.pricePerNight;
+  return typeof rate === 'number' && rate > 0 ? rate : DEFAULT_OVERNIGHT_RATE;
+}
+
 async function recordEvent(tenantId: string, stayId: string, eventType: string, actorUserId: string, actorName: string, metadata?: Record<string, any>) {
   const event = {
     id: crypto.randomUUID(),
@@ -122,13 +137,18 @@ routes.post("/reservations", async (c) => {
     const startDate = new Date(body.startDate);
     const endDate = new Date(body.endDate);
     const totalNights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
+    // The location's configured nightly rate is authoritative — the client
+    // can't set the price. Lock it onto the reservation at creation.
+    const pricePerNight = await getOvernightRate(tenantId, body.locationId);
+
     const now = new Date().toISOString();
     const reservation = {
       ...body,
       id: body.id || crypto.randomUUID(),
       totalNights,
-      totalPrice: body.pricePerNight * totalNights,
+      pricePerNight,
+      totalPrice: pricePerNight * totalNights,
       priceLockedAt: now,
       status: body.status || 'confirmed',
       tenant_id: tenantId,
@@ -913,7 +933,8 @@ routes.post("/calculate-billing", async (c) => {
         locationId: body.locationId,
         startDate: body.startDate,
         endDate: body.endDate,
-        pricePerNight: typeof body.pricePerNight === 'number' ? body.pricePerNight : 45,
+        // Preview at the location's configured nightly rate.
+        pricePerNight: await getOvernightRate(tenantId, body.locationId),
         currency: body.currency || 'GBP',
       };
     }
