@@ -10,6 +10,7 @@ import { internalError } from './_shared/log.ts';
 import { buildPetUpdate, recordPetUpdate } from './lib/pet_updates.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
 import { signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
+import { findDuplicateBooking } from './lib/daycare_dedup.ts';
 
 const app = new Hono();
 
@@ -930,7 +931,28 @@ app.post('/bookings', async (c) => {
     }
     
     const household = householdRecord;
-    
+
+    // Same-day duplicate guard: this pet can't already have an active booking
+    // at this location/date with an overlapping time window (AM + PM is fine).
+    const allBookingRecords = await kv.getByPrefix('daycare:booking:');
+    const activeBookings = allBookingRecords.filter(
+      (b: any) => b && typeof b === 'object' && b.id && b.pet_name,
+    );
+    const duplicate = findDuplicateBooking(activeBookings, {
+      pet_id,
+      location_id,
+      booking_date,
+      planned_start_time,
+      planned_end_time,
+    });
+    if (duplicate) {
+      return c.json({
+        error: `${pet.name} already has a booking at this location on ${booking_date}.`,
+        code: 'duplicate_booking',
+        existingBookingId: (duplicate as { id?: string }).id,
+      }, 409);
+    }
+
     const capacity = await getCapacity(location_id, booking_date);
     const ragStatus = calculateRAGStatus(capacity.current_bookings, capacity.max_capacity);
     
