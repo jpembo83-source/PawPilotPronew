@@ -56,8 +56,10 @@ export interface PlannerOvernightStay {
 }
 
 /**
- * Overnight stays present on `date`. A dog is on-site from check-in through
- * check-out inclusive, so any stay whose span covers the date counts.
+ * Overnight stays "in" on `date`. Boarding is counted per night, like a hotel:
+ * a stay covers check-in through the last night, i.e. the half-open span
+ * [startDate, endDate). The check-out day is NOT counted — the dog leaves that
+ * morning, so it isn't a full day of on-site care (nor is any day after).
  * Cancelled stays are excluded.
  */
 export function overnightStaysForDate(
@@ -68,7 +70,7 @@ export function overnightStaysForDate(
     .filter(
       (s) =>
         s.startDate <= date &&
-        date <= s.endDate &&
+        date < s.endDate &&
         s.status !== 'cancelled',
     )
     .sort((a, b) => a.petName.localeCompare(b.petName));

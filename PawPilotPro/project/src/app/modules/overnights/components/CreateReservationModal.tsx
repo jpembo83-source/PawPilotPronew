@@ -3,6 +3,7 @@ import { useOvernightsStore } from '../store';
 import { useDaycareStore } from '../../daycare/store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
+import { useCurrency } from '../../../utils/currency';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,9 @@ interface CreateReservationModalProps {
 export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill }: CreateReservationModalProps) {
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
+  // Overnight pricing follows the organisation currency (Settings → Organisation),
+  // never a hardcoded £.
+  const { currency, format: formatMoney } = useCurrency();
   const { createReservation, calculateBilling, isLoading } = useOvernightsStore();
   const { searchCustomers } = useDaycareStore();
 
@@ -165,6 +169,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
           startDate,
           endDate,
           totalNights,
+          currency,
         });
         setBillingBreakdown(breakdown);
       } catch {
@@ -217,7 +222,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
         pricePerNight: billingBreakdown?.pricePerNight || 45,
         totalNights,
         totalPrice: billingBreakdown?.total || totalNights * 45,
-        currency: 'GBP',
+        currency,
         priceLockedAt: new Date().toISOString(),
         requiresPickup: false,
         requiresDropOff: false,
@@ -562,10 +567,10 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
                 ) : (
                   <>
                     <p className="text-lg font-semibold text-slate-900">
-                      &pound;{(billingBreakdown?.total || totalNights * 45).toFixed(2)}
+                      {formatMoney(billingBreakdown?.total || totalNights * 45)}
                     </p>
                     <p className="text-xs text-slate-500">
-                      &pound;{(billingBreakdown?.pricePerNight || 45).toFixed(2)} per night &times; {totalNights} {totalNights === 1 ? 'night' : 'nights'}
+                      {formatMoney(billingBreakdown?.pricePerNight || 45)} per night &times; {totalNights} {totalNights === 1 ? 'night' : 'nights'}
                     </p>
                   </>
                 )}

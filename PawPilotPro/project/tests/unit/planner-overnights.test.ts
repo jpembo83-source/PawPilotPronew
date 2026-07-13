@@ -17,11 +17,12 @@ const booking = (over: Partial<PlannerBooking> = {}): PlannerBooking => ({
 });
 
 describe('overnightStaysForDate', () => {
-  it('includes the stay on check-in, mid-stay, and check-out (inclusive span)', () => {
-    const stays = [stay()];
-    expect(overnightStaysForDate(stays, '2026-07-13')).toHaveLength(1); // check-in
+  it('counts the nights: check-in and last night, but NOT the check-out day', () => {
+    const stays = [stay()]; // 13 check-in .. 17 check-out (nights 13,14,15,16)
+    expect(overnightStaysForDate(stays, '2026-07-13')).toHaveLength(1); // check-in night
     expect(overnightStaysForDate(stays, '2026-07-15')).toHaveLength(1); // mid
-    expect(overnightStaysForDate(stays, '2026-07-17')).toHaveLength(1); // check-out
+    expect(overnightStaysForDate(stays, '2026-07-16')).toHaveLength(1); // last night
+    expect(overnightStaysForDate(stays, '2026-07-17')).toHaveLength(0); // check-out day — leaves AM
   });
 
   it('excludes dates outside the span', () => {
@@ -45,10 +46,10 @@ describe('overnightStaysForDate', () => {
     ]);
   });
 
-  it('handles a single-night stay', () => {
+  it('handles a single-night stay (check-in night only, out next morning)', () => {
     const stays = [stay({ startDate: '2026-07-13', endDate: '2026-07-14' })];
-    expect(overnightStaysForDate(stays, '2026-07-13')).toHaveLength(1);
-    expect(overnightStaysForDate(stays, '2026-07-14')).toHaveLength(1);
+    expect(overnightStaysForDate(stays, '2026-07-13')).toHaveLength(1); // the one night
+    expect(overnightStaysForDate(stays, '2026-07-14')).toHaveLength(0); // check-out day
     expect(overnightStaysForDate(stays, '2026-07-15')).toHaveLength(0);
   });
 });

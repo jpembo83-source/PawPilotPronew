@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
+import { formatCurrency } from '../../../utils/currency';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Badge } from '../../../components/ui/badge';
@@ -249,7 +250,7 @@ function ReservationRow({ reservation }: { reservation: OvernightReservation }) 
         </div>
       </td>
       <td className="px-4 py-3 text-slate-900 font-medium">
-        &pound;{reservation.totalPrice?.toFixed(2) || '0.00'}
+        {formatCurrency(reservation.totalPrice ?? 0, reservation.currency)}
       </td>
     </tr>
   );
