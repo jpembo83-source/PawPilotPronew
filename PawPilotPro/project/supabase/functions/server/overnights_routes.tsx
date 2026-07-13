@@ -895,13 +895,27 @@ routes.post("/calculate-billing", async (c) => {
     const body = await c.req.json();
     const { reservationId } = body;
 
-    if (!reservationId) {
-      return c.json({ error: "reservationId is required" }, 400);
-    }
-
-    const reservation = await kv.get(`overnight:${tenantId}:reservation:${reservationId}`);
-    if (!reservation) {
-      return c.json({ error: "Reservation not found" }, 404);
+    // Two modes: price an existing reservation by id, or PREVIEW a prospective
+    // stay from raw fields (petId/locationId/startDate/endDate) before it's
+    // created. The create dialog uses preview, so a missing id is not an error.
+    let reservation: any;
+    if (reservationId) {
+      reservation = await kv.get(`overnight:${tenantId}:reservation:${reservationId}`);
+      if (!reservation) {
+        return c.json({ error: "Reservation not found" }, 404);
+      }
+    } else {
+      if (!body.startDate || !body.endDate) {
+        return c.json({ error: "startDate and endDate are required" }, 400);
+      }
+      reservation = {
+        petId: body.petId,
+        locationId: body.locationId,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        pricePerNight: typeof body.pricePerNight === 'number' ? body.pricePerNight : 45,
+        currency: body.currency || 'GBP',
+      };
     }
 
     const startDate = new Date(reservation.startDate);

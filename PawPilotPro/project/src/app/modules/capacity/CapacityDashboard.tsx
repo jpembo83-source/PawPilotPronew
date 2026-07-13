@@ -173,6 +173,7 @@ export function CapacityDashboard() {
     selectedDate,
     dailySummary,
     weekBookings,
+    weekOvernights,
     isLoading,
     setSelectedDate,
     fetchWeeklyCapacity,
@@ -296,6 +297,7 @@ export function CapacityDashboard() {
       <WeekPlannerGrid
         days={weekDays}
         bookings={weekBookings}
+        overnightStays={weekOvernights}
         maxDogs={maxDogs}
         today={today}
         selectedDate={selectedDate}
@@ -340,6 +342,7 @@ export function CapacityDashboard() {
         onOpenChange={(open) => { if (!open) setSheetDate(null); }}
         date={sheetDate ?? selectedDate}
         bookings={weekBookings}
+        overnightStays={weekOvernights}
         maxDogs={maxDogs}
         onAddBooking={openCreate}
       />

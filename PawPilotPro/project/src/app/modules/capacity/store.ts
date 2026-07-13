@@ -9,6 +9,7 @@ import type {
   ServiceCapacity,
   WeeklyCapacityView,
 } from './types';
+import type { PlannerOvernightStay } from './components/plannerFormat';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
@@ -75,6 +76,9 @@ interface CapacityState {
    *  and the per-day list. Includes cancelled (rendered struck-through,
    *  like the paper register). */
   weekBookings: PlannerBooking[];
+  /** Boarding stays overlapping the visible week, folded into the planner so
+   *  the capacity view is one pane of glass (daycare + overnight). */
+  weekOvernights: PlannerOvernightStay[];
   isLoading: boolean;
   isLoadingBookings: boolean;
   error: string | null;
@@ -91,6 +95,7 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
   selectedDate: formatDate(new Date()),
   dailySummary: null,
   weekBookings: [],
+  weekOvernights: [],
   isLoading: false,
   isLoadingBookings: false,
   error: null,
@@ -214,12 +219,48 @@ export const useCapacityStore = create<CapacityState>((set, get) => ({
       const res = await fetch(`${API_BASE}/daycare/bookings?${params}`, { headers });
       if (res.ok) {
         const bookings = (await res.json()) as PlannerBooking[];
-        set({ weekBookings: Array.isArray(bookings) ? bookings : [], isLoadingBookings: false });
+        set({ weekBookings: Array.isArray(bookings) ? bookings : [] });
       } else {
-        set({ weekBookings: [], isLoadingBookings: false });
+        set({ weekBookings: [] });
       }
+
+      // Overnight boarders overlapping the week — folded into the planner so
+      // the capacity view shows daycare + boarding as one pane. Best-effort:
+      // a failure here never blocks the daycare planner.
+      try {
+        const onParams = new URLSearchParams({
+          startDate: formatDate(weekStart),
+          endDate: formatDate(weekEnd),
+        });
+        if (locationId && locationId !== 'ALL') onParams.append('locationId', locationId);
+        const onRes = await fetch(`${API_BASE}/overnights/reservations?${onParams}`, { headers });
+        if (onRes.ok) {
+          const raw = (await onRes.json()) as Array<Record<string, unknown>>;
+          // Only accept primitive string/number fields — the API is trusted
+          // but this keeps the mapping type-safe and drops anything odd.
+          const str = (v: unknown): string | undefined =>
+            typeof v === 'string' ? v : typeof v === 'number' ? String(v) : undefined;
+          const stays: PlannerOvernightStay[] = (Array.isArray(raw) ? raw : [])
+            .map((r) => ({
+              id: str(r.id) ?? '',
+              petId: str(r.petId),
+              petName: str(r.petName) ?? str(r.pet_name) ?? 'Boarder',
+              startDate: str(r.startDate) ?? str(r.start_date) ?? '',
+              endDate: str(r.endDate) ?? str(r.end_date) ?? '',
+              status: str(r.status),
+            }))
+            .filter((s) => s.startDate && s.endDate);
+          set({ weekOvernights: stays });
+        } else {
+          set({ weekOvernights: [] });
+        }
+      } catch {
+        set({ weekOvernights: [] });
+      }
+
+      set({ isLoadingBookings: false });
     } catch {
-      set({ weekBookings: [], isLoadingBookings: false });
+      set({ weekBookings: [], weekOvernights: [], isLoadingBookings: false });
     }
   },
 

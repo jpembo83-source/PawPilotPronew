@@ -2,10 +2,17 @@
 // booked that day with the register's shorthand. Desktop/tablet only —
 // phones use the existing week strip + day drill-down, which fits 390px.
 
-import { Plus, Van } from '@phosphor-icons/react';
+import { Plus, Van, Moon } from '@phosphor-icons/react';
 import { usePermissions } from '../../../hooks/usePermissions';
 import type { PlannerBooking } from '../types';
-import { activeCount, bookingsForDate, isCancelled, serviceShorthand } from './plannerFormat';
+import {
+  bookingsForDate,
+  isCancelled,
+  serviceShorthand,
+  onSiteCount,
+  overnightOnlyForDate,
+  type PlannerOvernightStay,
+} from './plannerFormat';
 
 function countColors(booked: number, max: number) {
   if (max <= 0) return { bg: '#F4F3EF', text: '#6B6762' };
@@ -19,6 +26,8 @@ function countColors(booked: number, max: number) {
 interface WeekPlannerGridProps {
   days: string[]; // ISO dates, Mon..Sun
   bookings: PlannerBooking[];
+  /** Boarding stays overlapping the week — folded into each day they cover. */
+  overnightStays?: PlannerOvernightStay[];
   maxDogs: number;
   today: string;
   selectedDate: string;
@@ -26,15 +35,18 @@ interface WeekPlannerGridProps {
   onAddBooking: (date: string) => void;
 }
 
-export function WeekPlannerGrid({ days, bookings, maxDogs, today, selectedDate, onOpenDay, onAddBooking }: WeekPlannerGridProps) {
+export function WeekPlannerGrid({ days, bookings, overnightStays = [], maxDogs, today, selectedDate, onOpenDay, onAddBooking }: WeekPlannerGridProps) {
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission('daycare', 'create');
 
   return (
-    <div className="hidden md:grid grid-cols-7 gap-2" role="grid" aria-label="Week planner — dogs booked per day">
+    <div className="hidden md:grid grid-cols-7 gap-2" role="grid" aria-label="Week planner — dogs on-site per day">
       {days.map((date) => {
         const dayBookings = bookingsForDate(bookings, date);
-        const booked = activeCount(bookings, date);
+        // Boarders present that day whose dog isn't already a daycare booking
+        // (a converging dog is shown/counted once, via its daycare line).
+        const dayBoarders = overnightOnlyForDate(bookings, overnightStays, date);
+        const booked = onSiteCount(bookings, overnightStays, date);
         const cc = countColors(booked, maxDogs);
         const d = new Date(`${date}T12:00:00`);
         const isToday = date === today;
@@ -54,7 +66,7 @@ export function WeekPlannerGrid({ days, bookings, maxDogs, today, selectedDate, 
             <button
               onClick={() => onOpenDay(date)}
               className="px-3 pt-3 pb-2 text-left rounded-t-2xl hover:bg-[#FAFAF8] transition-colors"
-              aria-label={`${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${booked} of ${maxDogs} booked, open day list`}
+              aria-label={`${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} — ${booked} of ${maxDogs} on-site${dayBoarders.length ? `, including ${dayBoarders.length} boarding overnight` : ''}, open day list`}
             >
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs font-medium" style={{ color: isToday ? 'var(--primary)' : '#94a3b8' }}>
@@ -64,9 +76,21 @@ export function WeekPlannerGrid({ days, bookings, maxDogs, today, selectedDate, 
                   {booked}/{maxDogs}
                 </span>
               </div>
-              <span className="text-lg font-bold" style={{ color: isToday ? 'var(--primary)' : '#1e293b' }}>
-                {d.getDate()}
-              </span>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-lg font-bold" style={{ color: isToday ? 'var(--primary)' : '#1e293b' }}>
+                  {d.getDate()}
+                </span>
+                {dayBoarders.length > 0 && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-full"
+                    style={{ background: '#EEF2FF', color: '#4338CA' }}
+                    title={`${dayBoarders.length} boarding overnight`}
+                  >
+                    <Moon size={11} weight="fill" aria-hidden="true" />
+                    {dayBoarders.length}
+                  </span>
+                )}
+              </div>
             </button>
 
             {/* Register lines */}
@@ -95,7 +119,22 @@ export function WeekPlannerGrid({ days, bookings, maxDogs, today, selectedDate, 
                   +{dayBookings.length - 12} more…
                 </span>
               )}
-              {dayBookings.length === 0 && (
+
+              {/* Overnight boarders — same register, marked with a moon */}
+              {dayBoarders.slice(0, Math.max(0, 12 - dayBookings.length)).map((s) => (
+                <span key={s.id} className="block text-[13px] leading-snug truncate text-[#1C1916]">
+                  <Moon size={11} weight="fill" aria-hidden="true" className="inline mr-1 text-[#4338CA] align-[-1px]" />
+                  <span className="font-medium">{s.petName}</span>
+                  <span className="text-[#6B6762]"> boarding</span>
+                </span>
+              ))}
+              {dayBookings.length + dayBoarders.length > 12 && dayBookings.length < 12 && (
+                <span className="block text-xs font-medium text-tertiary-foreground pt-0.5">
+                  +{dayBookings.length + dayBoarders.length - 12} more…
+                </span>
+              )}
+
+              {dayBookings.length === 0 && dayBoarders.length === 0 && (
                 <span className="block text-xs text-[#C8C4BC] pt-1">—</span>
               )}
             </button>
