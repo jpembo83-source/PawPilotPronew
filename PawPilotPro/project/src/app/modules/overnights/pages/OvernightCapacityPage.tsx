@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bed, Moon, ArrowLeft, Gear, FloppyDisk, Warning } from '@phosphor-icons/react';
+import { Bed, Moon, ArrowLeft, Gear, FloppyDisk, Warning, Money } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
@@ -11,11 +11,13 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { CapacityCalendar } from '../components/CapacityCalendar';
 import { OvernightsCapacity } from '../types';
+import { useCurrency } from '../../../utils/currency';
 
 import { useBackNavigation } from '../../../components/BackButton';
 export function OvernightCapacityPage() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/overnights');
+  const { currency, symbol, format: formatMoney } = useCurrency();
   const locations = useSettingsStore((s) => s.locations);
   const { selectedLocationId } = useDashboardStore();
   const {
@@ -31,6 +33,7 @@ export function OvernightCapacityPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editMaxCapacity, setEditMaxCapacity] = useState(0);
   const [editBufferSlots, setEditBufferSlots] = useState(0);
+  const [editPricePerNight, setEditPricePerNight] = useState(45);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const locationId = selectedLocationId === 'ALL' ? locations[0]?.id : selectedLocationId;
@@ -47,6 +50,7 @@ export function OvernightCapacityPage() {
     if (capacity) {
       setEditMaxCapacity(capacity.maxOvernightCapacity);
       setEditBufferSlots(capacity.bufferSlots);
+      setEditPricePerNight(capacity.pricePerNight ?? 45);
     }
   }, [capacity]);
 
@@ -57,6 +61,7 @@ export function OvernightCapacityPage() {
       await updateCapacity(locationId, {
         maxOvernightCapacity: editMaxCapacity,
         bufferSlots: editBufferSlots,
+        pricePerNight: editPricePerNight,
       });
       setIsEditing(false);
     } catch (e: any) {
@@ -76,6 +81,7 @@ export function OvernightCapacityPage() {
 
   const maxCap = capacity?.maxOvernightCapacity ?? 0;
   const bufferSlots = capacity?.bufferSlots ?? 0;
+  const nightlyRate = capacity?.pricePerNight ?? 45;
   const currentOccupancy = tonightsBoarders?.totalInStay ?? 0;
   const effectiveCapacity = maxCap - bufferSlots;
   const availableSlots = effectiveCapacity - currentOccupancy;
@@ -183,6 +189,18 @@ export function OvernightCapacityPage() {
       </div>
 
       <Card className="p-5">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center">
+            <Money className="h-5 w-5 text-indigo-600" />
+          </div>
+          <div>
+            <p className="text-2xl font-semibold text-slate-900">{formatMoney(nightlyRate)}</p>
+            <p className="text-xs text-slate-500">Nightly boarding rate · per dog, per night</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-medium text-slate-900">Current Utilisation</h3>
           <span className={`text-sm font-semibold ${getUtilisationColour()}`}>
@@ -215,7 +233,7 @@ export function OvernightCapacityPage() {
                 {saveError}
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Maximum Overnight Capacity</Label>
                 <Input
@@ -239,6 +257,23 @@ export function OvernightCapacityPage() {
                 />
                 <p className="text-xs text-slate-500">
                   Reserved slots for emergencies (not available for booking)
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Nightly Rate ({currency})</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500 pointer-events-none">{symbol}</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={editPricePerNight}
+                    onChange={(e) => setEditPricePerNight(parseFloat(e.target.value) || 0)}
+                    className="pl-12"
+                  />
+                </div>
+                <p className="text-xs text-slate-500">
+                  Charged per dog, per night. Used for every new reservation.
                 </p>
               </div>
             </div>

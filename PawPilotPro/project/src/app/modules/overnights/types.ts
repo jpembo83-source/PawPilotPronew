@@ -214,6 +214,10 @@ export interface OvernightsCapacity {
 
   bufferSlots: number;
 
+  /** Nightly boarding rate for this location, in the organisation currency.
+   *  Source of truth for overnight pricing; defaults to 45 when unset. */
+  pricePerNight?: number;
+
   isActive: boolean;
 
   createdAt: string;
