@@ -54,7 +54,7 @@ export interface OvernightsState {
   fetchCarers: (locationId: string, date?: string) => Promise<void>;
   assignCarer: (stayId: string, carerId: string) => Promise<void>;
 
-  calculateBilling: (params: string | { reservationId?: string; petId?: string; locationId?: string; startDate?: string; endDate?: string; totalNights?: number }) => Promise<OvernightBillingBreakdown>;
+  calculateBilling: (params: string | { reservationId?: string; petId?: string; locationId?: string; startDate?: string; endDate?: string; totalNights?: number; currency?: string; pricePerNight?: number }) => Promise<OvernightBillingBreakdown>;
 
   fetchCareLogs: (reservationId?: string, date?: string) => Promise<void>;
   createCareLog: (careLog: Omit<NightlyCareLog, 'id' | 'createdAt' | 'updatedAt'>) => Promise<NightlyCareLog>;
