@@ -29,11 +29,13 @@ const WEEKDAY_CHIPS: { day: Weekday; label: string }[] = [
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
-/** Skip search/pet-select and open straight on the details step for a known
- *  pet (e.g. "Book" from the pet profile). */
+/** Skip the household search. With a specific `pet` (e.g. "Book" from a pet
+ *  profile) it opens on the details step; with only a `household` (e.g. "Book
+ *  Daycare" from a household with several dogs) it opens on pet-select so the
+ *  operator picks the dog first. */
 export interface BookingPrefill {
   household: { household_id: string; household_name?: string; pets?: any[] };
-  pet: { id: string; name: string; [k: string]: any };
+  pet?: { id: string; name: string; [k: string]: any };
 }
 
 interface CreateBookingDialogProps {
@@ -129,13 +131,23 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
     if (open && initialDate) setBookingDate(initialDate);
   }, [open, initialDate]);
 
-  // Opened for a known pet (e.g. "Book" on the pet profile) — skip search and
-  // pet-select and land on the details step.
+  // Prefilled open — skip the household search. A specific pet lands on
+  // details; a household with several dogs lands on pet-select so the operator
+  // picks first; a household with exactly one dog skips straight to details.
   useEffect(() => {
-    if (open && prefill?.household && prefill?.pet) {
-      setSelectedHousehold(prefill.household);
+    if (!open || !prefill?.household) return;
+    setSelectedHousehold(prefill.household);
+    if (prefill.pet) {
       setSelectedPet(prefill.pet);
       setStep('details');
+    } else {
+      const pets = prefill.household.pets ?? [];
+      if (pets.length === 1) {
+        setSelectedPet(pets[0]);
+        setStep('details');
+      } else {
+        setStep('select-pet');
+      }
     }
   }, [open, prefill]);
 

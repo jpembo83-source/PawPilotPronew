@@ -33,8 +33,9 @@ import { toast } from 'sonner';
  *  dialog's "Overnight boarding" branch) so this modal opens at its details
  *  step instead of making the operator search again. */
 export interface ReservationPrefill {
-  household: any;
-  pet: any;
+  household: { household_id?: string; household_name?: string; pets?: any[]; [k: string]: any };
+  /** Omit to open on pet-select (a household with several dogs). */
+  pet?: any;
   startDate?: string;
   endDate?: string;
 }
@@ -100,16 +101,19 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
       const defaultStart = tomorrow.toISOString().split('T')[0];
       const defaultEnd = dayAfter.toISOString().split('T')[0];
 
-      if (prefill?.household && prefill?.pet) {
-        // Handed over from another flow — skip search and land on details.
+      setStartDate(prefill?.startDate || defaultStart);
+      setEndDate(prefill?.endDate || defaultEnd);
+      if (prefill?.household) {
+        // Skip the search step. A specific pet → details; a household with
+        // several dogs → pet-select so the operator picks first.
         setSelectedHousehold(prefill.household);
-        setSelectedPet(prefill.pet);
-        setStartDate(prefill.startDate || defaultStart);
-        setEndDate(prefill.endDate || defaultEnd);
-        setStep('details');
-      } else {
-        setStartDate(defaultStart);
-        setEndDate(defaultEnd);
+        const pets = prefill.pet ? [prefill.pet] : (prefill.household.pets ?? []);
+        if (prefill.pet || pets.length === 1) {
+          setSelectedPet(prefill.pet ?? pets[0]);
+          setStep('details');
+        } else {
+          setStep('select-pet');
+        }
       }
     }
   }, [open]);
