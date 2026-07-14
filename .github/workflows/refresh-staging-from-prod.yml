@@ -1,0 +1,139 @@
+name: Refresh staging from prod (sanitised)
+
+# Rebuild STAGING (ihdbnwlmqhsrslstbbqn) as a faithful, PII-SAFE replica of PROD
+# (ruahrxkfgfyshuxykiay). Schema is owned by migrations, so this replicates DATA
+# only for the app tables + kv_store.
+#
+# MANUAL ONLY — there is no automatic trigger. It overwrites staging data.
+#
+# PII NEVER leaves prod unsanitised (CLAUDE.md): the raw dump is piped straight
+# through scripts/pipeline/sanitise-dump.mjs and shredded in the same step; only
+# the sanitised copy is ever loaded, and it is never uploaded as an artifact.
+#
+# Prereq: staging schema must already match prod (run "Deploy DB Migrations"
+# against staging first) so the target tables exist.
+#
+# Secrets used (never committed): SUPABASE_PROD_DB_URL (read), SUPABASE_STAGING_DB_URL (write).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_overwrite_staging:
+        description: 'I understand this ERASES and rebuilds staging app data from prod'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-staging
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Dump prod -> sanitise -> load staging
+    runs-on: ubuntu-latest
+    # No `environment: production` — this is a read-only pull from prod plus a
+    # write to staging; nothing prod-mutating happens here.
+    env:
+      PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+      STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+      APP_TABLES: >-
+        pet_updates customer_activities household_flags household_notes note_pets
+        customer_documents pets contacts households kv_store_fc003b23
+    steps:
+      - name: Confirm & preflight
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm_overwrite_staging }}" != "true" ]; then
+            echo "::error::Aborted: tick 'confirm_overwrite_staging' to run. Staging was NOT touched."
+            exit 1
+          fi
+          for name in PROD_DB_URL STAGING_DB_URL; do
+            val="${!name}"
+            if [ -z "$val" ]; then
+              echo "::error::Missing secret $( [ "$name" = "PROD_DB_URL" ] && echo SUPABASE_PROD_DB_URL || echo SUPABASE_STAGING_DB_URL )."
+              exit 1
+            fi
+            echo "::add-mask::$val"
+          done
+          echo "ℹ️  PITR: confirm point-in-time recovery is enabled on prod before large operations (informational; this job only READS prod)."
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump prod DATA, sanitise, shred raw
+        run: |
+          set -euo pipefail
+          # public schema only -> excludes auth.users / secrets by construction.
+          # --use-copy forces COPY (text) format, which the sanitiser requires
+          # (it fails closed on INSERT-format dumps) and is cross-version safe.
+          supabase db dump --db-url "$PROD_DB_URL" --data-only --use-copy --schema public -f prod-data.raw.sql
+          echo "Raw dump: $(wc -l < prod-data.raw.sql) lines (contains PII — never uploaded/committed)."
+          node scripts/pipeline/sanitise-dump.mjs --in prod-data.raw.sql --out prod-data.sanitised.sql
+          # Shred the raw dump immediately; only the sanitised copy continues.
+          shred -u prod-data.raw.sql 2>/dev/null || rm -f prod-data.raw.sql
+          echo "Raw dump removed. Sanitised dump: $(wc -l < prod-data.sanitised.sql) lines."
+
+      - name: Guard — no raw PII survived
+        run: |
+          set -euo pipefail
+          test ! -f prod-data.raw.sql || { echo "::error::raw dump still present"; exit 1; }
+          if grep -Eiq '@(gmail|outlook|hotmail|yahoo|icloud)\.' prod-data.sanitised.sql; then
+            echo "::error::Sanitised dump still contains real-looking email domains. Refusing to load."
+            exit 1
+          fi
+          echo "Guard passed: only sanitised data will be loaded."
+
+      - name: Reset + load staging (single atomic transaction)
+        run: |
+          set -euo pipefail
+          # Only truncates tables that exist; never touches the auth schema.
+          cat > reset.sql <<'SQL'
+          DO $$
+          DECLARE t text;
+          BEGIN
+            FOREACH t IN ARRAY string_to_array(
+              'pet_updates customer_activities household_flags household_notes note_pets customer_documents pets contacts households kv_store_fc003b23', ' ')
+            LOOP
+              IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=t) THEN
+                EXECUTE format('TRUNCATE public.%I RESTART IDENTITY CASCADE', t);
+              END IF;
+            END LOOP;
+          END $$;
+          SQL
+          # One transaction: truncate -> disable FK/triggers (replica role, the
+          # same trick Supabase's own restore uses; needed for the households<->
+          # contacts circular FK) -> load. Any failure rolls the whole thing back
+          # so staging is never left half-populated.
+          psql "$STAGING_DB_URL" \
+            --single-transaction \
+            --variable ON_ERROR_STOP=1 \
+            --file reset.sql \
+            --command 'SET session_replication_role = replica' \
+            --file prod-data.sanitised.sql
+          rm -f reset.sql
+          echo "Reset + load complete."
+
+      - name: Row counts per table
+        run: |
+          set -euo pipefail
+          echo "### Staging replica — row counts after load" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| table | rows |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|" >> "$GITHUB_STEP_SUMMARY"
+          for t in $APP_TABLES; do
+            n=$(psql "$STAGING_DB_URL" -tAc "SELECT count(*) FROM public.$t" 2>/dev/null || echo "n/a")
+            echo "| $t | $n |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          cat "$GITHUB_STEP_SUMMARY"
+
+      - name: Final shred of sanitised dump
+        if: always()
+        run: shred -u prod-data.sanitised.sql 2>/dev/null || rm -f prod-data.sanitised.sql

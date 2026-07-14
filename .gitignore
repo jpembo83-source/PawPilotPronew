@@ -15,3 +15,10 @@ zipFile.zip
 
 # Dependency/tool caches — never content
 node_modules/
+
+# Pipeline DB dumps — NEVER commit prod data (sanitised or raw). See
+# scripts/pipeline/README.md. Belt-and-braces so a stray dump can't be staged.
+*.raw.sql
+*.sanitised.sql
+prod-data*.sql
+reset.sql

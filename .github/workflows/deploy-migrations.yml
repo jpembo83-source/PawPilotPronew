@@ -1,0 +1,167 @@
+name: Deploy DB Migrations
+
+# Schema is the other half of the pipeline: functions already deploy via
+# deploy-functions.yml, this ships the SQL migrations to the matching project.
+#
+#   push to `staging` (migrations/**)          -> staging ihdbnwlmqhsrslstbbqn (direct)
+#   CI green on `main` after a migrations/** change -> prod ruahrxkfgfyshuxykiay (gated)
+#   workflow_dispatch (environment choice)     -> manual, either project
+#
+# Guardrails (CLAUDE.md — fail fast, no ad-hoc prod mutation):
+#   * PROD is never touched on a red build: the prod path only fires from a
+#     `workflow_run` of the CI workflow whose conclusion == success on `main`.
+#   * PROD deploys reference `environment: production`, so the deploy pauses for
+#     a required-reviewer approval (see deploy-workflow/RUNBOOK.md, Task 3 setup).
+#   * No DB password in the repo. Connection strings come from the
+#     SUPABASE_STAGING_DB_URL / SUPABASE_PROD_DB_URL secrets (pooler URLs,
+#     password embedded, IPv4 — GitHub runners have no IPv6 for the direct host).
+#
+# The `resolve` job decides *whether* and *where* to deploy; the `deploy` job
+# carries the `environment:` (must be known before the job runs, hence the split
+# so the value can come from a `needs` output).
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  push:
+    branches: [staging]
+    paths:
+      - 'PawPilotPro/project/supabase/migrations/**'
+      - '.github/workflows/deploy-migrations.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Which project to push migrations to
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve target & gate
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      ref: ${{ steps.decide.outputs.ref }}
+      environment: ${{ steps.decide.outputs.environment }}
+      label: ${{ steps.decide.outputs.label }}
+      checkout_sha: ${{ steps.decide.outputs.checkout_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # For a workflow_run gate we want the exact commit CI validated, and
+          # its parent, so we can tell whether migrations actually changed.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+      - name: Decide target and whether to run
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          WR_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WR_EVENT: ${{ github.event.workflow_run.event }}
+          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WR_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_ENV: ${{ github.event.inputs.environment }}
+        run: |
+          set -euo pipefail
+          run=false; ref=""; environment=""; label=""; checkout_sha="${GITHUB_SHA}"
+
+          migrations_changed() {
+            # true if the given commit touched a migration file
+            git diff --name-only "$1^" "$1" -- 'PawPilotPro/project/supabase/migrations/**' \
+              | grep -q . && return 0 || return 1
+          }
+
+          case "$EVENT" in
+            workflow_dispatch)
+              if [ "$DISPATCH_ENV" = "production" ]; then
+                run=true; ref=ruahrxkfgfyshuxykiay; environment=production; label="PRODUCTION (manual dispatch)"
+              else
+                run=true; ref=ihdbnwlmqhsrslstbbqn; environment=staging;    label="STAGING (manual dispatch)"
+              fi
+              ;;
+            push)
+              # push trigger is branch-filtered to staging only
+              run=true; ref=ihdbnwlmqhsrslstbbqn; environment=staging; label="STAGING (push to staging)"
+              ;;
+            workflow_run)
+              # PROD gate: only a *successful* CI *push* build on main, and only
+              # when that commit actually changed migrations, promotes to prod.
+              if [ "$WR_CONCLUSION" = "success" ] && [ "$WR_EVENT" = "push" ] && [ "$WR_BRANCH" = "main" ]; then
+                checkout_sha="$WR_SHA"
+                if migrations_changed "$WR_SHA"; then
+                  run=true; ref=ruahrxkfgfyshuxykiay; environment=production; label="PRODUCTION (CI green on main)"
+                else
+                  echo "CI passed on main but no migration files changed in $WR_SHA — nothing to deploy."
+                fi
+              else
+                echo "Ignoring workflow_run: conclusion=$WR_CONCLUSION event=$WR_EVENT branch=$WR_BRANCH (need success/push/main)."
+              fi
+              ;;
+          esac
+
+          {
+            echo "run=$run"
+            echo "ref=$ref"
+            echo "environment=$environment"
+            echo "label=$label"
+            echo "checkout_sha=$checkout_sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "Decision: run=$run ref=$ref environment=$environment ($label)"
+
+  deploy:
+    name: supabase db push
+    needs: resolve
+    if: needs.resolve.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    # PROD => `production` (required reviewers pause here). Staging => unprotected.
+    environment: ${{ needs.resolve.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.checkout_sha }}
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Resolve DB connection secret
+        id: conn
+        env:
+          STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+          PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+          ENVIRONMENT: ${{ needs.resolve.outputs.environment }}
+        run: |
+          set -euo pipefail
+          if [ "$ENVIRONMENT" = "production" ]; then
+            URL="$PROD_DB_URL"
+          else
+            URL="$STAGING_DB_URL"
+          fi
+          if [ -z "$URL" ]; then
+            echo "::error::Missing DB URL secret for $ENVIRONMENT. Add SUPABASE_${ENVIRONMENT^^}_DB_URL (pooler connection string) in repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          # Keep the password out of any log line even if a step echoes it.
+          echo "::add-mask::$URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+      - name: Migrations BEFORE push
+        env:
+          URL: ${{ steps.conn.outputs.url }}
+        run: |
+          echo "### Migrations — ${{ needs.resolve.outputs.label }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Applied on ${{ needs.resolve.outputs.ref }} BEFORE push:"
+          psql "$URL" -c "select version, name from supabase_migrations.schema_migrations order by version" 2>/dev/null || echo "(no migration history yet)"
+      - name: Push migrations
+        working-directory: PawPilotPro/project
+        env:
+          URL: ${{ steps.conn.outputs.url }}
+        run: supabase db push --db-url "$URL"
+      - name: Migrations AFTER push
+        env:
+          URL: ${{ steps.conn.outputs.url }}
+        run: |
+          echo "Applied on ${{ needs.resolve.outputs.ref }} AFTER push:"
+          { echo '```'; psql "$URL" -c "select version, name from supabase_migrations.schema_migrations order by version" 2>/dev/null; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"

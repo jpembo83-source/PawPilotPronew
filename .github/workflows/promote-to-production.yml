@@ -1,0 +1,116 @@
+name: Promote to production
+
+# The single, gated "push it now" button. The NORMAL path is still automatic:
+# merge to `main` -> CI -> Netlify deploys the frontend + deploy-functions.yml
+# and deploy-migrations.yml ship the backend. This workflow is the explicit
+# on-request promotion / re-run, all behind ONE approval.
+#
+# Order (matches deploy-workflow/RUNBOOK.md):
+#   1. ci-gate     — refuse unless the latest CI run on `main` is green.
+#   2. promote     — (pauses for required-reviewer approval on `production`)
+#                    a) migrations -> prod   b) edge function -> prod
+#   3. summary     — function ACTIVE version + applied migrations; Netlify note.
+#
+# Guardrails (CLAUDE.md): CI-green precondition + manual approval before any prod
+# mutation; no secrets in the repo (SUPABASE_ACCESS_TOKEN + SUPABASE_PROD_DB_URL).
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Why are you promoting now? (recorded in the run summary)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  PROD_REF: ruahrxkfgfyshuxykiay
+  FUNCTION: make-server-fc003b23
+
+jobs:
+  ci-gate:
+    name: Require CI green on main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert latest CI run on main succeeded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Latest completed run of the CI workflow on main.
+          run=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=main&status=completed&per_page=1" \
+                  --jq '.workflow_runs[0] | {conclusion, head_sha, html_url}')
+          echo "Latest CI run on main: $run"
+          conclusion=$(echo "$run" | jq -r '.conclusion // "none"')
+          head_main=$(gh api "repos/$REPO/commits/main" --jq '.sha')
+          ci_sha=$(echo "$run" | jq -r '.head_sha // ""')
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::Latest CI run on main is '$conclusion', not success. Fix CI before promoting."
+            exit 1
+          fi
+          if [ "$ci_sha" != "$head_main" ]; then
+            echo "::error::Green CI is for $ci_sha but main is at $head_main. Push/merge, let CI pass, then re-run."
+            exit 1
+          fi
+          echo "CI is green for main@$head_main."
+
+  promote:
+    name: Deploy migrations + function to prod
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    # Single approval gate for the whole promotion.
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Guard secrets present
+        run: |
+          set -euo pipefail
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] || { echo "::error::SUPABASE_ACCESS_TOKEN missing."; exit 1; }
+          [ -n "$PROD_DB_URL" ] || { echo "::error::SUPABASE_PROD_DB_URL missing."; exit 1; }
+          echo "::add-mask::$PROD_DB_URL"
+
+      - name: Migrations BEFORE
+        run: psql "$PROD_DB_URL" -c "select version, name from supabase_migrations.schema_migrations order by version" 2>/dev/null || echo "(no migration history yet)"
+
+      - name: (a) Push migrations to prod
+        working-directory: PawPilotPro/project
+        run: supabase db push --db-url "$PROD_DB_URL"
+
+      - name: (b) Deploy edge function to prod
+        working-directory: PawPilotPro/project
+        run: supabase functions deploy "$FUNCTION" --project-ref "$PROD_REF"
+
+      - name: (c) Post-deploy summary
+        working-directory: PawPilotPro/project
+        env:
+          REASON: ${{ github.event.inputs.reason }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## ✅ Promoted to production ($PROD_REF)"
+            echo ""
+            [ -n "$REASON" ] && echo "**Reason:** $REASON" && echo ""
+            echo "### Edge function"
+            echo '```'
+            supabase functions list --project-ref "$PROD_REF" 2>/dev/null | grep -E "NAME|$FUNCTION" || echo "$FUNCTION deployed"
+            echo '```'
+            echo "### Applied migrations (prod)"
+            echo '```'
+            psql "$PROD_DB_URL" -c "select version, name from supabase_migrations.schema_migrations order by version" 2>/dev/null || true
+            echo '```'
+            echo "### Frontend"
+            echo "Netlify auto-deploys the frontend from \`main\` (site \`mdcpppro\`) — not re-run here."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Promotion complete."

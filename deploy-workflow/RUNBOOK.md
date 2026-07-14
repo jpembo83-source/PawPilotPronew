@@ -3,6 +3,11 @@
 Two-stage pipeline: feature branch → PR (CI + Netlify Deploy Preview on staging
 Supabase) → merge to `main` → production.
 
+> **See also:** [Full dev→prod pipeline](#full-devprod-pipeline-migrations--sanitised-replica--gated-promotion)
+> below documents the automated DB-migration deploy, the PII-safe staging
+> replica, and the one-click gated production promotion added on top of the
+> original frontend/function flow.
+
 | Layer    | Production                              | Staging                                          |
 |----------|-----------------------------------------|--------------------------------------------------|
 | Frontend | Netlify site `mdcpppro` → mdc.pawpilotpro.com | Deploy Previews (PRs) + `staging` branch deploy |
@@ -76,3 +81,136 @@ Deploy Preview (staging Supabase) + CI.
 Every schema change is a new file in `PawPilotPro/project/supabase/migrations/`,
 never ad-hoc dashboard SQL. Full prod parity (incl. invoxia/legacy): see that
 folder's README (`supabase db pull`).
+
+---
+
+## Full dev→prod pipeline (migrations + sanitised replica + gated promotion)
+
+This section covers the workflows that make **schema** and **promotion** part of
+the pipeline, alongside the existing frontend (Netlify) and edge-function
+(`deploy-functions.yml`) automation. Everything here obeys CLAUDE.md: prod is
+never mutated without a green CI gate **and** a manual approval, PII is sanitised
+before any data leaves prod, and every secret lives in GitHub Actions — never in
+the repo.
+
+### End-to-end flow
+
+```mermaid
+flowchart TD
+    dev[Feature branch] -->|open PR| ci[CI: lint · typecheck · build · smoke]
+    ci -->|Netlify Deploy Preview → staging Supabase| review[Review PR]
+    review -->|merge| main[(main)]
+
+    subgraph auto[Automatic on merge to main]
+      main --> netlify[Netlify → prod frontend]
+      main --> fn[deploy-functions.yml → prod edge function]
+      main --> ciMain[CI on main]
+      ciMain -->|green + migrations changed| mig[deploy-migrations.yml]
+      mig -->|environment: production ⏸ approval| prodDB[(prod DB migrated)]
+    end
+
+    subgraph manual[Manual buttons workflow_dispatch]
+      promote[promote-to-production.yml] -->|CI-green gate ⏸ approval| prodAll[migrations + function → prod]
+      refresh[refresh-staging-from-prod.yml] -->|dump → sanitise → load| stg[(staging = PII-safe prod replica)]
+    end
+
+    prod[prod ruahrxkfgfyshuxykiay]
+    staging[staging ihdbnwlmqhsrslstbbqn]
+    prodDB --- prod
+    prodAll --- prod
+    stg --- staging
+    refresh -. read-only, sanitised .-> prod
+```
+
+**Normal path** (no button-pushing): open PR → CI + Netlify preview on staging →
+merge to `main` → Netlify ships the frontend, `deploy-functions.yml` ships the
+function, and `deploy-migrations.yml` ships migrations to prod **after CI is
+green and pausing for approval**.
+
+**`promote-to-production`** is the explicit "push it now / re-run" button — one
+approval, does migrations + function to prod in order, prints a summary.
+
+**`refresh-staging-from-prod`** rebuilds staging as a sanitised copy of prod
+whenever you want realistic (but PII-free) data.
+
+### Workflows, triggers, and the secret/ref each uses
+
+| Workflow | Trigger | Target | Secrets / refs | Gate |
+|---|---|---|---|---|
+| `ci.yml` (existing) | PR, push `main` | — | `TEST_EMAIL`, `TEST_PASSWORD`, `vars.SMOKE_BASE_URL` | — |
+| `deploy-functions.yml` (existing) | push `staging`/`main` (functions/**), dispatch | staging `ihdbnwlmqhsrslstbbqn` / prod `ruahrxkfgfyshuxykiay` | `SUPABASE_ACCESS_TOKEN` | env `production` on prod path¹ |
+| **`deploy-migrations.yml`** (new) | push `staging` (migrations/**) → staging; **CI-green on `main`** (`workflow_run`) → prod; dispatch (env choice) | staging / prod by branch | `SUPABASE_STAGING_DB_URL`, `SUPABASE_PROD_DB_URL` | CI-green (prod) + env `production` approval |
+| **`refresh-staging-from-prod.yml`** (new) | **dispatch only** + confirm boolean | reads prod, writes **staging** | `SUPABASE_PROD_DB_URL` (read), `SUPABASE_STAGING_DB_URL` (write) | explicit confirm; no prod writes |
+| **`promote-to-production.yml`** (new) | **dispatch only** | prod | `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROD_DB_URL` | CI-green gate + env `production` approval |
+
+¹ `deploy-functions.yml` predates the `production` environment; add
+`environment: production` to its prod path (or just use `promote-to-production`
+for prod function deploys) if you want its prod deploys to pause for approval too.
+
+`SUPABASE_*_DB_URL` are **pooler** connection strings (IPv4, password embedded) —
+GitHub-hosted runners have no IPv6, so the direct `db.<ref>.supabase.co` host will
+not connect. Grab them from Supabase → Project → Settings → Database → *Connection
+string* → **Session pooler**.
+
+### PII discipline (non-negotiable)
+
+- **Raw prod PII must never be committed or loaded unsanitised.** The only path
+  prod data takes to staging/local is through `scripts/pipeline/sanitise-dump.mjs`,
+  which rewrites emails → `user+{id}@example.test`, phones → a fixed fake, names →
+  `Test {n}`, and free-text notes → `REDACTED`, including inside `kv_store` JSONB.
+- The sanitiser **fails closed**: an INSERT-format dump, an unclassified
+  PII-looking column, or any surviving real email address aborts the run.
+- `refresh-staging-from-prod.yml` dumps `public` **data only** (never
+  `auth.users`/secrets), shreds the raw dump in the same step, and never uploads a
+  dump as an artifact. Staging keeps its own throwaway auth users.
+- The allow/deny field list lives at the top of `scripts/pipeline/sanitise-dump.mjs`.
+  When you add a PII-bearing column, add a rule (or mark it `safe`) there — the CI
+  guard will otherwise refuse to replicate.
+
+### Commands
+
+**Refresh staging from prod (sanitised)** — GitHub → Actions → *Refresh staging
+from prod (sanitised)* → **Run workflow** → tick *confirm_overwrite_staging* → Run.
+Prints per-table row counts on completion. (Run *Deploy DB Migrations* against
+staging first if staging's schema is behind, so the target tables exist.)
+
+**Deploy migrations manually** — Actions → *Deploy DB Migrations* → Run workflow →
+choose `staging` or `production` (production pauses for approval).
+
+**Prod-shaped local dev DB** (needs the Supabase CLI + Docker):
+
+```bash
+# migrations only (empty app data):
+scripts/pipeline/dev-local.sh
+
+# pull a sanitised copy of prod (needs your own prod pooler URL):
+SUPABASE_PROD_DB_URL="postgresql://postgres.ruahrxkfgfyshuxykiay:…@…pooler.supabase.com:5432/postgres" \
+  scripts/pipeline/dev-local.sh --from-prod
+
+# or sanitise a raw dump you already made, then load it:
+scripts/pipeline/dev-local.sh --raw my-raw-dump.sql
+```
+
+`dev-local.sh` sanitises before loading and writes only to a temp dir — it never
+persists a raw dump into the repo.
+
+### One-time human setup
+
+1. **GitHub Actions secrets** (Settings → Secrets and variables → Actions → *New
+   repository secret*):
+   - `SUPABASE_STAGING_DB_URL` — staging session-pooler connection string (with password).
+   - `SUPABASE_PROD_DB_URL` — prod session-pooler connection string (with password).
+   - (`SUPABASE_ACCESS_TOKEN` already exists — reused for function deploys.)
+2. **`production` Environment** (Settings → Environments → *New environment* →
+   `production`): set **Required reviewers = you**. This is what makes the prod
+   migration job and `promote-to-production` pause for a click. (Optionally create a
+   `staging` environment too; it is referenced but needs no protection.)
+3. **Netlify contexts** (site `mdcpppro`): confirm `production` context → prod
+   project/URL/anon, and `deploy-preview` + `branch-deploy` → staging
+   project/URL/anon (per the "Provisioned" section above). No change needed if
+   already set; the pipeline relies on it for preview-on-staging.
+4. **Branch protection on `main`** (Settings → Branches): require the CI checks so
+   the `workflow_run` prod-migration gate is meaningful.
+
+The first real production promotion is yours to trigger (CI green → *Run workflow*
+→ approve). Nothing in these workflows mutates prod without that approval.
