@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3821,
-  "warnings": 418
+  "errors": 3814,
+  "warnings": 416
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -903,10 +903,6 @@
   "src/app/modules/transport/components/CreateTransportJobDialog.tsx": {
    "errors": 36,
    "warnings": 3
-  },
-  "src/app/modules/transport/components/CreateTransportRequestModal.tsx": {
-   "errors": 7,
-   "warnings": 2
   },
   "src/app/modules/transport/pages/CreateJob.tsx": {
    "errors": 5,

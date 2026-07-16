@@ -46,6 +46,12 @@ interface CreateTransportJobDialogProps {
   defaultDate?: Date;
   defaultLocationId?: string;
   onJobCreated?: () => void;
+  /**
+   * Pre-select a household and skip the search step (used when launching from
+   * a household profile). Pets/contacts/address let the dialog jump straight
+   * to pet selection.
+   */
+  prefillHousehold?: Household;
 }
 
 interface Household {
@@ -101,7 +107,8 @@ export function CreateTransportJobDialog({
   onOpenChange,
   defaultDate,
   defaultLocationId,
-  onJobCreated
+  onJobCreated,
+  prefillHousehold
 }: CreateTransportJobDialogProps) {
   const { locations } = useSettingsStore();
   const { createJob, fetchActiveDrivers, activeDriverCount, activeDrivers } = useTransportStore();
@@ -140,6 +147,15 @@ export function CreateTransportJobDialog({
       setFormData(prev => ({ ...prev, location_id: locations[0].id }));
     }
   }, [locations, formData.location_id]);
+
+  // When launched with a household pre-selected (e.g. from a household
+  // profile), skip the search step and start at pet selection.
+  useEffect(() => {
+    if (open && prefillHousehold && !selectedHousehold) {
+      setSelectedHousehold(prefillHousehold);
+      setCurrentStep(1);
+    }
+  }, [open, prefillHousehold, selectedHousehold]);
 
   // Fetch active drivers when location changes
   useEffect(() => {
