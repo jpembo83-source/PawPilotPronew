@@ -67,12 +67,16 @@ export function CreateFromBookingsDialog({
   const [addressDropoff, setAddressDropoff] = useState('');
 
   const dateStr = format(date, 'yyyy-MM-dd');
-  const locationName = locations.find(l => l.id === locationId)?.name ?? 'Facility';
+  const location = locations.find(l => l.id === locationId);
+  const locationName = location?.name ?? 'Facility';
+  // Prefer the facility's real street address so the driver's navigation
+  // works; fall back to the name only if no address is on file.
+  const locationAddress = location?.address || locationName;
 
-  // Pre-fill dropoff with the daycare location name
+  // Pre-fill dropoff with the facility address
   useEffect(() => {
-    if (open) setAddressDropoff(locationName);
-  }, [open, locationName]);
+    if (open) setAddressDropoff(locationAddress);
+  }, [open, locationAddress]);
 
   const fetchBookings = useCallback(async () => {
     if (!locationId) return;
@@ -140,54 +144,59 @@ export function CreateFromBookingsDialog({
 
     const selected = bookings.filter(b => selectedIds.has(b.id));
 
-    const results = await Promise.allSettled(
-      selected.map(async (booking) => {
-        const payload = {
-          location_id: locationId,
-          service_date: dateStr,
-          direction,
-          household_id: booking.household_id,
-          pet_id: booking.pet_id,
-          address_pickup: addressPickup.trim() || null,
-          address_dropoff: addressDropoff.trim() || null,
-          time_window_start: booking.planned_start_time ?? null,
-          time_window_end: booking.planned_end_time ?? null,
-          notes: booking.notes ?? null,
-          booking_id: booking.id,
-          booking_type: 'daycare',
-        };
+    // Create sequentially, NOT in parallel: each job append does a
+    // read-modify-write on the shared per-date/per-location KV index arrays
+    // server-side, so concurrent creates race and silently drop index
+    // entries (jobs that exist but never show on the dashboard).
+    let created = 0;
+    let sessionExpired = false;
+    const failures: string[] = [];
 
+    for (const booking of selected) {
+      const payload = {
+        location_id: locationId,
+        service_date: dateStr,
+        direction,
+        household_id: booking.household_id,
+        pet_id: booking.pet_id,
+        address_pickup: addressPickup.trim() || null,
+        address_dropoff: addressDropoff.trim() || null,
+        time_window_start: booking.planned_start_time ?? null,
+        time_window_end: booking.planned_end_time ?? null,
+        notes: booking.notes ?? null,
+        booking_id: booking.id,
+        booking_type: 'daycare',
+      };
+
+      try {
         const res = await fetch(`${TRANSPORT_BASE}/jobs`, {
           method: 'POST',
           headers,
           body: JSON.stringify(payload),
         });
 
-        if (res.status === 401) throw new Error('SESSION_EXPIRED');
+        if (res.status === 401) {
+          sessionExpired = true;
+          break;
+        }
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.error || `HTTP ${res.status}`);
         }
 
-        return booking.pet_name;
-      })
-    );
+        created++;
+      } catch (err: any) {
+        failures.push(`${booking.pet_name}: ${err?.message ?? 'failed'}`);
+      }
+    }
 
     setIsCreating(false);
 
-    const sessionExpired = results.some(
-      r => r.status === 'rejected' && r.reason?.message === 'SESSION_EXPIRED'
-    );
     if (sessionExpired) {
       toast.error('Your session expired. Please log in again.');
       return;
     }
-
-    const created = results.filter(r => r.status === 'fulfilled').length;
-    const failures: string[] = results
-      .map((r, i) => r.status === 'rejected' ? `${selected[i].pet_name}: ${r.reason?.message}` : null)
-      .filter(Boolean) as string[];
 
     if (created > 0) {
       toast.success(`${created} transport job${created !== 1 ? 's' : ''} created`);

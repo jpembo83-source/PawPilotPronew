@@ -656,10 +656,13 @@ export function CreateTransportJobDialog({
                     value={formData.pickup_location_id}
                     onChange={(e) => {
                       const selectedLoc = locations.find(l => l.id === e.target.value);
-                      setFormData(prev => ({ 
-                        ...prev, 
+                      setFormData(prev => ({
+                        ...prev,
                         pickup_location_id: e.target.value,
-                        address_pickup: selectedLoc?.name || ''
+                        // Store the real street address so the driver's
+                        // navigation works; fall back to the name only if the
+                        // location has no address on file.
+                        address_pickup: selectedLoc?.address || selectedLoc?.name || ''
                       }));
                     }}
                     className="w-full h-10 px-3 rounded-md border border-slate-300 bg-white text-sm"
@@ -729,10 +732,10 @@ export function CreateTransportJobDialog({
                     value={formData.dropoff_location_id}
                     onChange={(e) => {
                       const selectedLoc = locations.find(l => l.id === e.target.value);
-                      setFormData(prev => ({ 
-                        ...prev, 
+                      setFormData(prev => ({
+                        ...prev,
                         dropoff_location_id: e.target.value,
-                        address_dropoff: selectedLoc?.name || ''
+                        address_dropoff: selectedLoc?.address || selectedLoc?.name || ''
                       }));
                     }}
                     className="w-full h-10 px-3 rounded-md border border-slate-300 bg-white text-sm"
