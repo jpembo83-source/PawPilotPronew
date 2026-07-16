@@ -7,7 +7,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
-import { useAuth } from '@/app/context/AuthContext';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { CalendarBlank, MapPin, Truck, Plus, Warning, CircleNotch, Trash } from '@phosphor-icons/react';
@@ -19,7 +18,6 @@ import { CreateTransportJobDialog } from '../components/CreateTransportJobDialog
 export function RoutePlanner() {
   const { jobs, vehicles, isLoading, error, fetchJobs, fetchVehicles, deleteJob } = useTransportStore();
   const { locations } = useSettingsStore();
-  const { session } = useAuth();
   const { confirm, confirmDialog } = useConfirmDialog();
 
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());

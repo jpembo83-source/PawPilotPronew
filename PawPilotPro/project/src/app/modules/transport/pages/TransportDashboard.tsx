@@ -8,7 +8,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
-import { useAuth } from '@/app/context/AuthContext';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
@@ -34,8 +33,7 @@ export function TransportDashboard() {
   const navigate = useNavigate();
   const { jobs, isLoading, error, fetchJobs } = useTransportStore();
   const { locations } = useSettingsStore();
-  const { session } = useAuth();
-  
+
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);

@@ -23,7 +23,7 @@ import { Textarea } from '@/app/components/ui/textarea';
 
 export function DriverDashboard() {
   const { jobs, isLoading, error, fetchJobs, updateJobStatus } = useTransportStore();
-  const { session, user } = useAuth();
+  const { user } = useAuth();
   
   const [activeJob, setActiveJob] = useState<any | null>(null);
   const [actionType, setActionType] = useState<'complete' | 'fail' | null>(null);
@@ -33,13 +33,13 @@ export function DriverDashboard() {
   
   // Fetch jobs assigned to current driver
   useEffect(() => {
-    if (session && user) {
+    if (user) {
       fetchJobs({
         driver_user_id: user.id,
         service_date: today
       });
     }
-  }, [session, user, today]);
+  }, [user, today, fetchJobs]);
   
   // Get my route (jobs assigned to me for today)
   const myJobs = jobs.filter(j => j.assigned_driver_user_id === user?.id);

@@ -21,7 +21,6 @@ import {
   DialogFooter,
 } from '@/app/components/ui/dialog';
 import { useSettingsStore } from '../../settings/store';
-import { useAuth } from '@/app/context/AuthContext';
 import { toast } from 'sonner';
 import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
 
@@ -29,7 +28,6 @@ export function VehicleManager() {
   const { vehicles, isLoading, error, fetchVehicles, createVehicle, updateVehicle, deleteVehicle } = useTransportStore();
   const { users, fetchUsers } = useUserStore();
   const { locations } = useSettingsStore();
-  const { session } = useAuth();
   const { confirm, confirmDialog } = useConfirmDialog();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
