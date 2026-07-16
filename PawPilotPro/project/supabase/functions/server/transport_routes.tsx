@@ -474,71 +474,106 @@ app.get('/jobs', async (c) => {
     const status = url.searchParams.get('status');
     const assigned_driver_user_id = url.searchParams.get('driver_user_id');
     
-    let jobIds: string[] = [];
-    
+    let jobs: any[] = [];
+
     // Query by date and location for efficiency
     if (service_date && location_id) {
       const locationIndexKey = `transport_job_location_index:${auth.tenant_id}:${location_id}:${service_date}`;
-      jobIds = await kv.get(locationIndexKey) || [];
+      const jobIds: string[] = await kv.get(locationIndexKey) || [];
+      jobs = jobIds.length
+        ? await kv.mget(jobIds.map((id) => `transport_job:${auth.tenant_id}:${id}`))
+        : [];
     } else if (service_date) {
       const dateIndexKey = `transport_job_index:${auth.tenant_id}:${service_date}`;
-      jobIds = await kv.get(dateIndexKey) || [];
+      const jobIds: string[] = await kv.get(dateIndexKey) || [];
+      jobs = jobIds.length
+        ? await kv.mget(jobIds.map((id) => `transport_job:${auth.tenant_id}:${id}`))
+        : [];
     } else {
-      // Get all jobs by prefix (less efficient, but works for smaller datasets)
-      const allJobsKey = `transport_job:${auth.tenant_id}:`;
-      const allJobs = await kv.getByPrefix(allJobsKey);
-      jobIds = allJobs.map((j: any) => j.id);
+      // Get all jobs by prefix (less efficient, but works for smaller
+      // datasets). The values ARE the jobs — no need to re-fetch by id.
+      jobs = await kv.getByPrefix(`transport_job:${auth.tenant_id}:`);
     }
-    
-    // Fetch all jobs
-    const jobs = await Promise.all(
-      jobIds.map(async (jobId) => {
-        const jobKey = `transport_job:${auth.tenant_id}:${jobId}`;
-        return await kv.get(jobKey);
-      })
-    );
-    
+
     // Filter out null values and apply filters
-    let filteredJobs = jobs.filter((j) => j !== null);
-    
+    let filteredJobs = jobs.filter((j) => j !== null && j !== undefined);
+
     if (location_id) {
       filteredJobs = filteredJobs.filter((j) => j.location_id === location_id);
     }
-    
+
     if (status) {
       filteredJobs = filteredJobs.filter((j) => j.status === status);
     }
-    
+
     if (assigned_driver_user_id) {
       filteredJobs = filteredJobs.filter((j) => j.assigned_driver_user_id === assigned_driver_user_id);
     }
+
+    // Deterministic order: earliest time window first, then creation time.
+    // Neither mget nor the index arrays guarantee a useful order, and the
+    // driver views treat this order as the route order.
+    filteredJobs.sort((a, b) =>
+      (a.time_window_start ?? '99:99').localeCompare(b.time_window_start ?? '99:99') ||
+      (a.created_at ?? '').localeCompare(b.created_at ?? '')
+    );
     
-    // Enrich with household and pet data
+    // Batch-enrich with household, pet, contact and vehicle data. The old
+    // path issued up to 4 sequential KV reads PER JOB (N+1); now each record
+    // type is fetched once via mget over the deduplicated key set. mget
+    // returns values in arbitrary order and silently drops missing keys, so
+    // results are re-keyed by each record's own id field.
+    const parseVal = (v: unknown) => {
+      if (!v) return null;
+      return typeof v === 'string' ? JSON.parse(v) : v;
+    };
+    const byId = async (keys: string[]) => {
+      const map = new Map<string, any>();
+      if (keys.length === 0) return map;
+      const values = await kv.mget(keys);
+      for (const raw of values) {
+        const value = parseVal(raw);
+        if (value?.id) map.set(value.id, value);
+      }
+      return map;
+    };
+
+    const dedupe = (keys: (string | null)[]) =>
+      [...new Set(keys.filter((k): k is string => !!k))];
+
+    const householdKeys = dedupe(filteredJobs.map((j) =>
+      `customer:${auth.tenant_id}:household:${j.household_id}`));
+    const petKeys = dedupe(filteredJobs.map((j) =>
+      `customer:${auth.tenant_id}:pet:${j.household_id}:${j.pet_id}`));
+    const vehicleKeys = dedupe(filteredJobs.map((j) =>
+      j.assigned_vehicle_id ? `transport_vehicle:${auth.tenant_id}:${j.assigned_vehicle_id}` : null));
+
+    const [households, pets, vehicleMap] = await Promise.all([
+      byId(householdKeys),
+      byId(petKeys),
+      byId(vehicleKeys),
+    ]);
+
+    // Contacts depend on each household's primary_contact_id — second batch.
+    const contactKeys = dedupe(filteredJobs.map((j) => {
+      const household = households.get(j.household_id);
+      return household?.primary_contact_id
+        ? `customer:${auth.tenant_id}:contact:${j.household_id}:${household.primary_contact_id}`
+        : null;
+    }));
+    const contactMap = await byId(contactKeys);
+
     const enrichedJobs = await Promise.all(
       filteredJobs.map(async (job) => {
-        const householdKey = `customer:${auth.tenant_id}:household:${job.household_id}`;
-        const householdStr = await kv.get(householdKey);
-        const household = householdStr ? (typeof householdStr === 'string' ? JSON.parse(householdStr) : householdStr) : null;
-        
-        const petKey = `customer:${auth.tenant_id}:pet:${job.household_id}:${job.pet_id}`;
-        const petStr = await kv.get(petKey);
-        const pet = petStr ? (typeof petStr === 'string' ? JSON.parse(petStr) : petStr) : null;
-        
-        // Get primary contact
-        let contact = null;
-        if (household?.primary_contact_id) {
-          const contactKey = `customer:${auth.tenant_id}:contact:${job.household_id}:${household.primary_contact_id}`;
-          const contactStr = await kv.get(contactKey);
-          contact = contactStr ? (typeof contactStr === 'string' ? JSON.parse(contactStr) : contactStr) : null;
-        }
-        
-        // Get vehicle if assigned
-        let vehicle = null;
-        if (job.assigned_vehicle_id) {
-          const vehicleKey = `transport_vehicle:${auth.tenant_id}:${job.assigned_vehicle_id}`;
-          vehicle = await kv.get(vehicleKey);
-        }
-        
+        const household = households.get(job.household_id) ?? null;
+        const pet = pets.get(job.pet_id) ?? null;
+        const contact = household?.primary_contact_id
+          ? contactMap.get(household.primary_contact_id) ?? null
+          : null;
+        const vehicle = job.assigned_vehicle_id
+          ? vehicleMap.get(job.assigned_vehicle_id) ?? null
+          : null;
+
         return {
           ...job,
           pet_name: pet?.name || 'Unknown',
@@ -553,7 +588,7 @@ app.get('/jobs', async (c) => {
         };
       })
     );
-    
+
     return c.json({ success: true, jobs: enrichedJobs });
     
   } catch (error) {

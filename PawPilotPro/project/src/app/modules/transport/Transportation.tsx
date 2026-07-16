@@ -49,12 +49,19 @@ export function Transportation() {
             <SquaresFour className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </NavLink>
-          <NavLink 
-            to="/transport/jobs" 
+          <NavLink
+            to="/transport/jobs"
             className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
           >
             <List className="h-4 w-4" />
             <span className="hidden sm:inline">Jobs</span>
+          </NavLink>
+          <NavLink
+            to="/transport/planner"
+            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <CalendarBlank className="h-4 w-4" />
+            <span className="hidden sm:inline">Planner</span>
           </NavLink>
           {(isAdmin || isManager) && (
             <NavLink 

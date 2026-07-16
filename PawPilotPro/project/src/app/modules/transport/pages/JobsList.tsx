@@ -9,14 +9,12 @@ import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { 
-  MagnifyingGlass, 
-  Funnel, 
-  DownloadSimple,
+import {
+  MagnifyingGlass,
+  Funnel,
   CircleNotch,
   Warning,
   Plus,
-  CaretDown,
   X
 } from '@phosphor-icons/react';
 import { format, subDays, addDays } from 'date-fns';

@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 3814,
+  "errors": 3811,
   "warnings": 416
  },
  "files": {
@@ -893,7 +893,7 @@
    "warnings": 1
   },
   "src/app/modules/transport/Transportation.tsx": {
-   "errors": 4,
+   "errors": 3,
    "warnings": 0
   },
   "src/app/modules/transport/components/CreateFromBookingsDialog.tsx": {
@@ -921,7 +921,7 @@
    "warnings": 0
   },
   "src/app/modules/transport/pages/JobsList.tsx": {
-   "errors": 5,
+   "errors": 3,
    "warnings": 0
   },
   "src/app/modules/transport/pages/RoutePlanner.tsx": {
