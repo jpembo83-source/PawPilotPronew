@@ -232,7 +232,7 @@ export function CreateFromBookingsDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-blue-600" />
+            <Truck className="h-5 w-5 text-primary" />
             Create Transport Jobs from Bookings
           </DialogTitle>
           <DialogDescription>
@@ -255,15 +255,15 @@ export function CreateFromBookingsDialog({
                   onClick={() => setDirection(d)}
                   className={`p-2 rounded-lg border-2 text-sm font-medium transition-all capitalize ${
                     direction === d
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      ? 'border-primary bg-primary-tint text-primary-strong'
+                      : 'border-border hover:border-input text-muted-foreground'
                   }`}
                 >
                   {d === 'roundtrip' ? 'Round trip' : d === 'pickup' ? 'Pick-up' : 'Drop-off'}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-500">{directionLabel[direction]}</p>
+            <p className="text-xs text-muted-foreground">{directionLabel[direction]}</p>
           </div>
 
           {/* Address fields */}
@@ -272,7 +272,7 @@ export function CreateFromBookingsDialog({
               <div>
                 <Label htmlFor="pickupAddr">Pick-up address</Label>
                 <div className="relative mt-1">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="pickupAddr"
                     value={addressPickup}
@@ -281,14 +281,14 @@ export function CreateFromBookingsDialog({
                     className="pl-9"
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Applied to all selected bookings</p>
+                <p className="text-xs text-muted-foreground mt-1">Applied to all selected bookings</p>
               </div>
             )}
             {(direction === 'dropoff' || direction === 'roundtrip') && (
               <div>
                 <Label htmlFor="dropoffAddr">Drop-off address</Label>
                 <div className="relative mt-1">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="dropoffAddr"
                     value={addressDropoff}
@@ -297,7 +297,7 @@ export function CreateFromBookingsDialog({
                     className="pl-9"
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Pre-filled with facility name — update if needed</p>
+                <p className="text-xs text-muted-foreground mt-1">Pre-filled with facility name — update if needed</p>
               </div>
             )}
           </div>
@@ -310,7 +310,7 @@ export function CreateFromBookingsDialog({
                 <button
                   type="button"
                   onClick={toggleAll}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   {selectedIds.size === bookings.length ? 'Deselect all' : 'Select all'}
                 </button>
@@ -318,7 +318,7 @@ export function CreateFromBookingsDialog({
             </div>
 
             {isFetching && (
-              <div className="flex items-center justify-center py-8 text-slate-500">
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <CircleNotch className="h-5 w-5 animate-spin mr-2" />
                 Loading bookings…
               </div>
@@ -332,8 +332,8 @@ export function CreateFromBookingsDialog({
             )}
 
             {!isFetching && !fetchError && bookings.length === 0 && (
-              <div className="text-center py-8 text-slate-500 border border-dashed border-slate-200 rounded-lg">
-                <Dog className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+              <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-lg">
+                <Dog className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
                 <p className="text-sm font-medium">No transport-required bookings found</p>
                 <p className="text-xs mt-1">
                   Only confirmed bookings with <em>Requires transport</em> ticked will appear here.
@@ -342,36 +342,36 @@ export function CreateFromBookingsDialog({
             )}
 
             {!isFetching && bookings.length > 0 && (
-              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-64 overflow-auto">
+              <div className="border border-border rounded-lg divide-y divide-border max-h-64 overflow-auto">
                 {bookings.map(b => {
                   const checked = selectedIds.has(b.id);
                   return (
                     <label
                       key={b.id}
                       className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                        checked ? 'bg-blue-50' : 'hover:bg-slate-50'
+                        checked ? 'bg-primary-tint' : 'hover:bg-muted/50'
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggle(b.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                        className="h-4 w-4 rounded border-input text-primary"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Dog className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <span className="font-medium text-slate-900 truncate">{b.pet_name}</span>
-                          <span className="text-slate-400 text-xs truncate">{b.household_name}</span>
+                          <Dog className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-foreground truncate">{b.pet_name}</span>
+                          <span className="text-muted-foreground text-xs truncate">{b.household_name}</span>
                         </div>
                         {(b.planned_start_time || b.planned_end_time) && (
-                          <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
+                          <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {b.planned_start_time ?? '--:--'} – {b.planned_end_time ?? '--:--'}
                           </div>
                         )}
                       </div>
-                      {checked && <CheckCircle className="h-4 w-4 text-blue-500 shrink-0" />}
+                      {checked && <CheckCircle className="h-4 w-4 text-primary shrink-0" />}
                     </label>
                   );
                 })}
@@ -381,8 +381,8 @@ export function CreateFromBookingsDialog({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 pt-4 flex items-center justify-between gap-3">
-          <p className="text-sm text-slate-500">
+        <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
             {selectedIds.size} booking{selectedIds.size !== 1 ? 's' : ''} selected
           </p>
           <div className="flex gap-2">

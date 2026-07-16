@@ -104,8 +104,8 @@ export function DriverDashboard() {
     return (
       <div className="flex items-center justify-center h-[80vh]">
         <div className="text-center">
-          <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
-          <p className="text-slate-500">Loading your route...</p>
+          <CircleNotch className="h-8 w-8 text-muted-foreground animate-spin mx-auto mb-2" />
+          <p className="text-muted-foreground">Loading your route...</p>
         </div>
       </div>
     );
@@ -114,11 +114,11 @@ export function DriverDashboard() {
   // No jobs assigned
   if (!isLoading && myJobs.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[80vh] text-slate-500 p-6 text-center">
-        <div className="bg-slate-100 p-4 rounded-full mb-4">
-          <NavigationArrow className="h-8 w-8 text-slate-400" />
+      <div className="flex flex-col items-center justify-center h-[80vh] text-muted-foreground p-6 text-center">
+        <div className="bg-muted p-4 rounded-full mb-4">
+          <NavigationArrow className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-semibold text-slate-900 mb-2">No Active Route</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-2">No Active Route</h2>
         <p>You don't have any transport jobs assigned for today yet.</p>
         {error && (
           <div className="mt-4 text-sm text-red-600">
@@ -130,15 +130,15 @@ export function DriverDashboard() {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-slate-50 min-h-screen pb-20">
+    <div className="max-w-md mx-auto min-h-screen pb-20">
       {/* Header */}
-      <div className="bg-white p-4 border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+      <div className="bg-card p-4 border-b border-border sticky top-0 z-10 shadow-sm">
         <div className="flex justify-between items-start mb-2">
           <div>
-            <h1 className="text-lg font-bold text-slate-900">Today's Route</h1>
-            <div className="flex items-center text-sm text-slate-500 gap-2">
+            <h1 className="text-lg font-bold text-foreground">Today's Route</h1>
+            <div className="flex items-center text-sm text-muted-foreground gap-2">
                <span>{myJobs[0]?.vehicle_name || 'Vehicle'}</span>
-               <span className="text-slate-300">•</span>
+               <span className="text-muted-foreground/40">•</span>
                <span>{myJobs.length} {myJobs.length === 1 ? 'Stop' : 'Stops'}</span>
             </div>
           </div>
@@ -148,7 +148,7 @@ export function DriverDashboard() {
         </div>
         
         {/* Progress Bar */}
-        <div className="w-full bg-slate-100 rounded-full h-2 mt-2">
+        <div className="w-full bg-muted rounded-full h-2 mt-2">
           <div className="bg-green-500 h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
       </div>
@@ -164,15 +164,15 @@ export function DriverDashboard() {
 
         {/* Current Job Card */}
         {activeRoute && nextJob && (
-          <div className="bg-white rounded-xl border border-blue-100 shadow-md overflow-hidden ring-2 ring-blue-500 ring-offset-2">
-            <div className="bg-blue-600 px-4 py-2 text-white text-sm font-medium flex justify-between items-center">
+          <div className="bg-card rounded-xl border border-primary/20 shadow-md overflow-hidden ring-2 ring-primary ring-offset-2">
+            <div className="bg-primary px-4 py-2 text-primary-foreground text-sm font-medium flex justify-between items-center">
               <span>Next Stop #{currentJobIndex + 1}</span>
               <NavigationArrow className="h-4 w-4" />
             </div>
             <div className="p-5">
               <div className="mb-4">
-                <h2 className="text-2xl font-bold text-slate-900 mb-1">{nextJob.pet_name}</h2>
-                <p className="text-slate-600 flex items-center gap-1">
+                <h2 className="text-2xl font-bold text-foreground mb-1">{nextJob.pet_name}</h2>
+                <p className="text-muted-foreground flex items-center gap-1">
                   <span className={`inline-block w-2 h-2 rounded-full ${onDropoffLeg(nextJob) ? 'bg-orange-500' : 'bg-green-500'}`} />
                   {nextJob.direction === 'roundtrip'
                     ? (onDropoffLeg(nextJob) ? 'Round trip — drop off' : 'Round trip — pick up')
@@ -182,13 +182,13 @@ export function DriverDashboard() {
 
               <div className="space-y-3 mb-6">
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-slate-400 mt-0.5" />
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="font-medium text-slate-900 text-lg">
+                    <p className="font-medium text-foreground text-lg">
                       {onDropoffLeg(nextJob) ? nextJob.address_dropoff : nextJob.address_pickup}
                     </p>
                     {nextJob.time_window_start && nextJob.time_window_end && (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-sm text-muted-foreground">
                         Time window: {nextJob.time_window_start} - {nextJob.time_window_end}
                       </p>
                     )}
@@ -196,11 +196,11 @@ export function DriverDashboard() {
                 </div>
                 
                 {nextJob.contact_phone && (
-                  <div className="bg-slate-50 p-3 rounded-md text-sm">
-                    <p className="text-slate-500">Contact</p>
-                    <p className="font-medium text-slate-900">{nextJob.contact_phone}</p>
+                  <div className="bg-muted p-3 rounded-md text-sm">
+                    <p className="text-muted-foreground">Contact</p>
+                    <p className="font-medium text-foreground">{nextJob.contact_phone}</p>
                     {nextJob.contact_name && (
-                      <p className="text-slate-600">{nextJob.contact_name}</p>
+                      <p className="text-muted-foreground">{nextJob.contact_name}</p>
                     )}
                   </div>
                 )}
@@ -236,7 +236,7 @@ export function DriverDashboard() {
 
         {/* Job List */}
         <div className="space-y-3 mt-6">
-          <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pl-1">Route Overview</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">Route Overview</h3>
           {myJobs.map((job, idx) => {
             const isDone = job.status === 'completed';
             const isCancelled = job.status === 'cancelled' || job.status === 'failed';
@@ -245,19 +245,19 @@ export function DriverDashboard() {
             if (isCurrent) return null; // Already shown above
 
             return (
-              <div key={job.id} className={`bg-white p-4 rounded-lg border ${isDone ? 'border-slate-200 opacity-60' : 'border-slate-200'}`}>
+              <div key={job.id} className={`bg-card p-4 rounded-lg border ${isDone ? 'border-border opacity-60' : 'border-border'}`}>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold border ${
                       isDone ? 'bg-green-100 text-green-700 border-green-200' :
                       isCancelled ? 'bg-red-100 text-red-700 border-red-200' :
-                      'bg-slate-100 text-slate-500 border-slate-200'
+                      'bg-muted text-muted-foreground border-border'
                     }`}>
                       {isDone ? <CheckCircle className="h-3 w-3" /> : idx + 1}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{job.pet_name}</p>
-                      <p className="text-sm text-slate-500 truncate max-w-[150px]">
+                      <p className="font-medium text-foreground">{job.pet_name}</p>
+                      <p className="text-sm text-muted-foreground truncate max-w-[150px]">
                         {onDropoffLeg(job) ? job.address_dropoff : job.address_pickup}
                       </p>
                     </div>
