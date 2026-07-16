@@ -148,7 +148,7 @@ export function CreateTransportRequestModal({
 
     try {
       // Get pet and contact details for the request
-      const pet = currentHouseholdDetail?.pets.find(p => p.id === formData.petId);
+      const pet = currentHouseholdDetail?.pets?.find(p => p.id === formData.petId);
       const contact = selectedContact;
       
       if (!pet || !contact) {

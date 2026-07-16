@@ -78,6 +78,22 @@ interface Contact {
 
 type TransportDirection = 'pickup' | 'dropoff' | 'roundtrip';
 
+// Named to avoid colliding with the DOM built-in FormData, which this form
+// state previously (and silently) resolved to.
+interface TransportJobFormState {
+  location_id: string;
+  service_date: string;
+  address_pickup: string;
+  address_dropoff: string;
+  pickup_type: 'location' | 'other';
+  dropoff_type: 'location' | 'other';
+  pickup_location_id: string;
+  dropoff_location_id: string;
+  time_window_start: string;
+  time_window_end: string;
+  notes: string;
+}
+
 const STEPS = ['Select Household', 'Select Pet', 'Transport Details', 'Review'];
 
 export function CreateTransportJobDialog({
@@ -104,7 +120,7 @@ export function CreateTransportJobDialog({
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   
   // Transport details form data
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<TransportJobFormState>({
     location_id: defaultLocationId || '',
     service_date: defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
     address_pickup: '',
