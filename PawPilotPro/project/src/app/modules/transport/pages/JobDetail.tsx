@@ -43,17 +43,14 @@ export function JobDetail() {
   const { locations } = useSettingsStore();
   const { users, fetchUsers } = useUserStore();
   const { hasPermission } = usePermissions();
+  const { updateJob } = useTransportStore();
   const { confirm, confirmDialog } = useConfirmDialog();
-  
-  // Debug: Log activeDriverCount whenever it changes
-  useEffect(() => {
-    console.log('[JobDetail] activeDriverCount changed to:', activeDriverCount);
-  }, [activeDriverCount]);
-  
+
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [actionNotes, setActionNotes] = useState('');
+  const [showEditDialog, setShowEditDialog] = useState(false);
   
   useEffect(() => {
     fetchUsers();
@@ -96,15 +93,41 @@ export function JobDetail() {
       setActionNotes('');
       toast.success(`Job status updated to ${eventType}`);
     } catch (err) {
-      console.error('Failed to update status:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
     }
   };
-  
+
+  const handleSaveEdit = async (updates: {
+    service_date: string;
+    time_window_start: string;
+    time_window_end: string;
+    address_pickup: string;
+    address_dropoff: string;
+    notes: string;
+  }) => {
+    if (!job) return;
+    try {
+      await updateJob(job.id, {
+        service_date: updates.service_date,
+        time_window_start: updates.time_window_start || undefined,
+        time_window_end: updates.time_window_end || undefined,
+        address_pickup: updates.address_pickup || undefined,
+        address_dropoff: updates.address_dropoff || undefined,
+        notes: updates.notes || undefined,
+      });
+      setShowEditDialog(false);
+      toast.success('Transport job updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update job');
+    }
+  };
+
   const handleAssignDriver = async () => {
     if (!job || !selectedVehicleId) return;
-    
+
     try {
-      // Pass undefined if no driver selected (empty string), otherwise pass the selected driver ID
+      // Pass undefined if no driver selected — the server falls back to the
+      // vehicle's default driver.
       const driverToAssign = selectedDriverId.trim() || undefined;
       await assignDriver(job.id, driverToAssign, selectedVehicleId);
       setShowAssignDialog(false);
@@ -112,7 +135,21 @@ export function JobDetail() {
       setSelectedVehicleId('');
       toast.success('Driver assigned successfully');
     } catch (err) {
-      console.error('Failed to assign driver:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to assign driver');
+    }
+  };
+
+  const handleCancelJob = async () => {
+    if (!job) return;
+    const reason = window.prompt('Cancellation reason:');
+    // prompt returns null on Cancel; empty string means they confirmed with
+    // no reason. Only abort on an explicit dismissal.
+    if (reason === null) return;
+    try {
+      await updateJobStatus(job.id, 'cancelled', reason.trim() || undefined);
+      toast.success('Job cancelled');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel job');
     }
   };
   
@@ -167,16 +204,19 @@ export function JobDetail() {
   }
   
   const location = locations.find(l => l.id === job.location_id);
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     scheduled: 'bg-slate-100 text-slate-700',
     in_progress: 'bg-green-100 text-green-700',
     completed: 'bg-teal-100 text-teal-700',
+    failed: 'bg-orange-100 text-orange-700',
     cancelled: 'bg-red-100 text-red-700'
   };
-  
+
+  const isTerminal = job.status === 'completed' || job.status === 'cancelled' || job.status === 'failed';
   const canStart = job.status === 'scheduled' && job.assigned_driver_user_id;
   const canComplete = job.status === 'in_progress';
-  const canCancel = job.status !== 'completed' && job.status !== 'cancelled';
+  const canCancel = !isTerminal;
+  const canEdit = job.status === 'scheduled' && hasPermission('transport', 'update');
   
   return (
     <div className="h-[calc(100vh-100px)] overflow-auto">
@@ -201,6 +241,16 @@ export function JobDetail() {
             <Badge className={statusColors[job.status]} variant="secondary">
               {job.status.replace('_', ' ')}
             </Badge>
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEditDialog(true)}
+              >
+                <PencilSimple className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            )}
             {job.status === 'scheduled' && hasPermission('transport', 'delete') && (
               <Button
                 variant="destructive"
@@ -343,58 +393,42 @@ export function JobDetail() {
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
               <h2 className="text-lg font-semibold text-slate-900 mb-4">Assignment</h2>
               
-              {/* Conditional rendering based on driver count */}
-              {activeDriverCount === 1 ? (
-                /* RULE B: Single driver - show read-only assignment OR unassigned state */
-                job.assigned_driver_user_id ? (
-                  <div className="space-y-3">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                      <p className="text-xs text-blue-700">Auto-assigned to sole driver</p>
-                    </div>
-                    
-                    <div>
-                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Vehicle</div>
-                      <div className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-slate-400" />
-                        <span className="text-sm text-slate-900">
-                          {job.vehicle_name || 'Assigned'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Driver</div>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-slate-400" />
-                        <span className="text-sm text-slate-900">
-                          {users.find(u => u.id === job.assigned_driver_user_id)?.name || 'Driver'}
-                        </span>
-                      </div>
+              {/* Assignment state. A job can be assigned or reassigned
+                  whenever at least one driver exists — including the
+                  single-driver case, where a job created while no drivers were
+                  configured would otherwise be stuck permanently unassigned. */}
+              {activeDriverCount === null ? (
+                /* Loading state — activeDriverCount not yet known */
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <CircleNotch className="h-4 w-4 text-slate-400 animate-spin" />
+                    <p className="text-sm text-slate-600">Loading driver information...</p>
+                  </div>
+                </div>
+              ) : job.assigned_driver_user_id ? (
+                /* Assigned — show current assignment, allow reassign if editable */
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Vehicle</div>
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4 text-slate-400" />
+                      <span className="text-sm text-slate-900">
+                        {job.vehicle_name || 'Assigned'}
+                      </span>
                     </div>
                   </div>
-                ) : (
-                  /* Single driver but not yet assigned - show message */
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800 mb-1">Ready for auto-assignment</p>
-                    <p className="text-xs text-blue-600">
-                      This job will be automatically assigned to your sole driver when created.
-                    </p>
-                  </div>
-                )
-              ) : activeDriverCount && activeDriverCount >= 2 ? (
-                /* RULE C: Multiple drivers - show assignment controls */
-                job.assigned_driver_user_id ? (
-                  <div className="space-y-3">
-                    <div>
-                      <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Vehicle</div>
-                      <div className="flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-slate-400" />
-                        <span className="text-sm text-slate-900">
-                          {job.vehicle_name || 'Assigned'}
-                        </span>
-                      </div>
+
+                  <div>
+                    <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Driver</div>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-slate-400" />
+                      <span className="text-sm text-slate-900">
+                        {users.find(u => u.id === job.assigned_driver_user_id)?.name || 'Driver'}
+                      </span>
                     </div>
-                    
+                  </div>
+
+                  {!isTerminal && activeDriverCount >= 1 && hasPermission('transport', 'update') && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -403,23 +437,10 @@ export function JobDetail() {
                     >
                       Reassign
                     </Button>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                      <p className="text-sm text-amber-800">This job needs a driver assignment</p>
-                    </div>
-                    
-                    <Button
-                      className="w-full"
-                      onClick={() => setShowAssignDialog(true)}
-                    >
-                      Assign Driver
-                    </Button>
-                  </div>
-                )
+                  )}
+                </div>
               ) : activeDriverCount === 0 ? (
-                /* RULE A: No drivers configured */
+                /* No drivers configured */
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                   <p className="text-sm text-slate-600 mb-1">No drivers configured</p>
                   <p className="text-xs text-slate-500">
@@ -427,17 +448,25 @@ export function JobDetail() {
                   </p>
                 </div>
               ) : (
-                /* Loading state - activeDriverCount is null */
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <CircleNotch className="h-4 w-4 text-slate-400 animate-spin" />
-                    <p className="text-sm text-slate-600">Loading driver information...</p>
+                /* Unassigned with drivers available — offer assignment */
+                <div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-amber-800">This job needs a driver assignment</p>
                   </div>
+
+                  {hasPermission('transport', 'update') && (
+                    <Button
+                      className="w-full"
+                      onClick={() => setShowAssignDialog(true)}
+                    >
+                      Assign Driver
+                    </Button>
+                  )}
                 </div>
               )}
-              
-              {/* Assign Dialog - Only shown if activeDriverCount >= 2 */}
-              {showAssignDialog && activeDriverCount && activeDriverCount >= 2 && (
+
+              {/* Assign Dialog — available whenever at least one driver exists */}
+              {showAssignDialog && !!activeDriverCount && activeDriverCount >= 1 && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                   <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
                     <h3 className="text-lg font-semibold text-slate-900 mb-4">Assign Driver</h3>
@@ -562,12 +591,7 @@ export function JobDetail() {
                   <Button
                     variant="outline"
                     className="w-full text-red-600 border-red-300 hover:bg-red-50"
-                    onClick={() => {
-                      const reason = prompt('Cancellation reason:');
-                      if (reason) {
-                        handleStatusUpdate('cancelled');
-                      }
-                    }}
+                    onClick={handleCancelJob}
                   >
                     Cancel Job
                   </Button>
@@ -595,7 +619,137 @@ export function JobDetail() {
           </div>
         </div>
       </div>
+      {showEditDialog && (
+        <EditJobDialog
+          job={job}
+          onCancel={() => setShowEditDialog(false)}
+          onSave={handleSaveEdit}
+          saving={isLoading}
+        />
+      )}
       {confirmDialog}
+    </div>
+  );
+}
+
+// Edit dialog for a scheduled job's mutable fields. Location and the pet/
+// household link are intentionally not editable here — delete and recreate to
+// change those (keeps the per-location indexes consistent).
+function EditJobDialog({
+  job,
+  onCancel,
+  onSave,
+  saving,
+}: {
+  job: TransportJobWithDetails;
+  onCancel: () => void;
+  onSave: (updates: {
+    service_date: string;
+    time_window_start: string;
+    time_window_end: string;
+    address_pickup: string;
+    address_dropoff: string;
+    notes: string;
+  }) => void;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState({
+    service_date: job.service_date,
+    time_window_start: job.time_window_start || '',
+    time_window_end: job.time_window_end || '',
+    address_pickup: job.address_pickup || '',
+    address_dropoff: job.address_dropoff || '',
+    notes: job.notes || '',
+  });
+
+  const windowInvalid =
+    !!form.time_window_start &&
+    !!form.time_window_end &&
+    form.time_window_start >= form.time_window_end;
+  const noAddress = !form.address_pickup.trim() && !form.address_dropoff.trim();
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-auto">
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">Edit Transport Job</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Service Date</label>
+            <input
+              type="date"
+              value={form.service_date}
+              onChange={e => setForm(f => ({ ...f, service_date: e.target.value }))}
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Window start</label>
+              <input
+                type="time"
+                value={form.time_window_start}
+                onChange={e => setForm(f => ({ ...f, time_window_start: e.target.value }))}
+                className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Window end</label>
+              <input
+                type="time"
+                value={form.time_window_end}
+                onChange={e => setForm(f => ({ ...f, time_window_end: e.target.value }))}
+                className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+              />
+            </div>
+          </div>
+          {windowInvalid && (
+            <p className="text-sm text-red-600">End time must be after start time.</p>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Pick-up address</label>
+            <textarea
+              value={form.address_pickup}
+              onChange={e => setForm(f => ({ ...f, address_pickup: e.target.value }))}
+              rows={2}
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Drop-off address</label>
+            <textarea
+              value={form.address_dropoff}
+              onChange={e => setForm(f => ({ ...f, address_dropoff: e.target.value }))}
+              rows={2}
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
+            />
+          </div>
+          {noAddress && (
+            <p className="text-sm text-red-600">At least one address is required.</p>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Notes</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows={3}
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2 mt-6">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            className="flex-1"
+            onClick={() => onSave(form)}
+            disabled={saving || windowInvalid || noAddress}
+          >
+            {saving ? <CircleNotch className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Save Changes
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
