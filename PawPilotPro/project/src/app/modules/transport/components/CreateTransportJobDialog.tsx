@@ -168,13 +168,11 @@ export function CreateTransportJobDialog({
     try {
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/search-customers?q=${encodeURIComponent(query)}`;
 
-      console.log('[Transport] Performing search, URL:', url);
 
       const response = await fetch(url, {
         headers: await getAuthHeaders(),
       });
 
-      console.log('[Transport] Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -183,8 +181,6 @@ export function CreateTransportJobDialog({
       }
 
       const data = await response.json();
-      console.log('[Transport] Search response data:', data);
-      console.log('[Transport] Search response data stringified:', JSON.stringify(data, null, 2));
       
       // Transform search results to match our Household interface
       // The API returns an array directly, not wrapped in a results property
@@ -213,7 +209,6 @@ export function CreateTransportJobDialog({
         };
       });
       
-      console.log('[Transport] Transformed results:', transformedResults);
       setSearchResults(transformedResults);
     } catch (err: any) {
       console.error('[Transport] Customer search error:', err);
@@ -299,7 +294,6 @@ export function CreateTransportJobDialog({
         notes: formData.notes || null,
       };
 
-      console.log('[Transport] Creating job with payload:', payload);
 
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/transport/jobs`;
       
@@ -309,7 +303,6 @@ export function CreateTransportJobDialog({
         body: JSON.stringify(payload),
       });
 
-      console.log('[Transport] Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -318,7 +311,6 @@ export function CreateTransportJobDialog({
       }
 
       const result = await response.json();
-      console.log('[Transport] Success:', result);
 
       // Success! Close dialog and show success message
       toast.success('Transport job created successfully');

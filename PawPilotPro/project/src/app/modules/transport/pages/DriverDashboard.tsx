@@ -20,16 +20,24 @@ import {
   DialogFooter,
 } from '@/app/components/ui/dialog';
 import { Textarea } from '@/app/components/ui/textarea';
+import type { TransportJobWithDetails } from '../types';
 
 export function DriverDashboard() {
   const { jobs, isLoading, error, fetchJobs, updateJobStatus } = useTransportStore();
   const { user } = useAuth();
   
-  const [activeJob, setActiveJob] = useState<any | null>(null);
+  const [activeJob, setActiveJob] = useState<TransportJobWithDetails | null>(null);
   const [actionType, setActionType] = useState<'complete' | 'fail' | null>(null);
   const [note, setNote] = useState('');
   
   const today = format(new Date(), 'yyyy-MM-dd');
+
+  // Which leg is the driver on? Roundtrips collect from the pickup address,
+  // then (once picked_up_at is stamped) deliver to the dropoff. Single-leg
+  // jobs resolve to their one address.
+  const onDropoffLeg = (job: TransportJobWithDetails) =>
+    job.direction === 'dropoff' ||
+    (job.direction === 'roundtrip' && !!job.picked_up_at);
   
   // Fetch jobs assigned to current driver
   useEffect(() => {
@@ -51,7 +59,7 @@ export function DriverDashboard() {
     ? Math.round((myJobs.filter(j => j.status === 'completed').length / myJobs.length) * 100)
     : 0;
 
-  const handleAction = (job: any, type: 'complete' | 'fail') => {
+  const handleAction = (job: TransportJobWithDetails, type: 'complete' | 'fail') => {
     setActiveJob(job);
     setActionType(type);
     setNote('');
@@ -59,16 +67,25 @@ export function DriverDashboard() {
 
   const confirmAction = async () => {
     if (!activeJob || !actionType) return;
-    
+
     try {
-      const eventType = actionType === 'complete' ? 'completed' : 'cancelled';
+      // 'complete' on the pickup leg of a roundtrip only finishes that leg
+      // (picked_up); otherwise it completes the job. 'fail' reports a failed
+      // attempt (distinct from a dispatcher cancellation).
+      const isPickupLegOfRoundtrip =
+        activeJob.direction === 'roundtrip' && !activeJob.picked_up_at;
+      const eventType =
+        actionType === 'fail'
+          ? 'failed'
+          : isPickupLegOfRoundtrip
+          ? 'picked_up'
+          : 'completed';
       await updateJobStatus(activeJob.id, eventType, note);
       setActiveJob(null);
       setActionType(null);
       setNote('');
     } catch (err) {
-      console.error('Failed to update job status:', err);
-      toast.error('Failed to update job status. Please try again.');
+      toast.error(err instanceof Error ? err.message : 'Failed to update job status');
     }
   };
   
@@ -77,8 +94,7 @@ export function DriverDashboard() {
       try {
         await updateJobStatus(nextJob.id, 'started');
       } catch (err) {
-        console.error('Failed to start route:', err);
-        toast.error('Failed to start route. Please try again.');
+        toast.error(err instanceof Error ? err.message : 'Failed to start route');
       }
     }
   };
@@ -157,17 +173,19 @@ export function DriverDashboard() {
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-slate-900 mb-1">{nextJob.pet_name}</h2>
                 <p className="text-slate-600 flex items-center gap-1">
-                  <span className={`inline-block w-2 h-2 rounded-full ${nextJob.direction === 'pickup' ? 'bg-green-500' : 'bg-orange-500'}`} />
-                  {nextJob.direction === 'pickup' ? 'Pick up' : nextJob.direction === 'dropoff' ? 'Drop off' : 'Round trip'}
+                  <span className={`inline-block w-2 h-2 rounded-full ${onDropoffLeg(nextJob) ? 'bg-orange-500' : 'bg-green-500'}`} />
+                  {nextJob.direction === 'roundtrip'
+                    ? (onDropoffLeg(nextJob) ? 'Round trip — drop off' : 'Round trip — pick up')
+                    : nextJob.direction === 'pickup' ? 'Pick up' : 'Drop off'}
                 </p>
               </div>
-              
+
               <div className="space-y-3 mb-6">
                 <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-slate-400 mt-0.5" />
                   <div>
                     <p className="font-medium text-slate-900 text-lg">
-                      {nextJob.direction === 'pickup' ? nextJob.address_pickup : nextJob.address_dropoff}
+                      {onDropoffLeg(nextJob) ? nextJob.address_dropoff : nextJob.address_pickup}
                     </p>
                     {nextJob.time_window_start && nextJob.time_window_end && (
                       <p className="text-sm text-slate-500">
@@ -203,11 +221,13 @@ export function DriverDashboard() {
                 >
                   Report Issue
                 </Button>
-                <Button 
+                <Button
                   className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={() => handleAction(nextJob, 'complete')}
                 >
-                  {nextJob.direction === 'pickup' ? 'Picked Up' : 'Dropped Off'}
+                  {onDropoffLeg(nextJob)
+                    ? 'Dropped Off'
+                    : nextJob.direction === 'roundtrip' ? 'Picked Up' : nextJob.direction === 'pickup' ? 'Picked Up' : 'Dropped Off'}
                 </Button>
               </div>
             </div>
@@ -219,7 +239,7 @@ export function DriverDashboard() {
           <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider pl-1">Route Overview</h3>
           {myJobs.map((job, idx) => {
             const isDone = job.status === 'completed';
-            const isCancelled = job.status === 'cancelled';
+            const isCancelled = job.status === 'cancelled' || job.status === 'failed';
             const isCurrent = activeRoute && nextJob?.id === job.id;
             
             if (isCurrent) return null; // Already shown above
@@ -237,8 +257,8 @@ export function DriverDashboard() {
                     </div>
                     <div>
                       <p className="font-medium text-slate-900">{job.pet_name}</p>
-                      <p className="text-xs text-slate-500 truncate max-w-[150px]">
-                        {job.direction === 'pickup' ? job.address_pickup : job.address_dropoff}
+                      <p className="text-sm text-slate-500 truncate max-w-[150px]">
+                        {onDropoffLeg(job) ? job.address_dropoff : job.address_pickup}
                       </p>
                     </div>
                   </div>

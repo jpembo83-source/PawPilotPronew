@@ -48,20 +48,8 @@ export function RoutePlanner() {
   
   const scheduledJobs = jobs.filter(j => j.status === 'scheduled');
   const inProgressJobs = jobs.filter(j => j.status === 'in_progress');
-  const completedJobs = jobs.filter(j => j.status === 'completed');
-  
-  // Debug logging
-  console.log('[RoutePlanner] Current state:', { 
-    totalJobs: jobs.length, 
-    scheduledCount: scheduledJobs.length,
-    inProgressCount: inProgressJobs.length,
-    completedCount: completedJobs.length,
-    isLoading,
-    error,
-    selectedLocation,
-    dateStr
-  });
-  
+  const completedJobs = jobs.filter(j => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled');
+
   const handleDeleteJob = async (jobId: string) => {
     const confirmed = await confirm({
       title: 'Delete this transport job?',
@@ -91,21 +79,11 @@ export function RoutePlanner() {
         defaultLocationId={selectedLocation}
         onJobCreated={async () => {
           // Refresh jobs list
-          console.log('[RoutePlanner] Job created callback triggered');
-          console.log('[RoutePlanner] Current filters:', { selectedLocation, dateStr });
           if (selectedLocation) {
-            try {
-              console.log('[RoutePlanner] About to call fetchJobs...');
-              await fetchJobs({
-                location_id: selectedLocation,
-                service_date: dateStr
-              });
-              console.log('[RoutePlanner] fetchJobs completed');
-            } catch (err) {
-              console.error('[RoutePlanner] Error calling fetchJobs:', err);
-            }
-          } else {
-            console.log('[RoutePlanner] Skipping fetchJobs - missing location');
+            await fetchJobs({
+              location_id: selectedLocation,
+              service_date: dateStr
+            });
           }
         }}
       />
@@ -216,11 +194,11 @@ export function RoutePlanner() {
             </div>
           )}
 
-          {/* Completed Jobs */}
+          {/* Finished Jobs (completed / failed / cancelled) */}
           {completedJobs.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                Completed
+                Finished
                 <Badge variant="outline">{completedJobs.length}</Badge>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -250,7 +228,7 @@ function TransportJobCard({ job, onDelete }: { job: any, onDelete?: (jobId: stri
             {directionLabel}
           </div>
           {job.time_window_start && job.time_window_end && (
-            <span className="text-xs text-slate-500">
+            <span className="text-sm text-slate-500">
               {job.time_window_start} - {job.time_window_end}
             </span>
           )}
@@ -300,7 +278,7 @@ function TransportJobCard({ job, onDelete }: { job: any, onDelete?: (jobId: stri
         )}
 
         {job.contact_phone && (
-          <div className="text-xs text-slate-500 pt-2 border-t border-slate-100">
+          <div className="text-sm text-slate-500 pt-2 border-t border-slate-100">
             Contact: {job.contact_phone}
           </div>
         )}

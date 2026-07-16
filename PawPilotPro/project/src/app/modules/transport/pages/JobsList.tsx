@@ -185,6 +185,7 @@ export function JobsList() {
                   <option value="scheduled">Scheduled</option>
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
@@ -290,10 +291,11 @@ export function JobsList() {
 
 // Job Row Component
 function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () => void }) {
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     scheduled: 'bg-slate-100 text-slate-700',
     in_progress: 'bg-green-100 text-green-700',
     completed: 'bg-teal-100 text-teal-700',
+    failed: 'bg-orange-100 text-orange-700',
     cancelled: 'bg-red-100 text-red-700'
   };
   

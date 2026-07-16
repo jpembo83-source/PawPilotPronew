@@ -99,7 +99,6 @@ export function VehicleManager() {
         cleanData.notes = formData.notes;
       }
       
-      console.log('[VehicleManager] Submitting vehicle data:', cleanData);
       
       if (editingVehicle) {
         await updateVehicle(editingVehicle.id, cleanData);

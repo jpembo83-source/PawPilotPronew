@@ -30,12 +30,13 @@ import {
   ArrowClockwise
 } from '@phosphor-icons/react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
-// Status colours - high contrast for visibility
+// Status colours - high contrast for visibility. Keyed by the leg the driver
+// is on (roundtrip resolves to its pickup or dropoff leg before lookup).
 const STATUS_COLOURS = {
   pickup: { bg: 'bg-emerald-500', text: 'text-white', label: 'PICK UP' },
   dropoff: { bg: 'bg-orange-500', text: 'text-white', label: 'DROP OFF' },
-  roundtrip: { bg: 'bg-blue-500', text: 'text-white', label: 'ROUND TRIP' },
 };
 
 interface DriverMobileViewProps {
@@ -80,15 +81,32 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
   const currentJob = pendingJobs[0];
   const nextJob = pendingJobs[1];
   const isRouteActive = myJobs.some(j => j.status === 'in_progress');
-  
-  // Handle complete action
+
+  // A roundtrip is two legs on one job: collect from the pickup address, then
+  // deliver to the dropoff. picked_up_at (stamped server-side) marks leg 1
+  // done. pickup/dropoff jobs are always a single leg.
+  const onDropoffLeg =
+    currentJob?.direction === 'dropoff' ||
+    (currentJob?.direction === 'roundtrip' && !!currentJob?.picked_up_at);
+
+  const currentAddress = onDropoffLeg
+    ? currentJob?.address_dropoff
+    : currentJob?.address_pickup;
+
+  // The primary action either finishes the pickup leg of a roundtrip
+  // (picked_up, job stays in progress) or completes the job.
+  const isPickupLegOfRoundtrip =
+    currentJob?.direction === 'roundtrip' && !currentJob?.picked_up_at;
+  const primaryActionLabel = isPickupLegOfRoundtrip ? 'PICKED UP' : 'DONE';
+
+  // Handle complete / advance-leg action
   const handleComplete = async () => {
     if (!currentJob) return;
     setActionPending('complete');
     try {
-      await updateJobStatus(currentJob.id, 'completed');
+      await updateJobStatus(currentJob.id, isPickupLegOfRoundtrip ? 'picked_up' : 'completed');
     } catch (err) {
-      console.error('Failed to complete:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update stop');
     }
     setActionPending(null);
   };
@@ -102,11 +120,13 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
     const jobId = currentJob.id; // capture before any state changes
     setActionPending('issue');
     try {
-      await updateJobStatus(jobId, 'cancelled', issueNote.trim() || 'Issue reported by driver');
+      // 'failed' (attempted but unsuccessful), not 'cancelled' (dispatcher
+      // decision) — a failed stop stays visible and can be re-scheduled.
+      await updateJobStatus(jobId, 'failed', issueNote.trim() || 'Issue reported by driver');
       setShowIssueDialog(false);
       setIssueNote('');
     } catch (err) {
-      console.error('Failed to report issue:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to report issue');
     }
     setActionPending(null);
   };
@@ -118,7 +138,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
     try {
       await updateJobStatus(currentJob.id, 'started');
     } catch (err) {
-      console.error('Failed to start:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to start route');
     }
     setActionPending(null);
   };
@@ -190,11 +210,8 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
     );
   }
 
-  const currentAddress = currentJob?.direction === 'pickup'
-    ? currentJob?.address_pickup
-    : currentJob?.address_dropoff;
-
-  const statusConfig = STATUS_COLOURS[currentJob?.direction as keyof typeof STATUS_COLOURS] || STATUS_COLOURS.pickup;
+  // currentAddress and the leg flags are computed above (roundtrip-aware).
+  const statusConfig = onDropoffLeg ? STATUS_COLOURS.dropoff : STATUS_COLOURS.pickup;
 
   return (
     <div className="fixed inset-0 bg-slate-900 flex flex-col overflow-hidden">
@@ -214,6 +231,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
               key={job.id}
               className={`h-2 w-2 rounded-full ${
                 job.status === 'completed' ? 'bg-emerald-500' :
+                job.status === 'failed' ? 'bg-orange-400' :
                 job.status === 'cancelled' ? 'bg-red-500' :
                 job.status === 'in_progress' ? 'bg-blue-500' :
                 'bg-slate-600'
@@ -380,7 +398,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
               ) : (
                 <>
                   <CheckCircle className="h-7 w-7" />
-                  DONE
+                  {primaryActionLabel}
                 </>
               )}
             </button>
@@ -445,7 +463,7 @@ export function DriverMobileView({ onExit }: DriverMobileViewProps) {
             <div className="overflow-auto max-h-[60vh] p-4 space-y-3">
               {myJobs.map((job, idx) => {
                 const isDone = job.status === 'completed';
-                const isFailed = job.status === 'cancelled';
+                const isFailed = job.status === 'failed' || job.status === 'cancelled';
                 const isCurrent = job.id === currentJob?.id;
                 
                 return (
