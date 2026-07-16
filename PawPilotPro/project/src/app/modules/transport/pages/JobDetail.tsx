@@ -9,6 +9,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { useUserStore } from '../../settings/stores/userStore';
+import { usePermissions } from '@/app/hooks/usePermissions';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
@@ -41,6 +42,7 @@ export function JobDetail() {
   const { jobs, vehicles, isLoading, error, activeDriverCount, fetchJobs, fetchVehicles, fetchActiveDrivers, updateJobStatus, assignDriver, deleteJob } = useTransportStore();
   const { locations } = useSettingsStore();
   const { users, fetchUsers } = useUserStore();
+  const { hasPermission } = usePermissions();
   const { confirm, confirmDialog } = useConfirmDialog();
   
   // Debug: Log activeDriverCount whenever it changes
@@ -199,7 +201,7 @@ export function JobDetail() {
             <Badge className={statusColors[job.status]} variant="secondary">
               {job.status.replace('_', ' ')}
             </Badge>
-            {job.status === 'scheduled' && (
+            {job.status === 'scheduled' && hasPermission('transport', 'delete') && (
               <Button
                 variant="destructive"
                 size="sm"

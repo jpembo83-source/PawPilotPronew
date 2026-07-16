@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
+import { usePermissions } from '@/app/hooks/usePermissions';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { CalendarBlank, MapPin, Truck, Plus, Warning, CircleNotch, Trash } from '@phosphor-icons/react';
@@ -18,6 +19,7 @@ import { CreateTransportJobDialog } from '../components/CreateTransportJobDialog
 export function RoutePlanner() {
   const { jobs, vehicles, isLoading, error, fetchJobs, fetchVehicles, deleteJob } = useTransportStore();
   const { locations } = useSettingsStore();
+  const { hasPermission } = usePermissions();
   const { confirm, confirmDialog } = useConfirmDialog();
 
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
@@ -189,7 +191,11 @@ export function RoutePlanner() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {scheduledJobs.map(job => (
-                  <TransportJobCard key={job.id} job={job} onDelete={handleDeleteJob} />
+                  <TransportJobCard
+                    key={job.id}
+                    job={job}
+                    onDelete={hasPermission('transport', 'delete') ? handleDeleteJob : undefined}
+                  />
                 ))}
               </div>
             </div>

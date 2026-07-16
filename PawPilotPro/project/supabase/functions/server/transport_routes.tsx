@@ -8,8 +8,8 @@ import { Context, Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
-import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
-import { internalError } from './_shared/log.ts';
+import { requireAuth, requireRole, AuthenticatedUser, Role } from './_shared/auth.ts';
+import { internalError, logWarn } from './_shared/log.ts';
 import { signPetPhotoUrl, storedPetPhoto } from './lib/pet_photos.ts';
 
 const app = new Hono();
@@ -43,6 +43,40 @@ function validateUserPermission(c: Context, _requiredPermission: string) {
     location_id: null as string | null,
     role_id: user.role,
   };
+}
+
+/**
+ * Roles that may manage transport jobs (create/edit/assign). Staff get in
+ * only via the Driver template — mirroring the client-side Driver template,
+ * which grants transport create/update. templateId is authorization-bearing,
+ * so it is read from app_metadata only (server-set, untamperable).
+ */
+const TRANSPORT_MANAGE_ROLES: Role[] = ['admin', 'manager', 'assistant_manager'];
+
+function isDriver(user: AuthenticatedUser): boolean {
+  return (user.app_metadata?.templateId as string | undefined) === 'tpl-driver';
+}
+
+/**
+ * Write gate for job create/edit/assign. Must run AFTER requireAuth.
+ * Deletes and vehicle management use the stricter shared requireRole
+ * ('admin', 'manager') instead. On a miss the client gets a generic 403 +
+ * correlation ID; who was denied what is logged server-side only.
+ */
+async function requireJobWrite(c: Context, next: () => Promise<void>) {
+  const user = c.get('user') as AuthenticatedUser;
+  if (TRANSPORT_MANAGE_ROLES.includes(user.role) || isDriver(user)) {
+    return await next();
+  }
+  const correlationId = crypto.randomUUID();
+  logWarn('transport.write_denied', {
+    correlationId,
+    userId: user.id,
+    role: user.role,
+    method: c.req.method,
+    path: c.req.path,
+  });
+  return c.json({ error: 'forbidden', correlationId }, 403);
 }
 
 /**
@@ -185,7 +219,7 @@ app.get('/active-drivers', async (c) => {
 // TRANSPORT JOBS - CREATE
 // ============================================================================
 
-app.post('/jobs', async (c) => {
+app.post('/jobs', requireJobWrite, async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -530,7 +564,7 @@ app.get('/jobs/:id', async (c) => {
 // TRANSPORT JOBS - UPDATE
 // ============================================================================
 
-app.patch('/jobs/:id', async (c) => {
+app.patch('/jobs/:id', requireJobWrite, async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -602,7 +636,7 @@ app.patch('/jobs/:id', async (c) => {
 // TRANSPORT JOBS - DELETE
 // ============================================================================
 
-app.delete('/jobs/:id', async (c) => {
+app.delete('/jobs/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -651,7 +685,7 @@ app.delete('/jobs/:id', async (c) => {
 // TRANSPORT JOBS - ASSIGN DRIVER
 // ============================================================================
 
-app.post('/jobs/:id/assign', async (c) => {
+app.post('/jobs/:id/assign', requireJobWrite, async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -775,7 +809,7 @@ app.post('/jobs/:id/status', async (c) => {
 // VEHICLES - CREATE
 // ============================================================================
 
-app.post('/vehicles', async (c) => {
+app.post('/vehicles', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -864,7 +898,7 @@ app.get('/vehicles', async (c) => {
 // VEHICLES - UPDATE
 // ============================================================================
 
-app.patch('/vehicles/:id', async (c) => {
+app.patch('/vehicles/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -898,7 +932,7 @@ app.patch('/vehicles/:id', async (c) => {
 // VEHICLES - DELETE
 // ============================================================================
 
-app.delete('/vehicles/:id', async (c) => {
+app.delete('/vehicles/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
