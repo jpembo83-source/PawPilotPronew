@@ -2,15 +2,19 @@
 // All types reference real households and pets - NO seed/mock data
 
 export type TransportDirection = 'pickup' | 'dropoff' | 'roundtrip';
-export type TransportJobStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-export type TransportEventType = 
-  | 'created' 
-  | 'assigned' 
-  | 'started' 
-  | 'arrived' 
-  | 'picked_up' 
-  | 'dropped_off' 
-  | 'completed' 
+// 'failed' = driver-reported unsuccessful attempt (customer not home, wrong
+// address, …). Distinct from 'cancelled' (a dispatcher/manager decision) so
+// failed stops stay visible and can be re-scheduled.
+export type TransportJobStatus = 'scheduled' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+export type TransportEventType =
+  | 'created'
+  | 'assigned'
+  | 'started'
+  | 'arrived'
+  | 'picked_up'
+  | 'dropped_off'
+  | 'completed'
+  | 'failed'
   | 'cancelled';
 
 /**
@@ -42,6 +46,10 @@ export interface TransportJob {
   // Assignment
   assigned_driver_user_id?: string; // FK to auth.users
   assigned_vehicle_id?: string;
+
+  // Roundtrip leg progress (set by the driver status endpoint)
+  picked_up_at?: string; // ISO timestamp — pickup leg done
+  dropped_off_at?: string; // ISO timestamp — dropoff leg done
   
   // Optional link to booking that generated this transport
   booking_id?: string;
@@ -163,7 +171,7 @@ export interface AssignTransportRequest {
  */
 export interface DriverStatusUpdateRequest {
   job_id: string;
-  event_type: 'started' | 'arrived' | 'picked_up' | 'dropped_off' | 'completed';
+  event_type: 'started' | 'arrived' | 'picked_up' | 'dropped_off' | 'completed' | 'failed';
   notes?: string;
 }
 

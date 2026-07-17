@@ -21,7 +21,6 @@ import {
   DialogFooter,
 } from '@/app/components/ui/dialog';
 import { useSettingsStore } from '../../settings/store';
-import { useAuth } from '@/app/context/AuthContext';
 import { toast } from 'sonner';
 import { useConfirmDialog } from '@/app/hooks/useConfirmDialog';
 
@@ -29,7 +28,6 @@ export function VehicleManager() {
   const { vehicles, isLoading, error, fetchVehicles, createVehicle, updateVehicle, deleteVehicle } = useTransportStore();
   const { users, fetchUsers } = useUserStore();
   const { locations } = useSettingsStore();
-  const { session } = useAuth();
   const { confirm, confirmDialog } = useConfirmDialog();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -101,7 +99,6 @@ export function VehicleManager() {
         cleanData.notes = formData.notes;
       }
       
-      console.log('[VehicleManager] Submitting vehicle data:', cleanData);
       
       if (editingVehicle) {
         await updateVehicle(editingVehicle.id, cleanData);
@@ -137,8 +134,8 @@ export function VehicleManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-           <h2 className="text-xl font-semibold text-slate-900">Fleet Management</h2>
-           <p className="text-sm text-slate-500">Manage vehicles and capacities</p>
+           <h2 className="text-xl font-semibold text-foreground">Fleet Management</h2>
+           <p className="text-sm text-muted-foreground">Manage vehicles and capacities</p>
         </div>
         <Button onClick={handleOpenCreate}>
           <Plus className="h-4 w-4 mr-2" />
@@ -161,18 +158,18 @@ export function VehicleManager() {
       {isLoading && vehicles.length === 0 && (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
-            <p className="text-slate-500">Loading vehicles...</p>
+            <CircleNotch className="h-8 w-8 text-muted-foreground animate-spin mx-auto mb-2" />
+            <p className="text-muted-foreground">Loading vehicles...</p>
           </div>
         </div>
       )}
 
       {/* Empty State */}
       {!isLoading && vehicles.length === 0 && (
-        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg p-12 text-center">
-          <Truck className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-slate-900 mb-2">No Vehicles Yet</h3>
-          <p className="text-slate-500 mb-4">Add your first transport vehicle to get started</p>
+        <div className="bg-muted border-2 border-dashed border-border rounded-lg p-12 text-center">
+          <Truck className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Vehicles Yet</h3>
+          <p className="text-muted-foreground mb-4">Add your first transport vehicle to get started</p>
           <Button onClick={handleOpenCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Add Vehicle
@@ -184,43 +181,43 @@ export function VehicleManager() {
       {vehicles.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {vehicles.map(vehicle => (
-            <div key={vehicle.id} className="bg-white border border-slate-200 rounded-lg p-4 flex flex-col gap-3 shadow-sm hover:border-slate-300 transition-colors">
+            <div key={vehicle.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 shadow-sm hover:border-input transition-colors">
               <div className="flex items-start justify-between">
                  <div className="flex items-center gap-3">
-                   <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                   <div className="h-10 w-10 rounded-full bg-primary-tint flex items-center justify-center text-primary-strong">
                      <Truck className="h-5 w-5" />
                    </div>
                    <div>
-                     <h3 className="font-medium text-slate-900">{vehicle.name}</h3>
-                     <p className="text-xs text-slate-500">{vehicle.licence_plate}</p>
+                     <h3 className="font-medium text-foreground">{vehicle.name}</h3>
+                     <p className="text-xs text-muted-foreground">{vehicle.licence_plate}</p>
                    </div>
                  </div>
-                 <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${vehicle.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                 <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${vehicle.is_active ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
                    {vehicle.is_active ? 'Active' : 'Inactive'}
                  </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mt-2">
+              <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground mt-2">
                  <div>
-                   <span className="text-slate-400 text-xs block">Capacity</span>
+                   <span className="text-muted-foreground text-xs block">Capacity</span>
                    {vehicle.capacity} Dogs
                  </div>
                  <div>
-                   <span className="text-slate-400 text-xs block">Base</span>
+                   <span className="text-muted-foreground text-xs block">Base</span>
                    {locations.find(l => l.id === vehicle.location_id)?.name || 'Unknown'}
                  </div>
               </div>
 
               {vehicle.assigned_driver_user_id && (
-                <div className="flex items-center gap-2 mt-1 text-sm text-slate-600">
-                  <User className="h-3.5 w-3.5 text-slate-400" />
+                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>
                     {users.find(u => u.id === vehicle.assigned_driver_user_id)?.name || 'Assigned Driver'}
                   </span>
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 mt-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 mt-2 pt-3 border-t border-border">
                  <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(vehicle)}>
                    <PencilSimple className="h-4 w-4" />
                  </Button>
@@ -258,7 +255,7 @@ export function VehicleManager() {
                <div className="space-y-2">
                  <Label>Home Location</Label>
                  <select 
-                   className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm"
+                   className="w-full h-10 px-3 rounded-md border border-border text-sm"
                    value={formData.location_id}
                    onChange={e => setFormData({...formData, location_id: e.target.value})}
                  >
@@ -272,7 +269,7 @@ export function VehicleManager() {
              <div className="space-y-2">
                <Label>Assigned Driver (Optional)</Label>
                <select 
-                 className="w-full h-10 px-3 rounded-md border border-slate-200 text-sm"
+                 className="w-full h-10 px-3 rounded-md border border-border text-sm"
                  value={formData.assigned_driver_user_id || ''}
                  onChange={e => setFormData({...formData, assigned_driver_user_id: e.target.value || undefined})}
                >
@@ -283,7 +280,7 @@ export function VehicleManager() {
                      </option>
                    ))}
                </select>
-               <p className="text-xs text-slate-500 mt-1">
+               <p className="text-xs text-muted-foreground mt-1">
                  Assign a default driver to this vehicle. Drivers must have a system login.
                </p>
              </div>

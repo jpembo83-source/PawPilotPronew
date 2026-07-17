@@ -9,14 +9,12 @@ import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
-import { 
-  MagnifyingGlass, 
-  Funnel, 
-  DownloadSimple,
+import {
+  MagnifyingGlass,
+  Funnel,
   CircleNotch,
   Warning,
   Plus,
-  CaretDown,
   X
 } from '@phosphor-icons/react';
 import { format, subDays, addDays } from 'date-fns';
@@ -90,11 +88,11 @@ export function JobsList() {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
       {/* Header */}
-      <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm shrink-0">
+      <div className="bg-card p-6 rounded-lg border border-border shadow-sm shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Transport Jobs</h2>
-            <p className="text-slate-500 mt-1">View and manage all transport jobs</p>
+            <h2 className="text-2xl font-bold text-foreground">Transport Jobs</h2>
+            <p className="text-muted-foreground mt-1">View and manage all transport jobs</p>
           </div>
           <div className="flex gap-2">
             <Button 
@@ -116,18 +114,18 @@ export function JobsList() {
         
         {/* MagnifyingGlass */}
         <div className="relative">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search by pet, household, or address..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-md border border-slate-200 text-sm"
+            className="w-full pl-10 pr-4 py-2 rounded-md border border-input bg-input-background text-sm text-foreground placeholder:text-muted-foreground"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </button>
@@ -136,35 +134,35 @@ export function JobsList() {
         
         {/* Filters Panel */}
         {showFilters && (
-          <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <div className="mt-4 p-4 bg-muted rounded-lg border border-border">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
               {/* Date Range */}
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">From Date</label>
+                <label className="block text-xs font-medium text-foreground mb-1">From Date</label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={e => setDateFrom(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm bg-white"
+                  className="w-full px-3 py-2 rounded-md border border-input text-sm bg-input-background"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">To Date</label>
+                <label className="block text-xs font-medium text-foreground mb-1">To Date</label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={e => setDateTo(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm bg-white"
+                  className="w-full px-3 py-2 rounded-md border border-input text-sm bg-input-background"
                 />
               </div>
               
               {/* Location */}
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Location</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Location</label>
                 <select
                   value={locationFilter}
                   onChange={e => setLocationFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm bg-white"
+                  className="w-full px-3 py-2 rounded-md border border-input text-sm bg-input-background"
                 >
                   <option value="">All Locations</option>
                   {locations.map(loc => (
@@ -175,27 +173,28 @@ export function JobsList() {
               
               {/* Status */}
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Status</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Status</label>
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm bg-white"
+                  className="w-full px-3 py-2 rounded-md border border-input text-sm bg-input-background"
                 >
                   <option value="">All Statuses</option>
                   <option value="scheduled">Scheduled</option>
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
               
               {/* Direction */}
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Direction</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Direction</label>
                 <select
                   value={directionFilter}
                   onChange={e => setDirectionFilter(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm bg-white"
+                  className="w-full px-3 py-2 rounded-md border border-input text-sm bg-input-background"
                 >
                   <option value="">All Directions</option>
                   <option value="pickup">Pick-up</option>
@@ -231,18 +230,18 @@ export function JobsList() {
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
-            <p className="text-slate-500">Loading jobs...</p>
+            <CircleNotch className="h-8 w-8 text-muted-foreground animate-spin mx-auto mb-2" />
+            <p className="text-muted-foreground">Loading jobs...</p>
           </div>
         </div>
       )}
       
       {/* Results */}
       {!isLoading && !error && (
-        <div className="flex-1 overflow-auto bg-white rounded-lg border border-slate-200 shadow-sm">
+        <div className="flex-1 overflow-auto bg-card rounded-lg border border-border shadow-sm">
           {/* Results Header */}
-          <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between sticky top-0">
-            <div className="text-sm text-slate-600">
+          <div className="px-6 py-3 bg-muted border-b border-border flex items-center justify-between sticky top-0">
+            <div className="text-sm text-muted-foreground">
               {filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''} found
             </div>
           </div>
@@ -250,7 +249,7 @@ export function JobsList() {
           {filteredJobs.length === 0 ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <p className="text-slate-500">No jobs match your filters</p>
+                <p className="text-muted-foreground">No jobs match your filters</p>
                 {activeFilterCount > 0 && (
                   <Button variant="link" onClick={clearFilters} className="mt-2">
                     Clear filters
@@ -259,9 +258,9 @@ export function JobsList() {
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-slate-200">
+            <div className="divide-y divide-border">
               {/* Table Header */}
-              <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wider sticky top-12">
+              <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-12">
                 <div className="col-span-1">Date</div>
                 <div className="col-span-1">Status</div>
                 <div className="col-span-2">Pet & Household</div>
@@ -290,10 +289,11 @@ export function JobsList() {
 
 // Job Row Component
 function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () => void }) {
-  const statusColors = {
-    scheduled: 'bg-slate-100 text-slate-700',
+  const statusColors: Record<string, string> = {
+    scheduled: 'bg-muted text-foreground',
     in_progress: 'bg-green-100 text-green-700',
     completed: 'bg-teal-100 text-teal-700',
+    failed: 'bg-orange-100 text-orange-700',
     cancelled: 'bg-red-100 text-red-700'
   };
   
@@ -312,13 +312,13 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
   return (
     <div 
       onClick={onClick}
-      className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-slate-50 cursor-pointer transition-colors"
+      className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 cursor-pointer transition-colors"
     >
       <div className="col-span-1">
-        <div className="text-sm text-slate-900 font-medium">
+        <div className="text-sm text-foreground font-medium">
           {format(new Date(job.service_date), 'MMM d')}
         </div>
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-muted-foreground">
           {format(new Date(job.service_date), 'yyyy')}
         </div>
       </div>
@@ -330,8 +330,8 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       </div>
       
       <div className="col-span-2">
-        <div className="font-medium text-slate-900">{job.pet_name}</div>
-        <div className="text-sm text-slate-500">{job.household_name}</div>
+        <div className="font-medium text-foreground">{job.pet_name}</div>
+        <div className="text-sm text-muted-foreground">{job.household_name}</div>
       </div>
       
       <div className="col-span-1">
@@ -341,12 +341,12 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       </div>
       
       <div className="col-span-3">
-        <div className="text-sm text-slate-600 line-clamp-2">{address}</div>
+        <div className="text-sm text-muted-foreground line-clamp-2">{address}</div>
       </div>
       
       <div className="col-span-2">
         {job.assigned_driver_user_id ? (
-          <div className="text-sm text-slate-600">
+          <div className="text-sm text-muted-foreground">
             {job.vehicle_name || 'Assigned'}
           </div>
         ) : (
@@ -358,11 +358,11 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       
       <div className="col-span-1">
         {job.time_window_start ? (
-          <div className="text-sm text-slate-600">
+          <div className="text-sm text-muted-foreground">
             {job.time_window_start}
           </div>
         ) : (
-          <span className="text-xs text-slate-400">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </div>
       

@@ -46,6 +46,12 @@ interface CreateTransportJobDialogProps {
   defaultDate?: Date;
   defaultLocationId?: string;
   onJobCreated?: () => void;
+  /**
+   * Pre-select a household and skip the search step (used when launching from
+   * a household profile). Pets/contacts/address let the dialog jump straight
+   * to pet selection.
+   */
+  prefillHousehold?: Household;
 }
 
 interface Household {
@@ -78,14 +84,33 @@ interface Contact {
 
 type TransportDirection = 'pickup' | 'dropoff' | 'roundtrip';
 
-const STEPS = ['Select Household', 'Select Pet', 'Transport Details', 'Review'];
+// Named to avoid colliding with the DOM built-in FormData, which this form
+// state previously (and silently) resolved to.
+interface TransportJobFormState {
+  location_id: string;
+  service_date: string;
+  address_pickup: string;
+  address_dropoff: string;
+  pickup_type: 'location' | 'other';
+  dropoff_type: 'location' | 'other';
+  pickup_location_id: string;
+  dropoff_location_id: string;
+  time_window_start: string;
+  time_window_end: string;
+  notes: string;
+}
+
+// Short single-word labels: the previous two-word labels ('Select Household',
+// 'Transport Details') wrapped onto two lines and broke the step indicator.
+const STEPS = ['Household', 'Pet', 'Details', 'Review'];
 
 export function CreateTransportJobDialog({
   open,
   onOpenChange,
   defaultDate,
   defaultLocationId,
-  onJobCreated
+  onJobCreated,
+  prefillHousehold
 }: CreateTransportJobDialogProps) {
   const { locations } = useSettingsStore();
   const { createJob, fetchActiveDrivers, activeDriverCount, activeDrivers } = useTransportStore();
@@ -104,7 +129,7 @@ export function CreateTransportJobDialog({
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   
   // Transport details form data
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<TransportJobFormState>({
     location_id: defaultLocationId || '',
     service_date: defaultDate ? format(defaultDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
     address_pickup: '',
@@ -124,6 +149,15 @@ export function CreateTransportJobDialog({
       setFormData(prev => ({ ...prev, location_id: locations[0].id }));
     }
   }, [locations, formData.location_id]);
+
+  // When launched with a household pre-selected (e.g. from a household
+  // profile), skip the search step and start at pet selection.
+  useEffect(() => {
+    if (open && prefillHousehold && !selectedHousehold) {
+      setSelectedHousehold(prefillHousehold);
+      setCurrentStep(1);
+    }
+  }, [open, prefillHousehold, selectedHousehold]);
 
   // Fetch active drivers when location changes
   useEffect(() => {
@@ -152,13 +186,11 @@ export function CreateTransportJobDialog({
     try {
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/daycare/search-customers?q=${encodeURIComponent(query)}`;
 
-      console.log('[Transport] Performing search, URL:', url);
 
       const response = await fetch(url, {
         headers: await getAuthHeaders(),
       });
 
-      console.log('[Transport] Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -167,8 +199,6 @@ export function CreateTransportJobDialog({
       }
 
       const data = await response.json();
-      console.log('[Transport] Search response data:', data);
-      console.log('[Transport] Search response data stringified:', JSON.stringify(data, null, 2));
       
       // Transform search results to match our Household interface
       // The API returns an array directly, not wrapped in a results property
@@ -197,7 +227,6 @@ export function CreateTransportJobDialog({
         };
       });
       
-      console.log('[Transport] Transformed results:', transformedResults);
       setSearchResults(transformedResults);
     } catch (err: any) {
       console.error('[Transport] Customer search error:', err);
@@ -283,7 +312,6 @@ export function CreateTransportJobDialog({
         notes: formData.notes || null,
       };
 
-      console.log('[Transport] Creating job with payload:', payload);
 
       const url = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/transport/jobs`;
       
@@ -293,7 +321,6 @@ export function CreateTransportJobDialog({
         body: JSON.stringify(payload),
       });
 
-      console.log('[Transport] Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -302,7 +329,6 @@ export function CreateTransportJobDialog({
       }
 
       const result = await response.json();
-      console.log('[Transport] Success:', result);
 
       // Success! Close dialog and show success message
       toast.success('Transport job created successfully');
@@ -349,7 +375,7 @@ export function CreateTransportJobDialog({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-blue-600" />
+            <Truck className="h-5 w-5 text-primary" />
             New Transport Job
           </DialogTitle>
           <DialogDescription>
@@ -358,29 +384,29 @@ export function CreateTransportJobDialog({
         </DialogHeader>
 
         {/* Progress Steps */}
-        <div className="flex items-center gap-2 pb-4 border-b border-slate-200">
+        <div className="flex items-center gap-1.5 sm:gap-2 pb-4 border-b border-border overflow-x-auto">
           {STEPS.map((step, index) => (
-            <div key={step} className="flex items-center gap-2">
+            <div key={step} className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${
                   index < currentStep
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-primary-tint text-primary-strong'
                     : index === currentStep
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-400'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {index < currentStep ? <CheckCircle className="h-3.5 w-3.5" /> : index + 1}
               </div>
               <span
-                className={`text-sm font-medium ${
-                  index === currentStep ? 'text-slate-900' : 'text-slate-500'
+                className={`text-sm font-medium whitespace-nowrap ${
+                  index === currentStep ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
                 {step}
               </span>
               {index < STEPS.length - 1 && (
-                <CaretRight className="h-4 w-4 text-slate-300 ml-2" />
+                <CaretRight className="h-4 w-4 text-muted-foreground/50 ml-1 shrink-0" />
               )}
             </div>
           ))}
@@ -402,7 +428,7 @@ export function CreateTransportJobDialog({
               <div>
                 <Label>Search for Household</Label>
                 <div className="relative mt-1">
-                  <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -411,29 +437,29 @@ export function CreateTransportJobDialog({
                     autoFocus
                   />
                   {isSearching && (
-                    <CircleNotch className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 animate-spin" />
+                    <CircleNotch className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
                   )}
                 </div>
               </div>
 
               {/* MagnifyingGlass Results */}
               {searchResults.length > 0 && (
-                <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 max-h-96 overflow-auto">
+                <div className="border border-border rounded-lg divide-y divide-border max-h-96 overflow-auto">
                   {searchResults.map((household) => (
                     <button
                       key={household.id}
                       onClick={() => handleSelectHousehold(household)}
-                      className="w-full p-4 hover:bg-slate-50 transition-colors text-left"
+                      className="w-full p-4 hover:bg-muted/50 transition-colors text-left"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <House className="h-4 w-4 text-slate-400" />
-                            <h4 className="font-semibold text-slate-900">{household.name}</h4>
+                            <House className="h-4 w-4 text-muted-foreground" />
+                            <h4 className="font-semibold text-foreground">{household.name}</h4>
                           </div>
                           
                           {household.address && (
-                            <p className="text-sm text-slate-600 flex items-center gap-1 mb-2">
+                            <p className="text-sm text-muted-foreground flex items-center gap-1 mb-2">
                               <MapPin className="h-3 w-3" />
                               {household.address}
                             </p>
@@ -441,7 +467,7 @@ export function CreateTransportJobDialog({
 
                           {/* Contacts */}
                           {household.contacts && household.contacts.length > 0 && (
-                            <div className="text-xs text-slate-500 mb-2">
+                            <div className="text-xs text-muted-foreground mb-2">
                               {household.contacts.slice(0, 2).map((contact) => (
                                 <div key={contact.id}>
                                   {contact.first_name} {contact.last_name}
@@ -454,7 +480,7 @@ export function CreateTransportJobDialog({
                           {/* Pets */}
                           {household.pets && household.pets.length > 0 && (
                             <div className="flex items-center gap-1 flex-wrap">
-                              <Dog className="h-3 w-3 text-slate-400" />
+                              <Dog className="h-3 w-3 text-muted-foreground" />
                               {household.pets.map((pet) => (
                                 <Badge key={pet.id} variant="secondary" className="text-xs">
                                   {pet.name}
@@ -463,7 +489,7 @@ export function CreateTransportJobDialog({
                             </div>
                           )}
                         </div>
-                        <CaretRight className="h-5 w-5 text-slate-300 shrink-0" />
+                        <CaretRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
                       </div>
                     </button>
                   ))}
@@ -471,15 +497,15 @@ export function CreateTransportJobDialog({
               )}
 
               {searchQuery && !isSearching && searchResults.length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  <Dog className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Dog className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
                   <p className="text-sm">No households found matching "{searchQuery}"</p>
                 </div>
               )}
 
               {!searchQuery && (
-                <div className="text-center py-8 text-slate-500">
-                  <MagnifyingGlass className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <MagnifyingGlass className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
                   <p className="text-sm">Start typing to search for a household</p>
                 </div>
               )}
@@ -489,11 +515,11 @@ export function CreateTransportJobDialog({
           {/* Step 2: Select Pet */}
           {currentStep === 1 && selectedHousehold && (
             <div className="space-y-4">
-              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <div className="text-sm text-slate-600 mb-1">Selected Household:</div>
-                <div className="font-semibold text-slate-900">{selectedHousehold.name}</div>
+              <div className="bg-muted rounded-lg p-3 border border-border">
+                <div className="text-sm text-muted-foreground mb-1">Selected Household:</div>
+                <div className="font-semibold text-foreground">{selectedHousehold.name}</div>
                 {selectedHousehold.address && (
-                  <div className="text-sm text-slate-600 mt-1 flex items-center gap-1">
+                  <div className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
                     {selectedHousehold.address}
                   </div>
@@ -508,7 +534,7 @@ export function CreateTransportJobDialog({
                       <button
                         key={pet.id}
                         onClick={() => handleSelectPet(pet)}
-                        className="border-2 border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+                        className="border-2 border-border rounded-lg p-4 hover:border-primary hover:bg-primary-tint transition-all text-left"
                       >
                         <div className="flex items-start gap-3">
                           {pet.photo_url ? (
@@ -518,12 +544,12 @@ export function CreateTransportJobDialog({
                               className="w-16 h-16 rounded-lg object-cover"
                             />
                           ) : (
-                            <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center">
-                              <Dog className="h-8 w-8 text-slate-400" />
+                            <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+                              <Dog className="h-8 w-8 text-muted-foreground" />
                             </div>
                           )}
                           <div className="flex-1">
-                            <h4 className="font-semibold text-slate-900 mb-1">{pet.name}</h4>
+                            <h4 className="font-semibold text-foreground mb-1">{pet.name}</h4>
                             
                             {/* Flags */}
                             <div className="flex flex-wrap gap-1 mb-2">
@@ -540,18 +566,18 @@ export function CreateTransportJobDialog({
                             </div>
 
                             {pet.transport_notes && (
-                              <p className="text-xs text-slate-600 italic">
+                              <p className="text-xs text-muted-foreground italic">
                                 Transport notes: {pet.transport_notes}
                               </p>
                             )}
                           </div>
-                          <CaretRight className="h-5 w-5 text-slate-300 shrink-0" />
+                          <CaretRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
                         </div>
                       </button>
                     ))
                   ) : (
-                    <div className="text-center py-8 text-slate-500">
-                      <Dog className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Dog className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
                       <p className="text-sm">No pets found for this household</p>
                     </div>
                   )}
@@ -564,7 +590,7 @@ export function CreateTransportJobDialog({
           {currentStep === 2 && (
             <div className="space-y-4">
               {/* Summary */}
-              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+              <div className="bg-muted rounded-lg p-3 border border-border">
                 <div className="flex items-start gap-3">
                   {selectedPet?.photo_url ? (
                     <img
@@ -573,13 +599,13 @@ export function CreateTransportJobDialog({
                       className="w-12 h-12 rounded-lg object-cover"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center">
-                      <Dog className="h-6 w-6 text-slate-400" />
+                    <div className="w-12 h-12 rounded-lg bg-card flex items-center justify-center">
+                      <Dog className="h-6 w-6 text-muted-foreground" />
                     </div>
                   )}
                   <div>
-                    <div className="font-semibold text-slate-900">{selectedPet?.name}</div>
-                    <div className="text-sm text-slate-600">{selectedHousehold?.name}</div>
+                    <div className="font-semibold text-foreground">{selectedPet?.name}</div>
+                    <div className="text-sm text-muted-foreground">{selectedHousehold?.name}</div>
                   </div>
                 </div>
               </div>
@@ -588,7 +614,7 @@ export function CreateTransportJobDialog({
               <div>
                 <Label htmlFor="serviceDate">Service Date</Label>
                 <div className="relative mt-1">
-                  <CalendarBlank className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <CalendarBlank className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="serviceDate"
                     type="date"
@@ -610,8 +636,8 @@ export function CreateTransportJobDialog({
                     onClick={() => setFormData(prev => ({ ...prev, pickup_type: 'location', address_pickup: '' }))}
                     className={`flex-1 p-2 rounded-lg border-2 text-sm font-medium transition-all ${
                       formData.pickup_type === 'location'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                        ? 'border-primary bg-primary-tint text-primary-strong'
+                        : 'border-border hover:border-input text-foreground'
                     }`}
                   >
                     Location
@@ -626,8 +652,8 @@ export function CreateTransportJobDialog({
                     }))}
                     className={`flex-1 p-2 rounded-lg border-2 text-sm font-medium transition-all ${
                       formData.pickup_type === 'other'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                        ? 'border-primary bg-primary-tint text-primary-strong'
+                        : 'border-border hover:border-input text-foreground'
                     }`}
                   >
                     Other
@@ -640,13 +666,16 @@ export function CreateTransportJobDialog({
                     value={formData.pickup_location_id}
                     onChange={(e) => {
                       const selectedLoc = locations.find(l => l.id === e.target.value);
-                      setFormData(prev => ({ 
-                        ...prev, 
+                      setFormData(prev => ({
+                        ...prev,
                         pickup_location_id: e.target.value,
-                        address_pickup: selectedLoc?.name || ''
+                        // Store the real street address so the driver's
+                        // navigation works; fall back to the name only if the
+                        // location has no address on file.
+                        address_pickup: selectedLoc?.address || selectedLoc?.name || ''
                       }));
                     }}
-                    className="w-full h-10 px-3 rounded-md border border-slate-300 bg-white text-sm"
+                    className="w-full h-10 px-3 rounded-md border border-input bg-input-background text-sm text-foreground"
                   >
                     <option value="">Select a location...</option>
                     {locations.map((loc) => (
@@ -660,11 +689,11 @@ export function CreateTransportJobDialog({
                 {/* Custom Address Input */}
                 {formData.pickup_type === 'other' && (
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <textarea
                       value={formData.address_pickup}
                       onChange={(e) => setFormData(prev => ({ ...prev, address_pickup: e.target.value }))}
-                      className="w-full pl-9 pr-3 py-2 rounded-md border border-slate-300 text-sm resize-none"
+                      className="w-full pl-9 pr-3 py-2 rounded-md border border-input bg-input-background text-sm text-foreground placeholder:text-muted-foreground resize-none"
                       rows={2}
                       placeholder="Enter pick-up address"
                     />
@@ -683,8 +712,8 @@ export function CreateTransportJobDialog({
                     onClick={() => setFormData(prev => ({ ...prev, dropoff_type: 'location', address_dropoff: '' }))}
                     className={`flex-1 p-2 rounded-lg border-2 text-sm font-medium transition-all ${
                       formData.dropoff_type === 'location'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                        ? 'border-primary bg-primary-tint text-primary-strong'
+                        : 'border-border hover:border-input text-foreground'
                     }`}
                   >
                     Location
@@ -699,8 +728,8 @@ export function CreateTransportJobDialog({
                     }))}
                     className={`flex-1 p-2 rounded-lg border-2 text-sm font-medium transition-all ${
                       formData.dropoff_type === 'other'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                        ? 'border-primary bg-primary-tint text-primary-strong'
+                        : 'border-border hover:border-input text-foreground'
                     }`}
                   >
                     Other
@@ -713,13 +742,13 @@ export function CreateTransportJobDialog({
                     value={formData.dropoff_location_id}
                     onChange={(e) => {
                       const selectedLoc = locations.find(l => l.id === e.target.value);
-                      setFormData(prev => ({ 
-                        ...prev, 
+                      setFormData(prev => ({
+                        ...prev,
                         dropoff_location_id: e.target.value,
-                        address_dropoff: selectedLoc?.name || ''
+                        address_dropoff: selectedLoc?.address || selectedLoc?.name || ''
                       }));
                     }}
-                    className="w-full h-10 px-3 rounded-md border border-slate-300 bg-white text-sm"
+                    className="w-full h-10 px-3 rounded-md border border-input bg-input-background text-sm text-foreground"
                   >
                     <option value="">Select a location...</option>
                     {locations.map((loc) => (
@@ -733,11 +762,11 @@ export function CreateTransportJobDialog({
                 {/* Custom Address Input */}
                 {formData.dropoff_type === 'other' && (
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <textarea
                       value={formData.address_dropoff}
                       onChange={(e) => setFormData(prev => ({ ...prev, address_dropoff: e.target.value }))}
-                      className="w-full pl-9 pr-3 py-2 rounded-md border border-slate-300 text-sm resize-none"
+                      className="w-full pl-9 pr-3 py-2 rounded-md border border-input bg-input-background text-sm text-foreground placeholder:text-muted-foreground resize-none"
                       rows={2}
                       placeholder="Enter drop-off address"
                     />
@@ -750,7 +779,7 @@ export function CreateTransportJobDialog({
                 <div>
                   <Label htmlFor="timeStart">Time Window Start (optional)</Label>
                   <div className="relative mt-1">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="timeStart"
                       type="time"
@@ -763,7 +792,7 @@ export function CreateTransportJobDialog({
                 <div>
                   <Label htmlFor="timeEnd">Time Window End (optional)</Label>
                   <div className="relative mt-1">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="timeEnd"
                       type="time"
@@ -782,7 +811,7 @@ export function CreateTransportJobDialog({
                   id="notes"
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-md border border-slate-300 text-sm resize-none"
+                  className="mt-1 w-full px-3 py-2 rounded-md border border-input bg-input-background text-sm text-foreground placeholder:text-muted-foreground resize-none"
                   rows={3}
                   placeholder="Add any special instructions or notes..."
                 />
@@ -840,10 +869,10 @@ export function CreateTransportJobDialog({
               
               {/* Household & Pet */}
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">
+                <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-3">
                   Customer & Pet
                 </h4>
-                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <div className="bg-muted rounded-lg p-4 border border-border">
                   <div className="flex items-start gap-3 mb-3">
                     {selectedPet?.photo_url ? (
                       <img
@@ -852,15 +881,15 @@ export function CreateTransportJobDialog({
                         className="w-16 h-16 rounded-lg object-cover"
                       />
                     ) : (
-                      <div className="w-16 h-16 rounded-lg bg-white flex items-center justify-center">
-                        <Dog className="h-8 w-8 text-slate-400" />
+                      <div className="w-16 h-16 rounded-lg bg-card flex items-center justify-center">
+                        <Dog className="h-8 w-8 text-muted-foreground" />
                       </div>
                     )}
                     <div>
-                      <div className="font-semibold text-slate-900">{selectedPet?.name}</div>
-                      <div className="text-sm text-slate-600">{selectedHousehold?.name}</div>
+                      <div className="font-semibold text-foreground">{selectedPet?.name}</div>
+                      <div className="text-sm text-muted-foreground">{selectedHousehold?.name}</div>
                       {selectedHousehold?.address && (
-                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
                           {selectedHousehold.address}
                         </div>
@@ -872,41 +901,41 @@ export function CreateTransportJobDialog({
 
               {/* Transport Details */}
               <div>
-                <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-3">
+                <h4 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-3">
                   Transport Details
                 </h4>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between py-2 border-b border-slate-200">
-                    <span className="text-sm text-slate-600">Location:</span>
-                    <span className="font-medium text-slate-900">
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <span className="text-sm text-muted-foreground">Location:</span>
+                    <span className="font-medium text-foreground">
                       {locations.find((l) => l.id === formData.location_id)?.name}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-2 border-b border-slate-200">
-                    <span className="text-sm text-slate-600">Date:</span>
-                    <span className="font-medium text-slate-900">
+                  <div className="flex items-center justify-between py-2 border-b border-border">
+                    <span className="text-sm text-muted-foreground">Date:</span>
+                    <span className="font-medium text-foreground">
                       {format(new Date(formData.service_date), 'EEE, MMM d, yyyy')}
                     </span>
                   </div>
 
                   {formData.address_pickup && (
-                    <div className="py-2 border-b border-slate-200">
-                      <div className="text-sm text-slate-600 mb-1">Pick-up Address:</div>
-                      <div className="text-sm font-medium text-slate-900">{formData.address_pickup}</div>
+                    <div className="py-2 border-b border-border">
+                      <div className="text-sm text-muted-foreground mb-1">Pick-up Address:</div>
+                      <div className="text-sm font-medium text-foreground">{formData.address_pickup}</div>
                     </div>
                   )}
 
                   {formData.address_dropoff && (
-                    <div className="py-2 border-b border-slate-200">
-                      <div className="text-sm text-slate-600 mb-1">Drop-off Address:</div>
-                      <div className="text-sm font-medium text-slate-900">{formData.address_dropoff}</div>
+                    <div className="py-2 border-b border-border">
+                      <div className="text-sm text-muted-foreground mb-1">Drop-off Address:</div>
+                      <div className="text-sm font-medium text-foreground">{formData.address_dropoff}</div>
                     </div>
                   )}
 
                   {(formData.time_window_start || formData.time_window_end) && (
-                    <div className="flex items-center justify-between py-2 border-b border-slate-200">
-                      <span className="text-sm text-slate-600">Time Window:</span>
-                      <span className="font-medium text-slate-900">
+                    <div className="flex items-center justify-between py-2 border-b border-border">
+                      <span className="text-sm text-muted-foreground">Time Window:</span>
+                      <span className="font-medium text-foreground">
                         {formData.time_window_start || '--:--'} - {formData.time_window_end || '--:--'}
                       </span>
                     </div>
@@ -914,8 +943,8 @@ export function CreateTransportJobDialog({
 
                   {formData.notes && (
                     <div className="py-2">
-                      <div className="text-sm text-slate-600 mb-1">Notes:</div>
-                      <div className="text-sm text-slate-700 bg-slate-50 rounded p-2">
+                      <div className="text-sm text-muted-foreground mb-1">Notes:</div>
+                      <div className="text-sm text-foreground bg-muted rounded p-2">
                         {formData.notes}
                       </div>
                     </div>
@@ -927,7 +956,7 @@ export function CreateTransportJobDialog({
         </div>
 
         {/* Footer Actions */}
-        <div className="border-t border-slate-200 pt-4 flex items-center justify-between">
+        <div className="border-t border-border pt-4 flex items-center justify-between">
           <div>
             {currentStep > 0 && (
               <Button

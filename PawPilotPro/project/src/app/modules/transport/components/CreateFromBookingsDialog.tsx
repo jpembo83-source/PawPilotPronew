@@ -67,12 +67,16 @@ export function CreateFromBookingsDialog({
   const [addressDropoff, setAddressDropoff] = useState('');
 
   const dateStr = format(date, 'yyyy-MM-dd');
-  const locationName = locations.find(l => l.id === locationId)?.name ?? 'Facility';
+  const location = locations.find(l => l.id === locationId);
+  const locationName = location?.name ?? 'Facility';
+  // Prefer the facility's real street address so the driver's navigation
+  // works; fall back to the name only if no address is on file.
+  const locationAddress = location?.address || locationName;
 
-  // Pre-fill dropoff with the daycare location name
+  // Pre-fill dropoff with the facility address
   useEffect(() => {
-    if (open) setAddressDropoff(locationName);
-  }, [open, locationName]);
+    if (open) setAddressDropoff(locationAddress);
+  }, [open, locationAddress]);
 
   const fetchBookings = useCallback(async () => {
     if (!locationId) return;
@@ -140,54 +144,59 @@ export function CreateFromBookingsDialog({
 
     const selected = bookings.filter(b => selectedIds.has(b.id));
 
-    const results = await Promise.allSettled(
-      selected.map(async (booking) => {
-        const payload = {
-          location_id: locationId,
-          service_date: dateStr,
-          direction,
-          household_id: booking.household_id,
-          pet_id: booking.pet_id,
-          address_pickup: addressPickup.trim() || null,
-          address_dropoff: addressDropoff.trim() || null,
-          time_window_start: booking.planned_start_time ?? null,
-          time_window_end: booking.planned_end_time ?? null,
-          notes: booking.notes ?? null,
-          booking_id: booking.id,
-          booking_type: 'daycare',
-        };
+    // Create sequentially, NOT in parallel: each job append does a
+    // read-modify-write on the shared per-date/per-location KV index arrays
+    // server-side, so concurrent creates race and silently drop index
+    // entries (jobs that exist but never show on the dashboard).
+    let created = 0;
+    let sessionExpired = false;
+    const failures: string[] = [];
 
+    for (const booking of selected) {
+      const payload = {
+        location_id: locationId,
+        service_date: dateStr,
+        direction,
+        household_id: booking.household_id,
+        pet_id: booking.pet_id,
+        address_pickup: addressPickup.trim() || null,
+        address_dropoff: addressDropoff.trim() || null,
+        time_window_start: booking.planned_start_time ?? null,
+        time_window_end: booking.planned_end_time ?? null,
+        notes: booking.notes ?? null,
+        booking_id: booking.id,
+        booking_type: 'daycare',
+      };
+
+      try {
         const res = await fetch(`${TRANSPORT_BASE}/jobs`, {
           method: 'POST',
           headers,
           body: JSON.stringify(payload),
         });
 
-        if (res.status === 401) throw new Error('SESSION_EXPIRED');
+        if (res.status === 401) {
+          sessionExpired = true;
+          break;
+        }
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.error || `HTTP ${res.status}`);
         }
 
-        return booking.pet_name;
-      })
-    );
+        created++;
+      } catch (err: any) {
+        failures.push(`${booking.pet_name}: ${err?.message ?? 'failed'}`);
+      }
+    }
 
     setIsCreating(false);
 
-    const sessionExpired = results.some(
-      r => r.status === 'rejected' && r.reason?.message === 'SESSION_EXPIRED'
-    );
     if (sessionExpired) {
       toast.error('Your session expired. Please log in again.');
       return;
     }
-
-    const created = results.filter(r => r.status === 'fulfilled').length;
-    const failures: string[] = results
-      .map((r, i) => r.status === 'rejected' ? `${selected[i].pet_name}: ${r.reason?.message}` : null)
-      .filter(Boolean) as string[];
 
     if (created > 0) {
       toast.success(`${created} transport job${created !== 1 ? 's' : ''} created`);
@@ -223,7 +232,7 @@ export function CreateFromBookingsDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-blue-600" />
+            <Truck className="h-5 w-5 text-primary" />
             Create Transport Jobs from Bookings
           </DialogTitle>
           <DialogDescription>
@@ -246,15 +255,15 @@ export function CreateFromBookingsDialog({
                   onClick={() => setDirection(d)}
                   className={`p-2 rounded-lg border-2 text-sm font-medium transition-all capitalize ${
                     direction === d
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-slate-200 hover:border-slate-300 text-slate-600'
+                      ? 'border-primary bg-primary-tint text-primary-strong'
+                      : 'border-border hover:border-input text-muted-foreground'
                   }`}
                 >
                   {d === 'roundtrip' ? 'Round trip' : d === 'pickup' ? 'Pick-up' : 'Drop-off'}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-500">{directionLabel[direction]}</p>
+            <p className="text-xs text-muted-foreground">{directionLabel[direction]}</p>
           </div>
 
           {/* Address fields */}
@@ -263,7 +272,7 @@ export function CreateFromBookingsDialog({
               <div>
                 <Label htmlFor="pickupAddr">Pick-up address</Label>
                 <div className="relative mt-1">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="pickupAddr"
                     value={addressPickup}
@@ -272,14 +281,14 @@ export function CreateFromBookingsDialog({
                     className="pl-9"
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Applied to all selected bookings</p>
+                <p className="text-xs text-muted-foreground mt-1">Applied to all selected bookings</p>
               </div>
             )}
             {(direction === 'dropoff' || direction === 'roundtrip') && (
               <div>
                 <Label htmlFor="dropoffAddr">Drop-off address</Label>
                 <div className="relative mt-1">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="dropoffAddr"
                     value={addressDropoff}
@@ -288,7 +297,7 @@ export function CreateFromBookingsDialog({
                     className="pl-9"
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">Pre-filled with facility name — update if needed</p>
+                <p className="text-xs text-muted-foreground mt-1">Pre-filled with facility name — update if needed</p>
               </div>
             )}
           </div>
@@ -301,7 +310,7 @@ export function CreateFromBookingsDialog({
                 <button
                   type="button"
                   onClick={toggleAll}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   {selectedIds.size === bookings.length ? 'Deselect all' : 'Select all'}
                 </button>
@@ -309,7 +318,7 @@ export function CreateFromBookingsDialog({
             </div>
 
             {isFetching && (
-              <div className="flex items-center justify-center py-8 text-slate-500">
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <CircleNotch className="h-5 w-5 animate-spin mr-2" />
                 Loading bookings…
               </div>
@@ -323,8 +332,8 @@ export function CreateFromBookingsDialog({
             )}
 
             {!isFetching && !fetchError && bookings.length === 0 && (
-              <div className="text-center py-8 text-slate-500 border border-dashed border-slate-200 rounded-lg">
-                <Dog className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+              <div className="text-center py-8 text-muted-foreground border border-dashed border-border rounded-lg">
+                <Dog className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
                 <p className="text-sm font-medium">No transport-required bookings found</p>
                 <p className="text-xs mt-1">
                   Only confirmed bookings with <em>Requires transport</em> ticked will appear here.
@@ -333,36 +342,36 @@ export function CreateFromBookingsDialog({
             )}
 
             {!isFetching && bookings.length > 0 && (
-              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-64 overflow-auto">
+              <div className="border border-border rounded-lg divide-y divide-border max-h-64 overflow-auto">
                 {bookings.map(b => {
                   const checked = selectedIds.has(b.id);
                   return (
                     <label
                       key={b.id}
                       className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                        checked ? 'bg-blue-50' : 'hover:bg-slate-50'
+                        checked ? 'bg-primary-tint' : 'hover:bg-muted/50'
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggle(b.id)}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600"
+                        className="h-4 w-4 rounded border-input text-primary"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <Dog className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <span className="font-medium text-slate-900 truncate">{b.pet_name}</span>
-                          <span className="text-slate-400 text-xs truncate">{b.household_name}</span>
+                          <Dog className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="font-medium text-foreground truncate">{b.pet_name}</span>
+                          <span className="text-muted-foreground text-xs truncate">{b.household_name}</span>
                         </div>
                         {(b.planned_start_time || b.planned_end_time) && (
-                          <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
+                          <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {b.planned_start_time ?? '--:--'} – {b.planned_end_time ?? '--:--'}
                           </div>
                         )}
                       </div>
-                      {checked && <CheckCircle className="h-4 w-4 text-blue-500 shrink-0" />}
+                      {checked && <CheckCircle className="h-4 w-4 text-primary shrink-0" />}
                     </label>
                   );
                 })}
@@ -372,8 +381,8 @@ export function CreateFromBookingsDialog({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 pt-4 flex items-center justify-between gap-3">
-          <p className="text-sm text-slate-500">
+        <div className="border-t border-border pt-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
             {selectedIds.size} booking{selectedIds.size !== 1 ? 's' : ''} selected
           </p>
           <div className="flex gap-2">

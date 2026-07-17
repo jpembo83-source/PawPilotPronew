@@ -6,10 +6,11 @@
 
 import { Context, Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
+import { z } from 'npm:zod';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import * as kv from './kv_store.tsx';
-import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
-import { internalError } from './_shared/log.ts';
+import { requireAuth, requireRole, AuthenticatedUser, Role } from './_shared/auth.ts';
+import { internalError, logWarn } from './_shared/log.ts';
 import { signPetPhotoUrl, storedPetPhoto } from './lib/pet_photos.ts';
 
 const app = new Hono();
@@ -21,6 +22,105 @@ app.use('*', cors());
 // validation server-side with SERVICE_ROLE_KEY; the ad-hoc ANON_KEY-validated
 // getUserFromToken helper that used to live here has been removed.
 app.use('*', requireAuth);
+
+// ============================================================================
+// SCHEMAS (runtime mirror of shared/schemas/transport.ts — keep in sync)
+// ============================================================================
+
+const directionEnum = z.enum(['pickup', 'dropoff', 'roundtrip']);
+// 'failed' = driver-reported unsuccessful attempt; distinct from 'cancelled'
+// (dispatcher decision) so failed stops stay visible and re-schedulable.
+const jobStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'failed', 'cancelled']);
+const statusEventEnum = z.enum(['started', 'arrived', 'picked_up', 'dropped_off', 'completed', 'failed', 'cancelled']);
+const bookingTypeEnum = z.enum(['daycare', 'grooming', 'overnight']);
+const serviceDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM-DD');
+const optionalTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'expected HH:MM').nullable().optional();
+
+function timeWindowOrdered(d: { time_window_start?: string | null; time_window_end?: string | null }): boolean {
+  if (!d.time_window_start || !d.time_window_end) return true;
+  return d.time_window_start < d.time_window_end;
+}
+
+const createJobSchema = z
+  .object({
+    location_id: z.string().min(1),
+    service_date: serviceDate,
+    direction: directionEnum,
+    household_id: z.string().min(1),
+    pet_id: z.string().min(1),
+    address_pickup: z.string().max(500).nullable().optional(),
+    address_dropoff: z.string().max(500).nullable().optional(),
+    time_window_start: optionalTime,
+    time_window_end: optionalTime,
+    notes: z.string().max(2000).nullable().optional(),
+    booking_id: z.string().max(200).nullable().optional(),
+    booking_type: bookingTypeEnum.nullable().optional(),
+    driver_user_id: z.string().max(200).nullable().optional(),
+    vehicle_id: z.string().max(200).nullable().optional(),
+  })
+  .refine((d) => !!(d.address_pickup?.trim() || d.address_dropoff?.trim()), {
+    message: 'At least one address (pickup or dropoff) is required',
+    path: ['address_pickup'],
+  })
+  .refine(timeWindowOrdered, {
+    message: 'time_window_start must be before time_window_end',
+    path: ['time_window_end'],
+  });
+
+// PATCH whitelist. Deliberately excludes id, tenant_id, created_by,
+// created_at and location_id (a job never moves between locations — this
+// keeps the per-location KV indexes consistent). .strict() rejects any key
+// outside the whitelist (mass-assignment guard).
+const updateJobSchema = z
+  .object({
+    service_date: serviceDate.optional(),
+    direction: directionEnum.optional(),
+    status: jobStatusEnum.optional(),
+    address_pickup: z.string().max(500).nullable().optional(),
+    address_dropoff: z.string().max(500).nullable().optional(),
+    time_window_start: optionalTime,
+    time_window_end: optionalTime,
+    assigned_driver_user_id: z.string().max(200).nullable().optional(),
+    assigned_vehicle_id: z.string().max(200).nullable().optional(),
+    notes: z.string().max(2000).nullable().optional(),
+  })
+  .strict()
+  .refine(timeWindowOrdered, {
+    message: 'time_window_start must be before time_window_end',
+    path: ['time_window_end'],
+  });
+
+const assignJobSchema = z.object({
+  vehicle_id: z.string().min(1),
+  driver_user_id: z.string().max(200).nullable().optional(),
+});
+
+const statusUpdateSchema = z.object({
+  event_type: statusEventEnum,
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+const createVehicleSchema = z.object({
+  location_id: z.string().min(1),
+  name: z.string().min(1).max(100),
+  licence_plate: z.string().min(1).max(20),
+  capacity: z.number().int().min(1).max(50),
+  notes: z.string().max(2000).nullable().optional(),
+  assigned_driver_user_id: z.string().max(200).nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+
+const updateVehicleSchema = z
+  .object({
+    location_id: z.string().min(1).optional(),
+    name: z.string().min(1).max(100).optional(),
+    licence_plate: z.string().min(1).max(20).optional(),
+    capacity: z.number().int().min(1).max(50).optional(),
+    notes: z.string().max(2000).nullable().optional(),
+    assigned_driver_user_id: z.string().max(200).nullable().optional(),
+    is_active: z.boolean().optional(),
+  })
+  .strict();
 
 // ============================================================================
 // HELPERS
@@ -46,80 +146,116 @@ function validateUserPermission(c: Context, _requiredPermission: string) {
 }
 
 /**
- * Get active drivers for a location/tenant
- * Active driver = user with isActive=true and templateId='tpl-driver'
+ * Roles that may manage transport jobs (create/edit/assign). Staff get in
+ * only via the Driver template — mirroring the client-side Driver template,
+ * which grants transport create/update. templateId is authorization-bearing,
+ * so it is read from app_metadata only (server-set, untamperable).
+ */
+const TRANSPORT_MANAGE_ROLES: Role[] = ['admin', 'manager', 'assistant_manager'];
+
+function isDriver(user: AuthenticatedUser): boolean {
+  return (user.app_metadata?.templateId as string | undefined) === 'tpl-driver';
+}
+
+/**
+ * Write gate for job create/edit/assign. Must run AFTER requireAuth.
+ * Deletes and vehicle management use the stricter shared requireRole
+ * ('admin', 'manager') instead. On a miss the client gets a generic 403 +
+ * correlation ID; who was denied what is logged server-side only.
+ */
+async function requireJobWrite(c: Context, next: () => Promise<void>) {
+  const user = c.get('user') as AuthenticatedUser;
+  if (TRANSPORT_MANAGE_ROLES.includes(user.role) || isDriver(user)) {
+    return await next();
+  }
+  const correlationId = crypto.randomUUID();
+  logWarn('transport.write_denied', {
+    correlationId,
+    userId: user.id,
+    role: user.role,
+    method: c.req.method,
+    path: c.req.path,
+  });
+  return c.json({ error: 'forbidden', correlationId }, 403);
+}
+
+/**
+ * Get active drivers for a location, scoped to the requesting tenant.
+ * Active driver = not banned, templateId='tpl-driver', same tenant.
+ *
+ * Tenant resolution matches _shared/auth.ts validateUserToken: app_metadata
+ * tenant_id / tenantId, falling back to the user's own id. Without this
+ * filter, drivers (names + emails) from OTHER tenants leaked into the
+ * response and were counted for auto-assignment.
  */
 async function getActiveDrivers(tenantId: string, locationId?: string) {
-  // Get Supabase client to fetch users
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  
+
   if (!serviceRoleKey) {
-    console.error('[getActiveDrivers] SUPABASE_SERVICE_ROLE_KEY not available - cannot list users');
+    logWarn('transport.getActiveDrivers.no_service_role', {});
     return [];
   }
-  
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     serviceRoleKey
   );
-  
+
   try {
-    console.log('[getActiveDrivers] Fetching users from Supabase Auth...');
-    
-    // Fetch all users from Supabase Auth
-    const { data: { users }, error } = await supabase.auth.admin.listUsers();
-    
-    if (error) {
-      console.error('[getActiveDrivers] Error fetching users:', error);
-      return [];
-    }
-    
-    console.log(`[getActiveDrivers] Found ${users?.length || 0} total users`);
-    
-    // Filter for active drivers with the Driver template
-    const activeDrivers = users.filter((user: any) => {
-      // Must be active (not banned)
-      if (user.banned_until) {
-        return false;
+    const drivers: Array<{
+      user_id: string;
+      first_name: string;
+      last_name: string;
+      email: string | undefined;
+      role: string;
+      location_ids: string[];
+    }> = [];
+
+    // listUsers is paginated (default 50/page) — walk every page, or drivers
+    // beyond the first page silently vanish. MAX_PAGES bounds the walk.
+    const perPage = 1000;
+    const MAX_PAGES = 10;
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        logWarn('transport.getActiveDrivers.list_users_failed', { page });
+        break;
       }
-      
-      // Must have the Driver template assigned. This is an AUTHORIZATION
-      // check, so it reads app_metadata only (server-set, untamperable).
-      const templateId = user.app_metadata?.templateId;
-      if (templateId !== 'tpl-driver') {
-        return false;
+      const users = data?.users ?? [];
+
+      for (const user of users as any[]) {
+        if (user.banned_until) continue;
+
+        // All checks below are AUTHORIZATION checks, so they read
+        // app_metadata only (server-set, untamperable from the client).
+        const meta = user.app_metadata ?? {};
+
+        const userTenant = meta.tenant_id ?? meta.tenantId ?? user.id;
+        if (userTenant !== tenantId) continue;
+
+        if (meta.templateId !== 'tpl-driver') continue;
+
+        const locationIds: string[] = meta.locationIds ?? [];
+        if (locationId && !locationIds.includes('all') && !locationIds.includes(locationId)) {
+          continue;
+        }
+
+        drivers.push({
+          user_id: user.id,
+          first_name: user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0] || 'Unknown',
+          last_name: user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+          email: user.email,
+          role: meta.role || 'staff',
+          location_ids: locationIds,
+        });
       }
 
-      // If location_id specified, check location assignment
-      // (app_metadata only; server-set).
-      if (locationId) {
-        const locationIds = user.app_metadata?.locationIds ?? [];
-        
-        // Check if user has global access ('all') or includes the specific location
-        if (!locationIds.includes('all') && !locationIds.includes(locationId)) {
-          return false;
-        }
-      }
-      
-      return true;
-    });
-    
-    console.log(`[getActiveDrivers] Found ${activeDrivers.length} drivers with tpl-driver template`);
-    
-    // Map to a simpler format
-    return activeDrivers.map((user: any) => ({
-      user_id: user.id,
-      first_name: user.user_metadata?.name?.split(' ')[0] || user.email?.split('@')[0] || 'Unknown',
-      last_name: user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
-      email: user.email,
-      // Role lives in app_metadata (server-set, untamperable from client).
-      role: user.app_metadata?.role || 'staff',
-      // Security fields come from app_metadata only (server-set).
-      location_ids: user.app_metadata?.locationIds ?? []
-    }));
-    
+      if (users.length < perPage) break;
+    }
+
+    return drivers;
   } catch (error) {
-    console.error('[getActiveDrivers] Exception:', error);
+    logWarn('transport.getActiveDrivers.exception', {});
     return [];
   }
 }
@@ -129,31 +265,20 @@ async function getActiveDrivers(tenantId: string, locationId?: string) {
  */
 async function getActiveVehicles(tenantId: string, locationId?: string) {
   const allVehicles = await kv.getByPrefix(`transport_vehicle:${tenantId}:`);
-  
-  console.log(`[getActiveVehicles] Found ${allVehicles.length} total vehicles`);
-  
-  // Debug: Log first few vehicles
-  allVehicles.slice(0, 3).forEach((vehicle: any) => {
-    console.log(`[getActiveVehicles] Vehicle ${vehicle.name} - is_active: ${vehicle.is_active}, location_id: ${vehicle.location_id}`);
-  });
-  
-  const activeVehicles = allVehicles.filter((vehicle: any) => {
+
+  return allVehicles.filter((vehicle: any) => {
     // Must be active (use is_active field, not status)
     if (vehicle.is_active !== true) {
       return false;
     }
-    
+
     // If location_id specified, check location
     if (locationId && vehicle.location_id !== locationId) {
       return false;
     }
-    
+
     return true;
   });
-  
-  console.log(`[getActiveVehicles] Found ${activeVehicles.length} active vehicles`);
-  
-  return activeVehicles;
 }
 
 // ============================================================================
@@ -176,7 +301,6 @@ app.get('/active-drivers', async (c) => {
     });
     
   } catch (error) {
-    console.error('Error getting active drivers:', error);
     return internalError(c, 'transport.getActiveDrivers', error);
   }
 });
@@ -185,11 +309,13 @@ app.get('/active-drivers', async (c) => {
 // TRANSPORT JOBS - CREATE
 // ============================================================================
 
-app.post('/jobs', async (c) => {
+app.post('/jobs', requireJobWrite, async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
     const body = await c.req.json();
+    const parsed = createJobSchema.safeParse(body);
+    if (!parsed.success) return c.json({ error: parsed.error.format() }, 400);
     const {
       location_id,
       service_date,
@@ -205,44 +331,24 @@ app.post('/jobs', async (c) => {
       booking_type,
       driver_user_id,
       vehicle_id
-    } = body;
-    
-    // Validation
-    if (!location_id || !service_date || !direction || !household_id || !pet_id) {
-      return c.json({ error: 'Missing required fields' }, 400);
-    }
-    
-    if (!address_pickup && !address_dropoff) {
-      return c.json({ error: 'At least one address (pickup or dropoff) is required' }, 400);
-    }
-    
+    } = parsed.data;
+
     // Verify household and pet exist and belong to tenant
     const householdKey = `customer:${auth.tenant_id}:household:${household_id}`;
-    console.log('[Transport Job Create] Looking for household with key:', householdKey);
     const household = await kv.get(householdKey);
-    
+
     if (!household) {
-      console.log('[Transport Job Create] Household not found');
       return c.json({ error: 'Household not found or access denied' }, 404);
     }
-    
-    console.log('[Transport Job Create] Household found');
-    
+
     const petKey = `customer:${auth.tenant_id}:pet:${household_id}:${pet_id}`;
-    console.log('[Transport Job Create] Looking for pet with key:', petKey);
     const pet = await kv.get(petKey);
-    
+
     if (!pet) {
-      console.log('[Transport Job Create] Pet not found. Searching for all pets in household...');
-      const allPets = await kv.getByPrefix(`customer:${auth.tenant_id}:pet:${household_id}:`);
-      console.log('[Transport Job Create] Pets in household:', allPets.length);
       return c.json({ error: 'Pet not found or access denied' }, 404);
     }
-    
-    console.log('[Transport Job Create] Pet found');
-    
+
     // Parse if needed (KV store may return strings)
-    const householdData = typeof household === 'string' ? JSON.parse(household) : household;
     const petData = typeof pet === 'string' ? JSON.parse(pet) : pet;
     
     // Verify pet belongs to household
@@ -253,40 +359,30 @@ app.post('/jobs', async (c) => {
     // 3. Check driver assignment logic
     const activeDrivers = await getActiveDrivers(auth.tenant_id, location_id);
     const driverCount = activeDrivers.length;
-    
-    console.log(`[Transport] Driver assignment check - Found ${driverCount} active drivers for location ${location_id}`);
-    
+
     // Conditional driver assignment logic
-    let assigned_driver_user_id = driver_user_id; // Respect manual assignment if provided
-    let assigned_vehicle_id = vehicle_id;
-    let auto_assigned = false;
-    
+    let assigned_driver_user_id = driver_user_id ?? undefined; // Respect manual assignment if provided
+    let assigned_vehicle_id = vehicle_id ?? undefined;
+
     if (driverCount === 0) {
       // Rule A: No drivers - Allow creation but job will be unassigned
-      console.log('[Transport] Rule A: No drivers configured - creating unassigned job');
       assigned_driver_user_id = undefined;
       assigned_vehicle_id = undefined;
     } else if (driverCount === 1) {
       // Rule B: Exactly one driver - Auto-assign if not manually specified
       if (!assigned_driver_user_id) {
-        const soleDriver = activeDrivers[0];
-        assigned_driver_user_id = soleDriver.user_id;
-        auto_assigned = true;
-        console.log(`[Transport] Rule B: Auto-assigning to sole driver: ${soleDriver.first_name} ${soleDriver.last_name} (${soleDriver.user_id})`);
-        
+        assigned_driver_user_id = activeDrivers[0].user_id;
+
         // Also auto-assign vehicle if only one active vehicle
         if (!assigned_vehicle_id) {
           const activeVehicles = await getActiveVehicles(auth.tenant_id, location_id);
           if (activeVehicles.length === 1) {
             assigned_vehicle_id = activeVehicles[0].id;
-            console.log(`[Transport] Also auto-assigning sole vehicle: ${activeVehicles[0].name} (${activeVehicles[0].id})`);
           }
         }
       }
-    } else {
-      // Rule C: Multiple drivers - Allow creation with or without assignment
-      console.log(`[Transport] Rule C: ${driverCount} drivers available - assignment ${assigned_driver_user_id ? 'provided' : 'not provided'}`);
     }
+    // Rule C (2+ drivers): allow creation with or without assignment.
     
     // Create transport job
     const jobId = generateId('tjob');
@@ -301,8 +397,8 @@ app.post('/jobs', async (c) => {
       status: 'scheduled',
       household_id,
       pet_id,
-      address_pickup,
-      address_dropoff,
+      address_pickup: address_pickup || null,
+      address_dropoff: address_dropoff || null,
       time_window_start: time_window_start || null,
       time_window_end: time_window_end || null,
       assigned_driver_user_id: assigned_driver_user_id,
@@ -360,7 +456,6 @@ app.post('/jobs', async (c) => {
     return c.json({ success: true, job }, 201);
     
   } catch (error) {
-    console.error('Error creating transport job:', error);
     return internalError(c, 'transport.postJobs', error);
   }
 });
@@ -379,71 +474,106 @@ app.get('/jobs', async (c) => {
     const status = url.searchParams.get('status');
     const assigned_driver_user_id = url.searchParams.get('driver_user_id');
     
-    let jobIds: string[] = [];
-    
+    let jobs: any[] = [];
+
     // Query by date and location for efficiency
     if (service_date && location_id) {
       const locationIndexKey = `transport_job_location_index:${auth.tenant_id}:${location_id}:${service_date}`;
-      jobIds = await kv.get(locationIndexKey) || [];
+      const jobIds: string[] = await kv.get(locationIndexKey) || [];
+      jobs = jobIds.length
+        ? await kv.mget(jobIds.map((id) => `transport_job:${auth.tenant_id}:${id}`))
+        : [];
     } else if (service_date) {
       const dateIndexKey = `transport_job_index:${auth.tenant_id}:${service_date}`;
-      jobIds = await kv.get(dateIndexKey) || [];
+      const jobIds: string[] = await kv.get(dateIndexKey) || [];
+      jobs = jobIds.length
+        ? await kv.mget(jobIds.map((id) => `transport_job:${auth.tenant_id}:${id}`))
+        : [];
     } else {
-      // Get all jobs by prefix (less efficient, but works for smaller datasets)
-      const allJobsKey = `transport_job:${auth.tenant_id}:`;
-      const allJobs = await kv.getByPrefix(allJobsKey);
-      jobIds = allJobs.map((j: any) => j.id);
+      // Get all jobs by prefix (less efficient, but works for smaller
+      // datasets). The values ARE the jobs — no need to re-fetch by id.
+      jobs = await kv.getByPrefix(`transport_job:${auth.tenant_id}:`);
     }
-    
-    // Fetch all jobs
-    const jobs = await Promise.all(
-      jobIds.map(async (jobId) => {
-        const jobKey = `transport_job:${auth.tenant_id}:${jobId}`;
-        return await kv.get(jobKey);
-      })
-    );
-    
+
     // Filter out null values and apply filters
-    let filteredJobs = jobs.filter((j) => j !== null);
-    
+    let filteredJobs = jobs.filter((j) => j !== null && j !== undefined);
+
     if (location_id) {
       filteredJobs = filteredJobs.filter((j) => j.location_id === location_id);
     }
-    
+
     if (status) {
       filteredJobs = filteredJobs.filter((j) => j.status === status);
     }
-    
+
     if (assigned_driver_user_id) {
       filteredJobs = filteredJobs.filter((j) => j.assigned_driver_user_id === assigned_driver_user_id);
     }
+
+    // Deterministic order: earliest time window first, then creation time.
+    // Neither mget nor the index arrays guarantee a useful order, and the
+    // driver views treat this order as the route order.
+    filteredJobs.sort((a, b) =>
+      (a.time_window_start ?? '99:99').localeCompare(b.time_window_start ?? '99:99') ||
+      (a.created_at ?? '').localeCompare(b.created_at ?? '')
+    );
     
-    // Enrich with household and pet data
+    // Batch-enrich with household, pet, contact and vehicle data. The old
+    // path issued up to 4 sequential KV reads PER JOB (N+1); now each record
+    // type is fetched once via mget over the deduplicated key set. mget
+    // returns values in arbitrary order and silently drops missing keys, so
+    // results are re-keyed by each record's own id field.
+    const parseVal = (v: unknown) => {
+      if (!v) return null;
+      return typeof v === 'string' ? JSON.parse(v) : v;
+    };
+    const byId = async (keys: string[]) => {
+      const map = new Map<string, any>();
+      if (keys.length === 0) return map;
+      const values = await kv.mget(keys);
+      for (const raw of values) {
+        const value = parseVal(raw);
+        if (value?.id) map.set(value.id, value);
+      }
+      return map;
+    };
+
+    const dedupe = (keys: (string | null)[]) =>
+      [...new Set(keys.filter((k): k is string => !!k))];
+
+    const householdKeys = dedupe(filteredJobs.map((j) =>
+      `customer:${auth.tenant_id}:household:${j.household_id}`));
+    const petKeys = dedupe(filteredJobs.map((j) =>
+      `customer:${auth.tenant_id}:pet:${j.household_id}:${j.pet_id}`));
+    const vehicleKeys = dedupe(filteredJobs.map((j) =>
+      j.assigned_vehicle_id ? `transport_vehicle:${auth.tenant_id}:${j.assigned_vehicle_id}` : null));
+
+    const [households, pets, vehicleMap] = await Promise.all([
+      byId(householdKeys),
+      byId(petKeys),
+      byId(vehicleKeys),
+    ]);
+
+    // Contacts depend on each household's primary_contact_id — second batch.
+    const contactKeys = dedupe(filteredJobs.map((j) => {
+      const household = households.get(j.household_id);
+      return household?.primary_contact_id
+        ? `customer:${auth.tenant_id}:contact:${j.household_id}:${household.primary_contact_id}`
+        : null;
+    }));
+    const contactMap = await byId(contactKeys);
+
     const enrichedJobs = await Promise.all(
       filteredJobs.map(async (job) => {
-        const householdKey = `customer:${auth.tenant_id}:household:${job.household_id}`;
-        const householdStr = await kv.get(householdKey);
-        const household = householdStr ? (typeof householdStr === 'string' ? JSON.parse(householdStr) : householdStr) : null;
-        
-        const petKey = `customer:${auth.tenant_id}:pet:${job.household_id}:${job.pet_id}`;
-        const petStr = await kv.get(petKey);
-        const pet = petStr ? (typeof petStr === 'string' ? JSON.parse(petStr) : petStr) : null;
-        
-        // Get primary contact
-        let contact = null;
-        if (household?.primary_contact_id) {
-          const contactKey = `customer:${auth.tenant_id}:contact:${job.household_id}:${household.primary_contact_id}`;
-          const contactStr = await kv.get(contactKey);
-          contact = contactStr ? (typeof contactStr === 'string' ? JSON.parse(contactStr) : contactStr) : null;
-        }
-        
-        // Get vehicle if assigned
-        let vehicle = null;
-        if (job.assigned_vehicle_id) {
-          const vehicleKey = `transport_vehicle:${auth.tenant_id}:${job.assigned_vehicle_id}`;
-          vehicle = await kv.get(vehicleKey);
-        }
-        
+        const household = households.get(job.household_id) ?? null;
+        const pet = pets.get(job.pet_id) ?? null;
+        const contact = household?.primary_contact_id
+          ? contactMap.get(household.primary_contact_id) ?? null
+          : null;
+        const vehicle = job.assigned_vehicle_id
+          ? vehicleMap.get(job.assigned_vehicle_id) ?? null
+          : null;
+
         return {
           ...job,
           pet_name: pet?.name || 'Unknown',
@@ -458,11 +588,10 @@ app.get('/jobs', async (c) => {
         };
       })
     );
-    
+
     return c.json({ success: true, jobs: enrichedJobs });
     
   } catch (error) {
-    console.error('Error listing transport jobs:', error);
     return internalError(c, 'transport.getJobs', error);
   }
 });
@@ -521,7 +650,6 @@ app.get('/jobs/:id', async (c) => {
     return c.json({ success: true, job: enrichedJob });
     
   } catch (error) {
-    console.error('Error fetching transport job:', error);
     return internalError(c, 'transport.getJobsId', error);
   }
 });
@@ -530,7 +658,7 @@ app.get('/jobs/:id', async (c) => {
 // TRANSPORT JOBS - UPDATE
 // ============================================================================
 
-app.patch('/jobs/:id', async (c) => {
+app.patch('/jobs/:id', requireJobWrite, async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -542,16 +670,21 @@ app.patch('/jobs/:id', async (c) => {
       return c.json({ error: 'Transport job not found' }, 404);
     }
     
-    const updates = await c.req.json();
-    
-    // Update job
+    const body = await c.req.json();
+    const parsedUpdates = updateJobSchema.safeParse(body);
+    if (!parsedUpdates.success) return c.json({ error: parsedUpdates.error.format() }, 400);
+    const updates = parsedUpdates.data;
+
+    // Update job. The schema whitelist guarantees id/tenant_id/created_by/
+    // location_id cannot be overwritten here.
     const updatedJob = {
       ...job,
       ...updates,
       updated_at: new Date().toISOString()
     };
-    
-    // If date changed, update indices
+
+    // If date changed, update indices. location_id is immutable (excluded
+    // from the schema), so the location index only ever moves across dates.
     if (updates.service_date && updates.service_date !== job.service_date) {
       // Remove from old index
       const oldDateIndexKey = `transport_job_index:${auth.tenant_id}:${job.service_date}`;
@@ -593,7 +726,6 @@ app.patch('/jobs/:id', async (c) => {
     return c.json({ success: true, job: updatedJob });
     
   } catch (error) {
-    console.error('Error updating transport job:', error);
     return internalError(c, 'transport.patchJobsId', error);
   }
 });
@@ -602,7 +734,7 @@ app.patch('/jobs/:id', async (c) => {
 // TRANSPORT JOBS - DELETE
 // ============================================================================
 
-app.delete('/jobs/:id', async (c) => {
+app.delete('/jobs/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -642,7 +774,6 @@ app.delete('/jobs/:id', async (c) => {
     return c.json({ success: true });
     
   } catch (error) {
-    console.error('Error deleting transport job:', error);
     return internalError(c, 'transport.deleteJobsId', error);
   }
 });
@@ -651,30 +782,50 @@ app.delete('/jobs/:id', async (c) => {
 // TRANSPORT JOBS - ASSIGN DRIVER
 // ============================================================================
 
-app.post('/jobs/:id/assign', async (c) => {
+app.post('/jobs/:id/assign', requireJobWrite, async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
     const jobId = c.req.param('id');
-    const { driver_user_id, vehicle_id } = await c.req.json();
-    
+    const parsedAssign = assignJobSchema.safeParse(await c.req.json());
+    if (!parsedAssign.success) return c.json({ error: parsedAssign.error.format() }, 400);
+    const { driver_user_id, vehicle_id } = parsedAssign.data;
+
     const jobKey = `transport_job:${auth.tenant_id}:${jobId}`;
     const job = await kv.get(jobKey);
-    
+
     if (!job) {
       return c.json({ error: 'Transport job not found' }, 404);
     }
-    
+
+    // Vehicle must exist in this tenant — the assignment is meaningless (and
+    // the UI shows 'Assigned' with no vehicle) otherwise.
+    const vehicleKey = `transport_vehicle:${auth.tenant_id}:${vehicle_id}`;
+    const vehicle = await kv.get(vehicleKey);
+    if (!vehicle) {
+      return c.json({ error: 'Vehicle not found' }, 404);
+    }
+
+    // No driver given → fall back to the vehicle's default driver, which is
+    // what the assign dialog promises. If the vehicle has none, reject rather
+    // than silently leaving the job unassigned.
+    const resolvedDriverId = driver_user_id || vehicle.assigned_driver_user_id || null;
+    if (!resolvedDriverId) {
+      return c.json({
+        error: 'This vehicle has no default driver. Select a driver to assign.'
+      }, 400);
+    }
+
     // Update assignment
     const updatedJob = {
       ...job,
-      assigned_driver_user_id: driver_user_id,
+      assigned_driver_user_id: resolvedDriverId,
       assigned_vehicle_id: vehicle_id,
       updated_at: new Date().toISOString()
     };
-    
+
     await kv.set(jobKey, updatedJob);
-    
+
     // Log event
     const eventId = generateId('tevt');
     const event = {
@@ -684,7 +835,7 @@ app.post('/jobs/:id/assign', async (c) => {
       event_type: 'assigned',
       event_time: new Date().toISOString(),
       actor_user_id: auth.user.id,
-      metadata: { driver_user_id, vehicle_id }
+      metadata: { driver_user_id: resolvedDriverId, vehicle_id }
     };
     
     const eventKey = `transport_event:${auth.tenant_id}:${eventId}`;
@@ -693,7 +844,6 @@ app.post('/jobs/:id/assign', async (c) => {
     return c.json({ success: true, job: updatedJob });
     
   } catch (error) {
-    console.error('Error assigning transport job:', error);
     return internalError(c, 'transport.postJobsIdAssign', error);
   }
 });
@@ -708,44 +858,60 @@ app.post('/jobs/:id/status', async (c) => {
     const auth = validateUserPermission(c, 'transport:read');
     
     const jobId = c.req.param('id');
-    const { event_type, notes } = await c.req.json();
-    
+    const parsedStatus = statusUpdateSchema.safeParse(await c.req.json());
+    if (!parsedStatus.success) return c.json({ error: parsedStatus.error.format() }, 400);
+    const { event_type, notes } = parsedStatus.data;
+
     const jobKey = `transport_job:${auth.tenant_id}:${jobId}`;
     const job = await kv.get(jobKey);
-    
+
     if (!job) {
       return c.json({ error: 'Transport job not found' }, 404);
     }
-    
+
     // auth.user is the AuthenticatedUser from requireAuth — its .role is
     // already sourced from app_metadata, no need to re-read.
     const userRole = auth.user.role || 'driver';
     // 'owner' is not a Role in this codebase (Role = admin | manager |
     // assistant_manager | staff), so the comparison was always false.
     const isManager = userRole === 'manager' || userRole === 'admin';
-    
+
     // Drivers can only update jobs assigned to them
     // Managers/Admins can update any job
     if (!isManager && job.assigned_driver_user_id !== auth.user.id) {
       return c.json({ error: 'This job is not assigned to you' }, 403);
     }
-    
+
+    // Terminal states accept no further status events.
+    if (job.status === 'completed' || job.status === 'cancelled' || job.status === 'failed') {
+      return c.json({ error: `Job is already ${job.status}` }, 409);
+    }
+
     const now = new Date().toISOString();
-    
+
     // Update job status based on event
-    let updatedJob = { ...job, updated_at: now };
-    
+    const updatedJob = { ...job, updated_at: now };
+
     if (event_type === 'started') {
       updatedJob.status = 'in_progress';
     } else if (event_type === 'completed') {
       updatedJob.status = 'completed';
+    } else if (event_type === 'failed') {
+      // Driver-reported unsuccessful attempt (customer not home, …).
+      // Distinct from 'cancelled' (dispatcher decision) so failed stops stay
+      // visible and re-schedulable.
+      updatedJob.status = 'failed';
     } else if (event_type === 'cancelled') {
       updatedJob.status = 'cancelled';
-    } else if (event_type === 'arrived' || event_type === 'picked_up' || event_type === 'dropped_off') {
-      // These are intermediate events that don't change the overall status
-      // but are logged for audit purposes
+    } else if (event_type === 'picked_up') {
+      // Intermediate event; the timestamp doubles as roundtrip leg state
+      // (leg 1 done → driver UI moves on to the drop-off leg).
+      updatedJob.picked_up_at = now;
+    } else if (event_type === 'dropped_off') {
+      updatedJob.dropped_off_at = now;
     }
-    
+    // 'arrived' is logged for audit only and changes nothing on the job.
+
     await kv.set(jobKey, updatedJob);
     
     // Log event
@@ -766,7 +932,6 @@ app.post('/jobs/:id/status', async (c) => {
     return c.json({ success: true, job: updatedJob });
     
   } catch (error) {
-    console.error('Error updating transport job status:', error);
     return internalError(c, 'transport.postJobsIdStatus', error);
   }
 });
@@ -775,20 +940,17 @@ app.post('/jobs/:id/status', async (c) => {
 // VEHICLES - CREATE
 // ============================================================================
 
-app.post('/vehicles', async (c) => {
+app.post('/vehicles', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
-    const body = await c.req.json();
-    const { location_id, name, licence_plate, capacity, notes, assigned_driver_user_id } = body;
-    
-    if (!location_id || !name || !licence_plate || !capacity) {
-      return c.json({ error: 'Missing required fields' }, 400);
-    }
-    
+    const parsedVehicle = createVehicleSchema.safeParse(await c.req.json());
+    if (!parsedVehicle.success) return c.json({ error: parsedVehicle.error.format() }, 400);
+    const { location_id, name, licence_plate, capacity, notes, assigned_driver_user_id, is_active } = parsedVehicle.data;
+
     const vehicleId = generateId('tveh');
     const now = new Date().toISOString();
-    
+
     const vehicle = {
       id: vehicleId,
       tenant_id: auth.tenant_id,
@@ -798,7 +960,7 @@ app.post('/vehicles', async (c) => {
       capacity,
       assigned_driver_user_id: assigned_driver_user_id || null,
       notes: notes || null,
-      is_active: true,
+      is_active: is_active ?? true,
       created_at: now,
       updated_at: now
     };
@@ -814,7 +976,6 @@ app.post('/vehicles', async (c) => {
     return c.json({ success: true, vehicle }, 201);
     
   } catch (error) {
-    console.error('Error creating vehicle:', error);
     return internalError(c, 'transport.postVehicles', error);
   }
 });
@@ -855,7 +1016,6 @@ app.get('/vehicles', async (c) => {
     return c.json({ success: true, vehicles: filteredVehicles });
     
   } catch (error) {
-    console.error('Error listing vehicles:', error);
     return internalError(c, 'transport.getVehicles', error);
   }
 });
@@ -864,7 +1024,7 @@ app.get('/vehicles', async (c) => {
 // VEHICLES - UPDATE
 // ============================================================================
 
-app.patch('/vehicles/:id', async (c) => {
+app.patch('/vehicles/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -875,21 +1035,37 @@ app.patch('/vehicles/:id', async (c) => {
     if (!vehicle) {
       return c.json({ error: 'Vehicle not found' }, 404);
     }
-    
-    const updates = await c.req.json();
-    
+
+    const parsedVehicleUpdates = updateVehicleSchema.safeParse(await c.req.json());
+    if (!parsedVehicleUpdates.success) return c.json({ error: parsedVehicleUpdates.error.format() }, 400);
+    const updates = parsedVehicleUpdates.data;
+
+    // Whitelisted spread — id/tenant_id/created_at cannot be overwritten.
     const updatedVehicle = {
       ...vehicle,
       ...updates,
       updated_at: new Date().toISOString()
     };
-    
+
+    // The UI allows changing a vehicle's home location — move it between the
+    // per-location indexes or it keeps appearing at the old location.
+    if (updates.location_id && updates.location_id !== vehicle.location_id) {
+      const oldIndexKey = `transport_vehicle_location_index:${auth.tenant_id}:${vehicle.location_id}`;
+      const oldIndex = await kv.get(oldIndexKey) || [];
+      await kv.set(oldIndexKey, oldIndex.filter((id: string) => id !== vehicleId));
+
+      const newIndexKey = `transport_vehicle_location_index:${auth.tenant_id}:${updates.location_id}`;
+      const newIndex = await kv.get(newIndexKey) || [];
+      if (!newIndex.includes(vehicleId)) {
+        await kv.set(newIndexKey, [...newIndex, vehicleId]);
+      }
+    }
+
     await kv.set(vehicleKey, updatedVehicle);
-    
+
     return c.json({ success: true, vehicle: updatedVehicle });
     
   } catch (error) {
-    console.error('Error updating vehicle:', error);
     return internalError(c, 'transport.patchVehiclesId', error);
   }
 });
@@ -898,7 +1074,7 @@ app.patch('/vehicles/:id', async (c) => {
 // VEHICLES - DELETE
 // ============================================================================
 
-app.delete('/vehicles/:id', async (c) => {
+app.delete('/vehicles/:id', requireRole('admin', 'manager'), async (c) => {
   try {
     const auth = validateUserPermission(c, 'transport:write');
     
@@ -909,7 +1085,20 @@ app.delete('/vehicles/:id', async (c) => {
     if (!vehicle) {
       return c.json({ error: 'Vehicle not found' }, 404);
     }
-    
+
+    // Refuse to delete a vehicle that open jobs still reference — deleting it
+    // would leave those jobs pointing at nothing ('Assigned' with no vehicle).
+    const allJobs = await kv.getByPrefix(`transport_job:${auth.tenant_id}:`);
+    const openJobs = allJobs.filter((j: any) =>
+      j.assigned_vehicle_id === vehicleId &&
+      (j.status === 'scheduled' || j.status === 'in_progress')
+    );
+    if (openJobs.length > 0) {
+      return c.json({
+        error: `Vehicle is assigned to ${openJobs.length} open transport job${openJobs.length !== 1 ? 's' : ''}. Reassign or complete them first.`
+      }, 409);
+    }
+
     // Remove from location index
     const locationIndexKey = `transport_vehicle_location_index:${auth.tenant_id}:${vehicle.location_id}`;
     const locationIndex = await kv.get(locationIndexKey) || [];
@@ -921,7 +1110,6 @@ app.delete('/vehicles/:id', async (c) => {
     return c.json({ success: true });
     
   } catch (error) {
-    console.error('Error deleting vehicle:', error);
     return internalError(c, 'transport.deleteVehiclesId', error);
   }
 });

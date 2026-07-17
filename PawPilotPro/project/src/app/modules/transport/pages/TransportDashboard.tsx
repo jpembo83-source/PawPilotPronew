@@ -8,7 +8,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
 import { useSettingsStore } from '../../settings/store';
-import { useAuth } from '@/app/context/AuthContext';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
 import { 
@@ -34,8 +33,7 @@ export function TransportDashboard() {
   const navigate = useNavigate();
   const { jobs, isLoading, error, fetchJobs } = useTransportStore();
   const { locations } = useSettingsStore();
-  const { session } = useAuth();
-  
+
   const [selectedDate, setSelectedDate] = useState<Date>(startOfToday());
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -109,11 +107,11 @@ export function TransportDashboard() {
       />
 
       {/* Header */}
-      <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm shrink-0">
+      <div className="bg-card p-6 rounded-lg border border-border shadow-sm shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900">Transport Dashboard</h2>
-            <p className="text-slate-500 mt-1">Manage daily transport operations</p>
+            <h2 className="text-2xl font-bold text-foreground">Transport Dashboard</h2>
+            <p className="text-muted-foreground mt-1">Manage daily transport operations</p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -135,12 +133,12 @@ export function TransportDashboard() {
         <div className="flex items-center gap-4">
           {/* Date Selector */}
           <div className="flex items-center gap-2">
-            <CalendarBlank className="h-4 w-4 text-slate-500" />
+            <CalendarBlank className="h-4 w-4 text-muted-foreground" />
             <input
               type="date"
               value={dateStr}
               onChange={e => setSelectedDate(new Date(e.target.value))}
-              className="px-3 py-2 rounded-md border border-slate-200 text-sm bg-white"
+              className="px-3 py-2 rounded-md border border-input text-sm bg-input-background"
             />
           </div>
           
@@ -148,7 +146,7 @@ export function TransportDashboard() {
           <select 
             value={selectedLocation}
             onChange={e => setSelectedLocation(e.target.value)}
-            className="px-3 py-2 rounded-md border border-slate-200 text-sm bg-white"
+            className="px-3 py-2 rounded-md border border-input text-sm bg-input-background"
           >
             <option value="">Select Location</option>
             {locations.map(loc => (
@@ -173,8 +171,8 @@ export function TransportDashboard() {
       {isLoading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <CircleNotch className="h-8 w-8 text-slate-400 animate-spin mx-auto mb-2" />
-            <p className="text-slate-500">Loading transport jobs...</p>
+            <CircleNotch className="h-8 w-8 text-muted-foreground animate-spin mx-auto mb-2" />
+            <p className="text-muted-foreground">Loading transport jobs...</p>
           </div>
         </div>
       )}
@@ -241,15 +239,15 @@ export function TransportDashboard() {
           )}
 
           {/* Jobs List */}
-          <div className="flex-1 overflow-auto bg-white rounded-lg border border-slate-200 shadow-sm">
+          <div className="flex-1 overflow-auto bg-card rounded-lg border border-border shadow-sm">
             {jobs.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center max-w-md p-8">
-                  <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Truck className="h-8 w-8 text-slate-400" />
+                  <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Truck className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">No Transport Jobs</h3>
-                  <p className="text-slate-500 mb-4">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No Transport Jobs</h3>
+                  <p className="text-muted-foreground mb-4">
                     There are no transport tasks scheduled for {format(selectedDate, 'MMMM d, yyyy')} at{' '}
                     {locations.find(l => l.id === selectedLocation)?.name}.
                   </p>
@@ -260,9 +258,9 @@ export function TransportDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-slate-200">
+              <div className="divide-y divide-border">
                 {/* Table Header */}
-                <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <div className="col-span-1">Status</div>
                   <div className="col-span-2">Pet & Household</div>
                   <div className="col-span-1">Direction</div>
@@ -313,24 +311,25 @@ function KPICard({
   };
   
   return (
-    <div className={`bg-white rounded-lg border p-4 ${highlight ? 'border-amber-300 shadow-md' : 'border-slate-200 shadow-sm'}`}>
+    <div className={`bg-card rounded-lg border p-4 ${highlight ? 'border-amber-300 shadow-md' : 'border-border shadow-sm'}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{title}</span>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</span>
         <div className={`p-1.5 rounded ${colorMap[color]}`}>
           {icon}
         </div>
       </div>
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
+      <div className="text-2xl font-bold text-foreground">{value}</div>
     </div>
   );
 }
 
 // Job Row Component
 function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () => void }) {
-  const statusColors = {
-    scheduled: 'bg-slate-100 text-slate-700',
+  const statusColors: Record<string, string> = {
+    scheduled: 'bg-muted text-foreground',
     in_progress: 'bg-green-100 text-green-700',
     completed: 'bg-teal-100 text-teal-700',
+    failed: 'bg-orange-100 text-orange-700',
     cancelled: 'bg-red-100 text-red-700'
   };
   
@@ -349,7 +348,7 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
   return (
     <div 
       onClick={onClick}
-      className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-slate-50 cursor-pointer transition-colors"
+      className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-muted/50 cursor-pointer transition-colors"
     >
       <div className="col-span-1">
         <Badge className={statusColors[job.status]}>
@@ -358,8 +357,8 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       </div>
       
       <div className="col-span-2">
-        <div className="font-medium text-slate-900">{job.pet_name}</div>
-        <div className="text-sm text-slate-500">{job.household_name}</div>
+        <div className="font-medium text-foreground">{job.pet_name}</div>
+        <div className="text-sm text-muted-foreground">{job.household_name}</div>
       </div>
       
       <div className="col-span-1">
@@ -370,18 +369,18 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       
       <div className="col-span-2">
         {job.time_window_start && job.time_window_end ? (
-          <div className="flex items-center gap-1 text-sm text-slate-600">
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <Clock className="h-3 w-3" />
             {job.time_window_start} - {job.time_window_end}
           </div>
         ) : (
-          <span className="text-sm text-slate-400">No time set</span>
+          <span className="text-sm text-muted-foreground">No time set</span>
         )}
       </div>
       
       <div className="col-span-3">
-        <div className="flex items-start gap-2 text-sm text-slate-600">
-          <MapPin className="h-4 w-4 shrink-0 mt-0.5 text-slate-400" />
+        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+          <MapPin className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
           <span className="line-clamp-2">{address}</span>
         </div>
       </div>
@@ -389,8 +388,8 @@ function JobRow({ job, onClick }: { job: TransportJobWithDetails; onClick: () =>
       <div className="col-span-2">
         {job.assigned_driver_user_id ? (
           <div className="flex items-center gap-2">
-            <UsersThree className="h-4 w-4 text-slate-400" />
-            <span className="text-sm text-slate-600">
+            <UsersThree className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
               {job.vehicle_name || 'Assigned'}
             </span>
           </div>

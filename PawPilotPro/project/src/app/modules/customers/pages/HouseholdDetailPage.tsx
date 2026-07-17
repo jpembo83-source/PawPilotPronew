@@ -60,7 +60,7 @@ import { PortalStatusChip, usePortalStatus } from '../components/PortalStatusChi
 import { hasValidWaiver } from '../waiverStatus';
 import { CreateBookingDialog } from '../../daycare/components/CreateBookingDialog';
 import { CreateReservationModal } from '../../overnights/components/CreateReservationModal';
-import { CreateTransportRequestModal } from '../../transport/components/CreateTransportRequestModal';
+import { CreateTransportJobDialog } from '../../transport/components/CreateTransportJobDialog';
 
 import { useBackNavigation } from '../../../components/BackButton';
 export function HouseholdDetailPage() {
@@ -730,10 +730,41 @@ export function HouseholdDetailPage() {
         onSuccess={() => setOvernightOpen(false)}
       />
 
-      <CreateTransportRequestModal
+      <CreateTransportJobDialog
         open={transportOpen}
-        onClose={() => setTransportOpen(false)}
-        householdId={household.id}
+        onOpenChange={setTransportOpen}
+        defaultLocationId={household.primary_location_id || ''}
+        prefillHousehold={{
+          id: household.id,
+          name: household.name,
+          primary_contact_id: household.primary_contact_id,
+          address: household.address
+            ? [
+                household.address.line1,
+                household.address.line2,
+                household.address.city,
+                household.address.postcode,
+                household.address.country,
+              ]
+                .filter(Boolean)
+                .join(', ')
+            : undefined,
+          pets: pets.map(p => ({
+            id: p.id,
+            name: p.name,
+            photo_url: p.photo_url,
+            household_id: household.id,
+          })),
+          contacts: contacts.map(ct => ({
+            id: ct.id,
+            first_name: ct.first_name,
+            last_name: ct.last_name,
+            email: ct.email,
+            phone: ct.phone,
+            relationship: (ct as { relationship?: string }).relationship || '',
+          })),
+        }}
+        onJobCreated={() => setTransportOpen(false)}
       />
     </div>
   );
