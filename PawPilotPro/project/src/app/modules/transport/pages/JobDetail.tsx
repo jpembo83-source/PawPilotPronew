@@ -221,9 +221,9 @@ export function JobDetail() {
   return (
     <div className="h-[calc(100vh-100px)] overflow-auto">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        {/* Header — wraps on mobile so the badge/actions don't overflow */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="ghost"
               onClick={goBack}

@@ -89,12 +89,12 @@ export function JobsList() {
     <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
       {/* Header */}
       <div className="bg-card p-6 rounded-lg border border-border shadow-sm shrink-0">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Transport Jobs</h2>
             <p className="text-muted-foreground mt-1">View and manage all transport jobs</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button 
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
@@ -258,7 +258,7 @@ export function JobsList() {
               </div>
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border min-w-[880px]">
               {/* Table Header */}
               <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky top-12">
                 <div className="col-span-1">Date</div>
