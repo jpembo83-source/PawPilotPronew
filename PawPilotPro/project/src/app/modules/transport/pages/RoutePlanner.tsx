@@ -89,32 +89,32 @@ export function RoutePlanner() {
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between bg-card p-4 rounded-lg border border-border shadow-sm shrink-0">
-        <div className="flex items-center gap-4">
+      {/* Stacks on mobile; the old single row overflowed the viewport and
+          pushed the New Job button half off-screen. */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-card p-4 rounded-lg border border-border shadow-sm shrink-0">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
           <h2 className="text-lg font-semibold text-foreground">Transport Planner</h2>
-          <div className="flex items-center bg-muted rounded-md px-3 py-1 text-sm text-foreground">
-            <CalendarBlank className="h-4 w-4 mr-2 text-muted-foreground" />
+          <div className="flex items-center bg-muted rounded-md px-3 py-1.5 text-sm text-foreground whitespace-nowrap">
+            <CalendarBlank className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
             {format(selectedDate, 'EEE, MMM d, yyyy')}
           </div>
-          
-          {/* Location Filter */}
-          <select 
+
+          {/* Location Filter — 44px touch target on mobile */}
+          <select
             value={selectedLocation}
             onChange={e => setSelectedLocation(e.target.value)}
-            className="h-9 px-3 rounded-md border border-border text-sm bg-card"
+            className="h-11 md:h-9 px-3 rounded-md border border-input text-sm bg-input-background text-foreground w-full sm:w-auto"
           >
             {locations.map(loc => (
               <option key={loc.id} value={loc.id}>{loc.name}</option>
             ))}
           </select>
         </div>
-        
-        <div className="flex gap-2">
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Transport Job
-          </Button>
-        </div>
+
+        <Button onClick={() => setShowCreateDialog(true)} className="w-full md:w-auto shrink-0">
+          <Plus className="h-4 w-4 mr-2" />
+          New Transport Job
+        </Button>
       </div>
 
       {/* Error Display */}

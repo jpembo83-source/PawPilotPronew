@@ -106,47 +106,49 @@ export function TransportDashboard() {
         onCreated={handleCreateSuccess}
       />
 
-      {/* Header */}
-      <div className="bg-card p-6 rounded-lg border border-border shadow-sm shrink-0">
-        <div className="flex items-center justify-between mb-4">
+      {/* Header — stacks on mobile; the old fixed rows overflowed the
+          viewport on phones. */}
+      <div className="bg-card p-4 md:p-6 rounded-lg border border-border shadow-sm shrink-0">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Transport Dashboard</h2>
             <p className="text-muted-foreground mt-1">Manage daily transport operations</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => setShowFromBookingsDialog(true)}
               disabled={!selectedLocation}
               title="Batch-create jobs from today's confirmed bookings that require transport"
+              className="w-full sm:w-auto"
             >
               <CalendarBlank className="h-4 w-4 mr-2" />
               From Bookings
             </Button>
-            <Button onClick={() => setShowCreateDialog(true)} size="lg">
+            <Button onClick={() => setShowCreateDialog(true)} size="lg" className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Transport Job
             </Button>
           </div>
         </div>
-        
-        <div className="flex items-center gap-4">
-          {/* Date Selector */}
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          {/* Date Selector — 44px touch target on mobile */}
           <div className="flex items-center gap-2">
-            <CalendarBlank className="h-4 w-4 text-muted-foreground" />
+            <CalendarBlank className="h-4 w-4 text-muted-foreground shrink-0" />
             <input
               type="date"
               value={dateStr}
               onChange={e => setSelectedDate(new Date(e.target.value))}
-              className="px-3 py-2 rounded-md border border-input text-sm bg-input-background"
+              className="h-11 md:h-10 px-3 rounded-md border border-input text-sm bg-input-background text-foreground flex-1 sm:flex-none"
             />
           </div>
-          
+
           {/* Location Filter */}
-          <select 
+          <select
             value={selectedLocation}
             onChange={e => setSelectedLocation(e.target.value)}
-            className="px-3 py-2 rounded-md border border-input text-sm bg-input-background"
+            className="h-11 md:h-10 px-3 rounded-md border border-input text-sm bg-input-background text-foreground w-full sm:w-auto"
           >
             <option value="">Select Location</option>
             {locations.map(loc => (
@@ -258,7 +260,7 @@ export function TransportDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border min-w-[880px]">
                 {/* Table Header */}
                 <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-muted text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <div className="col-span-1">Status</div>
