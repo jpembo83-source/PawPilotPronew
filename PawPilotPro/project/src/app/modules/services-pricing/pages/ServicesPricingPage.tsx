@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, CurrencyDollar, UsersThree, MapPin, Receipt, CheckSquare } from '@phosphor-icons/react';
 import { useServicesPricingStore } from '../store';
 import { ServicesTab } from './tabs/ServicesTab';
+import { MembershipPlansTab } from './tabs/MembershipPlansTab';
 
 type TabId = 'services' | 'price-books' | 'memberships' | 'location-pricing' | 'fees-discounts' | 'approvals';
 
@@ -50,6 +51,8 @@ export function ServicesPricingPage() {
     switch (activeTab) {
       case 'services':
         return <ServicesTab />;
+      case 'memberships':
+        return <MembershipPlansTab />;
       default:
         return null;
     }

@@ -11,6 +11,14 @@ import { buildPetUpdate, recordPetUpdate } from './lib/pet_updates.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
 import { signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
 import { findDuplicateBooking } from './lib/daycare_dedup.ts';
+import {
+  consumeCredits,
+  membershipCoverage,
+  restoreCredits,
+  sessionTypeForServiceId,
+  type CustomerMembership,
+} from './lib/membership_catalog.ts';
+import { activeMembershipForHousehold } from './lib/membership_store.ts';
 
 const app = new Hono();
 
@@ -84,6 +92,11 @@ interface DaycareBooking {
   tax_rate: number;
   total_price: number;
   currency: string;
+  /** Set when an active membership covered this booking: the covering
+   *  customer_membership id and the credits drawn (0 for unlimited plans).
+   *  Cancellation restores the credits via these fields. */
+  membership_id?: string;
+  membership_credits_used?: number;
   billing_line_item_ids: string[];
   requires_transport: boolean;
   transport_pickup_id?: string;
@@ -1004,10 +1017,55 @@ app.post('/bookings', async (c) => {
     
     // Get pricing from Services & Pricing
     const service = await kv.get(`pricing:service:${service_id}`) as any;
-    const base_price_locked = service?.base_price || 99.00;
+    let base_price_locked = service?.base_price || 99.00;
     const tax_rate = service?.tax_rate || 0.077; // Swiss VAT
-    const total_price = base_price_locked * (1 + tax_rate);
-    
+    let total_price = base_price_locked * (1 + tax_rate);
+
+    // Membership billing — client-requested, server-verified. Staff choose
+    // "Membership" vs "PAYG" billing in the dialog (a customer may want to
+    // save credits), and that intent arrives as service_type 'membership'.
+    // The server never trusts the claim: it resolves the household's active
+    // membership from its own tenant-scoped data, checks the plan actually
+    // covers this session (sessionTypeForServiceId + membershipCoverage),
+    // and only then prices the booking at zero and draws a credit (with a
+    // ledger entry). An uncovered claim (no membership, wrong session type,
+    // no credits left — e.g. mid multi-day run) falls back to PAYG at full
+    // price rather than failing; the price on the record is what's owed.
+    const sessionType = sessionTypeForServiceId(service_id);
+    let effective_service_type = service_type;
+    let membership_id: string | undefined;
+    let membership_credits_used: number | undefined;
+    if (service_type === 'membership') {
+      // Not covered after all → the honest service type for the record.
+      effective_service_type = sessionType ?? 'full_day';
+      // Applies any due lazy renewal first (an exhausted membership whose
+      // billing date has passed gets topped up and covers this booking).
+      const activeMembership = await activeMembershipForHousehold(tenantId, household_id);
+      if (activeMembership) {
+        const coverage = membershipCoverage(activeMembership, sessionType);
+        if (coverage.covered && coverage.creditsNeeded > 0) {
+          const drawn = consumeCredits(activeMembership, coverage.creditsNeeded, new Date());
+          if (typeof drawn === 'string') {
+            // Coverage said yes but the draw failed (raced with another
+            // booking) — fall back to PAYG.
+            console.log(`Membership ${activeMembership.id} draw failed (${drawn}); booking priced PAYG`);
+          } else {
+            await kv.set(`customer_membership:${tenantId}:${drawn.id}`, drawn);
+            membership_id = drawn.id;
+            membership_credits_used = coverage.creditsNeeded;
+          }
+        } else if (coverage.covered) {
+          membership_id = activeMembership.id;
+          membership_credits_used = 0;
+        }
+      }
+    }
+    if (membership_id) {
+      base_price_locked = 0;
+      total_price = 0;
+      effective_service_type = 'membership';
+    }
+
     const bookingId = generateId('daybook');
     const now = new Date().toISOString();
     
@@ -1024,7 +1082,7 @@ app.post('/bookings', async (c) => {
       location_name,
       service_id,
       service_name,
-      service_type,
+      service_type: effective_service_type,
       booking_date,
       booking_group_id: typeof booking_group_id === 'string' ? booking_group_id : undefined,
       planned_start_time,
@@ -1046,6 +1104,8 @@ app.post('/bookings', async (c) => {
       tax_rate,
       total_price,
       currency: 'CHF',
+      membership_id,
+      membership_credits_used,
       billing_line_item_ids: [],
       requires_transport,
       created_by_id: user.id,
@@ -1056,6 +1116,18 @@ app.post('/bookings', async (c) => {
     
     // Store booking
     await kv.set(`daycare:booking:${bookingId}`, booking);
+    if (membership_id && (membership_credits_used ?? 0) > 0) {
+      const usageId = crypto.randomUUID();
+      await kv.set(`membership_usage:${tenantId}:${membership_id}:${usageId}`, {
+        id: usageId,
+        customer_package_id: membership_id,
+        booking_id: bookingId,
+        pet_id,
+        credits_used: membership_credits_used,
+        created_at: now,
+        created_by: user.id,
+      });
+    }
     await kv.set(`daycare:booking:date:${location_id}:${booking_date}:${bookingId}`, bookingId);
     await kv.set(`daycare:booking:pet:${pet_id}:${bookingId}`, bookingId);
     await kv.set(`daycare:booking:household:${household_id}:${bookingId}`, bookingId);
@@ -1134,9 +1206,35 @@ app.post('/bookings/:id/cancel', async (c) => {
     booking.cancelled_by_name = user.name;
     booking.cancellation_reason = reason;
     booking.updated_at = new Date().toISOString();
-    
+
     await kv.set(`daycare:booking:${bookingId}`, booking);
-    
+
+    // Hand back the membership credit this booking drew. The ledger gets a
+    // compensating entry (negative credits) rather than deleting the original.
+    if (booking.membership_id && (booking.membership_credits_used ?? 0) > 0) {
+      const tenantId = user.tenantId;
+      const membershipKey = `customer_membership:${tenantId}:${booking.membership_id}`;
+      const membership = (await kv.get(membershipKey)) as CustomerMembership | undefined;
+      if (membership) {
+        const restored = restoreCredits(
+          membership,
+          booking.membership_credits_used ?? 0,
+          new Date(),
+        );
+        await kv.set(membershipKey, restored);
+        const usageId = crypto.randomUUID();
+        await kv.set(`membership_usage:${tenantId}:${booking.membership_id}:${usageId}`, {
+          id: usageId,
+          customer_package_id: booking.membership_id,
+          booking_id: bookingId,
+          pet_id: booking.pet_id,
+          credits_used: -(booking.membership_credits_used ?? 0),
+          created_at: new Date().toISOString(),
+          created_by: user.id,
+        });
+      }
+    }
+
     const capacity = await getCapacity(booking.location_id, booking.booking_date);
     capacity.current_bookings = Math.max(0, capacity.current_bookings - 1);
     capacity.available_slots = capacity.max_capacity - capacity.current_bookings;

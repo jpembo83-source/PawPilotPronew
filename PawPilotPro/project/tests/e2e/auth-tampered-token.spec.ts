@@ -51,6 +51,8 @@ const PROTECTED_ROUTES = [
   '/make-server-fc003b23/pets/test-pet/vaccinations',
   '/make-server-fc003b23/calendar/events',
   '/make-server-fc003b23/reports/pets',
+  // Customer membership assignments (memberships_routes.ts).
+  '/make-server-fc003b23/customer-packages',
   // Portal-admin staff queues (X-User-Token + staff role from app_metadata).
   '/make-server-fc003b23/portal-admin/pet-verifications',
   '/make-server-fc003b23/portal-admin/inbox-counts',

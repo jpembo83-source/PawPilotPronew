@@ -36,6 +36,9 @@ export interface CustomerPackage {
   package_id: string;
   package_name: string;
   package_type: Package['type'];
+  /** Session length the plan covered at assignment time (server snapshot).
+   *  Older records may lack it; readers fall back to a catalogue lookup. */
+  session_type?: 'full_day' | 'half_day';
   
   // Credits tracking
   credits_total?: number;

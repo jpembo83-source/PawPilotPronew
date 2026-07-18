@@ -1,4 +1,5 @@
 import { Context, Hono } from "npm:hono";
+import { z } from "npm:zod";
 import * as kv from "./kv_store.tsx";
 import { requireAuth, requireRole } from "./_shared/auth.ts";
 import { internalError } from "./_shared/log.ts";
@@ -137,10 +138,41 @@ routes.get("/memberships", async (c) => {
   }
 });
 
+// Canonical Layer-4 plan shape (services-pricing MembershipPlan). Credits
+// plans must say how many credits and what a credit is; unlimited plans may
+// omit both. The booking engine maps creditUnit → session coverage, so an
+// invalid shape here would sell a plan bookings can't honour.
+const membershipPlanSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    module: z.string().min(1).default('daycare'),
+    name: z.string().min(1),
+    displayName: z.string().min(1),
+    description: z.string().optional(),
+    monthlyPrice: z.number().nonnegative(),
+    currency: z.string().min(1).default('CHF'),
+    accessType: z.enum(['credits', 'unlimited']),
+    creditsPerMonth: z.number().int().positive().optional(),
+    creditUnit: z.enum(['half_day', 'full_day', 'hour']).optional(),
+    allowedServiceIds: z.array(z.string()).default([]),
+    allowsMultipleDogs: z.boolean().default(false),
+    isActive: z.boolean().default(true),
+    requiresContract: z.boolean().default(false),
+    minimumTermMonths: z.number().int().positive().optional(),
+    allowPause: z.boolean().default(true),
+    allowProration: z.boolean().default(true),
+  })
+  .refine((p) => p.accessType === 'unlimited' || (p.creditsPerMonth && p.creditUnit), {
+    message: 'credits plans need creditsPerMonth and creditUnit',
+  });
+
 routes.post("/memberships", requireRole('admin', 'manager'), async (c) => {
   try {
-    const body = await c.req.json();
-    const membership = addAuditFields(c, body);
+    const parsed = membershipPlanSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json({ error: 'invalid_membership_plan' }, 400);
+    }
+    const membership = addAuditFields(c, parsed.data);
     await kv.set(`membership:${membership.id}`, membership);
     return c.json(membership);
   } catch (e: any) {
@@ -154,12 +186,33 @@ routes.put("/memberships/:id", requireRole('admin', 'manager'), async (c) => {
     const body = await c.req.json();
     const existing = await kv.get(`membership:${id}`);
     if (!existing) return c.json({ error: "Membership not found" }, 404);
-    
-    const updated = addAuditFields(c, { ...existing, ...body }, true);
+
+    const merged = membershipPlanSchema.safeParse({ ...existing, ...body, id });
+    if (!merged.success) {
+      return c.json({ error: 'invalid_membership_plan' }, 400);
+    }
+    const updated = addAuditFields(c, merged.data, true);
     await kv.set(`membership:${id}`, updated);
     return c.json(updated);
   } catch (e: any) {
     return internalError(c, 'pricing.putMembershipsId', e);
+  }
+});
+
+// Archive, not hard delete: assigned customer memberships keep referencing
+// the plan record, and the audit trail stays intact. Archived plans stop
+// being assignable and disappear from active listings.
+routes.delete("/memberships/:id", requireRole('admin', 'manager'), async (c) => {
+  try {
+    const id = c.req.param("id");
+    const existing = await kv.get(`membership:${id}`);
+    if (!existing) return c.json({ error: "Membership not found" }, 404);
+
+    const archived = addAuditFields(c, { ...existing, isActive: false }, true);
+    await kv.set(`membership:${id}`, archived);
+    return c.json(archived);
+  } catch (e: any) {
+    return internalError(c, 'pricing.deleteMembershipsId', e);
   }
 });
 

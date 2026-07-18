@@ -15,6 +15,7 @@ import { MagnifyingGlass, Dog, Calendar, Warning, CaretLeft, Medal, CreditCard, 
 import { toast } from 'sonner';
 import { useConnectivity } from '../../../hooks/useConnectivity';
 import { MEMBERSHIP_PLANS } from '../../packages/membership-plans';
+import type { CustomerPackage } from '../../packages/types';
 import { CreateReservationModal, type ReservationPrefill } from '../../overnights/components/CreateReservationModal';
 import { expandDateRange, WEEKDAYS_MON_FRI, type Weekday } from '../lib/multiDayBooking';
 
@@ -193,18 +194,21 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
         );
         if (!res.ok) return;
 
-        const data = await res.json();
-        const active = (data.packages || []).find((p: any) => p.status === 'active');
+        const data = (await res.json()) as { packages?: CustomerPackage[] };
+        const active = (data.packages || []).find(p => p.status === 'active');
         if (!active) return;
 
         const plan = MEMBERSHIP_PLANS.find(p => p.id === active.package_id || p.name === active.package_name);
+        // Prefer the server's session_type snapshot (set at assignment);
+        // catalogue lookup only covers records from before the snapshot.
+        const sessionType = active.session_type ?? plan?.sessionType;
         setHouseholdMembership({
           customerPackageId: active.id,
           planId: active.package_id || active.id,
           planName: active.package_name,
           creditsRemaining: active.credits_remaining,
           creditsTotal: active.credits_total,
-          isHalfDay: plan?.sessionType === 'half_day' ?? false,
+          isHalfDay: sessionType === 'half_day',
         });
         setBillingType('membership');
       } catch { /* silent — default to PAYG */ }
