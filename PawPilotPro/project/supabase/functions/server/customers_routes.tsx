@@ -5,6 +5,7 @@ import { Hono } from 'npm:hono';
 import { z } from 'npm:zod';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole, AuthenticatedUser } from './_shared/auth.ts';
+import { requireSeedEnabled } from './_shared/seed_guard.ts';
 import { internalError } from './_shared/log.ts';
 import { listHouseholds, HouseholdRecord, ContactRecord, PetRecord } from './lib/household_list.ts';
 import { applyPetPhotoWrite, signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
@@ -1068,7 +1069,7 @@ app.get('/document-alerts', async (c) => {
 // SEED DATA - Initialize sample households for testing
 // ============================================================================
 
-app.post('/seed-data', requireRole('admin', 'manager'), async (c) => {
+app.post('/seed-data', requireSeedEnabled, requireRole('admin', 'manager'), async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;

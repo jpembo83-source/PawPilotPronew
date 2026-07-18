@@ -4,6 +4,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth } from './_shared/auth.ts';
+import { requireSeedEnabled } from './_shared/seed_guard.ts';
 
 const app = new Hono();
 
@@ -230,7 +231,7 @@ app.get('/audit-logs', async (c) => {
 
 // --- Seed Data ---
 
-app.post('/seed', async (c) => {
+app.post('/seed', requireSeedEnabled, async (c) => {
   // Create sample users if they don't exist
   await kv.set('user:admin-1', {
     id: 'admin-1',
