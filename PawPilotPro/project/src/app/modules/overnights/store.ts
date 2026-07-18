@@ -11,6 +11,7 @@ import {
   CapacitySnapshot,
   TonightsBoarders,
   CheckInRequest,
+  CheckInValidation,
   CheckOutRequest,
   OvernightEvent,
   OvernightCarerInfo,
@@ -43,6 +44,7 @@ export interface OvernightsState {
   updateReservation: (id: string, updates: Partial<OvernightReservation>) => Promise<void>;
   cancelReservation: (id: string, reason: string) => Promise<void>;
 
+  validateCheckIn: (reservationId: string) => Promise<CheckInValidation>;
   checkIn: (request: CheckInRequest) => Promise<void>;
   checkOut: (request: CheckOutRequest) => Promise<void>;
 
@@ -170,6 +172,16 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
     });
   },
 
+  validateCheckIn: async (reservationId) => {
+    const headers = await getAuthHeaders();
+    const res = await fetch(`${API_URL}/overnights/check-in/validate?reservationId=${reservationId}`, { headers });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+      throw new Error(error.error || 'Failed to validate check-in');
+    }
+    return await res.json() as CheckInValidation;
+  },
+
   checkIn: async (request) => {
     set({ isLoading: true, error: null });
     try {
@@ -276,12 +288,12 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       set({ isLoading: true, error: null });
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/overnights/events?stayId=${stayId}`, { headers });
-      if (res.ok) {
-        const events = await res.json() as OvernightEvent[];
-        set({ events, isLoading: false });
-      } else {
-        set({ isLoading: false });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to fetch events');
       }
+      const events = await res.json() as OvernightEvent[];
+      set({ events, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }
@@ -295,12 +307,12 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       if (date) params.append('date', date);
 
       const res = await fetch(`${API_URL}/overnights/carers?${params}`, { headers });
-      if (res.ok) {
-        const carers = await res.json() as OvernightCarerInfo[];
-        set({ carers, isLoading: false });
-      } else {
-        set({ isLoading: false });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to fetch carers');
       }
+      const carers = await res.json() as OvernightCarerInfo[];
+      set({ carers, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }
@@ -355,12 +367,12 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       if (date) params.append('date', date);
 
       const res = await fetch(`${API_URL}/overnights/care-logs?${params}`, { headers });
-      if (res.ok) {
-        const careLogs = await res.json() as NightlyCareLog[];
-        set({ careLogs, isLoading: false });
-      } else {
-        set({ isLoading: false });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to fetch care logs');
       }
+      const careLogs = await res.json() as NightlyCareLog[];
+      set({ careLogs, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }
@@ -419,12 +431,12 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       set({ isLoading: true, error: null });
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/overnights/sleeping-areas?locationId=${locationId}`, { headers });
-      if (res.ok) {
-        const sleepingAreas = await res.json() as SleepingArea[];
-        set({ sleepingAreas, isLoading: false });
-      } else {
-        set({ isLoading: false });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to fetch sleeping areas');
       }
+      const sleepingAreas = await res.json() as SleepingArea[];
+      set({ sleepingAreas, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }
@@ -486,12 +498,12 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       if (date) params.append('date', date);
 
       const res = await fetch(`${API_URL}/overnights/handovers?${params}`, { headers });
-      if (res.ok) {
-        const handovers = await res.json() as ShiftHandover[];
-        set({ handovers, isLoading: false });
-      } else {
-        set({ isLoading: false });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to fetch handovers');
       }
+      const handovers = await res.json() as ShiftHandover[];
+      set({ handovers, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }
@@ -549,15 +561,15 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       set({ isLoading: true, error: null });
       const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/overnights/capacity?locationId=${locationId}`, { headers });
-      if (res.ok) {
-        const capacity = await res.json() as OvernightsCapacity | null;
-        set(state => ({
-          capacities: capacity ? [capacity] : [],
-          isLoading: false
-        }));
-      } else {
-        set({ isLoading: false });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to fetch capacity');
       }
+      const capacity = await res.json() as OvernightsCapacity | null;
+      set({
+        capacities: capacity ? [capacity] : [],
+        isLoading: false
+      });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }
@@ -601,12 +613,12 @@ export const useOvernightsStore = create<OvernightsState>((set, get) => ({
       const headers = await getAuthHeaders();
       const targetDate = date || new Date().toISOString().split('T')[0];
       const res = await fetch(`${API_URL}/overnights/tonights-boarders?locationId=${locationId}&date=${targetDate}`, { headers });
-      if (res.ok) {
-        const tonightsBoarders = await res.json() as TonightsBoarders;
-        set({ tonightsBoarders, isLoading: false });
-      } else {
-        set({ isLoading: false });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({})) as ApiErrorResponse;
+        throw new Error(error.error || "Failed to fetch tonight's boarders");
       }
+      const tonightsBoarders = await res.json() as TonightsBoarders;
+      set({ tonightsBoarders, isLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, isLoading: false });
     }

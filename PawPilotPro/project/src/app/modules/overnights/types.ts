@@ -231,6 +231,9 @@ export interface CapacitySnapshot {
   locationId: string;
 
   maxCapacity: number;
+  bufferSlots?: number;
+  /** maxCapacity - bufferSlots — the bookable slots the server enforces. */
+  effectiveCapacity?: number;
   currentOccupancy: number;
   availableSlots: number;
 
@@ -292,6 +295,23 @@ export interface BoarderSummary {
   careLogCompleted: boolean;
 
   specialNotes?: string;
+}
+
+export interface CheckInValidationIssue {
+  category: string;
+  message: string;
+}
+
+/** Server-computed check-in readiness (GET /overnights/check-in/validate). */
+export interface CheckInValidation {
+  reservationId: string;
+  blockers: CheckInValidationIssue[];
+  warnings: CheckInValidationIssue[];
+  vaccinationStatus: string;
+  waiverStatus: string;
+  requiresMedication: boolean;
+  hasBehaviourConcerns: boolean;
+  hasAllergies: boolean;
 }
 
 export interface CheckInRequest {

@@ -12,3 +12,7 @@ export { EventTimeline } from './components/EventTimeline';
 export { CareLogForm } from './components/CareLogForm';
 export { CapacityCalendar } from './components/CapacityCalendar';
 export { CreateReservationModal } from './components/CreateReservationModal';
+export { ReservationDetailDialog } from './components/ReservationDetailDialog';
+export { LocationPrompt } from './components/LocationPrompt';
+export { useOvernightLocation } from './hooks/useOvernightLocation';
+export { STATUS_CONFIG, CANCELLABLE_STATUSES } from './constants';

@@ -82,21 +82,32 @@ Once enabled at org level, each location can individually enable/disable Overnig
 - Special instructions (feeding, medications, behavior)
 
 **Reservation States**:
-- `requested` — Initial booking request (optional workflow)
+- `booked` — Initial booking (optional pre-confirmation state)
 - `confirmed` — Reservation confirmed
 - `checked_in` — Guest has checked in
 - `in_stay` — Currently staying overnight
+- `transitioning_to_daycare` / `transitioning_from_daycare` — Mid-transition with the daycare module
 - `checked_out` — Completed stay
-- `cancelled` — Booking cancelled
+- `cancelled` — Booking cancelled (pre-arrival only; reason required, server-stamped)
 - `no_show` — Guest did not arrive
+
+**Night semantics**: a stay occupies the nights `[startDate, endDate)` — the
+check-out day is a departure morning, not another night. This matches the
+capacity planner (`plannerFormat.ts`) and is pinned by
+`tests/unit/overnight-semantics.test.ts`.
 
 ### 2. Check-In
 
-**Enforcement Rules**:
-- ✅ Vaccination must be valid (blocker)
-- ✅ Waiver must be signed (blocker)
-- ✅ Behavior warnings must be acknowledged (if applicable)
-- ✅ Medical warnings must be acknowledged (if applicable)
+**Enforcement Rules** (server-side, mirroring daycare's `validateCheckIn`):
+- Account holds (booking/payment) — BLOCKER, cannot check in
+- Vaccination status (live pet record) and waiver (household documents) —
+  computed server-side and surfaced as warnings; the operator must still
+  attest to both, and the computed statuses are recorded on the audit event
+- Behavior warnings must be acknowledged (if applicable)
+- Medical warnings must be acknowledged (if applicable)
+
+`GET /overnights/check-in/validate?reservationId=` returns the computed
+blockers/warnings/statuses for the check-in dialog.
 
 **Process**:
 1. Verify vaccination status
@@ -172,66 +183,60 @@ Each location has:
 - Optional: Sleeping areas/kennels (room types for future extensibility)
 
 ### Capacity Enforcement
-- Bookings are blocked when capacity is exceeded
-- Capacity snapshot shows:
-  - Current occupancy
-  - Available slots
-  - Reservations for a given date
+- Bookings are blocked (409) when any night of the stay would exceed
+  `maxOvernightCapacity - bufferSlots`; buffer slots stay in reserve
+- Daycare→overnight transitions (dog already on site) may spend the buffer,
+  up to the hard maximum
+- Locations with no capacity configured are not enforced
+- Capacity snapshot shows max/buffer/effective capacity, current occupancy,
+  bookable slots, and the reservations occupying a given night
 
 ---
 
 ## Client Communications
 
-### Communication Templates
+> **NOT YET IMPLEMENTED.** No overnight communications are sent today. The
+> template types exist in `types.ts` (`OvernightsCommTemplate`) but nothing
+> sends them. Planned:
 - **Checked in for overnight stay**: Sent at check-in
 - **Night update**: Optional scheduled update (e.g., "Your dog is sleeping well")
 - **Ready for pickup**: Sent when ready for check-out
 - **Checked out**: Sent after handover
 
-### Rules
-- All communications are permission-based
-- Messages logged under customer + pet
-
 ---
 
 ## Transportation Integration
 
-If **Transport** module is enabled:
-
-### Automatic Transport Requests
-Overnights bookings can request:
-- **Pickup** for check-in day
-- **Drop-off** for check-out day
-
-### Process
-1. When creating reservation, check "Requires Pickup" or "Requires Drop-Off"
-2. System generates transport requests with:
-   - Required time window (based on check-in/out window)
-   - "Overnight check-in" or "Overnight check-out" context
-3. Driver view includes overnight context
+> **NOT YET IMPLEMENTED.** The reservation model carries
+> `requiresPickup`/`requiresDropOff`/`pickupRequestId`/`dropOffRequestId`
+> fields, but there is no UI to set them and no transport requests are
+> generated. Planned: creating a reservation with pickup/drop-off flags
+> generates transport requests with the check-in/out window and overnight
+> context for the driver view.
 
 ---
 
 ## Billing & Pricing Integration
 
-### Services & Pricing
-Overnights integrates with the **Services & Pricing** module:
-
-**Service**:
-- **Overnight stay** — CHF 119 per night (seeded in baseline price book)
+**Pricing source of truth**: the location's configured nightly rate
+(Overnights → Capacity → Nightly Rate, stored on the
+`overnight:{tenant}:capacity:{location}` record; default 45 when unset).
 
 **Pricing Resolution**:
-1. When creating reservation, call `/pricing/resolve` with:
-   - Service ID: `svc-daycare-overnight`
-   - Location ID
-   - Quantity (number of nights)
-   - Date (for effective price book)
-2. Price is **locked to the reservation** at booking time
-3. Invoice uses locked price (never recalculated)
+1. `POST /overnights/reservations` prices server-side from the location
+   rate — the client can never set the price
+2. Price is **locked to the reservation** at booking time; date changes
+   re-price from the locked nightly rate, never re-resolved
+3. `POST /overnights/calculate-billing` produces per-night line items, a
+   daycare-overlap deduction for nights `[start, end)`, and tax
+   (currently a hardcoded 20% — follow-up: source from `billing:tax:*`
+   rules once those have a validated shape)
 
-**Optional Add-Ons**:
-- Late pickup fees (if configured)
-- Medication administration surcharge (if configured)
+> **NOT YET IMPLEMENTED**: invoice generation. Check-out sets
+> `billingRecalculationRequired` on the reservation but nothing consumes it;
+> the billing module has no overnight linkage yet. Services & Pricing
+> (`/pricing/resolve`) integration and add-ons (late pickup, medication
+> surcharge) are also future work.
 
 ---
 
@@ -254,7 +259,11 @@ Shows for selected location:
 - Which dogs are missing care logs for the night shift
 - Alerts to ensure completion
 
-**All Locations View**: Aggregates and shows per-location breakdown.
+> **NOT YET IMPLEMENTED in the live dashboard.** The `overnights_today`
+> widget is declared in `dashboard/constants.ts` and listed in the
+> manager/staff layouts, but `Dashboard.tsx` renders a hardcoded
+> daycare-only layout and never reads the widget registry. The overnights
+> hub page (`/overnights`) provides these numbers today.
 
 ---
 
@@ -283,8 +292,11 @@ Shows for selected location:
    - Alert if feeding not completed by specified time
 
 ### Rule Enforcement
-- Rules are enforced server-side
-- Violations logged and reported
+> **NOT YET IMPLEMENTED as a configurable rules engine.** The
+> `OvernightsRule` types exist, but today the enforced rules are fixed:
+> account-hold blockers and vaccination/waiver warnings at check-in
+> (see Check-In above), and capacity limits at booking. The configurable
+> rule types listed here are roadmap.
 
 ---
 
@@ -331,8 +343,19 @@ Shows for selected location:
 - `PUT /overnights/reservations/:id`
 
 ### Check-In / Check-Out
-- `POST /overnights/check-in` — Validates rules, updates status
+- `GET /overnights/check-in/validate?reservationId={id}` — Server-computed blockers/warnings
+- `POST /overnights/check-in` — Enforces holds + attestations, updates status
 - `POST /overnights/check-out` — Records handover, updates status
+
+### Transitions & Carers
+- `POST /overnights/transition/daycare-to-overnight` — Auto-finds the active daycare attendance
+- `POST /overnights/transition/overnight-to-daycare`
+- `GET /overnights/carers?locationId={id}&date={date}` — From the staff directory, with rota state
+- `POST /overnights/assign-carer` / `PUT /overnights/assign-carer/:stayId`
+
+### Billing & Events
+- `POST /overnights/calculate-billing` — Price an existing reservation or preview a prospective stay
+- `GET /overnights/events?stayId={id}` — Audit trail (read-only; events are only written server-side)
 
 ### Nightly Care Logs
 - `GET /overnights/care-logs?reservationId={id}&date={date}`
@@ -390,22 +413,31 @@ Shows for selected location:
 - Location-aware (respects selected location)
 
 ### Role-Based Access Control (RBAC)
-- Night Shift and Overnight Lead permission templates
-- Module-specific permissions enforced
-- Navigation adapts based on permissions
+- Navigation adapts based on permissions and module enablement
+- All routes require an authenticated staff user (shared `requireAuth`)
+> **Per-permission enforcement NOT YET IMPLEMENTED server-side** — the
+> backend does not yet distinguish `overnights:view` from
+> `overnights:checkin` etc.; any authenticated user passes. The Night
+> Shift / Overnight Lead templates describe the intended model.
 
 ---
 
-## Acceptance Criteria
+## Current Status (honest checklist)
 
 ✅ Overnights appears as a first-class module (org-wide and per-location enablement)  
-✅ Night Shift and Overnight Lead permission templates exist and function  
 ✅ Overnight reservations, check-in/out, capacity, and nightly care logs work end-to-end  
-✅ Transportation requests can be generated from overnights bookings  
-✅ Pricing sourced from Services & Pricing and locks correctly to bookings/invoices  
-✅ All actions are permission-gated and audited  
+✅ Portal-approved overnight bookings replicate into the module (one reservation per pet)  
+✅ Capacity enforced at booking time with [start, end) night semantics + buffer slots  
+✅ Pricing locked server-side from the location nightly rate; audited event trail  
+✅ Planning board allocates boarders to carers sourced from the staff directory  
 ✅ Navigation shows Overnights only when enabled for selected location  
-✅ Dashboard widgets display overnight metrics correctly  
+❌ Transport request generation — data model only  
+❌ Client communications — not sent  
+❌ Invoice generation / billing module linkage — `billingRecalculationRequired` unconsumed  
+❌ Dashboard widgets — declared but not rendered by the live dashboard  
+❌ Per-permission RBAC server-side — authenticated-staff only  
+❌ Configurable operational rules engine — fixed checks only  
+❌ Sleeping-area and shift-handover management UI — backend + store only  
 
 ---
 
