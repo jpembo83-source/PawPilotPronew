@@ -74,7 +74,10 @@ export const NAV_MANIFEST: NavEntry[] = [
   { path: '/incidents', label: 'Incidents', icon: Warning, section: 'Business', module: 'incidents', moduleId: 'core' },
   { path: '/reports', label: 'Reports', icon: ChartBar, section: 'Business', module: 'reports', moduleId: 'core' },
   // ── Team ──
-  { path: '/policies', label: 'Policies', icon: ClipboardText, section: 'Team', module: 'staff', moduleId: 'core' },
+  // Policies is keyed to 'dashboard' (every role holds dashboard:view): the
+  // portal is role-adaptive — staff acknowledge their own policies, managers
+  // manage them — so the link must be visible to all signed-in employees.
+  { path: '/policies', label: 'Policies', icon: ClipboardText, section: 'Team', module: 'dashboard', moduleId: 'core' },
   { path: '/staff', label: 'Staff', icon: UserGear, section: 'Team', module: 'staff', moduleId: 'core' },
   { path: '/packages', label: 'Packages', icon: Package, section: 'Team', module: 'packages', moduleId: 'packages' },
   // ── Admin ──

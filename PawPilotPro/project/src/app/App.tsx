@@ -41,6 +41,7 @@ import { StaffPage, StaffMemberDetailPage } from './modules/staff';
 import Packages from './modules/packages';
 import CapacityDashboard from './modules/capacity';
 import { BetaRoute } from './components/BetaRoute';
+import { PermissionGate } from './components/PermissionGate';
 import { Reporting } from './modules/reporting';
 
 // Placeholder components for unimplemented modules
@@ -127,9 +128,27 @@ export default function App() {
                 {/* Beta-only routes - only visible to beta testers */}
                 <Route path="messages" element={<BetaRoute><MessagingPage /></BetaRoute>} />
                 <Route path="billing" element={<BetaRoute><Billing /></BetaRoute>} />
-                <Route path="policies" element={<BetaRoute><PolicyPortal /></BetaRoute>} />
-                <Route path="staff" element={<BetaRoute><StaffPage /></BetaRoute>} />
-                <Route path="staff/member/:id" element={<BetaRoute><StaffMemberDetailPage /></BetaRoute>} />
+                {/* Staff management & policies left beta 2026-07. PolicyPortal is
+                    role-adaptive (staff see their own policies, managers manage);
+                    the management pages are gated by the staff-module permission,
+                    which bare staff roles don't hold. */}
+                <Route path="policies" element={<PolicyPortal />} />
+                <Route
+                  path="staff"
+                  element={
+                    <PermissionGate module="staff" action="view" showDeniedMessage>
+                      <StaffPage />
+                    </PermissionGate>
+                  }
+                />
+                <Route
+                  path="staff/member/:id"
+                  element={
+                    <PermissionGate module="staff" action="view" showDeniedMessage>
+                      <StaffMemberDetailPage />
+                    </PermissionGate>
+                  }
+                />
                 <Route path="packages/*" element={<BetaRoute><Packages /></BetaRoute>} />
                 
                 {/* Production routes */}

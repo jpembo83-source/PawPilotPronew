@@ -9,10 +9,12 @@ export const BETA_TESTER_EMAILS = [
 ];
 
 // Beta modules - these are hidden from non-beta users
+// Staff Management and Policies are NOT beta: rotas and policy
+// acknowledgements are live features, and access is governed by RBAC
+// (staff roles have no staff-module permissions; managers do).
 export const BETA_MODULES = [
   'billing',      // Billing module (in core navItems)
-  'messaging',    // Messages module (in core navItems)  
-  'staff',        // Staff Management module (in core navItems)
+  'messaging',    // Messages module (in core navItems)
   'grooming',     // Grooming module
   'packages',     // Packages & Memberships module
 ];
@@ -21,10 +23,8 @@ export const BETA_MODULES = [
 export const BETA_NAV_PATHS = [
   '/billing',
   '/messages',
-  '/staff',
   '/grooming',
   '/packages',
-  '/policies',    // Staff policies (part of staff management)
 ];
 
 // Check if a user is a beta tester
