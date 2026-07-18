@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useTransportStore } from '../store';
+import { TimePicker } from '../components/TimePicker';
 import { useSettingsStore } from '../../settings/store';
 import { useUserStore } from '../../settings/stores/userStore';
 import { usePermissions } from '@/app/hooks/usePermissions';
@@ -685,20 +686,16 @@ function EditJobDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Window start</label>
-              <input
-                type="time"
+              <TimePicker
                 value={form.time_window_start}
-                onChange={e => setForm(f => ({ ...f, time_window_start: e.target.value }))}
-                className="w-full px-3 py-2 rounded-md border border-border text-sm"
+                onChange={v => setForm(f => ({ ...f, time_window_start: v }))}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">Window end</label>
-              <input
-                type="time"
+              <TimePicker
                 value={form.time_window_end}
-                onChange={e => setForm(f => ({ ...f, time_window_end: e.target.value }))}
-                className="w-full px-3 py-2 rounded-md border border-border text-sm"
+                onChange={v => setForm(f => ({ ...f, time_window_end: v }))}
               />
             </div>
           </div>
