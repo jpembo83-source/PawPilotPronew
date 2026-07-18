@@ -140,11 +140,32 @@ credits automatically on booking yet.
   coverage and assignment lookups treat exhausted as live for exactly this
   reason (a second plan can't be stacked on an exhausted one).
 - Paused/cancelled/expired memberships never renew.
-- **Deferred — invoicing**: surfacing the renewal as a billing invoice and
-  reconciling billing's `subscription:` records into `customer_membership:`
-  waits until the billing module's placeholder tabs (payments,
-  subscriptions) become real; renewal currently logs a structured
-  `memberships.renewed` event as the audit hook.
+- **Invoicing (follow-up pass, DONE)**: every billing period now writes a
+  real invoice into the billing keyspace (`invoice:` +
+  `invoice_line:` — the exact shape `/billing/invoices` reads). The first
+  period invoices at assignment; each renewal event invoices the periods it
+  covered (quantity = periods, one invoice per event). Invoices issue
+  immediately, due 14 days later, tagged `membership`/`assignment|renewal`.
+  Prices come from the `monthly_price`/`currency` snapshot taken at
+  assignment (compiled-catalogue fallback for older records); a membership
+  whose price can't be known still renews its credits — the skipped invoice
+  is logged (`memberships.invoice_skipped_unknown_price`) for finance
+  follow-up, and an invoicing failure never blocks a credit grant.
+  Membership prices are the published gross figures, so membership invoices
+  carry `tax_rate: 0` (no VAT re-added on top).
+- **Billing reconciliation (follow-up pass, DONE)**: the billing overview's
+  `active_memberships`/`membership_revenue` now compute from tenant-scoped
+  `customer_membership:` records (snapshot-priced). The legacy
+  `subscription:` system — routes, `Subscription` types, client store
+  actions, and the seeded sample — is deleted with safe-delete
+  zero-reference proof; nothing ever consumed it.
+- **pricing/store cleanup (follow-up pass, DONE)**: `modules/pricing/`
+  (the generic monthlyPrice/includedCredits store) and its four orphaned
+  settings components (PriceBooks, ServiceCatalogue, PricingAuditLog,
+  LocationPricingOverrides) are deleted with zero-reference proof — they
+  lost their only mount when the unrouted `ServicesAndPricing.tsx` page was
+  removed in Phase 2. The services-pricing module is now the single
+  pricing/catalogue store.
 
 ## Phase 5 — Portal surface (DONE in this branch)
 

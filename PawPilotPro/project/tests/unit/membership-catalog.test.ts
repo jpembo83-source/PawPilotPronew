@@ -4,7 +4,9 @@ import {
   getPlanById,
   buildMembership,
   consumeCredits,
+  buildMembershipInvoice,
   membershipCoverage,
+  monthlyPriceFor,
   normalizeCatalogPlan,
   renewIfDue,
   restoreCredits,
@@ -353,5 +355,79 @@ describe('renewIfDue (lazy renewal + rollover)', () => {
     m = restoreCredits(m, 4, NOW); // cancellation hands 4 back
     expect(m.credits_remaining).toBe(10);
     expect(m.credits_used).toBe(0);
+  });
+});
+
+describe('monthlyPriceFor', () => {
+  it('prefers the assignment snapshot', () => {
+    // buildMembership snapshots the plan price (MO02 = 473 CHF).
+    expect(monthlyPriceFor(creditsMembership())).toEqual({ price: 473, currency: 'CHF' });
+    const custom = { ...creditsMembership(), monthly_price: 550, currency: 'EUR' };
+    expect(monthlyPriceFor(custom)).toEqual({ price: 550, currency: 'EUR' });
+  });
+
+  it('pre-snapshot records fall back to the compiled catalogue', () => {
+    const legacy = { ...creditsMembership() };
+    delete legacy.monthly_price;
+    expect(monthlyPriceFor(legacy)).toEqual({ price: 473, currency: 'CHF' });
+  });
+
+  it('returns undefined when the price is unknowable', () => {
+    const orphan = { ...creditsMembership(), package_id: 'gone-plan' };
+    delete orphan.monthly_price;
+    expect(monthlyPriceFor(orphan)).toBeUndefined();
+  });
+});
+
+describe('buildMembershipInvoice', () => {
+  function invoiceArgs(overrides: Partial<Parameters<typeof buildMembershipInvoice>[0]> = {}) {
+    return {
+      invoiceId: 'inv-1',
+      lineItemId: 'line-1',
+      invoiceNumber: 'INV-TEST-1',
+      membership: creditsMembership(),
+      householdName: 'The Testers',
+      periods: 1,
+      price: 473,
+      reason: 'assignment' as const,
+      now: NOW,
+      ...overrides,
+    };
+  }
+
+  it('issues immediately, due in 14 days, balance = total, tax 0 (gross prices)', () => {
+    const { invoice, lineItem } = buildMembershipInvoice(invoiceArgs());
+    expect(invoice.status).toBe('issued');
+    expect(invoice.issue_date).toBe('2026-07-18T10:00:00.000Z');
+    expect(invoice.due_date).toBe('2026-08-01T10:00:00.000Z');
+    expect(invoice.subtotal).toBe(473);
+    expect(invoice.tax_total).toBe(0);
+    expect(invoice.total).toBe(473);
+    expect(invoice.paid_amount).toBe(0);
+    expect(invoice.balance).toBe(473);
+    expect(invoice.household_id).toBe('h-1');
+    expect(invoice.household_name).toBe('The Testers');
+    expect(invoice.tags).toEqual(['membership', 'assignment']);
+    expect(lineItem.invoice_id).toBe('inv-1');
+    expect(lineItem.service_id).toBe('MO02');
+    expect(lineItem.module).toBe('memberships');
+    expect(lineItem.quantity).toBe(1);
+    expect(lineItem.unit_price).toBe(473);
+  });
+
+  it('a multi-period renewal bills quantity = periods on one invoice', () => {
+    const { invoice, lineItem } = buildMembershipInvoice(
+      invoiceArgs({ periods: 3, reason: 'renewal' }),
+    );
+    expect(lineItem.quantity).toBe(3);
+    expect(invoice.total).toBe(1419);
+    expect(invoice.balance).toBe(1419);
+    expect(invoice.tags).toEqual(['membership', 'renewal']);
+    expect(invoice.notes).toContain('renewal (3 periods)');
+  });
+
+  it('rounds fractional totals to 2 decimals', () => {
+    const { invoice } = buildMembershipInvoice(invoiceArgs({ price: 33.335, periods: 3 }));
+    expect(invoice.total).toBe(100.01);
   });
 });
