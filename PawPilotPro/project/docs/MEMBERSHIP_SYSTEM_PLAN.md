@@ -64,19 +64,38 @@ client/server (sync-checked by unit test); credits are granted once at
 assignment (no monthly renewal/rollover accrual yet); nothing decrements
 credits automatically on booking yet.
 
-## Phase 2 — One plan catalog, managed in the UI
+## Phase 2 — One plan catalog, managed in the UI (DONE in this branch)
 
-- Move the catalog into KV behind the existing `/pricing/memberships` CRUD
-  (seed MO01–MO05 via the CLI-guarded seed path, `SEED_ENABLED`).
-- Route ONE management UI (recommend the settings
-  `MembershipsAndPackages.tsx`, which already has working CRUD wiring) and
-  delete the dead surfaces via `/safe-delete`: the null-rendering
-  services-pricing tab, the unrouted `ServicesAndPricing.tsx` page, and the
-  hardcoded client catalog (replaced by a fetch).
-- Add `DELETE /pricing/memberships/:id` (archive, not hard delete — audit
-  trail stays).
-- Reconcile the duplicate stores (`services-pricing/store.ts` vs
-  `pricing/store.ts`) down to one.
+- Canonical plan model = the Layer-4 `MembershipPlan` from
+  `services-pricing/types.ts` (accessType credits/unlimited, creditsPerMonth,
+  creditUnit half/full day). `/pricing/memberships` CRUD is now Zod-validated
+  against it, and `DELETE /pricing/memberships/:id` archives (isActive=false,
+  audit-stamped) — never hard-deletes.
+- Management UI: new `MembershipPlansTab` on the already-routed
+  `/settings/services` page (create, edit, archive/reactivate), wired to the
+  services-pricing store's existing CRUD actions.
+- Plan resolution is KV-first with the compiled MO01–MO05 catalogue as
+  per-id fallback (`resolveAssignablePlan` in memberships_routes;
+  `normalizeCatalogPlan` maps the Layer-4 shape to the internal one). No
+  seeding needed: a fresh deployment sells the built-ins; the managed
+  catalogue takes over as records are created. An archived KV record blocks
+  assignment — no silent fallback past an explicit admin decision.
+- Coverage snapshot: assignments stamp `session_type` onto the customer
+  membership; booking coverage reads the snapshot (compiled-catalogue
+  fallback only for pre-snapshot records). Plan edits never retroactively
+  change what an assigned member bought.
+- Packages dashboard sells the managed catalogue when it has active
+  day-based plans, built-ins otherwise; the staff booking dialog prefers the
+  snapshot over a catalogue lookup.
+- Deleted via /safe-delete (zero-reference proof): the null-rendering
+  `MembershipsTab.tsx`, the unrouted `ServicesAndPricing.tsx`, and its only
+  child `MembershipsAndPackages.tsx`. Lint baseline dropped 3807→3707 and
+  typecheck 90→85; both re-recorded.
+- Deferred: consolidating `pricing/store.ts` (the generic
+  monthlyPrice/includedCredits model) out of existence — its membership
+  actions lost their only UI with `MembershipsAndPackages.tsx`, but the
+  store also carries packages/audit state used elsewhere; fold into a
+  dedicated cleanup pass.
 
 ## Phase 3 — Membership applied at booking time (DONE in this branch)
 

@@ -24,7 +24,9 @@ import {
   buildMembership,
   consumeCredits,
   getPlanById,
+  normalizeCatalogPlan,
   type CustomerMembership,
+  type MembershipPlan,
 } from './lib/membership_catalog.ts';
 
 const app = new Hono();
@@ -33,6 +35,23 @@ app.use('*', requireAuth);
 
 const membershipKey = (tenantId: string, id: string) =>
   `customer_membership:${tenantId}:${id}`;
+
+/**
+ * Resolve an assignable plan: the KV catalog (managed at Settings → Services
+ * & Pricing → Memberships, stored at membership:{id}) is the source of truth;
+ * the compiled MO01–MO05 catalog covers ids the KV has no record for. A KV
+ * record that exists but is archived (isActive false) or can't drive
+ * day-based coverage resolves to nothing — no silent fallback past an
+ * explicit admin decision.
+ */
+async function resolveAssignablePlan(planId: string): Promise<MembershipPlan | undefined> {
+  const kvPlan = await kv.get(`membership:${planId}`);
+  if (kvPlan) {
+    if ((kvPlan as { isActive?: boolean }).isActive === false) return undefined;
+    return normalizeCatalogPlan(kvPlan) ?? undefined;
+  }
+  return getPlanById(planId);
+}
 
 const assignSchema = z.object({
   customer_id: z.string().min(1),
@@ -78,7 +97,7 @@ app.post('/customer-packages', requireRole('admin', 'manager'), async (c) => {
     }
     const { customer_id, package_id } = parsed.data;
 
-    const plan = getPlanById(package_id);
+    const plan = await resolveAssignablePlan(package_id);
     if (!plan) {
       return c.json({ error: 'unknown_plan' }, 400);
     }

@@ -5,6 +5,7 @@ import {
   buildMembership,
   consumeCredits,
   membershipCoverage,
+  normalizeCatalogPlan,
   restoreCredits,
   sessionTypeForServiceId,
   type CustomerMembership,
@@ -166,6 +167,74 @@ describe('membershipCoverage', () => {
       covered: true,
       creditsNeeded: 0,
     });
+  });
+});
+
+describe('normalizeCatalogPlan (managed KV catalogue → internal plan)', () => {
+  const base = {
+    id: 'plan-custom-1',
+    name: 'CUST01',
+    displayName: 'Custom Plan',
+    monthlyPrice: 500,
+    currency: 'CHF',
+    accessType: 'credits',
+    creditsPerMonth: 12,
+    creditUnit: 'full_day',
+  };
+
+  it('maps a credits plan (displayName preferred, creditUnit → sessionType)', () => {
+    expect(normalizeCatalogPlan(base)).toEqual({
+      id: 'plan-custom-1',
+      name: 'Custom Plan',
+      price: 500,
+      currency: 'CHF',
+      sessionType: 'full_day',
+      daysPerMonth: 12,
+      serviceType: 'daycare',
+    });
+  });
+
+  it('maps an unlimited plan and defaults its session to full_day', () => {
+    const p = normalizeCatalogPlan({ ...base, accessType: 'unlimited', creditsPerMonth: undefined, creditUnit: undefined });
+    expect(p?.daysPerMonth).toBe('unlimited');
+    expect(p?.sessionType).toBe('full_day');
+  });
+
+  it('rejects shapes bookings cannot honour', () => {
+    expect(normalizeCatalogPlan({ ...base, creditUnit: 'hour' })).toBeNull();
+    expect(normalizeCatalogPlan({ ...base, creditsPerMonth: undefined })).toBeNull();
+    expect(normalizeCatalogPlan({ ...base, creditsPerMonth: 0 })).toBeNull();
+    expect(normalizeCatalogPlan({ ...base, monthlyPrice: -1 })).toBeNull();
+    expect(normalizeCatalogPlan({ ...base, id: '' })).toBeNull();
+    expect(normalizeCatalogPlan(null)).toBeNull();
+    expect(normalizeCatalogPlan('nope')).toBeNull();
+  });
+
+  it('a normalized custom plan flows through buildMembership + coverage', () => {
+    const plan = normalizeCatalogPlan({ ...base, creditUnit: 'half_day' })!;
+    const m = buildMembership({ id: 'm-c', customerId: 'h-1', plan, createdBy: 'u-1', now: NOW });
+    expect(m.session_type).toBe('half_day');
+    expect(m.credits_total).toBe(12);
+    // Coverage works from the snapshot even though the id isn't in the
+    // compiled catalogue.
+    expect(membershipCoverage(m, 'half_day')).toEqual({ covered: true, creditsNeeded: 1 });
+    expect(membershipCoverage(m, 'full_day').covered).toBe(false);
+  });
+});
+
+describe('membershipCoverage session snapshot', () => {
+  it('pre-snapshot records (no session_type) fall back to the compiled catalogue', () => {
+    const legacy = { ...creditsMembership() };
+    delete legacy.session_type;
+    // MO02 is full-day in the compiled catalogue.
+    expect(membershipCoverage(legacy, 'full_day').covered).toBe(true);
+    expect(membershipCoverage(legacy, 'half_day').covered).toBe(false);
+  });
+
+  it('the snapshot wins over the catalogue when both exist', () => {
+    const m = { ...creditsMembership(), session_type: 'half_day' as const };
+    expect(membershipCoverage(m, 'half_day').covered).toBe(true);
+    expect(membershipCoverage(m, 'full_day').covered).toBe(false);
   });
 });
 

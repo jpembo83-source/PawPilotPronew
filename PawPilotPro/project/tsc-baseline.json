@@ -1,5 +1,5 @@
 {
- "total": 90,
+ "total": 85,
  "files": {
   "scripts/seed-test-data.ts": 1,
   "src/app/modules/billing/pages/BillingOverview.tsx": 1,
@@ -13,7 +13,6 @@
   "src/app/modules/customers/types.ts": 1,
   "src/app/modules/dashboard/components/DashboardHeader.tsx": 2,
   "src/app/modules/data-compliance/components/RequestDetailsDialog.tsx": 1,
-  "src/app/modules/daycare/components/CreateBookingDialog.tsx": 1,
   "src/app/modules/grooming/pages/GroomingAppointmentDetail.tsx": 12,
   "src/app/modules/incidents/components/AssignIncidentDialog.tsx": 2,
   "src/app/modules/incidents/components/CreateIncidentModal.tsx": 1,
@@ -25,7 +24,6 @@
   "src/app/modules/overnights/components/CreateReservationModal.tsx": 1,
   "src/app/modules/policies/store.ts": 1,
   "src/app/modules/services-pricing/pages/ApprovalsPage.tsx": 4,
-  "src/app/modules/services-pricing/pages/tabs/MembershipsTab.tsx": 4,
   "src/app/modules/settings/components/AuditLogViewer.tsx": 1,
   "src/app/modules/settings/components/pricing/PricingAuditLog.tsx": 1,
   "src/app/modules/settings/components/pricing/ServiceCatalogue.tsx": 3,

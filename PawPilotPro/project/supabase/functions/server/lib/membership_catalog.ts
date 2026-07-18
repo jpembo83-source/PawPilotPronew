@@ -8,14 +8,73 @@
 
 export type MembershipTier = 'MO01' | 'MO02' | 'MO03' | 'MO04' | 'MO05';
 
+// id is open (not just MembershipTier): admin-created plans from the KV
+// catalog (Services & Pricing → Memberships) carry generated ids.
 export interface MembershipPlan {
-  id: MembershipTier;
+  id: string;
   name: string;
   price: number;
   currency: string;
   sessionType: 'full_day' | 'half_day';
   daysPerMonth: number | 'unlimited';
   serviceType: 'daycare';
+}
+
+/**
+ * Normalize a KV catalog record (the Layer-4 MembershipPlan shape managed at
+ * /pricing/memberships: accessType/creditsPerMonth/creditUnit/monthlyPrice)
+ * into the internal plan shape the assignment and coverage logic run on.
+ * Returns null when the record can't drive day-based daycare coverage
+ * (hourly credit unit, missing/invalid credits or price) — such plans are
+ * not assignable rather than silently mis-covered.
+ */
+export function normalizeCatalogPlan(record: unknown): MembershipPlan | null {
+  if (!record || typeof record !== 'object') return null;
+  const r = record as Record<string, unknown>;
+  if (typeof r.id !== 'string' || r.id.length === 0) return null;
+
+  const price = typeof r.monthlyPrice === 'number' && r.monthlyPrice >= 0 ? r.monthlyPrice : null;
+  if (price === null) return null;
+
+  const unlimited = r.accessType === 'unlimited';
+  let daysPerMonth: number | 'unlimited';
+  if (unlimited) {
+    daysPerMonth = 'unlimited';
+  } else if (
+    r.accessType === 'credits' &&
+    typeof r.creditsPerMonth === 'number' &&
+    Number.isInteger(r.creditsPerMonth) &&
+    r.creditsPerMonth > 0
+  ) {
+    daysPerMonth = r.creditsPerMonth;
+  } else {
+    return null;
+  }
+
+  let sessionType: 'full_day' | 'half_day';
+  if (r.creditUnit === 'half_day' || r.creditUnit === 'full_day') {
+    sessionType = r.creditUnit;
+  } else if (unlimited && r.creditUnit === undefined) {
+    sessionType = 'full_day';
+  } else {
+    return null; // 'hour' or malformed — not a day-based daycare plan
+  }
+
+  const name =
+    (typeof r.displayName === 'string' && r.displayName) ||
+    (typeof r.name === 'string' && r.name) ||
+    null;
+  if (!name) return null;
+
+  return {
+    id: r.id,
+    name,
+    price,
+    currency: typeof r.currency === 'string' && r.currency ? r.currency : 'CHF',
+    sessionType,
+    daysPerMonth,
+    serviceType: 'daycare',
+  };
 }
 
 export const MEMBERSHIP_PLANS: MembershipPlan[] = [
@@ -35,9 +94,14 @@ export function getPlanById(id: string): MembershipPlan | undefined {
 export interface CustomerMembership {
   id: string;
   customer_id: string;
-  package_id: MembershipTier;
+  package_id: string;
   package_name: string;
   package_type: 'credits' | 'unlimited';
+  /** Session length the plan covered at assignment time (snapshot — later
+   *  plan edits don't retroactively change what an assigned member bought).
+   *  Memberships assigned before this field existed fall back to a compiled
+   *  catalog lookup in membershipCoverage. */
+  session_type?: 'full_day' | 'half_day';
   credits_total?: number;
   credits_used?: number;
   credits_remaining?: number;
@@ -70,6 +134,7 @@ export function buildMembership(args: {
     package_id: plan.id,
     package_name: plan.name,
     package_type: unlimited ? 'unlimited' : 'credits',
+    session_type: plan.sessionType,
     ...(unlimited
       ? {}
       : {
@@ -106,9 +171,10 @@ export function sessionTypeForServiceId(serviceId: string): 'full_day' | 'half_d
 
 /**
  * Server-authoritative coverage decision for one booking day. Covered when the
- * membership is active, its plan exists, the plan's session type matches the
- * booking's, and (for credits plans) at least one credit remains. Unlimited
- * plans cover without consuming.
+ * membership is active, the session type it bought (snapshot, with a compiled
+ * catalog fallback for pre-snapshot records) matches the booking's, and (for
+ * credits plans) at least one credit remains. Unlimited plans cover without
+ * consuming. No live plan lookup — what the member bought is what covers.
  */
 export function membershipCoverage(
   membership: CustomerMembership,
@@ -116,8 +182,9 @@ export function membershipCoverage(
 ): { covered: boolean; creditsNeeded: number } {
   const notCovered = { covered: false, creditsNeeded: 0 };
   if (!sessionType || membership.status !== 'active') return notCovered;
-  const plan = getPlanById(membership.package_id);
-  if (!plan || plan.sessionType !== sessionType) return notCovered;
+  const boughtSession =
+    membership.session_type ?? getPlanById(membership.package_id)?.sessionType;
+  if (boughtSession !== sessionType) return notCovered;
   if (membership.package_type === 'unlimited') return { covered: true, creditsNeeded: 0 };
   if ((membership.credits_remaining ?? 0) < 1) return notCovered;
   return { covered: true, creditsNeeded: 1 };

@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3807,
-  "warnings": 416
+  "errors": 3707,
+  "warnings": 413
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -433,8 +433,8 @@
    "warnings": 0
   },
   "src/app/modules/daycare/components/CreateBookingDialog.tsx": {
-   "errors": 71,
-   "warnings": 12
+   "errors": 51,
+   "warnings": 11
   },
   "src/app/modules/daycare/components/LiveOccupancy.tsx": {
    "errors": 1,
@@ -732,10 +732,6 @@
    "errors": 4,
    "warnings": 2
   },
-  "src/app/modules/services-pricing/pages/tabs/MembershipsTab.tsx": {
-   "errors": 2,
-   "warnings": 0
-  },
   "src/app/modules/services-pricing/pages/tabs/PriceBooksTab.tsx": {
    "errors": 3,
    "warnings": 2
@@ -771,10 +767,6 @@
   "src/app/modules/settings/components/pricing/LocationPricingOverrides.tsx": {
    "errors": 72,
    "warnings": 1
-  },
-  "src/app/modules/settings/components/pricing/MembershipsAndPackages.tsx": {
-   "errors": 66,
-   "warnings": 2
   },
   "src/app/modules/settings/components/pricing/PriceBooks.tsx": {
    "errors": 77,
@@ -827,10 +819,6 @@
   "src/app/modules/settings/pages/ServiceCapacitySettings.tsx": {
    "errors": 20,
    "warnings": 2
-  },
-  "src/app/modules/settings/pages/ServicesAndPricing.tsx": {
-   "errors": 12,
-   "warnings": 0
   },
   "src/app/modules/settings/pages/SettingsOverview.tsx": {
    "errors": 8,
