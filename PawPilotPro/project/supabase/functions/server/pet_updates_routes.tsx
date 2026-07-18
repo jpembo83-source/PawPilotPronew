@@ -380,6 +380,22 @@ app.get("/review-queue/candidates", async (c) => {
   }
 });
 
+// Cheap pending-count for the staff notification bell — same role gate as
+// the queue itself, counts only (no enrichment, no signed URLs); mirrors
+// the /vax-queue/pending-count pattern in portal_invites.ts.
+app.get("/review-queue/count", async (c) => {
+  try {
+    const user = c.get("user") as AuthenticatedUser;
+    if (!CAN_REVIEW_ROLES.includes(user.role)) {
+      return c.json({ error: "Access denied" }, 403);
+    }
+    const pending = await listReviewQueue(getAdmin(), user.tenantId);
+    return c.json({ count: pending.length });
+  } catch (error) {
+    return internalError(c, "pet_updates.reviewQueueCount", error);
+  }
+});
+
 const approveBodySchema = z.object({
   caption: z.string().trim().max(280).optional(),
   // Manager's dog pick for an unassigned photo — assignment and approval are

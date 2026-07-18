@@ -29,7 +29,9 @@ import { useBetaFeatures } from '../../hooks/useBetaFeatures';
 import { OfflineBanner } from './OfflineBanner';
 import defaultLogo from '../../../assets/logo.svg';
 import { getVisibleNavEntries, groupNavEntries, bottomBarEntries } from './navManifest';
-import { useInboxCounts, formatBadgeCount } from '../../hooks/useInboxCounts';
+import { formatBadgeCount } from '../../hooks/useInboxCounts';
+import { useNotificationCounts } from '../../hooks/useNotificationCounts';
+import { NotificationsSheet } from './NotificationsSheet';
 
 export function MobileLayout() {
   const { user, logout } = useAuth();
@@ -42,6 +44,7 @@ export function MobileLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const canSearch =
     permissions.canAccessModule('customers') || permissions.canAccessModule('daycare');
@@ -69,11 +72,21 @@ export function MobileLayout() {
   const bottomNavItems = bottomBarEntries(visibleNavEntries);
   const groupedMenuItems = groupNavEntries(visibleNavEntries);
 
-  // Portal Inbox pending-count badge — same RBAC gate as the nav entry.
-  // Shown on the drawer's Portal Inbox row and (since that entry lives
-  // behind "More") as a count on the More tab itself, so pending portal
-  // work is visible without opening anything.
-  const inboxCounts = useInboxCounts(permissions.canAccessModule('customers'));
+  // Header bell + Portal Inbox badge share one counts hook. Each source is
+  // gated the same way its nav entry / page is: Portal Inbox queues by the
+  // customers module, photo review by daycare + reviewer role, messages by
+  // its (beta-gated) nav entry being visible.
+  const {
+    items: notificationItems,
+    total: notificationTotal,
+    inbox: inboxCounts,
+  } = useNotificationCounts({
+    inbox: permissions.canAccessModule('customers'),
+    photos:
+      permissions.canAccessModule('daycare') &&
+      (user?.role === 'admin' || user?.role === 'manager'),
+    messages: visibleNavEntries.some((entry) => entry.path === '/messages'),
+  });
   const inboxBadge = inboxCounts?.total ?? 0;
   const badgeCountFor = (path: string): number =>
     path === '/customers/pending-requests' ? inboxBadge : 0;
@@ -150,20 +163,27 @@ export function MobileLayout() {
             </button>
           )}
           <button
+            onClick={() => setNotificationsOpen(true)}
             className="-mr-2 rounded-lg transition-colors relative flex items-center justify-center touch-target"
             style={{ WebkitTapHighlightColor: 'transparent' }}
-            aria-label="Notifications"
+            aria-label={
+              notificationTotal > 0
+                ? `Notifications (${notificationTotal} pending)`
+                : 'Notifications'
+            }
             onMouseDown={(e) => (e.currentTarget.style.background = '#F4F3EF')}
             onMouseUp={(e) => (e.currentTarget.style.background = 'transparent')}
             onTouchStart={(e) => (e.currentTarget.style.background = '#F4F3EF')}
             onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <Bell className="h-6 w-6" style={{ color: '#6B6762' }} />
-            {/* Brand dot — visible when there are notifications */}
-            <span
-              className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
-              style={{ background: 'var(--primary)' }}
-            />
+            {/* Brand dot — only when something is actually pending */}
+            {notificationTotal > 0 && (
+              <span
+                className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
+                style={{ background: 'var(--primary)' }}
+              />
+            )}
           </button>
         </div>
       </header>
@@ -172,6 +192,13 @@ export function MobileLayout() {
 
       {/* Global search — header icon or Cmd/Ctrl+K */}
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+
+      {/* Notifications — header bell */}
+      <NotificationsSheet
+        open={notificationsOpen}
+        onOpenChange={setNotificationsOpen}
+        items={notificationItems}
+      />
 
       {/* ── Main Content ───────────────────────────────────────── */}
       <main className="flex-1 overflow-auto">
