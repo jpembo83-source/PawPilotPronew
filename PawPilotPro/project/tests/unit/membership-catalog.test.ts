@@ -4,6 +4,9 @@ import {
   getPlanById,
   buildMembership,
   consumeCredits,
+  membershipCoverage,
+  restoreCredits,
+  sessionTypeForServiceId,
   type CustomerMembership,
 } from '../../supabase/functions/server/lib/membership_catalog';
 import { MEMBERSHIP_PLANS as CLIENT_PLANS } from '../../src/app/modules/packages/membership-plans';
@@ -112,5 +115,91 @@ describe('consumeCredits', () => {
     const m = creditsMembership();
     consumeCredits(m, 2, NOW);
     expect(m.credits_remaining).toBe(5);
+  });
+});
+
+describe('sessionTypeForServiceId', () => {
+  it('maps the three staff-dialog daycare services', () => {
+    expect(sessionTypeForServiceId('service-daycare-full')).toBe('full_day');
+    expect(sessionTypeForServiceId('service-daycare-half-am')).toBe('half_day');
+    expect(sessionTypeForServiceId('service-daycare-half-pm')).toBe('half_day');
+  });
+
+  it('returns null for anything else (memberships cover daycare sessions only)', () => {
+    expect(sessionTypeForServiceId('service-grooming-full')).toBeNull();
+    expect(sessionTypeForServiceId('')).toBeNull();
+  });
+});
+
+describe('membershipCoverage', () => {
+  it('covers a matching session type at 1 credit', () => {
+    expect(membershipCoverage(creditsMembership(), 'full_day')).toEqual({
+      covered: true,
+      creditsNeeded: 1,
+    });
+  });
+
+  it('does not cover a mismatched session type', () => {
+    // MO02 is a full-day plan; a half-day booking is PAYG.
+    expect(membershipCoverage(creditsMembership(), 'half_day').covered).toBe(false);
+    // MO01 is the half-day plan; a full-day booking is PAYG.
+    const halfPlan = buildMembership({
+      id: 'm-h', customerId: 'h-1', plan: getPlanById('MO01')!, createdBy: 'u-1', now: NOW,
+    });
+    expect(membershipCoverage(halfPlan, 'full_day').covered).toBe(false);
+    expect(membershipCoverage(halfPlan, 'half_day').covered).toBe(true);
+  });
+
+  it('does not cover non-daycare sessions, inactive memberships, or empty balances', () => {
+    expect(membershipCoverage(creditsMembership(), null).covered).toBe(false);
+    const cancelled = { ...creditsMembership(), status: 'cancelled' as const };
+    expect(membershipCoverage(cancelled, 'full_day').covered).toBe(false);
+    const empty = { ...creditsMembership(), credits_remaining: 0 };
+    expect(membershipCoverage(empty, 'full_day').covered).toBe(false);
+  });
+
+  it('unlimited plans cover without consuming', () => {
+    const unlimited = buildMembership({
+      id: 'm-u', customerId: 'h-1', plan: getPlanById('MO05')!, createdBy: 'u-1', now: NOW,
+    });
+    expect(membershipCoverage(unlimited, 'full_day')).toEqual({
+      covered: true,
+      creditsNeeded: 0,
+    });
+  });
+});
+
+describe('restoreCredits', () => {
+  it('hands a consumed credit back and un-exhausts', () => {
+    let m = creditsMembership();
+    m = consumeCredits(m, 5, NOW) as CustomerMembership;
+    expect(m.status).toBe('exhausted');
+
+    m = restoreCredits(m, 1, NOW);
+    expect(m.credits_remaining).toBe(1);
+    expect(m.credits_used).toBe(4);
+    expect(m.status).toBe('active');
+  });
+
+  it('caps at credits_total and floors used at zero (double-restore safety)', () => {
+    const m = restoreCredits(creditsMembership(), 3, NOW);
+    expect(m.credits_remaining).toBe(5);
+    expect(m.credits_used).toBe(0);
+  });
+
+  it('leaves a cancelled membership cancelled while correcting the balance', () => {
+    let m = consumeCredits(creditsMembership(), 2, NOW) as CustomerMembership;
+    m = { ...m, status: 'cancelled' as const };
+    const restored = restoreCredits(m, 2, NOW);
+    expect(restored.status).toBe('cancelled');
+    expect(restored.credits_remaining).toBe(5);
+  });
+
+  it('is a no-op for unlimited plans and zero credits', () => {
+    const unlimited = buildMembership({
+      id: 'm-u2', customerId: 'h-1', plan: getPlanById('MO05')!, createdBy: 'u-1', now: NOW,
+    });
+    expect(restoreCredits(unlimited, 1, NOW).credits_remaining).toBeUndefined();
+    expect(restoreCredits(creditsMembership(), 0, NOW).credits_remaining).toBe(5);
   });
 });

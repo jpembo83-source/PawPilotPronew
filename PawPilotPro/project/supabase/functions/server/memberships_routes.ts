@@ -126,6 +126,9 @@ app.post('/customer-packages/:id/use', async (c) => {
   try {
     const user = c.get('user');
     const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'membership_not_found' }, 404);
+    }
     const parsed = useSchema.safeParse(await c.req.json());
     if (!parsed.success) {
       return c.json({ error: 'invalid_request' }, 400);
@@ -176,6 +179,9 @@ app.post('/customer-packages/:id/cancel', requireRole('admin', 'manager'), async
   try {
     const user = c.get('user');
     const id = c.req.param('id');
+    if (!id) {
+      return c.json({ error: 'membership_not_found' }, 404);
+    }
 
     const key = membershipKey(user.tenantId, id);
     const membership = (await kv.get(key)) as CustomerMembership | undefined;

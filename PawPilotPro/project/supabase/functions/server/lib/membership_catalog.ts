@@ -88,6 +88,67 @@ export function buildMembership(args: {
   };
 }
 
+/**
+ * Session length of a daycare booking, derived from the service id — the one
+ * field with stable values on both the staff dialog and the server
+ * ('service-daycare-full', 'service-daycare-half-am', 'service-daycare-half-pm').
+ * The client's service_type is a UI toggle ('membership' is one of its values)
+ * and is never trusted for coverage decisions. Unknown services return null:
+ * memberships cover standard daycare sessions only.
+ */
+export function sessionTypeForServiceId(serviceId: string): 'full_day' | 'half_day' | null {
+  if (serviceId === 'service-daycare-full') return 'full_day';
+  if (serviceId === 'service-daycare-half-am' || serviceId === 'service-daycare-half-pm') {
+    return 'half_day';
+  }
+  return null;
+}
+
+/**
+ * Server-authoritative coverage decision for one booking day. Covered when the
+ * membership is active, its plan exists, the plan's session type matches the
+ * booking's, and (for credits plans) at least one credit remains. Unlimited
+ * plans cover without consuming.
+ */
+export function membershipCoverage(
+  membership: CustomerMembership,
+  sessionType: 'full_day' | 'half_day' | null,
+): { covered: boolean; creditsNeeded: number } {
+  const notCovered = { covered: false, creditsNeeded: 0 };
+  if (!sessionType || membership.status !== 'active') return notCovered;
+  const plan = getPlanById(membership.package_id);
+  if (!plan || plan.sessionType !== sessionType) return notCovered;
+  if (membership.package_type === 'unlimited') return { covered: true, creditsNeeded: 0 };
+  if ((membership.credits_remaining ?? 0) < 1) return notCovered;
+  return { covered: true, creditsNeeded: 1 };
+}
+
+/**
+ * Pure inverse of consumeCredits, for booking cancellation. Returns the
+ * membership with the credits handed back (capped at credits_total, floored
+ * at zero used) and 'exhausted' flipped back to 'active'. Cancelled/expired
+ * memberships still get their ledger corrected — the customer paid for the
+ * period the credit belongs to — but their status is left alone.
+ */
+export function restoreCredits(
+  membership: CustomerMembership,
+  credits: number,
+  now: Date,
+): CustomerMembership {
+  if (membership.package_type === 'unlimited' || credits <= 0) {
+    return { ...membership, updated_at: now.toISOString() };
+  }
+  const total = membership.credits_total ?? 0;
+  const newRemaining = Math.min(total, (membership.credits_remaining ?? 0) + credits);
+  return {
+    ...membership,
+    credits_used: Math.max(0, (membership.credits_used ?? 0) - credits),
+    credits_remaining: newRemaining,
+    status: membership.status === 'exhausted' && newRemaining > 0 ? 'active' : membership.status,
+    updated_at: now.toISOString(),
+  };
+}
+
 export type ConsumeError = 'not_active' | 'invalid_credits' | 'insufficient_credits';
 
 /**

@@ -78,21 +78,30 @@ credits automatically on booking yet.
 - Reconcile the duplicate stores (`services-pricing/store.ts` vs
   `pricing/store.ts`) down to one.
 
-## Phase 3 — Membership applied at booking time (server-side)
+## Phase 3 — Membership applied at booking time (DONE in this branch)
 
-- Staff daycare `POST /bookings`: look up the household's active
-  `customer_membership` server-side; when it covers the session, price the
-  booking from credits (0.00 + audit fields recording the membership id) and
-  call the credit draw-down at booking creation, releasing the credit on
-  cancellation. Never trust a client-sent membership id — resolve from the
-  authenticated tenant's data.
-- Wire `service_type: 'membership'` off the client's cosmetic toggle and onto
-  the server-side decision.
-- Un-orphan `/pricing/resolve`: booking creation calls it with the resolved
-  membership; delete the "assume credits available" stub in favour of the
-  real ledger.
-- Smoke coverage first (repo rule): booking-with-membership and
-  booking-without-credits paths.
+- Staff daycare `POST /bookings` (`daycare_routes.tsx`): membership billing
+  is client-requested (staff keep the deliberate PAYG-vs-membership choice —
+  a customer may want to save credits) but server-verified — the server
+  resolves the household's active `customer_membership` from its own
+  tenant-scoped data and never trusts the claim. Session type derives from
+  `service_id` (`sessionTypeForServiceId`); the coverage decision is the pure
+  `membershipCoverage` (active + plan session match + credit available;
+  unlimited covers free). Covered bookings are priced 0.00, stamped with
+  `membership_id`/`membership_credits_used`, draw a credit, and write a
+  `membership_usage:` ledger entry keyed to the booking. Uncovered claims
+  (no membership, wrong session type, exhausted credits) fall back to PAYG
+  at full price with an honest service_type — mid-multi-day exhaustion
+  degrades gracefully instead of failing.
+- `POST /bookings/:id/cancel` hands the credit back (`restoreCredits`:
+  capped/floored, exhausted→active) and appends a compensating negative
+  ledger entry — no ledger deletes.
+- Smoke: `tests/e2e/memberships.spec.ts` guards the mount (404 = facade
+  regression) and membership surfaces against 5xx.
+- Deferred from the original Phase 3 sketch: un-orphaning `/pricing/resolve`.
+  Its membership branch reads the disjoint `membership:` plan model that
+  Phase 2 consolidates — integrating it before Phase 2 would wire bookings to
+  the wrong catalog. Fold it into Phase 2's consolidation instead.
 
 ## Phase 4 — Renewal, rollover, and billing
 
