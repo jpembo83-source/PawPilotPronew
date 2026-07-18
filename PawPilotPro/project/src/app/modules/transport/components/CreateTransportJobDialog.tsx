@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSettingsStore } from '../../settings/store';
 import { useTransportStore } from '../store';
+import { TimePicker } from './TimePicker';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
 import { format } from 'date-fns';
@@ -29,7 +30,6 @@ import {
   CaretLeft,
   Dog,
   CalendarBlank,
-  Clock,
   Warning,
   CircleNotch,
   CheckCircle,
@@ -682,33 +682,23 @@ export function CreateTransportJobDialog({
               )}
             </div>
 
-            {/* Time Window */}
+            {/* Time Window — explicit hour/minute dropdowns. The native
+                <input type="time"> was unusable for some users (couldn't
+                commit a value); selects work identically on every device. */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="timeStart">Window start (optional)</Label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="timeStart"
-                    type="time"
-                    value={formData.time_window_start}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, time_window_start: e.target.value }))}
-                    className="pl-9"
-                  />
-                </div>
+                <Label>Window start (optional)</Label>
+                <TimePicker
+                  value={formData.time_window_start}
+                  onChange={(v) => setFormData((prev) => ({ ...prev, time_window_start: v }))}
+                />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="timeEnd">Window end (optional)</Label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="timeEnd"
-                    type="time"
-                    value={formData.time_window_end}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, time_window_end: e.target.value }))}
-                    className="pl-9"
-                  />
-                </div>
+                <Label>Window end (optional)</Label>
+                <TimePicker
+                  value={formData.time_window_end}
+                  onChange={(v) => setFormData((prev) => ({ ...prev, time_window_end: v }))}
+                />
               </div>
             </div>
 
