@@ -19,7 +19,7 @@ import { Hono } from 'npm:hono';
 import { z } from 'npm:zod';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole } from './_shared/auth.ts';
-import { internalError, logInfo } from './_shared/log.ts';
+import { internalError, logInfo, logWarn } from './_shared/log.ts';
 import {
   buildMembership,
   consumeCredits,
@@ -28,7 +28,7 @@ import {
   type CustomerMembership,
   type MembershipPlan,
 } from './lib/membership_catalog.ts';
-import { withDueRenewal } from './lib/membership_store.ts';
+import { recordMembershipInvoice, withDueRenewal } from './lib/membership_store.ts';
 
 const app = new Hono();
 
@@ -142,6 +142,17 @@ app.post('/customer-packages', requireRole('admin', 'manager'), async (c) => {
       planId: plan.id,
       householdId: customer_id,
     });
+    // First billing period invoices at assignment; renewal invoices the rest.
+    // Invoicing failure never rolls back the assignment (finance follow-up).
+    try {
+      await recordMembershipInvoice(user.tenantId, membership, 1, 'assignment');
+    } catch (err) {
+      logWarn('memberships.invoice_failed', {
+        membershipId: membership.id,
+        periods: 1,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     // Unwrapped object: purchasePackage() parses the body as CustomerPackage.
     return c.json(membership, 201);

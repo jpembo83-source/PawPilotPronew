@@ -106,6 +106,12 @@ export interface CustomerMembership {
    *  tops up by this amount; pre-snapshot records fall back to the compiled
    *  catalogue. Absent on unlimited plans. */
   monthly_credits?: number;
+  /** Price charged each billing period (snapshot at assignment) and its
+   *  currency. Invoicing reads these; pre-snapshot records fall back to the
+   *  compiled catalogue, and a membership whose price can't be known renews
+   *  its credits but is not invoiced (logged for follow-up). */
+  monthly_price?: number;
+  currency?: string;
   credits_total?: number;
   credits_used?: number;
   credits_remaining?: number;
@@ -139,6 +145,8 @@ export function buildMembership(args: {
     package_name: plan.name,
     package_type: unlimited ? 'unlimited' : 'credits',
     session_type: plan.sessionType,
+    monthly_price: plan.price,
+    currency: plan.currency,
     ...(unlimited
       ? {}
       : {
@@ -283,6 +291,126 @@ export function renewIfDue(
     updated_at: now.toISOString(),
   };
   return { membership: renewed, periodsAdvanced: periods, creditsGranted };
+}
+
+/**
+ * Price charged per billing period: the assignment snapshot, or the compiled
+ * catalogue for pre-snapshot records. undefined = unknowable (renew credits,
+ * skip the invoice, log).
+ */
+export function monthlyPriceFor(
+  membership: CustomerMembership,
+): { price: number; currency: string } | undefined {
+  if (typeof membership.monthly_price === 'number') {
+    return { price: membership.monthly_price, currency: membership.currency ?? 'CHF' };
+  }
+  const plan = getPlanById(membership.package_id);
+  return plan ? { price: plan.price, currency: plan.currency } : undefined;
+}
+
+/** The billing keyspace's Invoice/InvoiceLineItem shapes (billing_routes.tsx),
+ *  narrowed to the fields membership invoicing writes. */
+export interface MembershipInvoice {
+  invoice: {
+    id: string;
+    invoice_number: string;
+    household_id: string;
+    household_name: string;
+    location_id: string;
+    location_name: string;
+    status: 'issued';
+    issue_date: string;
+    due_date: string;
+    subtotal: number;
+    tax_total: number;
+    total: number;
+    paid_amount: number;
+    balance: number;
+    tags: string[];
+    notes: string;
+    created_by: string;
+    created_at: string;
+    updated_at: string;
+  };
+  lineItem: {
+    id: string;
+    invoice_id: string;
+    service_id: string;
+    service_name: string;
+    module: string;
+    quantity: number;
+    unit_price: number;
+    tax_rate: number;
+    discount: number;
+    subtotal: number;
+    tax_amount: number;
+    total: number;
+    created_at: string;
+  };
+}
+
+/**
+ * Pure builder for a membership billing-period invoice — one invoice per
+ * assignment or renewal event, quantity = periods covered. Membership prices
+ * are the published gross figures, so tax_rate is 0 (no VAT re-added on top).
+ * Issued immediately (memberships bill on their date, not on staff review);
+ * due 14 days after issue. ids are supplied by the caller so this stays pure.
+ */
+export function buildMembershipInvoice(args: {
+  invoiceId: string;
+  lineItemId: string;
+  invoiceNumber: string;
+  membership: CustomerMembership;
+  householdName: string;
+  periods: number;
+  price: number;
+  reason: 'assignment' | 'renewal';
+  now: Date;
+}): MembershipInvoice {
+  const { invoiceId, lineItemId, invoiceNumber, membership, householdName, periods, price, reason, now } = args;
+  const iso = now.toISOString();
+  const due = new Date(now);
+  due.setDate(due.getDate() + 14);
+  const total = Math.round(price * periods * 100) / 100;
+
+  return {
+    invoice: {
+      id: invoiceId,
+      invoice_number: invoiceNumber,
+      household_id: membership.customer_id,
+      household_name: householdName,
+      location_id: '',
+      location_name: '',
+      status: 'issued',
+      issue_date: iso,
+      due_date: due.toISOString(),
+      subtotal: total,
+      tax_total: 0,
+      total,
+      paid_amount: 0,
+      balance: total,
+      tags: ['membership', reason],
+      notes: `${membership.package_name} membership — ${reason === 'assignment' ? 'first billing period' : `renewal (${periods} period${periods === 1 ? '' : 's'})`}`,
+      created_by: 'memberships',
+      created_at: iso,
+      updated_at: iso,
+    },
+    lineItem: {
+      id: lineItemId,
+      invoice_id: invoiceId,
+      service_id: membership.package_id,
+      service_name: `${membership.package_name} membership`,
+      module: 'memberships',
+      quantity: periods,
+      unit_price: price,
+      tax_rate: 0,
+      discount: 0,
+      subtotal: total,
+      tax_amount: 0,
+      total,
+      created_at: iso,
+    },
+  };
 }
 
 export type ConsumeError = 'not_active' | 'invalid_credits' | 'insufficient_credits';

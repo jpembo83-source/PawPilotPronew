@@ -4,6 +4,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole } from './_shared/auth.ts';
+import { monthlyPriceFor, type CustomerMembership } from './lib/membership_catalog.ts';
 
 const app = new Hono();
 
@@ -19,7 +20,6 @@ app.use('*', requireAuth);
 
 type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'overdue' | 'void' | 'part_paid';
 type PaymentMethod = 'card' | 'bank_transfer' | 'cash' | 'direct_debit' | 'provider';
-type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'past_due';
 
 interface InvoiceLineItem {
   id: string;
@@ -116,27 +116,6 @@ interface Refund {
   created_at: string;
 }
 
-interface Subscription {
-  id: string;
-  household_id: string;
-  household_name: string;
-  plan_id: string;
-  plan_name: string;
-  plan_version: number;
-  pet_ids: string[];
-  status: SubscriptionStatus;
-  monthly_price: number;
-  credits_included?: number;
-  credits_used?: number;
-  billing_method: PaymentMethod;
-  renewal_date: string;
-  started_at: string;
-  paused_at?: string;
-  cancelled_at?: string;
-  created_by: string;
-  created_at: string;
-}
-
 interface Fee {
   id: string;
   household_id: string;
@@ -174,7 +153,12 @@ app.get('/overview', async (c) => {
     // Get all invoices
     const invoices = await kv.getByPrefix<Invoice>('invoice:');
     const payments = await kv.getByPrefix<Payment>('payment:');
-    const subscriptions = await kv.getByPrefix<Subscription>('subscription:');
+    // Membership stats come from the real customer memberships (tenant-scoped,
+    // priced from the assignment snapshot / compiled catalogue) — the legacy
+    // subscription: records were never wired to anything and are gone.
+    const memberships = (await kv.getByPrefix(
+      `customer_membership:${c.get('user').tenantId}:`,
+    )) as CustomerMembership[];
     const credits = await kv.getByPrefix<Credit>('credit:');
     const refunds = await kv.getByPrefix<Refund>('refund:');
 
@@ -243,9 +227,12 @@ app.get('/overview', async (c) => {
     // Failed payments
     const failedPayments = filteredPayments.filter(p => p.status === 'failed').length;
 
-    // Membership revenue (month-to-date)
-    const activeSubscriptions = subscriptions.filter(s => s.status === 'active');
-    const membershipRevenue = activeSubscriptions.reduce((sum, s) => sum + s.monthly_price, 0);
+    // Membership revenue: sum of active plans' monthly price.
+    const activeMemberships = memberships.filter(m => m.status === 'active');
+    const membershipRevenue = activeMemberships.reduce(
+      (sum, m) => sum + (monthlyPriceFor(m)?.price ?? 0),
+      0,
+    );
 
     // Refunds & credits issued (month-to-date)
     const refundsMonth = refunds.filter(r => 
@@ -267,7 +254,7 @@ app.get('/overview', async (c) => {
       },
       failed_payments: failedPayments,
       membership_revenue: membershipRevenue,
-      active_memberships: activeSubscriptions.length,
+      active_memberships: activeMemberships.length,
       refunds_month: refundsMonth,
       credits_month: creditsMonth,
     });
@@ -644,124 +631,6 @@ app.post('/payments/:id/allocate', requireRole('admin', 'manager'), async (c) =>
 });
 
 // ============================================================================
-// SUBSCRIPTIONS (MEMBERSHIPS)
-// ============================================================================
-
-app.get('/subscriptions', async (c) => {
-  try {
-    const { household_id, status } = c.req.query();
-
-    let subscriptions = await kv.getByPrefix<Subscription>('subscription:');
-
-    if (household_id) {
-      subscriptions = subscriptions.filter(s => s.household_id === household_id);
-    }
-    if (status) {
-      subscriptions = subscriptions.filter(s => s.status === status);
-    }
-
-    subscriptions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    return c.json({ subscriptions });
-  } catch (error) {
-    console.error('Error fetching subscriptions:', error);
-    return c.json({ error: 'Failed to fetch subscriptions' }, 500);
-  }
-});
-
-app.post('/subscriptions', requireRole('admin', 'manager'), async (c) => {
-  try {
-    const data = await c.req.json();
-    const { household_id, household_name, plan_id, plan_name, plan_version, pet_ids, monthly_price, billing_method, created_by } = data;
-
-    const id = crypto.randomUUID();
-
-    const renewalDate = new Date();
-    renewalDate.setMonth(renewalDate.getMonth() + 1);
-
-    const subscription: Subscription = {
-      id,
-      household_id,
-      household_name,
-      plan_id,
-      plan_name,
-      plan_version: plan_version || 1,
-      pet_ids: pet_ids || [],
-      status: 'active',
-      monthly_price,
-      billing_method,
-      renewal_date: renewalDate.toISOString(),
-      started_at: new Date().toISOString(),
-      created_by,
-      created_at: new Date().toISOString(),
-    };
-
-    await kv.set(`subscription:${id}`, subscription);
-
-    console.log(`Created subscription ${plan_name} for household ${household_name}`);
-
-    return c.json({ subscription }, 201);
-  } catch (error) {
-    console.error('Error creating subscription:', error);
-    return c.json({ error: 'Failed to create subscription' }, 500);
-  }
-});
-
-app.patch('/subscriptions/:id/pause', requireRole('admin', 'manager'), async (c) => {
-  try {
-    const id = c.req.param('id');
-    const data = await c.req.json();
-    const { reason } = data;
-
-    const subscription = await kv.get<Subscription>(`subscription:${id}`);
-    if (!subscription) {
-      return c.json({ error: 'Subscription not found' }, 404);
-    }
-
-    if (subscription.status !== 'active') {
-      return c.json({ error: 'Only active subscriptions can be paused' }, 400);
-    }
-
-    subscription.status = 'paused';
-    subscription.paused_at = new Date().toISOString();
-
-    await kv.set(`subscription:${id}`, subscription);
-
-    console.log(`Paused subscription ${subscription.plan_name}: ${reason}`);
-
-    return c.json({ subscription });
-  } catch (error) {
-    console.error('Error pausing subscription:', error);
-    return c.json({ error: 'Failed to pause subscription' }, 500);
-  }
-});
-
-app.patch('/subscriptions/:id/cancel', requireRole('admin', 'manager'), async (c) => {
-  try {
-    const id = c.req.param('id');
-    const data = await c.req.json();
-    const { reason } = data;
-
-    const subscription = await kv.get<Subscription>(`subscription:${id}`);
-    if (!subscription) {
-      return c.json({ error: 'Subscription not found' }, 404);
-    }
-
-    subscription.status = 'cancelled';
-    subscription.cancelled_at = new Date().toISOString();
-
-    await kv.set(`subscription:${id}`, subscription);
-
-    console.log(`Cancelled subscription ${subscription.plan_name}: ${reason}`);
-
-    return c.json({ subscription });
-  } catch (error) {
-    console.error('Error cancelling subscription:', error);
-    return c.json({ error: 'Failed to cancel subscription' }, 500);
-  }
-});
-
-// ============================================================================
 // CREDITS & REFUNDS
 // ============================================================================
 
@@ -1077,33 +946,12 @@ app.post('/seed', requireRole('admin', 'manager'), async (c) => {
 
     await kv.set(`payment:${payment1.id}`, payment1);
 
-    // Create sample subscription
-    const subscription1: Subscription = {
-      id: crypto.randomUUID(),
-      household_id: 'household-1',
-      household_name: 'The Johnsons',
-      plan_id: 'plan-everyday',
-      plan_name: 'Everyday Access',
-      plan_version: 1,
-      pet_ids: ['pet-1'],
-      status: 'active',
-      monthly_price: 199.00,
-      billing_method: 'direct_debit',
-      renewal_date: new Date('2025-02-01').toISOString(),
-      started_at: new Date('2025-01-01').toISOString(),
-      created_by: 'admin',
-      created_at: new Date('2025-01-01').toISOString(),
-    };
-
-    await kv.set(`subscription:${subscription1.id}`, subscription1);
-
     console.log('Billing data seeded successfully');
 
     return c.json({ 
       message: 'Billing data seeded successfully',
       invoices: 2,
       payments: 1,
-      subscriptions: 1,
     });
   } catch (error) {
     console.error('Error seeding billing data:', error);

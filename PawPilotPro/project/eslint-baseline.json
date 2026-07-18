@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3707,
-  "warnings": 413
+  "errors": 3248,
+  "warnings": 408
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -173,7 +173,7 @@
    "warnings": 1
   },
   "src/app/modules/billing/store.ts": {
-   "errors": 34,
+   "errors": 28,
    "warnings": 0
   },
   "src/app/modules/calendar/CalendarPage.tsx": {
@@ -692,10 +692,6 @@
    "errors": 43,
    "warnings": 8
   },
-  "src/app/modules/pricing/store.ts": {
-   "errors": 226,
-   "warnings": 1
-  },
   "src/app/modules/reporting/pages/ReportViewerPage.tsx": {
    "errors": 9,
    "warnings": 4
@@ -763,22 +759,6 @@
   "src/app/modules/settings/components/PermissionGuard.tsx": {
    "errors": 13,
    "warnings": 0
-  },
-  "src/app/modules/settings/components/pricing/LocationPricingOverrides.tsx": {
-   "errors": 72,
-   "warnings": 1
-  },
-  "src/app/modules/settings/components/pricing/PriceBooks.tsx": {
-   "errors": 77,
-   "warnings": 2
-  },
-  "src/app/modules/settings/components/pricing/PricingAuditLog.tsx": {
-   "errors": 26,
-   "warnings": 0
-  },
-  "src/app/modules/settings/components/pricing/ServiceCatalogue.tsx": {
-   "errors": 52,
-   "warnings": 1
   },
   "src/app/modules/settings/components/users/TemplateDialog.tsx": {
    "errors": 1,
