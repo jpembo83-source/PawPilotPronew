@@ -4,6 +4,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth } from './_shared/auth.ts';
+import { requireSeedEnabled } from './_shared/seed_guard.ts';
 
 const app = new Hono();
 
@@ -790,7 +791,7 @@ app.get('/stats', async (c) => {
 
 // --- Initialize Seed Data ---
 
-app.post('/seed', async (c) => {
+app.post('/seed', requireSeedEnabled, async (c) => {
   // Payment Providers
   await kv.set('billing:provider:stripe', {
     id: 'stripe',

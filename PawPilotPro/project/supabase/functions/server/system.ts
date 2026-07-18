@@ -4,6 +4,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
+import { requireSeedEnabled } from './_shared/seed_guard.ts';
 
 const app = new Hono();
 
@@ -568,7 +569,7 @@ app.post('/actions/maintenance-mode', async (c) => {
 
 // --- Seed Data ---
 
-app.post('/seed', async (c) => {
+app.post('/seed', requireSeedEnabled, async (c) => {
   // Sample organisations
   await kv.set('system:organisation:org1', {
     id: 'org1',

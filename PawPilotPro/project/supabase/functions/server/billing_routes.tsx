@@ -4,6 +4,7 @@
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole } from './_shared/auth.ts';
+import { requireSeedEnabled } from './_shared/seed_guard.ts';
 import { monthlyPriceFor, type CustomerMembership } from './lib/membership_catalog.ts';
 
 const app = new Hono();
@@ -879,7 +880,7 @@ app.get('/reconciliation/unallocated-payments', async (c) => {
 // SEED DATA (FOR TESTING)
 // ============================================================================
 
-app.post('/seed', requireRole('admin', 'manager'), async (c) => {
+app.post('/seed', requireSeedEnabled, requireRole('admin', 'manager'), async (c) => {
   try {
     console.log('Seeding billing data...');
 
