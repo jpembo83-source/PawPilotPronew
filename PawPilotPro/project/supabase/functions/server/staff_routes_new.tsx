@@ -1525,8 +1525,22 @@ app.get('/my-rota', async (c) => {
         return null;
       }
     }).filter(s => s !== null);
-    
-    return c.json(shifts);
+
+    // Staff roles can't read GET /locations (locations:view is manager+), but
+    // they must know WHERE each of their shifts is. Attach only the name of
+    // locations they are actually rostered at — nothing else from the record.
+    const locationIds = [...new Set(shifts.map(s => s.location_id).filter(Boolean))];
+    const locationNames = new Map<string, string>();
+    await Promise.all(locationIds.map(async (id) => {
+      const loc = await kv.get(`location:${id}`);
+      if (loc?.name) locationNames.set(id, loc.name);
+    }));
+    const enriched = shifts.map(s => ({
+      ...s,
+      location_name: locationNames.get(s.location_id) ?? s.location_name,
+    }));
+
+    return c.json(enriched);
   } catch (error: any) {
     console.error('Fetch my rota error:', error);
     return internalError(c, 'staff.getMyRota', error);

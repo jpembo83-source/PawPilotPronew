@@ -48,8 +48,13 @@ export function MyShiftsCard() {
         : a.shift_date.localeCompare(b.shift_date)
     );
 
-  const locationName = (id: string) =>
-    locations.find(l => l.id === id)?.name || 'Location TBC';
+  // /my-rota sends location_name so this works for staff roles, who get a
+  // 403 from GET /locations (locations:view is manager+). The settings-store
+  // list is only a fallback for older shifts stored without a name.
+  const locationName = (shift: RotaShift) =>
+    shift.location_name
+    || locations.find(l => l.id === shift.location_id)?.name
+    || 'Location TBC';
 
   return (
     <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid #E2DED8' }}>
@@ -89,7 +94,7 @@ export function MyShiftsCard() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-[#1C1916] flex items-center gap-1.5 truncate">
                     <MapPin size={14} weight="duotone" style={{ color: 'var(--primary)' }} aria-hidden="true" />
-                    <span className="truncate">{locationName(shift.location_id)}</span>
+                    <span className="truncate">{locationName(shift)}</span>
                   </p>
                   {roleLabel(shift) && (
                     <p className="text-sm text-tertiary-foreground truncate">{roleLabel(shift)}</p>

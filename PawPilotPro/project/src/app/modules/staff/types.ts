@@ -404,6 +404,8 @@ export interface RotaShift {
   user_id: string;
   user_name?: string;
   location_id: string;
+  /** Attached by GET /my-rota so staff roles (no locations:view) still see where they work. */
+  location_name?: string;
   role_key: string;
   role_name?: string;
   shift_date: string;
