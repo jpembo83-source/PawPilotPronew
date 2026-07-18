@@ -146,11 +146,11 @@ export function OvernightCheckOut() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <SignOut className="h-6 w-6 text-blue-600" />
             Overnight Check-Out
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Check out pets from overnight boarding at {selectedLocation.name}
           </p>
         </div>
@@ -163,7 +163,7 @@ export function OvernightCheckOut() {
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-tertiary-foreground" />
             <Input
               placeholder="Search pet or customer name..."
               value={searchQuery}
@@ -181,60 +181,60 @@ export function OvernightCheckOut() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-slate-500">Loading...</div>
+            <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : filteredReservations.length === 0 ? (
             <div className="text-center py-8">
-              <Moon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">No pets currently checked in for overnight boarding</p>
+              <Moon className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+              <p className="text-muted-foreground">No pets currently checked in for overnight boarding</p>
             </div>
           ) : (
             <div className="space-y-3">
               {filteredReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                    <div className="h-10 w-10 rounded-full bg-primary-tint flex items-center justify-center text-primary font-bold text-sm">
                       {(reservation.petName || '?').charAt(0)}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{reservation.petName || 'Unknown Pet'}</p>
-                      <p className="text-sm text-slate-600">{reservation.customerName || 'Unknown Customer'}</p>
+                      <p className="font-medium text-foreground">{reservation.petName || 'Unknown Pet'}</p>
+                      <p className="text-sm text-muted-foreground">{reservation.customerName || 'Unknown Customer'}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <Clock className="h-3 w-3 text-slate-400" />
-                        <span className="text-xs text-slate-500">
+                        <Clock className="h-3 w-3 text-tertiary-foreground" />
+                        <span className="text-sm text-muted-foreground">
                           Duration: {calculateStayDuration(reservation)}
                         </span>
-                        <span className="text-xs text-slate-400">&middot;</span>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-sm text-tertiary-foreground">&middot;</span>
+                        <span className="text-sm text-muted-foreground">
                           Departs: {reservation.endDate}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {reservation.requiresMedication && (
-                      <Badge variant="outline" className="text-xs text-rose-600 border-rose-200">
+                      <Badge variant="outline" className="text-sm text-rose-600 border-rose-200">
                         <Pill className="h-3 w-3 mr-1" />
                         Medication
                       </Badge>
                     )}
                     {reservation.hasBehaviourConcerns && (
-                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
+                      <Badge variant="outline" className="text-sm text-amber-600 border-amber-200">
                         <ShieldWarning className="h-3 w-3 mr-1" />
                         Behaviour
                       </Badge>
                     )}
                     {reservation.hasAllergies && (
-                      <Badge variant="outline" className="text-xs text-purple-600 border-purple-200">
+                      <Badge variant="outline" className="text-sm text-purple-600 border-purple-200">
                         <Warning className="h-3 w-3 mr-1" />
                         Allergies
                       </Badge>
                     )}
                     {reservation.endDate === today && (
-                      <Badge className="text-xs bg-blue-500">
+                      <Badge className="text-sm bg-blue-500">
                         Departing Today
                       </Badge>
                     )}
@@ -262,9 +262,9 @@ export function OvernightCheckOut() {
           </DialogHeader>
 
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-3">
+            <div className="p-4 bg-primary-tint border border-primary/20 rounded-lg space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-medium text-indigo-900">
+                <div className="flex items-center gap-2 font-medium text-primary-strong">
                   <ArrowsLeftRight className="h-4 w-4" />
                   Transition to Daycare?
                 </div>
@@ -274,7 +274,7 @@ export function OvernightCheckOut() {
                 />
               </div>
               {transitionToDaycareMode && (
-                <p className="text-xs text-indigo-600 ml-6">
+                <p className="text-sm text-primary ml-6">
                   This will mark the overnight stay as completed and automatically create a daycare booking for today.
                 </p>
               )}
@@ -283,7 +283,7 @@ export function OvernightCheckOut() {
             {!transitionToDaycareMode && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="handed-over-to" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="handed-over-to" className="text-sm font-medium text-foreground">
                     Handed Over To
                   </Label>
                   <Input
@@ -295,7 +295,7 @@ export function OvernightCheckOut() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="checkout-notes" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="checkout-notes" className="text-sm font-medium text-foreground">
                     Check-Out Notes (Optional)
                   </Label>
                   <Textarea
@@ -308,7 +308,7 @@ export function OvernightCheckOut() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="next-visit-notes" className="text-sm font-medium text-slate-700">
+                  <Label htmlFor="next-visit-notes" className="text-sm font-medium text-foreground">
                     Notes for Next Visit (Optional)
                   </Label>
                   <Textarea
@@ -323,9 +323,9 @@ export function OvernightCheckOut() {
             )}
 
             {selectedReservation?.specialInstructions && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <p className="text-xs font-medium text-slate-500 uppercase mb-1">Special Instructions</p>
-                <p className="text-sm text-slate-700">{selectedReservation.specialInstructions}</p>
+              <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                <p className="text-sm font-medium text-muted-foreground uppercase mb-1">Special Instructions</p>
+                <p className="text-sm text-foreground">{selectedReservation.specialInstructions}</p>
               </div>
             )}
           </div>

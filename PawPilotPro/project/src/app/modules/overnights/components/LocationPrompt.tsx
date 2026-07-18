@@ -11,9 +11,9 @@ interface LocationPromptProps {
 /** Empty state shown when an overnight operational page has no single location to act on. */
 export function LocationPrompt({ needsSelection, action }: LocationPromptProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-      <Moon className="h-16 w-16 text-slate-300 mb-4" />
-      <h2 className="text-lg font-medium text-slate-900">
+    <div className="flex flex-col items-center justify-center h-96 text-muted-foreground">
+      <Moon className="h-16 w-16 text-muted-foreground/40 mb-4" />
+      <h2 className="text-lg font-medium text-foreground">
         {needsSelection ? 'Select a Location' : 'No Location Selected'}
       </h2>
       <p>

@@ -30,7 +30,7 @@ function formatDateISO(date: Date): string {
 }
 
 function getCapacityColour(occupancy: number, max: number): string {
-  if (max === 0) return 'bg-slate-100 text-slate-600';
+  if (max === 0) return 'bg-muted text-muted-foreground';
   const pct = (occupancy / max) * 100;
   if (pct >= 90) return 'bg-rose-100 text-rose-700 border-rose-200';
   if (pct >= 75) return 'bg-amber-100 text-amber-700 border-amber-200';
@@ -39,7 +39,7 @@ function getCapacityColour(occupancy: number, max: number): string {
 }
 
 function getBarColour(occupancy: number, max: number): string {
-  if (max === 0) return 'bg-slate-300';
+  if (max === 0) return 'bg-muted';
   const pct = (occupancy / max) * 100;
   if (pct >= 90) return 'bg-rose-500';
   if (pct >= 75) return 'bg-amber-500';
@@ -126,7 +126,7 @@ export function CapacityCalendar({ locationId, maxCapacity }: CapacityCalendarPr
             <CaretRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex items-center gap-4 text-xs text-slate-500">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <div className="h-3 w-3 rounded-full bg-emerald-500" />
             <span>&lt;50%</span>
@@ -163,28 +163,28 @@ export function CapacityCalendar({ locationId, maxCapacity }: CapacityCalendarPr
             <div
               key={dateStr}
               className={`border rounded-lg p-3 transition-all ${
-                isToday ? 'border-indigo-400 ring-1 ring-indigo-200' : 'border-slate-200'
+                isToday ? 'border-primary ring-1 ring-primary/30' : 'border-border'
               } ${isLoading ? 'animate-pulse' : ''}`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className={`text-xs font-medium ${isToday ? 'text-indigo-600' : 'text-slate-600'}`}>
+                <span className={`text-sm font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
                   {day.toLocaleDateString('en-GB', { weekday: 'short' })}
                 </span>
-                <span className={`text-sm font-semibold ${isToday ? 'text-indigo-600' : 'text-slate-900'}`}>
+                <span className={`text-sm font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>
                   {day.getDate()}
                 </span>
               </div>
 
               {isLoading ? (
-                <div className="h-8 bg-slate-100 rounded" />
+                <div className="h-8 bg-muted rounded" />
               ) : (
                 <>
                   <div className="flex items-baseline gap-1 mb-1.5">
-                    <span className="text-lg font-bold text-slate-900">{occupancy}</span>
-                    <span className="text-xs text-slate-400">/ {max}</span>
+                    <span className="text-lg font-bold text-foreground">{occupancy}</span>
+                    <span className="text-sm text-tertiary-foreground">/ {max}</span>
                   </div>
 
-                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1.5">
+                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mb-1.5">
                     <div
                       className={`h-full rounded-full transition-all ${getBarColour(occupancy, max)}`}
                       style={{ width: `${Math.min(pct, 100)}%` }}
@@ -192,7 +192,7 @@ export function CapacityCalendar({ locationId, maxCapacity }: CapacityCalendarPr
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs ${available > 0 ? 'text-slate-500' : 'text-rose-600 font-medium'}`}>
+                    <span className={`text-sm ${available > 0 ? 'text-muted-foreground' : 'text-rose-600 font-medium'}`}>
                       {available > 0 ? `${available} free` : 'Full'}
                     </span>
                     {pct >= 90 && (

@@ -85,13 +85,13 @@ export function CareLogForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
-        <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+      <div className="flex items-center gap-3 pb-4 border-b border-border">
+        <div className="h-10 w-10 rounded-full bg-primary-tint flex items-center justify-center text-primary font-bold">
           {petName.charAt(0)}
         </div>
         <div>
-          <h3 className="font-semibold text-slate-900">{petName}</h3>
-          <p className="text-sm text-slate-500">Nightly Care Log</p>
+          <h3 className="font-semibold text-foreground">{petName}</h3>
+          <p className="text-sm text-muted-foreground">Nightly Care Log</p>
         </div>
         {requiresMedication && (
           <Badge variant="outline" className="text-rose-600 border-rose-200 ml-auto">
@@ -101,10 +101,10 @@ export function CareLogForm({
         )}
       </div>
 
-      <div className="space-y-4 border border-slate-200 rounded-lg p-4">
+      <div className="space-y-4 border border-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
           <ForkKnife className="h-4 w-4 text-orange-600" />
-          <h4 className="font-medium text-slate-900">Feeding</h4>
+          <h4 className="font-medium text-foreground">Feeding</h4>
         </div>
         <div className="flex items-center gap-3">
           <Checkbox
@@ -135,12 +135,12 @@ export function CareLogForm({
         )}
       </div>
 
-      <div className="space-y-4 border border-slate-200 rounded-lg p-4">
+      <div className="space-y-4 border border-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
           <Pill className="h-4 w-4 text-rose-600" />
-          <h4 className="font-medium text-slate-900">Medication</h4>
+          <h4 className="font-medium text-foreground">Medication</h4>
           {requiresMedication && (
-            <Badge variant="outline" className="text-xs text-rose-600 border-rose-200">Required</Badge>
+            <Badge variant="outline" className="text-sm text-rose-600 border-rose-200">Required</Badge>
           )}
         </div>
         <div className="flex items-center gap-3">
@@ -172,10 +172,10 @@ export function CareLogForm({
         )}
       </div>
 
-      <div className="space-y-4 border border-slate-200 rounded-lg p-4">
+      <div className="space-y-4 border border-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
           <Dog className="h-4 w-4 text-emerald-600" />
-          <h4 className="font-medium text-slate-900">Toilet Break</h4>
+          <h4 className="font-medium text-foreground">Toilet Break</h4>
         </div>
         <div className="flex items-center gap-3">
           <Checkbox
@@ -206,10 +206,10 @@ export function CareLogForm({
         )}
       </div>
 
-      <div className="space-y-4 border border-slate-200 rounded-lg p-4">
+      <div className="space-y-4 border border-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
-          <Moon className="h-4 w-4 text-indigo-600" />
-          <h4 className="font-medium text-slate-900">Sleep Quality</h4>
+          <Moon className="h-4 w-4 text-primary" />
+          <h4 className="font-medium text-foreground">Sleep Quality</h4>
         </div>
         <div className="flex flex-wrap gap-2">
           {sleepQualityOptions.map((opt) => (
@@ -219,8 +219,8 @@ export function CareLogForm({
               onClick={() => setSleepQuality(opt.value)}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                 sleepQuality === opt.value
-                  ? `${opt.colour} ring-2 ring-offset-1 ring-slate-400`
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? `${opt.colour} ring-2 ring-offset-1 ring-ring`
+                  : 'bg-muted text-muted-foreground hover:bg-muted'
               }`}
             >
               {opt.label}
@@ -229,10 +229,10 @@ export function CareLogForm({
         </div>
       </div>
 
-      <div className="space-y-4 border border-slate-200 rounded-lg p-4">
+      <div className="space-y-4 border border-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
           <Heart className="h-4 w-4 text-pink-600" />
-          <h4 className="font-medium text-slate-900">Behaviour & Health</h4>
+          <h4 className="font-medium text-foreground">Behaviour & Health</h4>
         </div>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -270,7 +270,7 @@ export function CareLogForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+      <div className="flex justify-end gap-3 pt-4 border-t border-border">
         <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>

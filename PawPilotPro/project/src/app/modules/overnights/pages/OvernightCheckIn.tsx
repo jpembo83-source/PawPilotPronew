@@ -199,11 +199,11 @@ export function OvernightCheckIn() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
             <SignIn className="h-6 w-6 text-emerald-600" />
             Overnight Check-In
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Check in pets for overnight boarding at {selectedLocation.name}
           </p>
         </div>
@@ -216,7 +216,7 @@ export function OvernightCheckIn() {
         </CardHeader>
         <CardContent>
           <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-tertiary-foreground" />
             <Input
               placeholder="Search pet or customer name..."
               value={searchQuery}
@@ -234,48 +234,48 @@ export function OvernightCheckIn() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-slate-500">Loading reservations...</div>
+            <div className="text-center py-8 text-muted-foreground">Loading reservations...</div>
           ) : filteredReservations.length === 0 ? (
             <div className="text-center py-8">
-              <SignIn className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">No reservations ready for check-in today</p>
+              <SignIn className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+              <p className="text-muted-foreground">No reservations ready for check-in today</p>
             </div>
           ) : (
             <div className="space-y-3">
               {filteredReservations.map((reservation) => (
                 <div
                   key={reservation.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => handleSelectReservation(reservation)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                    <div className="h-10 w-10 rounded-full bg-primary-tint flex items-center justify-center text-primary font-bold text-sm">
                       {(reservation.petName || '?').charAt(0)}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900">{reservation.petName || 'Unknown Pet'}</p>
-                      <p className="text-sm text-slate-600">{reservation.customerName || 'Unknown Customer'}</p>
-                      <p className="text-xs text-slate-400">
+                      <p className="font-medium text-foreground">{reservation.petName || 'Unknown Pet'}</p>
+                      <p className="text-sm text-muted-foreground">{reservation.customerName || 'Unknown Customer'}</p>
+                      <p className="text-sm text-tertiary-foreground">
                         {reservation.totalNights} night{reservation.totalNights !== 1 ? 's' : ''} &middot; {reservation.startDate} to {reservation.endDate}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {reservation.requiresMedication && (
-                      <Badge variant="outline" className="text-xs text-rose-600 border-rose-200">
+                      <Badge variant="outline" className="text-sm text-rose-600 border-rose-200">
                         <Pill className="h-3 w-3 mr-1" />
                         Medication
                       </Badge>
                     )}
                     {reservation.hasBehaviourConcerns && (
-                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
+                      <Badge variant="outline" className="text-sm text-amber-600 border-amber-200">
                         <ShieldWarning className="h-3 w-3 mr-1" />
                         Behaviour
                       </Badge>
                     )}
                     {reservation.hasAllergies && (
-                      <Badge variant="outline" className="text-xs text-purple-600 border-purple-200">
+                      <Badge variant="outline" className="text-sm text-purple-600 border-purple-200">
                         <Warning className="h-3 w-3 mr-1" />
                         Allergies
                       </Badge>
@@ -319,8 +319,8 @@ export function OvernightCheckIn() {
               </div>
             )}
 
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
-              <div className="font-medium text-slate-900 flex items-center gap-2">
+            <div className="p-4 bg-muted/50 border border-border rounded-lg space-y-3">
+              <div className="font-medium text-foreground flex items-center gap-2">
                 <Syringe className="h-4 w-4" />
                 Validation Checks
               </div>
@@ -345,10 +345,10 @@ export function OvernightCheckIn() {
                 </label>
               </div>
               {validating && (
-                <p className="text-sm text-slate-500 ml-6">Checking vaccination and waiver records…</p>
+                <p className="text-sm text-muted-foreground ml-6">Checking vaccination and waiver records…</p>
               )}
               {validation && (
-                <p className="text-sm text-slate-500 ml-6">
+                <p className="text-sm text-muted-foreground ml-6">
                   On record: vaccination {validation.vaccinationStatus.replace(/_/g, ' ')} &middot; waiver {validation.waiverStatus.replace(/_/g, ' ')}
                 </p>
               )}
@@ -405,9 +405,9 @@ export function OvernightCheckIn() {
               </div>
             )}
 
-            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-3">
+            <div className="p-4 bg-primary-tint border border-primary/20 rounded-lg space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-medium text-indigo-900">
+                <div className="flex items-center gap-2 font-medium text-primary-strong">
                   <ArrowsLeftRight className="h-4 w-4" />
                   Transitioning from Daycare?
                 </div>
@@ -417,7 +417,7 @@ export function OvernightCheckIn() {
                 />
               </div>
               {transitionFromDaycareMode && (
-                <p className="text-sm text-indigo-700 ml-6">
+                <p className="text-sm text-primary-strong ml-6">
                   The pet's active daycare attendance at this location will be found and
                   closed automatically, and the pet checked in for the overnight stay.
                 </p>
@@ -425,7 +425,7 @@ export function OvernightCheckIn() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="handover-notes" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="handover-notes" className="text-sm font-medium text-foreground">
                 Handover Notes (Optional)
               </Label>
               <Textarea
@@ -438,21 +438,21 @@ export function OvernightCheckIn() {
             </div>
 
             {selectedReservation?.specialInstructions && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <p className="text-xs font-medium text-slate-500 uppercase mb-1">Special Instructions</p>
-                <p className="text-sm text-slate-700">{selectedReservation.specialInstructions}</p>
+              <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                <p className="text-sm font-medium text-muted-foreground uppercase mb-1">Special Instructions</p>
+                <p className="text-sm text-foreground">{selectedReservation.specialInstructions}</p>
               </div>
             )}
             {selectedReservation?.feedingInstructions && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <p className="text-xs font-medium text-slate-500 uppercase mb-1">Feeding Instructions</p>
-                <p className="text-sm text-slate-700">{selectedReservation.feedingInstructions}</p>
+              <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                <p className="text-sm font-medium text-muted-foreground uppercase mb-1">Feeding Instructions</p>
+                <p className="text-sm text-foreground">{selectedReservation.feedingInstructions}</p>
               </div>
             )}
             {selectedReservation?.medicationInstructions && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <p className="text-xs font-medium text-slate-500 uppercase mb-1">Medication Instructions</p>
-                <p className="text-sm text-slate-700">{selectedReservation.medicationInstructions}</p>
+              <div className="p-3 bg-muted/50 border border-border rounded-lg">
+                <p className="text-sm font-medium text-muted-foreground uppercase mb-1">Medication Instructions</p>
+                <p className="text-sm text-foreground">{selectedReservation.medicationInstructions}</p>
               </div>
             )}
           </div>

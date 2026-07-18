@@ -76,7 +76,7 @@ export function ReservationDetailDialog({ reservation, open, onOpenChange, onCha
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            <Moon className="h-5 w-5 text-indigo-600" />
+            <Moon className="h-5 w-5 text-primary" />
             {reservation.petName || 'Reservation'}
             <Badge variant="outline" className={statusConfig.className}>
               {statusConfig.label}
@@ -92,33 +92,33 @@ export function ReservationDetailDialog({ reservation, open, onOpenChange, onCha
           <div className="border rounded-lg divide-y">
             <div className="p-4 grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm font-medium text-slate-500">Check-in</p>
-                <p className="text-sm text-slate-900">{formatDate(reservation.startDate)}</p>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm font-medium text-muted-foreground">Check-in</p>
+                <p className="text-sm text-foreground">{formatDate(reservation.startDate)}</p>
+                <p className="text-sm text-muted-foreground">
                   {reservation.checkInWindow ? `${reservation.checkInWindow.start}–${reservation.checkInWindow.end}` : ''}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-500">Check-out</p>
-                <p className="text-sm text-slate-900">{formatDate(reservation.endDate)}</p>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm font-medium text-muted-foreground">Check-out</p>
+                <p className="text-sm text-foreground">{formatDate(reservation.endDate)}</p>
+                <p className="text-sm text-muted-foreground">
                   {reservation.checkOutWindow ? `${reservation.checkOutWindow.start}–${reservation.checkOutWindow.end}` : ''}
                 </p>
               </div>
             </div>
 
             <div className="p-4">
-              <p className="text-sm font-medium text-slate-500 mb-1">Price</p>
-              <p className="text-sm text-slate-900 font-medium">
+              <p className="text-sm font-medium text-muted-foreground mb-1">Price</p>
+              <p className="text-sm text-foreground font-medium">
                 {formatCurrency(reservation.totalPrice ?? 0, reservation.currency)}
-                <span className="font-normal text-slate-600">
+                <span className="font-normal text-muted-foreground">
                   {' '}({formatCurrency(reservation.pricePerNight ?? 0, reservation.currency)} per night)
                 </span>
               </p>
             </div>
 
             <div className="p-4">
-              <p className="text-sm font-medium text-slate-500 mb-2">Flags</p>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Flags</p>
               <div className="flex flex-wrap gap-2">
                 {reservation.requiresMedication && (
                   <Badge variant="outline" className="text-rose-600 border-rose-200">
@@ -139,33 +139,33 @@ export function ReservationDetailDialog({ reservation, open, onOpenChange, onCha
                   </Badge>
                 )}
                 {!reservation.requiresMedication && !reservation.hasBehaviourConcerns && !reservation.hasAllergies && (
-                  <span className="text-sm text-slate-500">No flags</span>
+                  <span className="text-sm text-muted-foreground">No flags</span>
                 )}
               </div>
             </div>
 
             {(reservation.specialInstructions || reservation.feedingInstructions || reservation.medicationInstructions || reservation.behaviourNotes) && (
               <div className="p-4 space-y-2">
-                <p className="text-sm font-medium text-slate-500">Notes</p>
+                <p className="text-sm font-medium text-muted-foreground">Notes</p>
                 {reservation.specialInstructions && (
-                  <p className="text-sm text-slate-700"><span className="font-medium">Special:</span> {reservation.specialInstructions}</p>
+                  <p className="text-sm text-foreground"><span className="font-medium">Special:</span> {reservation.specialInstructions}</p>
                 )}
                 {reservation.feedingInstructions && (
-                  <p className="text-sm text-slate-700"><span className="font-medium">Feeding:</span> {reservation.feedingInstructions}</p>
+                  <p className="text-sm text-foreground"><span className="font-medium">Feeding:</span> {reservation.feedingInstructions}</p>
                 )}
                 {reservation.medicationInstructions && (
-                  <p className="text-sm text-slate-700"><span className="font-medium">Medication:</span> {reservation.medicationInstructions}</p>
+                  <p className="text-sm text-foreground"><span className="font-medium">Medication:</span> {reservation.medicationInstructions}</p>
                 )}
                 {reservation.behaviourNotes && (
-                  <p className="text-sm text-slate-700"><span className="font-medium">Behaviour:</span> {reservation.behaviourNotes}</p>
+                  <p className="text-sm text-foreground"><span className="font-medium">Behaviour:</span> {reservation.behaviourNotes}</p>
                 )}
               </div>
             )}
 
             {reservation.status === 'cancelled' && reservation.cancellationReason && (
               <div className="p-4">
-                <p className="text-sm font-medium text-slate-500 mb-1">Cancellation Reason</p>
-                <p className="text-sm text-slate-700">{reservation.cancellationReason}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Cancellation Reason</p>
+                <p className="text-sm text-foreground">{reservation.cancellationReason}</p>
               </div>
             )}
           </div>
