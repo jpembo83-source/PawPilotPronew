@@ -282,7 +282,7 @@ export function OvernightCareLogsPage() {
                 </div>
 
                 {existingLog && (
-                  <div className="mt-3 ml-13 flex gap-4 text-xs text-slate-500">
+                  <div className="mt-3 ml-[52px] flex gap-4 text-xs text-slate-500">
                     {existingLog.feedingCompleted && (
                       <span className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3 text-emerald-500" /> Fed

@@ -60,7 +60,6 @@ export function OvernightCheckIn() {
   const [medicalAcknowledged, setMedicalAcknowledged] = useState(false);
 
   const [transitionFromDaycareMode, setTransitionFromDaycareMode] = useState(false);
-  const [daycareBookingId, setDaycareBookingId] = useState('');
 
   // Server-computed readiness (holds, vaccination, waiver) for the selected
   // reservation. The server re-enforces blockers at check-in, so a failed
@@ -100,7 +99,6 @@ export function OvernightCheckIn() {
     setBehaviourAcknowledged(false);
     setMedicalAcknowledged(false);
     setTransitionFromDaycareMode(false);
-    setDaycareBookingId('');
     setShowDialog(true);
 
     setValidation(null);
@@ -153,7 +151,6 @@ export function OvernightCheckIn() {
           type: 'daycare_to_overnight',
           petId: selectedReservation.petId,
           locationId: selectedReservation.locationId,
-          sourceBookingId: daycareBookingId || undefined,
           reservationId: selectedReservation.id,
           assignedCarerUserId: selectedReservation.assignedCarerUserId,
         });
@@ -420,20 +417,10 @@ export function OvernightCheckIn() {
                 />
               </div>
               {transitionFromDaycareMode && (
-                <div className="ml-6 space-y-2">
-                  <Label htmlFor="daycare-booking-id" className="text-sm text-indigo-800">
-                    Daycare Booking ID (optional)
-                  </Label>
-                  <Input
-                    id="daycare-booking-id"
-                    placeholder="Enter daycare booking ID if known..."
-                    value={daycareBookingId}
-                    onChange={(e) => setDaycareBookingId(e.target.value)}
-                  />
-                  <p className="text-xs text-indigo-600">
-                    This will close the daycare attendance and transition the pet to an overnight stay.
-                  </p>
-                </div>
+                <p className="text-sm text-indigo-700 ml-6">
+                  The pet's active daycare attendance at this location will be found and
+                  closed automatically, and the pet checked in for the overnight stay.
+                </p>
               )}
             </div>
 

@@ -896,6 +896,15 @@ routes.get("/tonights-boarders", async (c) => {
     const allCareLogs = await kv.getByPrefix(`overnight:${tenantId}:carelog:`);
     const careLogsTonight = allCareLogs.filter((cl: any) => cl.logDate === date);
 
+    // Resolve sleeping-area names — never show a raw area id to staff.
+    const areaNames = new Map<string, string>();
+    if (activeReservations.some((r: any) => r.sleepingAreaId)) {
+      const areas = (await kv.getByPrefix(`overnight:${tenantId}:area:`)) as any[];
+      for (const a of areas) {
+        if (a?.id && a?.name) areaNames.set(a.id, a.name);
+      }
+    }
+
     // Resolve assigned carer names from the staff directory in one pass.
     const carerIds = [...new Set(activeReservations.map((r: any) => r.assignedCarerUserId).filter(Boolean))];
     const carerNames = new Map<string, string>();
@@ -916,7 +925,7 @@ routes.get("/tonights-boarders", async (c) => {
         petName: r.petName || "Unknown Pet",
         customerId: r.customerId,
         customerName: r.customerName || "Unknown Customer",
-        sleepingAreaName: r.sleepingAreaId ? `Area ${r.sleepingAreaId}` : undefined,
+        sleepingAreaName: r.sleepingAreaId ? areaNames.get(r.sleepingAreaId) : undefined,
         assignedCarerUserId: r.assignedCarerUserId,
         assignedCarerName: r.assignedCarerUserId ? carerNames.get(r.assignedCarerUserId) : undefined,
         requiresMedication: r.requiresMedication,
@@ -1265,6 +1274,9 @@ routes.post("/calculate-billing", async (c) => {
     }
 
     const adjustedSubtotal = subtotal - daycareDeduction;
+    // FOLLOW-UP: rate should come from the tenant's billing tax rules
+    // (billing:tax:*) once those records have a validated shape + a
+    // designated default; hardcoded until then.
     const taxRate = 0.20;
     const tax = Math.round(adjustedSubtotal * taxRate * 100) / 100;
     const total = Math.round((adjustedSubtotal + tax) * 100) / 100;
@@ -1281,16 +1293,15 @@ routes.post("/calculate-billing", async (c) => {
       daycareOverlapDeduction: daycareDeduction,
     };
 
-    const event = {
-      id: crypto.randomUUID(),
-      stayId: reservationId,
-      eventType: 'billing_calculated',
-      actorUserId: userInfo.id,
-      actorName: userInfo.name,
-      timestamp: new Date().toISOString(),
-      metadata: { total, currency, totalNights },
-    };
-    await kv.set(`overnight:${tenantId}:event:${event.id}`, event);
+    // Audit only real reservations — previews from the create dialog have no
+    // stay to attach an event to and would just be noise.
+    if (reservationId) {
+      await recordEvent(tenantId, reservationId, 'billing_calculated', userInfo.id, userInfo.name, {
+        total,
+        currency,
+        totalNights,
+      });
+    }
 
     return c.json(billing);
   } catch (e: any) {
@@ -1308,12 +1319,26 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
     const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const body = await c.req.json();
-    const { petId, daycareBookingId, locationId, reservationId, assignedCarerUserId, specialInstructions } = body;
-    
+    const { petId, locationId, reservationId, assignedCarerUserId, specialInstructions } = body;
+    let daycareBookingId = body.daycareBookingId;
+
     if (!petId || !locationId) {
       return c.json({ error: "petId and locationId are required" }, 400);
     }
-    
+
+    // Operators shouldn't have to know booking ids — when none is supplied,
+    // find the pet's active daycare attendance at this location (same
+    // predicate as checkConflictingAttendance).
+    if (!daycareBookingId) {
+      const daycareBookings = await kv.getByPrefix(`daycare:booking:`);
+      const active = daycareBookings.find((b: any) =>
+        b.pet_id === petId &&
+        b.location_id === locationId &&
+        (b.status === 'checked_in' || b.status === 'in_progress')
+      );
+      daycareBookingId = active?.id;
+    }
+
     if (daycareBookingId) {
       const daycareBooking = await kv.get(`daycare:booking:${daycareBookingId}`);
       if (daycareBooking && (daycareBooking.status === 'checked_in' || daycareBooking.status === 'in_progress')) {
@@ -1524,25 +1549,10 @@ routes.get("/events", async (c) => {
   }
 });
 
-routes.post("/events", async (c) => {
-  try {
-    const user = c.get('user') as AuthenticatedUser;
-    const tenantId = user.tenantId;
-    const userInfo = getUserInfo(user);
-    const body = await c.req.json();
-    const { stayId, eventType, metadata } = body;
-    
-    if (!stayId || !eventType) {
-      return c.json({ error: "stayId and eventType are required" }, 400);
-    }
-    
-    const event = await recordEvent(tenantId, stayId, eventType, userInfo.id, userInfo.name, metadata);
-    
-    return c.json(event);
-  } catch (e: any) {
-    return internalError(c, 'overnights.postEvents', e);
-  }
-});
+// NOTE: there is intentionally no POST /events — audit-trail entries are
+// only written server-side by the routes that perform the audited action.
+// A client-writable event endpoint would let any authenticated user inject
+// arbitrary entries into the audit trail.
 
 // ============================================================================
 // STATS

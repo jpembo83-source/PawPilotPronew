@@ -113,7 +113,7 @@ export function OvernightCapacityPage() {
         {!isEditing && (
           <Button variant="outline" onClick={() => setIsEditing(true)}>
             <Gear className="h-4 w-4 mr-1" />
-            Edit Gear
+            Edit Settings
           </Button>
         )}
       </div>
@@ -217,7 +217,7 @@ export function OvernightCapacityPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Gear className="h-5 w-5 text-slate-600" />
-              Capacity Gear
+              Capacity Settings
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
