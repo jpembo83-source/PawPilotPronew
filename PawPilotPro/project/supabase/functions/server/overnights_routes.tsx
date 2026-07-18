@@ -4,9 +4,17 @@
  */
 
 import { Hono } from "npm:hono";
+import { z } from "npm:zod";
 import * as kv from "./kv_store.tsx";
 import { requireAuth, AuthenticatedUser } from "./_shared/auth.ts";
 import { internalError } from "./_shared/log.ts";
+import {
+  findFullNight,
+  nightlyRateFor,
+  occupiesNight,
+  recordOvernightEvent,
+  TERMINAL_OVERNIGHT_STATUSES,
+} from "./lib/overnights_shared.ts";
 
 const routes = new Hono();
 
@@ -27,34 +35,96 @@ function getUserInfo(user: AuthenticatedUser) {
   };
 }
 
-/** Default nightly boarding rate when a location has none configured. */
-const DEFAULT_OVERNIGHT_RATE = 45;
+const recordEvent = recordOvernightEvent;
 
-/**
- * The configured nightly rate for a location (Overnights → Capacity), the
- * source of truth for boarding pricing. Falls back to DEFAULT_OVERNIGHT_RATE
- * when unset or non-positive.
- */
-async function getOvernightRate(tenantId: string, locationId: string | undefined): Promise<number> {
-  if (!locationId) return DEFAULT_OVERNIGHT_RATE;
-  const capacity = await kv.get(`overnight:${tenantId}:capacity:${locationId}`) as { pricePerNight?: unknown } | null;
-  const rate = capacity?.pricePerNight;
-  return typeof rate === 'number' && rate > 0 ? rate : DEFAULT_OVERNIGHT_RATE;
+// ============================================================================
+// VALIDATION SCHEMAS
+// ============================================================================
+// Zod-validated, whitelist-only bodies. Pricing fields (pricePerNight,
+// totalPrice, priceLockedAt) and audit fields are NEVER accepted from the
+// client — unknown keys are stripped, prices come from the location's
+// configured rate, audit stamps from the authenticated user.
+
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD");
+const timeWindowSchema = z.object({
+  start: z.string().regex(/^\d{2}:\d{2}$/, "expected HH:MM"),
+  end: z.string().regex(/^\d{2}:\d{2}$/, "expected HH:MM"),
+});
+
+const reservationFields = {
+  startDate: dateString,
+  endDate: dateString,
+  checkInWindow: timeWindowSchema.optional(),
+  checkOutWindow: timeWindowSchema.optional(),
+  sleepingAreaId: z.string().nullable().optional(),
+  assignedCarerUserId: z.string().nullable().optional(),
+  specialInstructions: z.string().max(2000).optional(),
+  feedingInstructions: z.string().max(2000).optional(),
+  medicationInstructions: z.string().max(2000).optional(),
+  behaviourNotes: z.string().max(2000).optional(),
+  requiresMedication: z.boolean().optional(),
+  hasBehaviourConcerns: z.boolean().optional(),
+  hasAllergies: z.boolean().optional(),
+  requiresPickup: z.boolean().optional(),
+  requiresDropOff: z.boolean().optional(),
+};
+
+const createReservationSchema = z
+  .object({
+    ...reservationFields,
+    customerId: z.string().min(1),
+    petId: z.string().min(1),
+    householdId: z.string().min(1),
+    locationId: z.string().min(1),
+    // New reservations start pre-arrival; check-in/out have dedicated routes.
+    status: z.enum(["booked", "confirmed"]).optional(),
+    petName: z.string().max(200).optional(),
+    customerName: z.string().max(200).optional(),
+    daycareBookingId: z.string().optional(),
+    currency: z.string().length(3).optional(),
+  })
+  .refine((d) => d.endDate > d.startDate, {
+    message: "endDate must be after startDate",
+    path: ["endDate"],
+  });
+
+const updateReservationSchema = z
+  .object({
+    ...reservationFields,
+    startDate: dateString.optional(),
+    endDate: dateString.optional(),
+    // Check-in/check-out state changes go through their dedicated routes,
+    // which enforce the safety checks; PUT can only move between pre-arrival
+    // states, mark a no-show, promote to in_stay, or cancel.
+    status: z.enum(["booked", "confirmed", "in_stay", "cancelled", "no_show"]).optional(),
+    cancellationReason: z.string().max(1000).optional(),
+  })
+  .refine((d) => !d.startDate || !d.endDate || d.endDate > d.startDate, {
+    message: "endDate must be after startDate",
+    path: ["endDate"],
+  });
+
+const capacitySchema = z.object({
+  locationId: z.string().min(1),
+  maxOvernightCapacity: z.number().int().min(0),
+  bufferSlots: z.number().int().min(0),
+  pricePerNight: z.number().min(0).optional(),
+}).refine((d) => d.bufferSlots <= d.maxOvernightCapacity, {
+  message: "bufferSlots cannot exceed maxOvernightCapacity",
+  path: ["bufferSlots"],
+});
+
+function validationError(c: any, result: { error: z.ZodError }) {
+  const issue = result.error.issues[0];
+  const path = issue?.path?.join(".");
+  return c.json({ error: `Invalid request${path ? ` (${path})` : ""}: ${issue?.message ?? "validation failed"}` }, 400);
 }
 
-async function recordEvent(tenantId: string, stayId: string, eventType: string, actorUserId: string, actorName: string, metadata?: Record<string, any>) {
-  const event = {
-    id: crypto.randomUUID(),
-    stayId,
-    eventType,
-    actorUserId,
-    actorName,
-    timestamp: new Date().toISOString(),
-    metadata: metadata || {},
-    tenant_id: tenantId,
-  };
-  await kv.set(`overnight:${tenantId}:event:${event.id}`, event);
-  return event;
+function nightCount(startDate: string, endDate: string): number {
+  return Math.max(
+    1,
+    Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)),
+  );
 }
 
 async function checkConflictingAttendance(tenantId: string, petId: string, locationId: string): Promise<{ hasConflict: boolean; conflictType?: string }> {
@@ -131,33 +201,50 @@ routes.post("/reservations", async (c) => {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
-    const body = await c.req.json();
-    
-    // Calculate total nights and price
-    const startDate = new Date(body.startDate);
-    const endDate = new Date(body.endDate);
-    const totalNights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const parsed = createReservationSchema.safeParse(await c.req.json());
+    if (!parsed.success) return validationError(c, parsed);
+    const body = parsed.data;
+
+    // Bookings must leave the emergency buffer free; only on-site transitions
+    // (daycare→overnight) may spend it.
+    const fullNight = await findFullNight({
+      tenantId,
+      locationId: body.locationId,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      useBuffer: false,
+    });
+    if (fullNight) {
+      return c.json({ error: `Fully booked for the night of ${fullNight.date} (capacity ${fullNight.capacity})` }, 409);
+    }
+
+    const totalNights = nightCount(body.startDate, body.endDate);
 
     // The location's configured nightly rate is authoritative — the client
     // can't set the price. Lock it onto the reservation at creation.
-    const pricePerNight = await getOvernightRate(tenantId, body.locationId);
+    const pricePerNight = await nightlyRateFor(tenantId, body.locationId);
 
     const now = new Date().toISOString();
     const reservation = {
       ...body,
-      id: body.id || crypto.randomUUID(),
+      id: crypto.randomUUID(),
       totalNights,
       pricePerNight,
       totalPrice: pricePerNight * totalNights,
       priceLockedAt: now,
       status: body.status || 'confirmed',
+      requiresMedication: body.requiresMedication ?? false,
+      hasBehaviourConcerns: body.hasBehaviourConcerns ?? false,
+      hasAllergies: body.hasAllergies ?? false,
+      requiresPickup: body.requiresPickup ?? false,
+      requiresDropOff: body.requiresDropOff ?? false,
       tenant_id: tenantId,
       createdAt: now,
       createdBy: userInfo.name,
       updatedAt: now,
       updatedBy: userInfo.name,
     };
-    
+
     await kv.set(`overnight:${tenantId}:reservation:${reservation.id}`, reservation);
     
     await recordEvent(tenantId, reservation.id, 'created', userInfo.id, userInfo.name, {
@@ -179,19 +266,61 @@ routes.put("/reservations/:id", async (c) => {
     const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
     const id = c.req.param("id");
-    const body = await c.req.json();
-    
-    const existing = await kv.get(`overnight:${tenantId}:reservation:${id}`);
+    const parsed = updateReservationSchema.safeParse(await c.req.json());
+    if (!parsed.success) return validationError(c, parsed);
+    const body = parsed.data;
+
+    const existing = await kv.get(`overnight:${tenantId}:reservation:${id}`) as any;
     if (!existing) return c.json({ error: "Reservation not found" }, 404);
-    
-    const updated = {
+
+    const now = new Date().toISOString();
+    const updated: any = {
       ...existing,
       ...body,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
       updatedBy: userInfo.name,
     };
-    
+
+    // Date changes re-price from the LOCKED nightly rate (never re-resolved)
+    // and must still fit capacity for the new range.
+    const datesChanged = updated.startDate !== existing.startDate || updated.endDate !== existing.endDate;
+    if (datesChanged) {
+      if (updated.endDate <= updated.startDate) {
+        return c.json({ error: "Invalid request (endDate): endDate must be after startDate" }, 400);
+      }
+      if (!TERMINAL_OVERNIGHT_STATUSES.has(updated.status)) {
+        const fullNight = await findFullNight({
+          tenantId,
+          locationId: existing.locationId,
+          startDate: updated.startDate,
+          endDate: updated.endDate,
+          excludeReservationId: id,
+          useBuffer: false,
+        });
+        if (fullNight) {
+          return c.json({ error: `Fully booked for the night of ${fullNight.date} (capacity ${fullNight.capacity})` }, 409);
+        }
+      }
+      updated.totalNights = nightCount(updated.startDate, updated.endDate);
+      updated.totalPrice = (existing.pricePerNight ?? 0) * updated.totalNights;
+    }
+
+    // Cancellation stamps are server-set, not client-supplied.
+    if (body.status === 'cancelled' && existing.status !== 'cancelled') {
+      updated.cancelledAt = now;
+      updated.cancelledBy = userInfo.name;
+    }
+
     await kv.set(`overnight:${tenantId}:reservation:${id}`, updated);
+
+    if (body.status && body.status !== existing.status) {
+      await recordEvent(tenantId, id, body.status === 'cancelled' ? 'cancelled' : 'status_changed', userInfo.id, userInfo.name, {
+        from: existing.status,
+        to: body.status,
+        ...(body.cancellationReason ? { reason: body.cancellationReason } : {}),
+      });
+    }
+
     return c.json(updated);
   } catch (e: any) {
     return internalError(c, 'overnights.putReservationsId', e);
@@ -574,9 +703,10 @@ routes.post("/capacity", async (c) => {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
     const userInfo = getUserInfo(user);
-    const body = await c.req.json();
-    const { locationId, ...capacityData } = body;
-    
+    const parsed = capacitySchema.safeParse(await c.req.json());
+    if (!parsed.success) return validationError(c, parsed);
+    const { locationId, ...capacityData } = parsed.data;
+
     const now = new Date().toISOString();
     const capacity = {
       ...capacityData,
@@ -613,26 +743,29 @@ routes.get("/capacity/snapshot", async (c) => {
       return c.json({ error: "Capacity not configured for this location" }, 404);
     }
     
-    // Get reservations for this date
+    // Get reservations occupying this NIGHT ([start, end) — the check-out
+    // day is a departure morning, not another night).
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
-    const targetDate = new Date(date);
-    
+
     const activeReservations = allReservations.filter((r: any) => {
       if (r.locationId !== locationId) return false;
-      if (r.status === 'cancelled' || r.status === 'no_show' || r.status === 'checked_out') return false;
-      
-      const start = new Date(r.startDate);
-      const end = new Date(r.endDate);
-      
-      return start <= targetDate && end >= targetDate;
+      if (TERMINAL_OVERNIGHT_STATUSES.has(r.status)) return false;
+      return occupiesNight(r.startDate, r.endDate, date);
     });
-    
+
+    const maxCapacity = capacity.maxOvernightCapacity ?? 0;
+    const bufferSlots = capacity.bufferSlots ?? 0;
+    const effectiveCapacity = Math.max(0, maxCapacity - bufferSlots);
     const snapshot = {
       date,
       locationId,
-      maxCapacity: capacity.maxOvernightCapacity,
+      maxCapacity,
+      bufferSlots,
+      effectiveCapacity,
       currentOccupancy: activeReservations.length,
-      availableSlots: capacity.maxOvernightCapacity - activeReservations.length,
+      // Bookable slots: buffer stays in reserve, same rule the booking
+      // endpoint enforces.
+      availableSlots: effectiveCapacity - activeReservations.length,
       reservations: activeReservations,
     };
     
@@ -661,18 +794,14 @@ routes.get("/tonights-boarders", async (c) => {
     const capacity = await kv.get(`overnight:${tenantId}:capacity:${locationId}`);
     const maxCapacity = capacity?.maxOvernightCapacity || 0;
     
-    // Get active reservations for tonight
+    // Get active reservations staying tonight ([start, end) night semantics —
+    // a dog checking out this morning is not one of tonight's boarders).
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
-    const targetDate = new Date(date);
-    
+
     const activeReservations = allReservations.filter((r: any) => {
       if (r.locationId !== locationId) return false;
       if (r.status !== 'checked_in' && r.status !== 'in_stay') return false;
-      
-      const start = new Date(r.startDate);
-      const end = new Date(r.endDate);
-      
-      return start <= targetDate && end >= targetDate;
+      return occupiesNight(r.startDate, r.endDate, date);
     });
     
     // Get care logs for tonight
@@ -690,6 +819,7 @@ routes.get("/tonights-boarders", async (c) => {
         customerId: r.customerId,
         customerName: r.customerName || "Unknown Customer",
         sleepingAreaName: r.sleepingAreaId ? `Area ${r.sleepingAreaId}` : undefined,
+        assignedCarerUserId: r.assignedCarerUserId,
         requiresMedication: r.requiresMedication,
         hasBehaviourConcerns: r.hasBehaviourConcerns,
         hasAllergies: r.hasAllergies,
@@ -739,14 +869,11 @@ routes.get("/carers", async (c) => {
     carers = carers.filter((cr: any) => cr.locationId === locationId);
 
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
-    const targetDate = new Date(date);
 
     const activeReservations = allReservations.filter((r: any) => {
       if (r.locationId !== locationId) return false;
-      if (r.status === 'cancelled' || r.status === 'no_show' || r.status === 'checked_out') return false;
-      const start = new Date(r.startDate);
-      const end = new Date(r.endDate);
-      return start <= targetDate && end >= targetDate;
+      if (TERMINAL_OVERNIGHT_STATUSES.has(r.status)) return false;
+      return occupiesNight(r.startDate, r.endDate, date);
     });
 
     const carersWithLoad = carers.map((cr: any) => {
@@ -793,14 +920,11 @@ routes.post("/assign-carer", async (c) => {
     }
 
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
-    const targetDate = new Date(reservation.startDate);
     const carerLoad = allReservations.filter((r: any) => {
       if (r.assignedCarerUserId !== carerId) return false;
       if (r.id === stayId) return false;
-      if (r.status === 'cancelled' || r.status === 'no_show' || r.status === 'checked_out') return false;
-      const start = new Date(r.startDate);
-      const end = new Date(r.endDate);
-      return start <= targetDate && end >= targetDate;
+      if (TERMINAL_OVERNIGHT_STATUSES.has(r.status)) return false;
+      return occupiesNight(r.startDate, r.endDate, reservation.startDate);
     }).length;
 
     const maxCapacity = carer?.maxCapacity || 6;
@@ -861,14 +985,11 @@ routes.put("/assign-carer/:stayId", async (c) => {
     }
 
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
-    const targetDate = new Date(reservation.startDate);
     const carerLoad = allReservations.filter((r: any) => {
       if (r.assignedCarerUserId !== carerId) return false;
       if (r.id === stayId) return false;
-      if (r.status === 'cancelled' || r.status === 'no_show' || r.status === 'checked_out') return false;
-      const start = new Date(r.startDate);
-      const end = new Date(r.endDate);
-      return start <= targetDate && end >= targetDate;
+      if (TERMINAL_OVERNIGHT_STATUSES.has(r.status)) return false;
+      return occupiesNight(r.startDate, r.endDate, reservation.startDate);
     }).length;
 
     const maxCapacity = carer?.maxCapacity || 6;
@@ -934,7 +1055,7 @@ routes.post("/calculate-billing", async (c) => {
         startDate: body.startDate,
         endDate: body.endDate,
         // Preview at the location's configured nightly rate.
-        pricePerNight: await getOvernightRate(tenantId, body.locationId),
+        pricePerNight: await nightlyRateFor(tenantId, body.locationId),
         currency: body.currency || 'GBP',
       };
     }
@@ -966,8 +1087,11 @@ routes.post("/calculate-billing", async (c) => {
       const dbLocationId = db.location_id || db.locationId;
       if (dbPetId !== reservation.petId) return false;
       if (dbLocationId !== reservation.locationId) return false;
+      // Overlap deduction applies to the stay's NIGHTS [start, end) — a
+      // daycare booking on the check-out day is a separate service, not an
+      // overlap (the dog left that morning).
       const dbDate = new Date(db.booking_date || db.date || db.bookingDate);
-      return dbDate >= startDate && dbDate <= endDate;
+      return dbDate >= startDate && dbDate < endDate;
     });
 
     let daycareDeduction = 0;
@@ -1085,6 +1209,24 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
     } else {
       const today = new Date().toISOString().split('T')[0];
       const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+      // A transitioning dog is already on site, so it may spend the
+      // emergency buffer — but never exceed the hard maximum.
+      const fullNight = await findFullNight({
+        tenantId,
+        locationId,
+        startDate: today,
+        endDate: tomorrow,
+        useBuffer: true,
+      });
+      if (fullNight) {
+        return c.json({ error: `No overnight capacity left tonight (maximum ${fullNight.capacity})` }, 409);
+      }
+
+      // Server-priced from the location's configured rate — a transition is
+      // not a way around the price lock.
+      const pricePerNight = await nightlyRateFor(tenantId, locationId);
+
       overnightReservation = {
         id: crypto.randomUUID(),
         petId,
@@ -1105,9 +1247,9 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
         requiresMedication: body.requiresMedication || false,
         hasBehaviourConcerns: body.hasBehaviourConcerns || false,
         hasAllergies: body.hasAllergies || false,
-        pricePerNight: body.pricePerNight || 0,
+        pricePerNight,
         totalNights: 1,
-        totalPrice: body.pricePerNight || 0,
+        totalPrice: pricePerNight,
         currency: body.currency || 'GBP',
         priceLockedAt: now,
         requiresPickup: false,
@@ -1266,13 +1408,8 @@ routes.get("/stats", async (c) => {
       reservations = reservations.filter((r: any) => r.locationId === locationId);
     }
     
-    // Filter to date range (reservations active on this date)
-    const targetDate = new Date(date);
-    const activeToday = reservations.filter((r: any) => {
-      const start = new Date(r.startDate);
-      const end = new Date(r.endDate);
-      return start <= targetDate && end >= targetDate;
-    });
+    // Filter to reservations occupying this night ([start, end) semantics).
+    const activeToday = reservations.filter((r: any) => occupiesNight(r.startDate, r.endDate, date));
     
     const stats = {
       date,

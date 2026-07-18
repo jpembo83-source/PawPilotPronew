@@ -47,8 +47,10 @@ export function OvernightsPage() {
 
   const today = new Date().toISOString().split('T')[0];
 
+  // Staying TONIGHT: a stay occupies the nights [startDate, endDate) — a dog
+  // departing this morning is not one of tonight's boarders.
   const todayReservations = reservations.filter(r => {
-    return r.startDate <= today && r.endDate >= today &&
+    return r.startDate <= today && r.endDate > today &&
            (r.status === 'checked_in' || r.status === 'in_stay');
   });
 

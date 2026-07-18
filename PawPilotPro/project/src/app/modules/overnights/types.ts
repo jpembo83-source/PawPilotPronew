@@ -231,6 +231,9 @@ export interface CapacitySnapshot {
   locationId: string;
 
   maxCapacity: number;
+  bufferSlots?: number;
+  /** maxCapacity - bufferSlots — the bookable slots the server enforces. */
+  effectiveCapacity?: number;
   currentOccupancy: number;
   availableSlots: number;
 

@@ -1342,9 +1342,11 @@ portal.get("/pets/:id/timeline", async (c) => {
   }
 
   // Staff-side bookings live under per-service prefixes. Filter by pet_id.
+  // Overnights store reservations under overnight:{tenant}:reservation:*
+  // (camelCase fields) — there is no overnight:booking:* namespace.
   const STAFF_BOOKING_PREFIXES: Array<[string, string]> = [
     ["daycare:booking:", "daycare"],
-    ["overnight:booking:", "overnight"],
+    [`overnight:${tenantId}:reservation:`, "overnight"],
     ["grooming:booking:", "grooming"],
     ["transport:booking:", "transport"],
   ];
@@ -1358,7 +1360,7 @@ portal.get("/pets/:id/timeline", async (c) => {
         (Array.isArray(b.pet_ids) && b.pet_ids.includes(petId)) ||
         (Array.isArray(b.pets) && b.pets.some((p: any) => p === petId || p?.id === petId));
       if (!matchesPet) continue;
-      const ts = b.start_at || b.booking_date || b.created_at;
+      const ts = b.start_at || b.startDate || b.booking_date || b.created_at || b.createdAt;
       if (!inRange(ts)) continue;
       events.push({
         id: `sb-${service}-${b.id}`,

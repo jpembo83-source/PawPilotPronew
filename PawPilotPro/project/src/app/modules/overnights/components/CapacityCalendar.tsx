@@ -153,8 +153,10 @@ export function CapacityCalendar({ locationId, maxCapacity }: CapacityCalendarPr
           const isToday = dateStr === todayStr;
           const isLoading = loadingDates.has(dateStr);
           const occupancy = snapshot?.currentOccupancy ?? 0;
-          const max = snapshot?.maxCapacity ?? maxCapacity;
-          const available = max - occupancy;
+          // Bookable capacity (max minus buffer) — the same number the
+          // server enforces at booking time.
+          const max = snapshot?.effectiveCapacity ?? snapshot?.maxCapacity ?? maxCapacity;
+          const available = snapshot?.availableSlots ?? max - occupancy;
           const pct = max > 0 ? Math.round((occupancy / max) * 100) : 0;
 
           return (
