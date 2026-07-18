@@ -1,0 +1,204 @@
+// Customer membership assignment routes — the /customer-packages surface.
+//
+// This is the backend the packages module (AssignMembershipDialog,
+// HouseholdDetailPage, CreateBookingDialog membership lookup) has been calling
+// all along; until this module existed every call 404'd and the UI silently
+// degraded to PAYG. Phase 1 of docs/MEMBERSHIP_SYSTEM_PLAN.md.
+//
+// Contract (fixed by src/app/modules/packages/store.ts):
+//   GET  /customer-packages?customer_id=&status=   -> { packages: CustomerPackage[] }
+//   POST /customer-packages { customer_id, package_id } -> CustomerPackage (201, unwrapped)
+//   POST /customer-packages/:id/use { pet_id, credits, booking_id? } -> { package }
+//   POST /customer-packages/:id/cancel -> { package }
+//
+// Keys are tenant-scoped like the customers module:
+//   customer_membership:{tenantId}:{id}
+//   membership_usage:{tenantId}:{membershipId}:{usageId}
+
+import { Hono } from 'npm:hono';
+import { z } from 'npm:zod';
+import * as kv from './kv_store.tsx';
+import { requireAuth, requireRole } from './_shared/auth.ts';
+import { internalError, logInfo } from './_shared/log.ts';
+import {
+  buildMembership,
+  consumeCredits,
+  getPlanById,
+  type CustomerMembership,
+} from './lib/membership_catalog.ts';
+
+const app = new Hono();
+
+app.use('*', requireAuth);
+
+const membershipKey = (tenantId: string, id: string) =>
+  `customer_membership:${tenantId}:${id}`;
+
+const assignSchema = z.object({
+  customer_id: z.string().min(1),
+  package_id: z.string().min(1),
+});
+
+const useSchema = z.object({
+  pet_id: z.string().min(1),
+  credits: z.number().int().positive(),
+  booking_id: z.string().optional(),
+});
+
+app.get('/customer-packages', async (c) => {
+  try {
+    const user = c.get('user');
+    const { customer_id, status } = c.req.query();
+
+    let memberships = (await kv.getByPrefix(
+      `customer_membership:${user.tenantId}:`,
+    )) as CustomerMembership[];
+    if (customer_id) {
+      memberships = memberships.filter((m) => m.customer_id === customer_id);
+    }
+    if (status) {
+      memberships = memberships.filter((m) => m.status === status);
+    }
+    memberships.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+
+    return c.json({ packages: memberships });
+  } catch (err) {
+    return internalError(c, 'memberships.list', err);
+  }
+});
+
+app.post('/customer-packages', requireRole('admin', 'manager'), async (c) => {
+  try {
+    const user = c.get('user');
+    const parsed = assignSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    const { customer_id, package_id } = parsed.data;
+
+    const plan = getPlanById(package_id);
+    if (!plan) {
+      return c.json({ error: 'unknown_plan' }, 400);
+    }
+
+    const household = await kv.get(
+      `customer:${user.tenantId}:household:${customer_id}`,
+    );
+    if (!household) {
+      return c.json({ error: 'household_not_found' }, 404);
+    }
+
+    const existing = (await kv.getByPrefix(
+      `customer_membership:${user.tenantId}:`,
+    )) as CustomerMembership[];
+    const alreadyActive = existing.find(
+      (m) => m.customer_id === customer_id && m.status === 'active',
+    );
+    if (alreadyActive) {
+      return c.json({ error: 'membership_already_active' }, 409);
+    }
+
+    const membership = buildMembership({
+      id: crypto.randomUUID(),
+      customerId: customer_id,
+      plan,
+      createdBy: user.id,
+      now: new Date(),
+    });
+
+    await kv.set(membershipKey(user.tenantId, membership.id), membership);
+    logInfo('memberships.assigned', {
+      membershipId: membership.id,
+      planId: plan.id,
+      householdId: customer_id,
+    });
+
+    // Unwrapped object: purchasePackage() parses the body as CustomerPackage.
+    return c.json(membership, 201);
+  } catch (err) {
+    return internalError(c, 'memberships.assign', err);
+  }
+});
+
+app.post('/customer-packages/:id/use', async (c) => {
+  try {
+    const user = c.get('user');
+    const id = c.req.param('id');
+    const parsed = useSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    const { pet_id, credits, booking_id } = parsed.data;
+
+    const key = membershipKey(user.tenantId, id);
+    const membership = (await kv.get(key)) as CustomerMembership | undefined;
+    if (!membership) {
+      return c.json({ error: 'membership_not_found' }, 404);
+    }
+
+    const result = consumeCredits(membership, credits, new Date());
+    if (result === 'not_active') {
+      return c.json({ error: 'membership_not_active' }, 409);
+    }
+    if (result === 'invalid_credits') {
+      return c.json({ error: 'invalid_request' }, 400);
+    }
+    if (result === 'insufficient_credits') {
+      return c.json({ error: 'insufficient_credits' }, 409);
+    }
+
+    const usageId = crypto.randomUUID();
+    await kv.set(`membership_usage:${user.tenantId}:${id}:${usageId}`, {
+      id: usageId,
+      customer_package_id: id,
+      booking_id: booking_id ?? null,
+      pet_id,
+      credits_used: credits,
+      created_at: new Date().toISOString(),
+      created_by: user.id,
+    });
+    await kv.set(key, result);
+    logInfo('memberships.credits_used', {
+      membershipId: id,
+      credits,
+      remaining: result.credits_remaining ?? 'unlimited',
+    });
+
+    return c.json({ package: result });
+  } catch (err) {
+    return internalError(c, 'memberships.useCredits', err);
+  }
+});
+
+app.post('/customer-packages/:id/cancel', requireRole('admin', 'manager'), async (c) => {
+  try {
+    const user = c.get('user');
+    const id = c.req.param('id');
+
+    const key = membershipKey(user.tenantId, id);
+    const membership = (await kv.get(key)) as CustomerMembership | undefined;
+    if (!membership) {
+      return c.json({ error: 'membership_not_found' }, 404);
+    }
+    if (membership.status === 'cancelled') {
+      return c.json({ error: 'membership_already_cancelled' }, 409);
+    }
+
+    const cancelled: CustomerMembership = {
+      ...membership,
+      status: 'cancelled',
+      subscription_status: 'cancelled',
+      updated_at: new Date().toISOString(),
+    };
+    await kv.set(key, cancelled);
+    logInfo('memberships.cancelled', { membershipId: id });
+
+    return c.json({ package: cancelled });
+  } catch (err) {
+    return internalError(c, 'memberships.cancel', err);
+  }
+});
+
+export default app;
