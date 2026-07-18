@@ -187,7 +187,7 @@ export function ResetPasswordPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="At least 8 characters"
-                    className="w-full px-4 py-2.5 pr-11 rounded-xl border text-sm outline-none"
+                    className="w-full px-4 py-2.5 pr-11 rounded-xl border text-base md:text-sm outline-none"
                     style={inputStyle}
                   />
                   <button
@@ -214,7 +214,7 @@ export function ResetPasswordPage() {
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Re-enter your password"
-                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl border text-base md:text-sm outline-none"
                   style={inputStyle}
                 />
               </div>

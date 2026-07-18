@@ -75,10 +75,9 @@ export function DashboardHeader() {
     }
   };
 
-  const firstName =
-    user?.user_metadata?.name?.split(' ')[0] ||
-    user?.user_metadata?.full_name?.split(' ')[0] ||
-    '';
+  // AuthContext resolves the display name (metadata → email fallback);
+  // user_metadata is often empty here, which left the greeting nameless.
+  const firstName = user?.name?.split(' ')[0] || '';
 
   // Per-location header image — only for a specific location that has one.
   // 'ALL' and image-less locations keep the plain header, byte for byte.

@@ -5,7 +5,6 @@ import { PoliciesAlertBanner } from './components/PoliciesAlertBanner';
 import { MyShiftsCard } from './components/MyShiftsCard';
 import { useDaycareStore } from '../daycare/store';
 import { useDashboardStore } from './store';
-import { useAuth } from '../../context/AuthContext';
 import { ShareMomentModal, type ShareMomentPet } from '../daycare/components/ShareMomentModal';
 import {
   SignIn, SignOut, Plus, Users,
@@ -26,13 +25,6 @@ interface AlertKind {
   fg: string;
   bg: string;
   border: string;
-}
-
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
 }
 
 /**
@@ -79,7 +71,6 @@ function FlagBadge({ kind, petName, text }: {
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
   const { stats, bookings, isLoading, fetchStats, fetchBookings } = useDaycareStore();
   const [momentPet, setMomentPet] = useState<ShareMomentPet | null>(null);
@@ -142,8 +133,6 @@ export function Dashboard() {
     b.check_in_status === 'not_checked_in' && b.booking_status === 'confirmed'
   ).slice(0, 8);
 
-  const firstName = user?.name?.split(' ')[0] ?? '';
-
   return (
     <div className="flex flex-col min-h-full" style={{ background: '#F4F3EF' }}>
       <DashboardHeader />
@@ -151,15 +140,8 @@ export function Dashboard() {
       <div className="flex-1 p-5 md:p-7 max-w-5xl w-full mx-auto space-y-6">
         <PoliciesAlertBanner />
 
-        {/* Page heading */}
-        <div>
-          <h1 className="text-2xl font-semibold text-[#1C1916] tracking-tight">
-            {getGreeting()}{firstName ? `, ${firstName}` : ''}.
-          </h1>
-          <p className="text-sm text-[#6B6762] mt-0.5">
-            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
-        </div>
+        {/* Greeting, date, and location live in DashboardHeader — repeating
+            them here cost a full screen of scroll on mobile. */}
 
         {/* Capacity strip + quick stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

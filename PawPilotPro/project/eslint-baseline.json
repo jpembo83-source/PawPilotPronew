@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 3810,
+  "errors": 3803,
   "warnings": 416
  },
  "files": {
@@ -370,10 +370,6 @@
   },
   "src/app/modules/dashboard/Dashboard.tsx": {
    "errors": 13,
-   "warnings": 0
-  },
-  "src/app/modules/dashboard/components/DashboardHeader.tsx": {
-   "errors": 7,
    "warnings": 0
   },
   "src/app/modules/dashboard/components/PoliciesAlertBanner.tsx": {

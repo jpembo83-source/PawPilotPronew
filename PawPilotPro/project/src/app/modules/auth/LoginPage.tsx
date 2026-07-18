@@ -163,7 +163,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@dogday.com"
-                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none transition-all"
+                className="w-full px-4 py-2.5 rounded-xl border text-base md:text-sm outline-none transition-all"
                 style={{
                   borderColor: '#E2DED8',
                   color: '#1C1916',
@@ -197,7 +197,7 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-2.5 pr-11 rounded-xl border text-sm outline-none transition-all"
+                  className="w-full px-4 py-2.5 pr-11 rounded-xl border text-base md:text-sm outline-none transition-all"
                   style={{
                     borderColor: '#E2DED8',
                     color: '#1C1916',
