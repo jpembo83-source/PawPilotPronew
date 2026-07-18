@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { DashboardHeader } from './components/DashboardHeader';
 import { PoliciesAlertBanner } from './components/PoliciesAlertBanner';
+import { MyShiftsCard } from './components/MyShiftsCard';
 import { useDaycareStore } from '../daycare/store';
 import { useDashboardStore } from './store';
 import { useAuth } from '../../context/AuthContext';
@@ -455,6 +456,9 @@ export function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Where am I working — staff rotate between locations */}
+        <MyShiftsCard />
       </div>
 
       <ShareMomentModal open={momentPet !== null} onClose={() => setMomentPet(null)} pet={momentPet} />
