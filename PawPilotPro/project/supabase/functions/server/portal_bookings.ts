@@ -15,6 +15,8 @@ import { bookingConfirmedEmail } from "./lib/email_templates/booking_confirmed.t
 import { bookingDeclinedEmail } from "./lib/email_templates/booking_declined.ts";
 import { storedPetPhoto } from "./lib/pet_photos.ts";
 import { nightlyRateFor, recordOvernightEvent } from "./lib/overnights_shared.ts";
+import { getPlanById } from "./lib/membership_catalog.ts";
+import { activeMembershipForHousehold } from "./lib/membership_store.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -604,6 +606,15 @@ bookings.post("/portal/quote", async (c) => {
   const STAFF_CONFIRMS_CAVEAT = "Estimate · staff confirms the final price.";
   const CURRENCY_CAVEAT = "Currency may vary by location.";
 
+  // The owner's live membership (lazy-renewed): lets the quote say what the
+  // plan actually covers instead of the generic "if you have a membership"
+  // hedge. Coverage is still applied by the staff booking path — the quote
+  // remains an estimate and never zeroes a line itself.
+  const membership = await activeMembershipForHousehold(auth.tenantId, auth.householdId);
+  const membershipSession =
+    membership?.session_type ?? (membership && getPlanById(membership.package_id)?.sessionType);
+  let membershipMatchedUnits = 0;
+
   let usedTaxFallback = false;
   const lineItems: Array<{
     service: QuoteService;
@@ -696,6 +707,14 @@ bookings.post("/portal/quote", async (c) => {
           : `${svcLabel} · ${numberOfPets} dogs`;
     }
 
+    if (
+      item.service === "daycare" &&
+      membershipSession &&
+      membershipSession === (isHalfDay ? "half_day" : "full_day")
+    ) {
+      membershipMatchedUnits += quantity;
+    }
+
     const subtotal = round2(basePrice * quantity);
     const taxAmount = round2(subtotal * taxRate);
     const total = round2(subtotal + taxAmount);
@@ -724,7 +743,24 @@ bookings.post("/portal/quote", async (c) => {
   // (don't nag the owner when everything resolved cleanly). Currency caveat
   // fires when a locationId was specified — multi-location tenants may sell
   // in different currencies and the v1 portal can't yet model that.
-  const caveats: string[] = [STAFF_CONFIRMS_CAVEAT, MEMBERSHIP_CAVEAT];
+  let membershipCaveat = MEMBERSHIP_CAVEAT;
+  if (membership && membershipMatchedUnits > 0) {
+    const sessionsNoun = membershipMatchedUnits === 1 ? "session" : "sessions";
+    if (membership.package_type === "unlimited") {
+      membershipCaveat = `Your ${membership.package_name} membership covers these daycare ${sessionsNoun} — the team applies it when confirming.`;
+    } else {
+      const remaining = membership.credits_remaining ?? 0;
+      const coverable = Math.min(membershipMatchedUnits, remaining);
+      if (coverable > 0) {
+        membershipCaveat =
+          `Your ${membership.package_name} membership can cover ${coverable} of ${membershipMatchedUnits} daycare ${sessionsNoun} ` +
+          `(${remaining} credit${remaining === 1 ? "" : "s"} left) — applied when the team confirms.`;
+      } else {
+        membershipCaveat = `Your ${membership.package_name} membership has no credits left this period — these ${sessionsNoun} are billed at the standard rate.`;
+      }
+    }
+  }
+  const caveats: string[] = [STAFF_CONFIRMS_CAVEAT, membershipCaveat];
   if (usedTaxFallback) caveats.push(TAX_FALLBACK_CAVEAT);
   if (locationId) caveats.push(CURRENCY_CAVEAT);
 

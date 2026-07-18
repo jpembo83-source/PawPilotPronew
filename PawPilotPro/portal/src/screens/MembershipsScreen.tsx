@@ -18,13 +18,24 @@
  * outweighs the marginal benefit of one-source-of-truth.  When a second
  * tenant lights up, lift this into settings:memberships under org settings.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ChevronLeft, Check, Mail, Sparkles, Users, Calendar, Sunrise,
+  ChevronLeft, Check, Mail, Sparkles, Users, Calendar, Sunrise, Medal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getPortalApi } from "@/lib/api";
+
+/** The owner's live plan from GET /portal/memberships (null = no plan). */
+interface CurrentMembership {
+  plan_id: string;
+  plan_name: string;
+  package_type: "credits" | "unlimited";
+  session_type: "full_day" | "half_day" | null;
+  credits_remaining: number | null;
+  next_billing_date: string | null;
+  status: string;
+}
 
 /* --------------------------------------------------------------------- */
 /* TIER DATA                                                              */
@@ -146,6 +157,25 @@ export function MembershipsScreen() {
   const from = params.get("from"); // ?from=account to round-trip back there
   const [requested, setRequested] = useState<Set<string>>(loadRequested);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [currentPlan, setCurrentPlan] = useState<CurrentMembership | null>(null);
+
+  // The owner's live plan, if any — renders as a status card above the
+  // marketing tiers. Fetch failure just means no card (the upsell page
+  // stands on its own).
+  useEffect(() => {
+    let cancelled = false;
+    getPortalApi()
+      .get<{ membership: CurrentMembership | null }>("/portal/memberships")
+      .then((res) => {
+        if (!cancelled) setCurrentPlan(res.membership);
+      })
+      .catch(() => {
+        /* silent — screen works without it */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Memoise so highlight ordering stays stable across re-renders.
   const tiers = useMemo(() => TIERS, []);
@@ -211,6 +241,40 @@ export function MembershipsScreen() {
         Plans aren't bought in the app — ask about one below and the team will
         reply personally to set everything up with you.
       </p>
+
+      {/* CURRENT PLAN -------------------------------------------------- */}
+      {currentPlan && (
+        <section
+          className="mb-8 rounded-2xl border border-primary/30 bg-card p-4 anim-fade-in"
+          style={{ boxShadow: "var(--shadow-diffusion)" }}
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
+              <Medal size={17} aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] tracking-[0.24em] uppercase font-semibold text-muted-foreground">
+                Your plan
+              </p>
+              <p className="text-sm font-semibold text-foreground truncate">
+                {currentPlan.plan_name}
+              </p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2.5 leading-relaxed">
+            {currentPlan.package_type === "unlimited"
+              ? "Unlimited daycare access."
+              : `${currentPlan.credits_remaining ?? 0} ${
+                  currentPlan.session_type === "half_day" ? "half-day" : "full-day"
+                } session${(currentPlan.credits_remaining ?? 0) === 1 ? "" : "s"} left this period.`}
+            {currentPlan.next_billing_date &&
+              ` Renews ${new Date(currentPlan.next_billing_date).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+              })}.`}
+          </p>
+        </section>
+      )}
 
       {/* ABSTRACT HERO -------------------------------------------------
           Five overlapping circles standing in for the five tiers.  Sizes

@@ -102,6 +102,10 @@ export interface CustomerMembership {
    *  Memberships assigned before this field existed fall back to a compiled
    *  catalog lookup in membershipCoverage. */
   session_type?: 'full_day' | 'half_day';
+  /** Credits granted each billing period (snapshot at assignment). Renewal
+   *  tops up by this amount; pre-snapshot records fall back to the compiled
+   *  catalogue. Absent on unlimited plans. */
+  monthly_credits?: number;
   credits_total?: number;
   credits_used?: number;
   credits_remaining?: number;
@@ -141,6 +145,7 @@ export function buildMembership(args: {
           credits_total: plan.daysPerMonth as number,
           credits_used: 0,
           credits_remaining: plan.daysPerMonth as number,
+          monthly_credits: plan.daysPerMonth as number,
         }),
     purchase_date: iso,
     is_subscription: true,
@@ -214,6 +219,70 @@ export function restoreCredits(
     status: membership.status === 'exhausted' && newRemaining > 0 ? 'active' : membership.status,
     updated_at: now.toISOString(),
   };
+}
+
+/**
+ * Lazy renewal: advance every billing period whose next_billing_date has
+ * passed, topping up credits with full rollover (unused days carry — MDC
+ * policy). There is no scheduler in this stack, so callers apply this at
+ * read/booking time and persist when periodsAdvanced > 0.
+ *
+ * - credits_total grows by the monthly grant each period (cumulative granted),
+ *   keeping the remaining = total − used invariant and the restoreCredits cap.
+ * - 'exhausted' flips back to 'active' when new credits arrive.
+ * - Unlimited plans just advance the billing date.
+ * - Credits plans with an unknown per-period grant (pre-snapshot record whose
+ *   plan id isn't in the compiled catalogue) are left untouched — the billing
+ *   date does NOT advance, so a later fix can still renew them correctly.
+ * - paused/cancelled/expired memberships never renew.
+ */
+export function renewIfDue(
+  membership: CustomerMembership,
+  now: Date,
+): { membership: CustomerMembership; periodsAdvanced: number; creditsGranted: number } {
+  const unchanged = { membership, periodsAdvanced: 0, creditsGranted: 0 };
+  if (membership.status !== 'active' && membership.status !== 'exhausted') return unchanged;
+  if (!membership.next_billing_date) return unchanged;
+
+  const unlimited = membership.package_type === 'unlimited';
+  const grant = unlimited
+    ? 0
+    : membership.monthly_credits ??
+      (() => {
+        const days = getPlanById(membership.package_id)?.daysPerMonth;
+        return typeof days === 'number' ? days : undefined;
+      })();
+  if (!unlimited && grant === undefined) return unchanged;
+
+  let next = new Date(membership.next_billing_date);
+  if (Number.isNaN(next.getTime())) return unchanged;
+
+  let periods = 0;
+  // Bounded: a record can be at most a few periods behind between reads; the
+  // cap only guards against a corrupt far-past date spinning the loop.
+  while (next.getTime() <= now.getTime() && periods < 24) {
+    next = new Date(next);
+    next.setMonth(next.getMonth() + 1);
+    periods += 1;
+  }
+  if (periods === 0) return unchanged;
+
+  const creditsGranted = unlimited ? 0 : (grant as number) * periods;
+  const renewed: CustomerMembership = {
+    ...membership,
+    next_billing_date: next.toISOString(),
+    ...(unlimited
+      ? {}
+      : {
+          credits_total: (membership.credits_total ?? 0) + creditsGranted,
+          credits_remaining: (membership.credits_remaining ?? 0) + creditsGranted,
+          monthly_credits: grant,
+        }),
+    status:
+      membership.status === 'exhausted' && creditsGranted > 0 ? 'active' : membership.status,
+    updated_at: now.toISOString(),
+  };
+  return { membership: renewed, periodsAdvanced: periods, creditsGranted };
 }
 
 export type ConsumeError = 'not_active' | 'invalid_credits' | 'insufficient_credits';

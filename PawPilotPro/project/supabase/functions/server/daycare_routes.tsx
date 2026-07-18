@@ -18,6 +18,7 @@ import {
   sessionTypeForServiceId,
   type CustomerMembership,
 } from './lib/membership_catalog.ts';
+import { activeMembershipForHousehold } from './lib/membership_store.ts';
 
 const app = new Hono();
 
@@ -1037,12 +1038,9 @@ app.post('/bookings', async (c) => {
     if (service_type === 'membership') {
       // Not covered after all → the honest service type for the record.
       effective_service_type = sessionType ?? 'full_day';
-      const memberships = (await kv.getByPrefix(
-        `customer_membership:${tenantId}:`,
-      )) as CustomerMembership[];
-      const activeMembership = memberships.find(
-        (m) => m.customer_id === household_id && m.status === 'active',
-      );
+      // Applies any due lazy renewal first (an exhausted membership whose
+      // billing date has passed gets topped up and covers this booking).
+      const activeMembership = await activeMembershipForHousehold(tenantId, household_id);
       if (activeMembership) {
         const coverage = membershipCoverage(activeMembership, sessionType);
         if (coverage.covered && coverage.creditsNeeded > 0) {

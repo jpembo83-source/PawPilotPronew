@@ -28,6 +28,7 @@ import {
   type CustomerMembership,
   type MembershipPlan,
 } from './lib/membership_catalog.ts';
+import { withDueRenewal } from './lib/membership_store.ts';
 
 const app = new Hono();
 
@@ -75,6 +76,11 @@ app.get('/customer-packages', async (c) => {
     if (customer_id) {
       memberships = memberships.filter((m) => m.customer_id === customer_id);
     }
+    // Lazy renewal before any filtering — a due top-up can flip 'exhausted'
+    // back to 'active', and status filters must see the post-renewal state.
+    memberships = await Promise.all(
+      memberships.map((m) => withDueRenewal(user.tenantId, m)),
+    );
     if (status) {
       memberships = memberships.filter((m) => m.status === status);
     }
@@ -112,10 +118,13 @@ app.post('/customer-packages', requireRole('admin', 'manager'), async (c) => {
     const existing = (await kv.getByPrefix(
       `customer_membership:${user.tenantId}:`,
     )) as CustomerMembership[];
-    const alreadyActive = existing.find(
-      (m) => m.customer_id === customer_id && m.status === 'active',
+    // Exhausted blocks too: lazy renewal will top it back up next period, so
+    // assigning a second plan alongside it would leave two live memberships.
+    const alreadyLive = existing.find(
+      (m) =>
+        m.customer_id === customer_id && (m.status === 'active' || m.status === 'exhausted'),
     );
-    if (alreadyActive) {
+    if (alreadyLive) {
       return c.json({ error: 'membership_already_active' }, 409);
     }
 
@@ -155,10 +164,11 @@ app.post('/customer-packages/:id/use', async (c) => {
     const { pet_id, credits, booking_id } = parsed.data;
 
     const key = membershipKey(user.tenantId, id);
-    const membership = (await kv.get(key)) as CustomerMembership | undefined;
-    if (!membership) {
+    const stored = (await kv.get(key)) as CustomerMembership | undefined;
+    if (!stored) {
       return c.json({ error: 'membership_not_found' }, 404);
     }
+    const membership = await withDueRenewal(user.tenantId, stored);
 
     const result = consumeCredits(membership, credits, new Date());
     if (result === 'not_active') {

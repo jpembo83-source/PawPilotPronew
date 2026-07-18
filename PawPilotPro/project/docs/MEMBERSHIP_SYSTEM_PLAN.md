@@ -122,27 +122,46 @@ credits automatically on booking yet.
   Phase 2 consolidates — integrating it before Phase 2 would wire bookings to
   the wrong catalog. Fold it into Phase 2's consolidation instead.
 
-## Phase 4 — Renewal, rollover, and billing
+## Phase 4 — Renewal and rollover (DONE in this branch; invoicing deferred)
 
-- Monthly renewal job: on `next_billing_date`, top up credits per plan with
-  rollover (plans carry unused days; MO05 unlimited exempt), advance the
-  billing date, emit a billing event.
-- Connect to billing: membership charge surfaces as a subscription invoice;
-  reconcile the `subscription:` records in `billing_routes.tsx` with
-  `customer_membership:` (one system — recommend migrating billing reads to
-  the membership records rather than maintaining both).
-- Pause/resume semantics (billing rules already exist in
-  `billing:membership_billing_rules`).
+- **Lazy renewal** (`renewIfDue`, pure + unit-tested): there is no scheduler
+  in this stack, so every live read path — staff list, credit use, booking
+  coverage, portal reads — applies due renewals via
+  `lib/membership_store.ts` (`withDueRenewal` /
+  `activeMembershipForHousehold`) and persists the result. Catches up
+  multiple missed periods; bounded against corrupt dates.
+- **Full rollover**: unused days carry (MDC policy). `credits_total` is
+  cumulative-granted so `remaining = total − used` and the restoreCredits
+  cap stay correct across periods. `monthly_credits` is snapshotted at
+  assignment (compiled-catalogue fallback for older records; records whose
+  grant can't be known are left untouched, date included, so a later fix
+  can still renew them).
+- 'exhausted' flips back to 'active' when new credits arrive; booking
+  coverage and assignment lookups treat exhausted as live for exactly this
+  reason (a second plan can't be stacked on an exhausted one).
+- Paused/cancelled/expired memberships never renew.
+- **Deferred — invoicing**: surfacing the renewal as a billing invoice and
+  reconciling billing's `subscription:` records into `customer_membership:`
+  waits until the billing module's placeholder tabs (payments,
+  subscriptions) become real; renewal currently logs a structured
+  `memberships.renewed` event as the audit hook.
 
-## Phase 5 — Portal surface
+## Phase 5 — Portal surface (DONE in this branch)
 
-- `GET /portal/memberships` — the signed-in owner's active plan, credits,
-  renewal date (portal auth pattern, read-only).
-- `MembershipsScreen` shows the real current plan above the marketing tiers;
-  keep enquiry flow for non-members.
-- Portal quote (`/portal/quote`) checks the household's membership and, when
-  credits cover the session, says so instead of the generic caveat (still
-  `estimate: true`).
+- `GET /portal/memberships` — the signed-in owner's live (lazy-renewed)
+  plan: name, type, session length, credits remaining, renewal date.
+  Read-only, scoped to the household on the verified portal token.
+- `MembershipsScreen` renders a "Your plan" card (name, remaining sessions
+  or unlimited, renewal date) above the marketing tiers; the enquiry flow
+  stays for non-members and upgrades. Purchase remains out-of-app by
+  design.
+- Portal quote (`/portal/quote`) now resolves the household's membership and
+  replaces the generic "if you have a membership" hedge with the real
+  position: unlimited → "covers these sessions"; credits → "can cover N of
+  M (K credits left)"; empty balance → "billed at the standard rate".
+  Session-type mismatch keeps the generic caveat. The quote never zeroes a
+  line itself — coverage is applied by the staff booking path and the quote
+  stays `estimate: true`.
 
 ## Sequencing rationale
 

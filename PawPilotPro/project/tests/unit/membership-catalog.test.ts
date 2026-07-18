@@ -6,6 +6,7 @@ import {
   consumeCredits,
   membershipCoverage,
   normalizeCatalogPlan,
+  renewIfDue,
   restoreCredits,
   sessionTypeForServiceId,
   type CustomerMembership,
@@ -270,5 +271,87 @@ describe('restoreCredits', () => {
     });
     expect(restoreCredits(unlimited, 1, NOW).credits_remaining).toBeUndefined();
     expect(restoreCredits(creditsMembership(), 0, NOW).credits_remaining).toBe(5);
+  });
+});
+
+describe('renewIfDue (lazy renewal + rollover)', () => {
+  // Assigned 2026-07-18 → next_billing 2026-08-18 (MO02: 5 full days/month).
+  const AFTER_ONE = new Date('2026-08-20T09:00:00.000Z');
+  const AFTER_THREE = new Date('2026-10-20T09:00:00.000Z');
+
+  it('is a no-op before the billing date', () => {
+    const r = renewIfDue(creditsMembership(), new Date('2026-08-17T00:00:00.000Z'));
+    expect(r.periodsAdvanced).toBe(0);
+    expect(r.creditsGranted).toBe(0);
+  });
+
+  it('tops up one period with full rollover (unused days carry)', () => {
+    let m = creditsMembership();
+    m = consumeCredits(m, 2, NOW) as CustomerMembership; // 3 remain of 5
+    const r = renewIfDue(m, AFTER_ONE);
+    expect(r.periodsAdvanced).toBe(1);
+    expect(r.creditsGranted).toBe(5);
+    expect(r.membership.credits_remaining).toBe(8); // 3 carried + 5 granted
+    expect(r.membership.credits_total).toBe(10); // cumulative granted
+    expect(r.membership.credits_used).toBe(2);
+    expect(r.membership.next_billing_date).toBe('2026-09-18T10:00:00.000Z');
+  });
+
+  it('catches up multiple missed periods at once', () => {
+    const r = renewIfDue(creditsMembership(), AFTER_THREE);
+    expect(r.periodsAdvanced).toBe(3);
+    expect(r.creditsGranted).toBe(15);
+    expect(r.membership.credits_remaining).toBe(20);
+    expect(r.membership.next_billing_date).toBe('2026-11-18T10:00:00.000Z');
+  });
+
+  it('flips exhausted back to active when credits arrive', () => {
+    let m = creditsMembership();
+    m = consumeCredits(m, 5, NOW) as CustomerMembership;
+    expect(m.status).toBe('exhausted');
+    const r = renewIfDue(m, AFTER_ONE);
+    expect(r.membership.status).toBe('active');
+    expect(r.membership.credits_remaining).toBe(5);
+  });
+
+  it('unlimited plans only advance the billing date', () => {
+    const u = buildMembership({
+      id: 'm-u3', customerId: 'h-1', plan: getPlanById('MO05')!, createdBy: 'u-1', now: NOW,
+    });
+    const r = renewIfDue(u, AFTER_ONE);
+    expect(r.periodsAdvanced).toBe(1);
+    expect(r.creditsGranted).toBe(0);
+    expect(r.membership.credits_remaining).toBeUndefined();
+    expect(r.membership.next_billing_date).toBe('2026-09-18T10:00:00.000Z');
+  });
+
+  it('never renews paused or cancelled memberships', () => {
+    const cancelled = { ...creditsMembership(), status: 'cancelled' as const };
+    expect(renewIfDue(cancelled, AFTER_THREE).periodsAdvanced).toBe(0);
+  });
+
+  it('pre-snapshot records fall back to the compiled catalogue for the grant', () => {
+    const legacy = { ...creditsMembership() };
+    delete legacy.monthly_credits;
+    const r = renewIfDue(legacy, AFTER_ONE);
+    expect(r.creditsGranted).toBe(5); // MO02 from the compiled catalogue
+    expect(r.membership.monthly_credits).toBe(5); // snapshot backfilled
+  });
+
+  it('leaves a credits record with an unknowable grant untouched (date included)', () => {
+    const orphan = { ...creditsMembership(), package_id: 'gone-plan' };
+    delete orphan.monthly_credits;
+    const r = renewIfDue(orphan, AFTER_ONE);
+    expect(r.periodsAdvanced).toBe(0);
+    expect(r.membership.next_billing_date).toBe(creditsMembership().next_billing_date);
+  });
+
+  it('restore cap stays correct after renewal (cumulative credits_total)', () => {
+    let m = creditsMembership();
+    m = consumeCredits(m, 4, NOW) as CustomerMembership; // 1 of 5 left
+    m = renewIfDue(m, AFTER_ONE).membership; // 6 left of 10 total
+    m = restoreCredits(m, 4, NOW); // cancellation hands 4 back
+    expect(m.credits_remaining).toBe(10);
+    expect(m.credits_used).toBe(0);
   });
 });
