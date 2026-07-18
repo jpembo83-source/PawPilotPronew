@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useOvernightsStore } from '../store';
-import { useDashboardStore } from '../../dashboard/store';
-import { useSettingsStore } from '../../settings/store';
+import { useOvernightLocation } from '../hooks/useOvernightLocation';
+import { LocationPrompt } from '../components/LocationPrompt';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
@@ -202,11 +202,7 @@ function CarerColumn({
 function PlanningBoardContent() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/overnights');
-  const { selectedLocationId } = useDashboardStore();
-  const { locations } = useSettingsStore();
-  const selectedLocation = selectedLocationId !== 'ALL'
-    ? locations.find(l => l.id === selectedLocationId)
-    : locations[0];
+  const { location: selectedLocation, needsSelection } = useOvernightLocation();
   const {
     reservations,
     carers,
@@ -255,13 +251,7 @@ function PlanningBoardContent() {
   }, [assignCarer, locationId, fetchCarers, fetchTonightsBoarders]);
 
   if (!selectedLocation) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-        <Moon className="h-16 w-16 text-slate-300 mb-4" />
-        <h2 className="text-lg font-medium text-slate-900">No Location Selected</h2>
-        <p>Please select a location to view the planning board.</p>
-      </div>
-    );
+    return <LocationPrompt needsSelection={needsSelection} action="view the planning board" />;
   }
 
   const today = new Date().toISOString().split('T')[0];

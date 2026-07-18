@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
-import { useDashboardStore } from '../../dashboard/store';
-import { useSettingsStore } from '../../settings/store';
+import { useOvernightLocation } from '../hooks/useOvernightLocation';
+import { LocationPrompt } from '../components/LocationPrompt';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -36,11 +36,7 @@ import { useBackNavigation } from '../../../components/BackButton';
 export function OvernightCheckOut() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/overnights');
-  const { selectedLocationId } = useDashboardStore();
-  const { locations } = useSettingsStore();
-  const selectedLocation = selectedLocationId !== 'ALL'
-    ? locations.find(l => l.id === selectedLocationId)
-    : locations[0];
+  const { location: selectedLocation, needsSelection } = useOvernightLocation();
   const {
     reservations,
     isLoading,
@@ -140,13 +136,7 @@ export function OvernightCheckOut() {
   };
 
   if (!selectedLocation) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-        <Moon className="h-16 w-16 text-slate-300 mb-4" />
-        <h2 className="text-lg font-medium text-slate-900">No Location Selected</h2>
-        <p>Please select a location to manage overnight check-outs.</p>
-      </div>
-    );
+    return <LocationPrompt needsSelection={needsSelection} action="manage overnight check-outs" />;
   }
 
   return (

@@ -297,6 +297,23 @@ export interface BoarderSummary {
   specialNotes?: string;
 }
 
+export interface CheckInValidationIssue {
+  category: string;
+  message: string;
+}
+
+/** Server-computed check-in readiness (GET /overnights/check-in/validate). */
+export interface CheckInValidation {
+  reservationId: string;
+  blockers: CheckInValidationIssue[];
+  warnings: CheckInValidationIssue[];
+  vaccinationStatus: string;
+  waiverStatus: string;
+  requiresMedication: boolean;
+  hasBehaviourConcerns: boolean;
+  hasAllergies: boolean;
+}
+
 export interface CheckInRequest {
   reservationId: string;
 

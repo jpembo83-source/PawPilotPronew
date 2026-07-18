@@ -331,6 +331,82 @@ routes.put("/reservations/:id", async (c) => {
 // CHECK-IN / CHECK-OUT
 // ============================================================================
 
+/**
+ * Server-computed check-in readiness, mirroring daycare's validateCheckIn:
+ * account holds are BLOCKERS (business-critical); vaccination and waiver
+ * status are computed from the live pet/document records and surfaced as
+ * WARNINGS (operational flexibility — the desk may hold newer paperwork than
+ * the records). Live pet safety flags are unioned with the reservation
+ * snapshot so notes added after booking still reach the check-in screen.
+ */
+async function validateOvernightCheckIn(tenantId: string, reservation: any) {
+  const blockers: Array<{ category: string; message: string }> = [];
+  const warnings: Array<{ category: string; message: string }> = [];
+
+  const household = await kv.get(`customer:${tenantId}:household:${reservation.householdId}`) as any;
+  if (household?.booking_hold === true || household?.payment_hold === true) {
+    blockers.push({
+      category: 'hold',
+      message: `Account hold: ${household?.hold_reason || 'Payment or booking issue'}. Manager override required.`,
+    });
+  }
+
+  const pet = await kv.get(`customer:${tenantId}:pet:${reservation.householdId}:${reservation.petId}`) as any;
+  const vaccinationStatus: string = pet?.vaccination_status || 'unknown';
+  if (vaccinationStatus === 'expired' || vaccinationStatus === 'missing') {
+    warnings.push({ category: 'vaccination', message: 'Vaccination certificate expired or missing. Please update records before the stay.' });
+  } else if (vaccinationStatus === 'expiring_soon') {
+    warnings.push({ category: 'vaccination', message: 'Vaccination certificate expiring soon.' });
+  }
+
+  // Waiver: household-level (no pet_id) or pet-specific — same lookup as
+  // daycare's validateCheckIn. A waiver without an expiry date is valid.
+  const householdDocs = await kv.getByPrefix(`customer:${tenantId}:document:${reservation.householdId}:`) as any[];
+  const waiverDoc = householdDocs.find((doc: any) =>
+    doc?.document_type === 'waiver' && (!doc.pet_id || doc.pet_id === reservation.petId));
+  let waiverStatus: 'valid' | 'expiring_soon' | 'expired' | 'missing' = 'missing';
+  if (waiverDoc) {
+    if (waiverDoc.expiry_date) {
+      const daysDiff = Math.floor((new Date(waiverDoc.expiry_date).getTime() - Date.now()) / 86_400_000);
+      waiverStatus = daysDiff < 0 ? 'expired' : daysDiff < 30 ? 'expiring_soon' : 'valid';
+    } else {
+      waiverStatus = 'valid';
+    }
+  }
+  if (waiverStatus === 'expired' || waiverStatus === 'missing') {
+    warnings.push({ category: 'waiver', message: 'Waiver expired or missing. Please obtain a signed waiver.' });
+  } else if (waiverStatus === 'expiring_soon') {
+    warnings.push({ category: 'waiver', message: 'Waiver expiring soon.' });
+  }
+
+  return {
+    blockers,
+    warnings,
+    vaccinationStatus,
+    waiverStatus,
+    requiresMedication: !!(reservation.requiresMedication || pet?.medical_notes),
+    hasBehaviourConcerns: !!(reservation.hasBehaviourConcerns || pet?.behaviour_notes),
+    hasAllergies: !!reservation.hasAllergies,
+  };
+}
+
+routes.get("/check-in/validate", async (c) => {
+  try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const reservationId = c.req.query("reservationId");
+    if (!reservationId) return c.json({ error: "reservationId required" }, 400);
+
+    const reservation = await kv.get(`overnight:${tenantId}:reservation:${reservationId}`);
+    if (!reservation) return c.json({ error: "Reservation not found" }, 404);
+
+    const validation = await validateOvernightCheckIn(tenantId, reservation);
+    return c.json({ reservationId, ...validation });
+  } catch (e: any) {
+    return internalError(c, 'overnights.getCheckInValidate', e);
+  }
+});
+
 routes.post("/check-in", async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
@@ -343,7 +419,15 @@ routes.post("/check-in", async (c) => {
     if (!reservation) {
       return c.json({ error: "Reservation not found" }, 404);
     }
-    
+
+    // Server-computed readiness: account holds block, vaccination/waiver
+    // status is recorded on the audit event (warnings, not blockers —
+    // daycare precedent).
+    const validation = await validateOvernightCheckIn(tenantId, reservation);
+    if (validation.blockers.length > 0) {
+      return c.json({ error: validation.blockers[0].message }, 409);
+    }
+
     // Enforce vaccination rule (blocker)
     if (!vaccinationValid) {
       return c.json({ error: "Cannot check in: Vaccinations are not valid or expired" }, 400);
@@ -386,6 +470,10 @@ routes.post("/check-in", async (c) => {
       checkInNotes,
       vaccinationValid,
       waiverSigned,
+      // Computed at check-in time from live records, so the audit trail
+      // shows any gap between the operator's attestation and the data.
+      recordedVaccinationStatus: validation.vaccinationStatus,
+      recordedWaiverStatus: validation.waiverStatus,
     });
     
     return c.json(updated);
@@ -807,11 +895,21 @@ routes.get("/tonights-boarders", async (c) => {
     // Get care logs for tonight
     const allCareLogs = await kv.getByPrefix(`overnight:${tenantId}:carelog:`);
     const careLogsTonight = allCareLogs.filter((cl: any) => cl.logDate === date);
-    
+
+    // Resolve assigned carer names from the staff directory in one pass.
+    const carerIds = [...new Set(activeReservations.map((r: any) => r.assignedCarerUserId).filter(Boolean))];
+    const carerNames = new Map<string, string>();
+    if (carerIds.length > 0) {
+      const profiles = (await kv.getByPrefix(`user:${tenantId}:profile:`)) as any[];
+      for (const p of profiles) {
+        if (p?.id && p?.name && carerIds.includes(p.id)) carerNames.set(p.id, p.name);
+      }
+    }
+
     // Build boarder summaries
     const boarders = activeReservations.map((r: any) => {
       const careLog = careLogsTonight.find((cl: any) => cl.reservationId === r.id);
-      
+
       return {
         reservationId: r.id,
         petId: r.petId,
@@ -820,6 +918,7 @@ routes.get("/tonights-boarders", async (c) => {
         customerName: r.customerName || "Unknown Customer",
         sleepingAreaName: r.sleepingAreaId ? `Area ${r.sleepingAreaId}` : undefined,
         assignedCarerUserId: r.assignedCarerUserId,
+        assignedCarerName: r.assignedCarerUserId ? carerNames.get(r.assignedCarerUserId) : undefined,
         requiresMedication: r.requiresMedication,
         hasBehaviourConcerns: r.hasBehaviourConcerns,
         hasAllergies: r.hasAllergies,
@@ -853,6 +952,58 @@ routes.get("/tonights-boarders", async (c) => {
 // CARER ALLOCATION
 // ============================================================================
 
+// Roles that can be allocated boarders on the planning board.
+const CARER_ROLES = new Set(['overnight_staff', 'staff', 'assistant_manager', 'manager']);
+
+/**
+ * Overnight carers are sourced from the live staff directory
+ * (user:{tenant}:profile:* — Settings → Users & Access), filtered to active
+ * staff-type roles working this location. Optional overnight:{tenant}:carer:*
+ * records only OVERRIDE per-carer settings (maxCapacity); nothing in the app
+ * ever needed to create them for the board to work.
+ */
+async function listCarersForLocation(tenantId: string, locationId: string, date: string) {
+  const profiles = (await kv.getByPrefix(`user:${tenantId}:profile:`)) as any[];
+  const eligible = profiles.filter((p: any) => {
+    if (!p || p.isActive === false) return false;
+    if (!CARER_ROLES.has(p.role)) return false;
+    const locationIds = Array.isArray(p.locationIds) ? p.locationIds : [];
+    return locationIds.includes(locationId) || locationIds.includes('all');
+  });
+
+  return Promise.all(eligible.map(async (p: any) => {
+    const override = (await kv.get(`overnight:${tenantId}:carer:${p.id}`)) as any;
+    const shifts = (await kv.getByPrefix(`staff:${tenantId}:shift:user:${p.id}:`)) as any[];
+    const shiftTonight = shifts.find((s: any) => s && s.shift_date === date);
+    return {
+      userId: p.id,
+      name: p.name || p.email || 'Staff member',
+      locationId,
+      maxCapacity: typeof override?.maxCapacity === 'number' ? override.maxCapacity : 6,
+      isOnRota: !!shiftTonight,
+      rotaPublished: shiftTonight ? shiftTonight.status !== 'draft' : false,
+    };
+  }));
+}
+
+/** Resolve an assignable carer: live staff profile + optional per-carer override. */
+async function resolveCarer(tenantId: string, carerId: string) {
+  let profile = (await kv.get(`user:${tenantId}:profile:${carerId}`)) as any;
+  if (!profile) {
+    const profiles = (await kv.getByPrefix(`user:${tenantId}:profile:`)) as any[];
+    profile = profiles.find((p: any) => p?.id === carerId) ?? null;
+  }
+  const override = (await kv.get(`overnight:${tenantId}:carer:${carerId}`)) as any;
+  if (!profile && !override) return null;
+  return {
+    name: profile?.name || override?.name || carerId,
+    maxCapacity: typeof override?.maxCapacity === 'number' ? override.maxCapacity : 6,
+    // Rota data is advisory (the board shows a warning); only an explicit
+    // per-carer override can hard-block assignment.
+    isOnRota: override ? override.isOnRota !== false : true,
+  };
+}
+
 routes.get("/carers", async (c) => {
   try {
     const user = c.get('user') as AuthenticatedUser;
@@ -864,9 +1015,7 @@ routes.get("/carers", async (c) => {
       return c.json({ error: "locationId required" }, 400);
     }
 
-    let carers = await kv.getByPrefix(`overnight:${tenantId}:carer:`);
-
-    carers = carers.filter((cr: any) => cr.locationId === locationId);
+    const carers = await listCarersForLocation(tenantId, locationId, date);
 
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
 
@@ -913,9 +1062,11 @@ routes.post("/assign-carer", async (c) => {
       return c.json({ error: "Reservation not found" }, 404);
     }
 
-    const carer = await kv.get(`overnight:${tenantId}:carer:${carerId}`);
-
-    if (carer && !carer.isOnRota) {
+    const carer = await resolveCarer(tenantId, carerId);
+    if (!carer) {
+      return c.json({ error: "Carer not found" }, 404);
+    }
+    if (!carer.isOnRota) {
       return c.json({ error: "Carer is not on the rota for this date" }, 400);
     }
 
@@ -978,9 +1129,11 @@ routes.put("/assign-carer/:stayId", async (c) => {
     }
 
     const previousCarerId = reservation.assignedCarerUserId;
-    const carer = await kv.get(`overnight:${tenantId}:carer:${carerId}`);
-
-    if (carer && !carer.isOnRota) {
+    const carer = await resolveCarer(tenantId, carerId);
+    if (!carer) {
+      return c.json({ error: "Carer not found" }, 404);
+    }
+    if (!carer.isOnRota) {
       return c.json({ error: "Carer is not on the rota for this date" }, 400);
     }
 

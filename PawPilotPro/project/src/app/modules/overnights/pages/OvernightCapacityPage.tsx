@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Bed, Moon, ArrowLeft, Gear, FloppyDisk, Warning, Money } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
-import { useSettingsStore } from '../../settings/store';
-import { useDashboardStore } from '../../dashboard/store';
+import { useOvernightLocation } from '../hooks/useOvernightLocation';
+import { LocationPrompt } from '../components/LocationPrompt';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -18,8 +18,7 @@ export function OvernightCapacityPage() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/overnights');
   const { currency, symbol, format: formatMoney } = useCurrency();
-  const locations = useSettingsStore((s) => s.locations);
-  const { selectedLocationId } = useDashboardStore();
+  const { location: selectedLocation, needsSelection } = useOvernightLocation();
   const {
     capacities,
     tonightsBoarders,
@@ -36,7 +35,7 @@ export function OvernightCapacityPage() {
   const [editPricePerNight, setEditPricePerNight] = useState(45);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const locationId = selectedLocationId === 'ALL' ? locations[0]?.id : selectedLocationId;
+  const locationId = selectedLocation?.id;
   const capacity = capacities[0];
 
   useEffect(() => {
@@ -70,13 +69,7 @@ export function OvernightCapacityPage() {
   };
 
   if (!locationId) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-        <Moon className="h-16 w-16 text-slate-300 mb-4" />
-        <h2 className="text-lg font-medium text-slate-900">No Location Selected</h2>
-        <p>Please select a location to manage capacity.</p>
-      </div>
-    );
+    return <LocationPrompt needsSelection={needsSelection} action="manage capacity" />;
   }
 
   const maxCap = capacity?.maxOvernightCapacity ?? 0;

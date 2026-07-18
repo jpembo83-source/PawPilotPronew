@@ -2,17 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Moon, CalendarBlank, Bed, ClipboardText, UsersThree, Plus, SignIn, SignOut, SquaresFour } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
-import { useDashboardStore } from '../../dashboard/store';
-import { useSettingsStore } from '../../settings/store';
+import { useOvernightLocation } from '../hooks/useOvernightLocation';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
 import { CreateReservationModal } from '../components/CreateReservationModal';
+import { LocationPrompt } from '../components/LocationPrompt';
 
 export function OvernightsPage() {
   const navigate = useNavigate();
-  const { selectedLocationId } = useDashboardStore();
-  const { locations } = useSettingsStore();
+  const { location: selectedLocation, needsSelection } = useOvernightLocation();
   const {
     reservations,
     tonightsBoarders,
@@ -23,10 +22,6 @@ export function OvernightsPage() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const selectedLocation = selectedLocationId !== 'ALL'
-    ? locations.find(l => l.id === selectedLocationId)
-    : locations[0];
-
   useEffect(() => {
     if (selectedLocation) {
       fetchReservations(selectedLocation.id);
@@ -36,13 +31,7 @@ export function OvernightsPage() {
   }, [selectedLocation?.id]);
 
   if (!selectedLocation) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-        <Moon className="h-16 w-16 text-slate-300 mb-4" />
-        <h2 className="text-lg font-medium text-slate-900">No Location Selected</h2>
-        <p>Please select a location to view overnight boarding operations.</p>
-      </div>
-    );
+    return <LocationPrompt needsSelection={needsSelection} action="view overnight boarding operations" />;
   }
 
   const today = new Date().toISOString().split('T')[0];

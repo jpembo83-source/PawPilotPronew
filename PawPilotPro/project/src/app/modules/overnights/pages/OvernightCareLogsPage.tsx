@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ClipboardText, Moon, ArrowLeft, CheckCircle, XCircle, MagnifyingGlass, CaretDown } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
-import { useSettingsStore } from '../../settings/store';
-import { useDashboardStore } from '../../dashboard/store';
+import { useOvernightLocation } from '../hooks/useOvernightLocation';
+import { LocationPrompt } from '../components/LocationPrompt';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
@@ -15,8 +15,7 @@ import { useBackNavigation } from '../../../components/BackButton';
 export function OvernightCareLogsPage() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/overnights');
-  const locations = useSettingsStore((s) => s.locations);
-  const { selectedLocationId } = useDashboardStore();
+  const { location: selectedLocation, needsSelection } = useOvernightLocation();
   const {
     tonightsBoarders,
     careLogs,
@@ -33,7 +32,7 @@ export function OvernightCareLogsPage() {
   const [selectedBoarder, setSelectedBoarder] = useState<BoarderSummary | null>(null);
   const [editingLog, setEditingLog] = useState<NightlyCareLog | undefined>(undefined);
 
-  const locationId = selectedLocationId === 'ALL' ? locations[0]?.id : selectedLocationId;
+  const locationId = selectedLocation?.id;
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
@@ -85,13 +84,7 @@ export function OvernightCareLogsPage() {
   };
 
   if (!locationId) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-        <Moon className="h-16 w-16 text-slate-300 mb-4" />
-        <h2 className="text-lg font-medium text-slate-900">No Location Selected</h2>
-        <p>Please select a location to manage care logs.</p>
-      </div>
-    );
+    return <LocationPrompt needsSelection={needsSelection} action="manage care logs" />;
   }
 
   if (selectedBoarder) {

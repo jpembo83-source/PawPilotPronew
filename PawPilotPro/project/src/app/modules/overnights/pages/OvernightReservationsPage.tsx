@@ -17,20 +17,11 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 import { CreateReservationModal } from '../components/CreateReservationModal';
-import type { OvernightReservation, ReservationStatus } from '../types';
+import { ReservationDetailDialog } from '../components/ReservationDetailDialog';
+import { STATUS_CONFIG } from '../constants';
+import type { OvernightReservation } from '../types';
 
 import { useBackNavigation } from '../../../components/BackButton';
-const STATUS_CONFIG: Record<ReservationStatus, { label: string; className: string }> = {
-  booked: { label: 'Booked', className: 'bg-blue-100 text-blue-700 border-blue-200' },
-  confirmed: { label: 'Confirmed', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  checked_in: { label: 'Checked In', className: 'bg-green-100 text-green-700 border-green-200' },
-  in_stay: { label: 'In Stay', className: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  transitioning_to_daycare: { label: 'To Daycare', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-  transitioning_from_daycare: { label: 'From Daycare', className: 'bg-amber-100 text-amber-700 border-amber-200' },
-  checked_out: { label: 'Checked Out', className: 'bg-slate-100 text-slate-700 border-slate-200' },
-  cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700 border-red-200' },
-  no_show: { label: 'No Show', className: 'bg-rose-100 text-rose-700 border-rose-200' },
-};
 
 export function OvernightReservationsPage() {
   const navigate = useNavigate();
@@ -40,6 +31,7 @@ export function OvernightReservationsPage() {
   const { reservations, fetchReservations, isLoading } = useOvernightsStore();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [detailReservation, setDetailReservation] = useState<OvernightReservation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -184,7 +176,11 @@ export function OvernightReservationsPage() {
                 </tr>
               )}
               {!isLoading && filteredReservations.map((reservation) => (
-                <ReservationRow key={reservation.id} reservation={reservation} />
+                <ReservationRow
+                  key={reservation.id}
+                  reservation={reservation}
+                  onClick={() => setDetailReservation(reservation)}
+                />
               ))}
             </tbody>
           </table>
@@ -196,11 +192,18 @@ export function OvernightReservationsPage() {
         onOpenChange={setShowCreateModal}
         onSuccess={handleRefresh}
       />
+
+      <ReservationDetailDialog
+        reservation={detailReservation}
+        open={detailReservation !== null}
+        onOpenChange={(open) => { if (!open) setDetailReservation(null); }}
+        onChanged={handleRefresh}
+      />
     </div>
   );
 }
 
-function ReservationRow({ reservation }: { reservation: OvernightReservation }) {
+function ReservationRow({ reservation, onClick }: { reservation: OvernightReservation; onClick: () => void }) {
   const statusConfig = STATUS_CONFIG[reservation.status] || STATUS_CONFIG.booked;
 
   const formatDate = (dateStr: string) => {
@@ -212,7 +215,7 @@ function ReservationRow({ reservation }: { reservation: OvernightReservation }) 
   };
 
   return (
-    <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+    <tr className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer" onClick={onClick}>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xs">

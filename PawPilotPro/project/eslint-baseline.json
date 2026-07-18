@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 3810,
+  "errors": 3807,
   "warnings": 416
  },
  "files": {
@@ -629,7 +629,7 @@
    "warnings": 0
   },
   "src/app/modules/overnights/pages/OvernightCheckIn.tsx": {
-   "errors": 12,
+   "errors": 10,
    "warnings": 2
   },
   "src/app/modules/overnights/pages/OvernightCheckOut.tsx": {
@@ -649,7 +649,7 @@
    "warnings": 2
   },
   "src/app/modules/overnights/store.ts": {
-   "errors": 16,
+   "errors": 15,
    "warnings": 0
   },
   "src/app/modules/overnights/types.ts": {

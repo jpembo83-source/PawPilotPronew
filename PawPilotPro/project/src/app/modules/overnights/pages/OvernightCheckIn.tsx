@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
-import { useDashboardStore } from '../../dashboard/store';
-import { useSettingsStore } from '../../settings/store';
+import { useOvernightLocation } from '../hooks/useOvernightLocation';
+import { LocationPrompt } from '../components/LocationPrompt';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -22,7 +22,6 @@ import {
 import {
   MagnifyingGlass,
   SignIn,
-  Moon,
   ArrowLeft,
   Warning,
   XCircle,
@@ -34,23 +33,20 @@ import {
   ArrowsLeftRight,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
-import type { OvernightReservation, CheckInRequest } from '../types';
+import type { OvernightReservation, CheckInRequest, CheckInValidation } from '../types';
 
 import { useBackNavigation } from '../../../components/BackButton';
 export function OvernightCheckIn() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/overnights');
-  const { selectedLocationId } = useDashboardStore();
-  const { locations } = useSettingsStore();
-  const selectedLocation = selectedLocationId !== 'ALL'
-    ? locations.find(l => l.id === selectedLocationId)
-    : locations[0];
+  const { location: selectedLocation, needsSelection } = useOvernightLocation();
   const {
     reservations,
     isLoading,
     fetchReservations,
     checkIn,
     transitionFromDaycare,
+    validateCheckIn,
   } = useOvernightsStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +61,12 @@ export function OvernightCheckIn() {
 
   const [transitionFromDaycareMode, setTransitionFromDaycareMode] = useState(false);
   const [daycareBookingId, setDaycareBookingId] = useState('');
+
+  // Server-computed readiness (holds, vaccination, waiver) for the selected
+  // reservation. The server re-enforces blockers at check-in, so a failed
+  // lookup degrades to attestation-only rather than blocking the desk.
+  const [validation, setValidation] = useState<CheckInValidation | null>(null);
+  const [validating, setValidating] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -90,25 +92,6 @@ export function OvernightCheckIn() {
     );
   }, [checkInsToday, searchQuery]);
 
-  const getBlockers = (reservation: OvernightReservation) => {
-    const blockers: { type: string; message: string }[] = [];
-    return blockers;
-  };
-
-  const getWarnings = (reservation: OvernightReservation) => {
-    const warnings: { type: string; message: string }[] = [];
-    if (reservation.hasBehaviourConcerns) {
-      warnings.push({ type: 'behaviour', message: 'This pet has behaviour concerns noted. Please review before check-in.' });
-    }
-    if (reservation.requiresMedication) {
-      warnings.push({ type: 'medication', message: 'This pet requires medication during their stay.' });
-    }
-    if (reservation.hasAllergies) {
-      warnings.push({ type: 'allergies', message: 'This pet has known allergies. Ensure care plan is in place.' });
-    }
-    return warnings;
-  };
-
   const handleSelectReservation = (reservation: OvernightReservation) => {
     setSelectedReservation(reservation);
     setHandoverNotes('');
@@ -119,20 +102,47 @@ export function OvernightCheckIn() {
     setTransitionFromDaycareMode(false);
     setDaycareBookingId('');
     setShowDialog(true);
+
+    setValidation(null);
+    setValidating(true);
+    validateCheckIn(reservation.id)
+      .then(setValidation)
+      .catch(() => {
+        setValidation(null);
+        toast.warning('Could not verify records — check-in will rely on your confirmations below.');
+      })
+      .finally(() => setValidating(false));
   };
 
-  const blockers = selectedReservation ? getBlockers(selectedReservation) : [];
-  const warnings = selectedReservation ? getWarnings(selectedReservation) : [];
+  // Live pet flags (from validation) win over the reservation snapshot —
+  // safety notes added after booking must still reach this screen.
+  const effectiveMedication = validation?.requiresMedication ?? selectedReservation?.requiresMedication ?? false;
+  const effectiveBehaviour = validation?.hasBehaviourConcerns ?? selectedReservation?.hasBehaviourConcerns ?? false;
+  const effectiveAllergies = validation?.hasAllergies ?? selectedReservation?.hasAllergies ?? false;
+
+  const blockers = validation?.blockers ?? [];
+  const warnings: { category: string; message: string }[] = [
+    ...(validation?.warnings ?? []),
+  ];
+  if (effectiveBehaviour) {
+    warnings.push({ category: 'behaviour', message: 'This pet has behaviour concerns noted. Please review before check-in.' });
+  }
+  if (effectiveMedication) {
+    warnings.push({ category: 'medication', message: 'This pet requires medication during their stay.' });
+  }
+  if (effectiveAllergies) {
+    warnings.push({ category: 'allergies', message: 'This pet has known allergies. Ensure care plan is in place.' });
+  }
   const hasBlockers = blockers.length > 0;
   const hasWarnings = warnings.length > 0;
-  const warningsNeedAck = hasWarnings && (!behaviourAcknowledged || !medicalAcknowledged);
 
   const canCheckIn =
     !hasBlockers &&
+    !validating &&
     vaccinationValid &&
     waiverSigned &&
-    (!selectedReservation?.hasBehaviourConcerns || behaviourAcknowledged) &&
-    (!selectedReservation?.requiresMedication || medicalAcknowledged);
+    (!effectiveBehaviour || behaviourAcknowledged) &&
+    (!effectiveMedication || medicalAcknowledged);
 
   const handleCheckIn = async () => {
     if (!selectedReservation) return;
@@ -182,13 +192,7 @@ export function OvernightCheckIn() {
   };
 
   if (!selectedLocation) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-        <Moon className="h-16 w-16 text-slate-300 mb-4" />
-        <h2 className="text-lg font-medium text-slate-900">No Location Selected</h2>
-        <p>Please select a location to manage overnight check-ins.</p>
-      </div>
-    );
+    return <LocationPrompt needsSelection={needsSelection} action="manage overnight check-ins" />;
   }
 
   return (
@@ -343,6 +347,14 @@ export function OvernightCheckIn() {
                   Waiver has been signed by the owner
                 </label>
               </div>
+              {validating && (
+                <p className="text-sm text-slate-500 ml-6">Checking vaccination and waiver records…</p>
+              )}
+              {validation && (
+                <p className="text-sm text-slate-500 ml-6">
+                  On record: vaccination {validation.vaccinationStatus.replace(/_/g, ' ')} &middot; waiver {validation.waiverStatus.replace(/_/g, ' ')}
+                </p>
+              )}
             </div>
 
             {hasWarnings && (
@@ -357,7 +369,7 @@ export function OvernightCheckIn() {
                     <span>{warning.message}</span>
                   </div>
                 ))}
-                {selectedReservation?.hasBehaviourConcerns && (
+                {effectiveBehaviour && (
                   <div className="flex items-center gap-3 ml-6 pt-1">
                     <Checkbox
                       id="behaviour-ack"
@@ -369,7 +381,7 @@ export function OvernightCheckIn() {
                     </label>
                   </div>
                 )}
-                {selectedReservation?.requiresMedication && (
+                {effectiveMedication && (
                   <div className="flex items-center gap-3 ml-6 pt-1">
                     <Checkbox
                       id="medical-ack"
