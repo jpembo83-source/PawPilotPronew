@@ -85,6 +85,21 @@ export function JobDetail() {
       .filter(u => u.isActive && u.templateId === 'tpl-driver')
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [users]);
+
+  // Drivers that exist but are disabled — so we can tell the dispatcher the
+  // real reason there are zero *active* drivers ("your driver is disabled")
+  // instead of the misleading "no drivers configured".
+  const disabledDrivers = React.useMemo(() => {
+    return users.filter(u => !u.isActive && u.templateId === 'tpl-driver');
+  }, [users]);
+
+  // When the assign dialog opens with exactly one vehicle, pre-select it —
+  // there's nothing to choose, so make it a one-tap Assign.
+  useEffect(() => {
+    if (showAssignDialog && vehicles.length === 1 && !selectedVehicleId) {
+      setSelectedVehicleId(vehicles[0].id);
+    }
+  }, [showAssignDialog, vehicles, selectedVehicleId]);
   
   const handleStatusUpdate = async (eventType: string) => {
     if (!job) return;
@@ -441,12 +456,28 @@ export function JobDetail() {
                   )}
                 </div>
               ) : activeDriverCount === 0 ? (
-                /* No drivers configured */
+                /* No ACTIVE drivers — distinguish "none exist" from
+                   "one exists but is disabled" so the fix is obvious. */
                 <div className="bg-muted border border-border rounded-lg p-3">
-                  <p className="text-sm text-muted-foreground mb-1">No drivers configured</p>
-                  <p className="text-xs text-muted-foreground">
-                    Ask an admin/manager to add drivers in Staff Management before assigning transport jobs.
-                  </p>
+                  {disabledDrivers.length > 0 ? (
+                    <>
+                      <p className="text-sm text-foreground mb-1">
+                        {disabledDrivers.length === 1
+                          ? `${disabledDrivers[0].name} is disabled`
+                          : `${disabledDrivers.length} drivers are disabled`}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Re-enable {disabledDrivers.length === 1 ? 'them' : 'a driver'} in Staff Management to assign this job.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground mb-1">No drivers configured</p>
+                      <p className="text-sm text-muted-foreground">
+                        Ask an admin/manager to add drivers in Staff Management before assigning transport jobs.
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 /* Unassigned with drivers available — offer assignment */
