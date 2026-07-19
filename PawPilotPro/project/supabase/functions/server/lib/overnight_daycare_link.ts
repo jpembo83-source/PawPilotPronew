@@ -12,6 +12,7 @@
 import * as kv from "../kv_store.tsx";
 import { logError, logInfo, logWarn } from "../_shared/log.ts";
 import { storedPetPhoto } from "./pet_photos.ts";
+import { isNonBillablePet } from "./billing_exempt.ts";
 import {
   decideMorningDaycare,
   MORNING_DAYCARE_SERVICES,
@@ -94,9 +95,12 @@ export async function createMorningAfterDaycare(
 
     // Normal PAYG daycare pricing — same source and fallbacks as the staff
     // create route. No membership draw: staff can rebill through the daycare
-    // dashboard if the household wants credits used.
+    // dashboard if the household wants credits used. House dogs
+    // (pet.non_billable) are zero-priced here exactly like every other
+    // charge path (lib/billing_exempt.ts).
+    const petNonBillable = isNonBillablePet(pet);
     const service = await kv.get(`pricing:service:${svc.serviceId}`);
-    const basePrice = service?.base_price || svc.fallbackPrice;
+    const basePrice = petNonBillable ? 0 : (service?.base_price || svc.fallbackPrice);
     const taxRate = service?.tax_rate || 0.077;
 
     // Waiver status stamped the same way the staff create route does.
@@ -148,6 +152,7 @@ export async function createMorningAfterDaycare(
       base_price_locked: basePrice,
       tax_rate: taxRate,
       total_price: basePrice * (1 + taxRate),
+      non_billable: petNonBillable,
       currency: "CHF",
       billing_line_item_ids: [] as string[],
       requires_transport: false,
