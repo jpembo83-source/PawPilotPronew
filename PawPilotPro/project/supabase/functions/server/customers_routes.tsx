@@ -3,9 +3,23 @@
 
 import { Hono } from 'npm:hono';
 import { z } from 'npm:zod';
+import { createClient } from 'npm:@supabase/supabase-js';
 import * as kv from './kv_store.tsx';
 import { requireAuth, requireRole, AuthenticatedUser } from './_shared/auth.ts';
-import { internalError } from './_shared/log.ts';
+import { internalError, logError } from './_shared/log.ts';
+import {
+  movePetToHousehold,
+  petScopedFlags,
+  moveFlagToHousehold,
+  petScopedDocuments,
+  moveDocumentToHousehold,
+  upcomingDaycareBookings,
+  repointBookingHousehold,
+  activeOvernightReservations,
+  repointReservationHousehold,
+  upcomingGroomingAppointments,
+  repointGroomingHousehold,
+} from './lib/pet_transfer.ts';
 import { listHouseholds, HouseholdRecord, ContactRecord, PetRecord } from './lib/household_list.ts';
 import { applyPetPhotoWrite, signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
 // Phase 4 stage 2: every customer:* KV mutation is mirrored to Postgres.
@@ -872,6 +886,186 @@ app.put('/pets/:id', requireRole('admin', 'manager', 'assistant_manager'), async
     return c.json({ ...updated, photo_url: await signPetPhotoUrl(storedPetPhoto(updated)) });
   } catch (error: any) {
     return internalError(c, 'customers.updatePet', error);
+  }
+});
+
+// Transfer pet to another household (dog rehomed / adopted by a new family).
+// The pet id is stable, so pet-keyed history (vaccinations, pet updates,
+// incident pet-index) follows automatically. This route rewrites everything
+// that embeds the household: the pet record (household in key AND value),
+// pet-scoped flags and documents, and FUTURE service records — daycare,
+// overnight, grooming routes all resolve the pet via the record's household
+// id, so leaving those stale would break their pet lookups. Past/finished
+// visits, invoices, and old timeline entries stay with the old family: that
+// history (and its billing) happened under them.
+app.post('/pets/:id/transfer', requireRole('admin', 'manager'), async (c) => {
+  try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const petId = c.req.param('id');
+
+    const parsed = z.object({ to_household_id: z.string().min(1) }).safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json({ error: 'to_household_id is required' }, 400);
+    }
+    const toHouseholdId = parsed.data.to_household_id;
+
+    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
+    const pet = (allPets as Record<string, any>[]).find((p) => p?.id === petId);
+    if (!pet) {
+      return c.json({ error: 'Pet not found' }, 404);
+    }
+    const fromHouseholdId = pet.household_id as string;
+    if (fromHouseholdId === toHouseholdId) {
+      return c.json({ error: 'Pet already belongs to this household' }, 400);
+    }
+
+    const toHousehold = await kv.get(`customer:${tenantId}:household:${toHouseholdId}`) as Record<string, any> | null;
+    if (!toHousehold) {
+      return c.json({ error: 'Destination household not found' }, 404);
+    }
+    const fromHousehold = await kv.get(`customer:${tenantId}:household:${fromHouseholdId}`) as Record<string, any> | null;
+
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
+    const dw: CustomerDualWriteOp[] = [];
+
+    // 1. The pet record — household id lives in the key, so this is a move.
+    const movedPet = movePetToHousehold(pet, toHouseholdId, now);
+    await kv.set(`customer:${tenantId}:pet:${toHouseholdId}:${petId}`, movedPet);
+    await kv.del(`customer:${tenantId}:pet:${fromHouseholdId}:${petId}`);
+    // del before set: the PG mirror upserts by legacy_kv_key, and ops apply
+    // in order inside one transaction.
+    dw.push(dwDel(`customer:${tenantId}:pet:${fromHouseholdId}:${petId}`));
+    dw.push(dwSet(`customer:${tenantId}:pet:${toHouseholdId}:${petId}`, movedPet));
+
+    // 2. Pet-scoped flags (bite history etc.) follow the dog; household-wide
+    // flags (payment_hold, vip) stay with the old family.
+    const flagRecords = await kv.getByPrefix(`customer:${tenantId}:household:${fromHouseholdId}:flag:`);
+    const flagsToMove = petScopedFlags(flagRecords as Record<string, any>[], petId);
+    for (const flag of flagsToMove) {
+      const moved = moveFlagToHousehold(flag, toHouseholdId, now);
+      await kv.set(`customer:${tenantId}:household:${toHouseholdId}:flag:${flag.id}`, moved);
+      await kv.del(`customer:${tenantId}:household:${fromHouseholdId}:flag:${flag.id}`);
+      dw.push(dwDel(`customer:${tenantId}:household:${fromHouseholdId}:flag:${flag.id}`));
+      dw.push(dwSet(`customer:${tenantId}:household:${toHouseholdId}:flag:${flag.id}`, moved));
+    }
+
+    // 3. Pet-scoped documents (vaccination certs) follow; household documents
+    // (waiver) stay.
+    const docRecords = await kv.getByPrefix(`customer:${tenantId}:document:${fromHouseholdId}:`);
+    const docsToMove = petScopedDocuments(docRecords as Record<string, any>[], petId);
+    for (const doc of docsToMove) {
+      const moved = moveDocumentToHousehold(doc, toHouseholdId);
+      await kv.set(`customer:${tenantId}:document:${toHouseholdId}:${doc.id}`, moved);
+      await kv.del(`customer:${tenantId}:document:${fromHouseholdId}:${doc.id}`);
+      dw.push(dwDel(`customer:${tenantId}:document:${fromHouseholdId}:${doc.id}`));
+      dw.push(dwSet(`customer:${tenantId}:document:${toHouseholdId}:${doc.id}`, moved));
+    }
+
+    // 4. Future daycare bookings — check-in and billing resolve contacts and
+    // the pet through booking.household_id.
+    const bookingRecords = (await kv.getByPrefix('daycare:booking:'))
+      .filter((b: any) => b && typeof b === 'object' && b.id && b.pet_id)
+      .filter((b: any) => !b.tenant_id || b.tenant_id === tenantId);
+    const bookingsToMove = upcomingDaycareBookings(bookingRecords as Record<string, any>[], petId, today);
+    for (const booking of bookingsToMove) {
+      const moved = repointBookingHousehold(booking, toHouseholdId, toHousehold.name as string, now);
+      await kv.set(`daycare:booking:${booking.id}`, moved);
+      // Keep the per-household index keys consistent with the move.
+      await kv.set(`daycare:booking:household:${toHouseholdId}:${booking.id}`, booking.id);
+      await kv.del(`daycare:booking:household:${fromHouseholdId}:${booking.id}`);
+    }
+
+    // 5. Overnight reservations that have not ended (incl. in-stay).
+    const reservationRecords = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
+    const reservationsToMove = activeOvernightReservations(reservationRecords as Record<string, any>[], petId, today);
+    for (const reservation of reservationsToMove) {
+      const moved = repointReservationHousehold(reservation, toHouseholdId, now);
+      await kv.set(`overnight:${tenantId}:reservation:${reservation.id}`, moved);
+    }
+
+    // 6. Upcoming grooming appointments.
+    const groomingRecords = await kv.getByPrefix(`grooming-apt:${tenantId}:`);
+    const groomingToMove = upcomingGroomingAppointments(groomingRecords as Record<string, any>[], petId, today);
+    for (const appointment of groomingToMove) {
+      const moved = repointGroomingHousehold(appointment, toHouseholdId, toHousehold.name as string, now);
+      await kv.set(`grooming-apt:${tenantId}:${appointment.id}`, moved);
+    }
+
+    // 7. Photo/note moments (Postgres pet_updates) — the portal gallery is
+    // gated by household_id, so the dog's photo history must follow it to the
+    // new family (and stop showing in the old family's portal). Best-effort:
+    // a failure is logged, never blocks the transfer (KV is authoritative).
+    try {
+      const url = Deno.env.get('SUPABASE_URL');
+      const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (!url || !key) {
+        throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.');
+      }
+      const admin = createClient(url, key, { auth: { persistSession: false } });
+      const { error } = await admin
+        .from('pet_updates')
+        .update({ household_id: toHouseholdId })
+        .eq('tenant_id', tenantId)
+        .eq('pet_id', petId);
+      if (error) throw new Error(`${error.code ?? 'pg_error'}: ${error.message}`);
+    } catch (err) {
+      logError('customers.transferPet.petUpdatesMove', err, { petId });
+    }
+
+    // 8. Pending vaccination review-queue items carry householdId in the value.
+    const vaxQueue = await kv.getByPrefix(`vax_review_queue:${tenantId}:`);
+    for (const item of (vaxQueue as Record<string, any>[]).filter((q) => q?.petId === petId)) {
+      await kv.set(`vax_review_queue:${tenantId}:${item.id}`, { ...item, householdId: toHouseholdId });
+    }
+
+    // 9. One activity on each household's timeline (household-scoped key form
+    // — the one GET /households/:id/activity reads).
+    const outActivity = {
+      id: generateId('act'),
+      tenant_id: tenantId,
+      household_id: fromHouseholdId,
+      pet_id: petId,
+      activity_type: 'pet_transferred_out',
+      title: 'Pet Moved Out',
+      description: `"${pet.name}" moved to ${toHousehold.name} (flags and history transferred)`,
+      occurred_at: now,
+      created_by: user.id,
+      created_at: now,
+    };
+    const inActivity = {
+      id: generateId('act'),
+      tenant_id: tenantId,
+      household_id: toHouseholdId,
+      pet_id: petId,
+      activity_type: 'pet_transferred_in',
+      title: 'Pet Moved In',
+      description: `"${pet.name}" joined from ${fromHousehold?.name || 'another household'} (flags and history transferred)`,
+      occurred_at: now,
+      created_by: user.id,
+      created_at: now,
+    };
+    await kv.set(`customer:${tenantId}:activity:${fromHouseholdId}:${outActivity.id}`, outActivity);
+    await kv.set(`customer:${tenantId}:activity:${toHouseholdId}:${inActivity.id}`, inActivity);
+    dw.push(dwSet(`customer:${tenantId}:activity:${fromHouseholdId}:${outActivity.id}`, outActivity));
+    dw.push(dwSet(`customer:${tenantId}:activity:${toHouseholdId}:${inActivity.id}`, inActivity));
+
+    await dualWriteCustomers(dw);
+
+    return c.json({
+      success: true,
+      pet: { ...movedPet, photo_url: await signPetPhotoUrl(storedPetPhoto(movedPet)) },
+      moved: {
+        flags: flagsToMove.length,
+        documents: docsToMove.length,
+        daycare_bookings: bookingsToMove.length,
+        overnight_reservations: reservationsToMove.length,
+        grooming_appointments: groomingToMove.length,
+      },
+    });
+  } catch (error: any) {
+    return internalError(c, 'customers.transferPet', error);
   }
 });
 
