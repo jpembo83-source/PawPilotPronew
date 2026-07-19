@@ -1,6 +1,6 @@
 {
  "totals": {
-  "errors": 3191,
+  "errors": 3195,
   "warnings": 404
  },
  "files": {
@@ -87,6 +87,10 @@
   "src/app/hooks/useModuleRealtimeSync.ts": {
    "errors": 1,
    "warnings": 0
+  },
+  "src/app/hooks/usePermissions.ts": {
+   "errors": 3,
+   "warnings": 1
   },
   "src/app/lib/realtime.ts": {
    "errors": 4,
@@ -375,14 +379,6 @@
   "src/app/modules/dashboard/components/PoliciesAlertBanner.tsx": {
    "errors": 14,
    "warnings": 4
-  },
-  "src/app/modules/dashboard/constants.ts": {
-   "errors": 1,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/store.ts": {
-   "errors": 3,
-   "warnings": 1
   },
   "src/app/modules/data-compliance/DataCompliancePage.tsx": {
    "errors": 2,
@@ -760,6 +756,10 @@
    "errors": 1,
    "warnings": 0
   },
+  "src/app/modules/settings/components/users/TemplateManager.tsx": {
+   "errors": 1,
+   "warnings": 0
+  },
   "src/app/modules/settings/components/users/UserList.tsx": {
    "errors": 8,
    "warnings": 1
@@ -767,10 +767,6 @@
   "src/app/modules/settings/constants/modules.ts": {
    "errors": 1,
    "warnings": 2
-  },
-  "src/app/modules/settings/pages/DashboardSettings.tsx": {
-   "errors": 3,
-   "warnings": 0
   },
   "src/app/modules/settings/pages/LocationSettings.tsx": {
    "errors": 18,
@@ -805,8 +801,8 @@
    "warnings": 5
   },
   "src/app/modules/settings/stores/userStore.ts": {
-   "errors": 38,
-   "warnings": 4
+   "errors": 45,
+   "warnings": 5
   },
   "src/app/modules/settings/utils/rbac.ts": {
    "errors": 26,

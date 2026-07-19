@@ -46,10 +46,10 @@ const sections: SettingsSection[] = [
   { id: 'compliance', label: 'Data & Compliance', icon: ShieldCheck, path: '/settings/compliance', description: 'Retention and GDPR', sectionKey: 'compliance' },
   { id: 'integrations', label: 'Integrations', icon: GitBranch, path: '/settings/integrations', description: 'API and webhooks', sectionKey: 'integrations' },
   // 'Dashboard Config' removed — it managed widget visibility for an older
-  // widget-based dashboard. The current dashboard is fixed-tile so this
-  // section had nothing useful to configure. The DashboardSettings page +
-  // /settings/dashboard route are left in the source tree in case widgets
-  // come back; they're just no longer surfaced in the sidebar/grid.
+  // widget-based dashboard that no longer exists. The DashboardSettings page,
+  // its /settings/dashboard route, and the widget slices of dashboardStore
+  // have been deleted; a future customise surface needs a fresh build against
+  // the fixed-tile dashboard (see DashboardHeader.tsx).
   { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Environment and maintenance', sectionKey: 'system' },
 ];
 

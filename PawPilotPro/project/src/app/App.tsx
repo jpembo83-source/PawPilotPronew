@@ -16,7 +16,6 @@ import { SettingsOverview } from './modules/settings/pages/SettingsOverview';
 import { OrganisationSettings } from './modules/settings/pages/OrganisationSettings';
 import { LocationSettings } from './modules/settings/pages/LocationSettings';
 import { ModuleSettings } from './modules/settings/pages/ModuleSettings';
-import { DashboardSettings } from './modules/settings/pages/DashboardSettings';
 import { ServiceCapacitySettings } from './modules/settings/pages/ServiceCapacitySettings';
 import { Transportation } from './modules/transport/Transportation';
 import { UserManagement } from './modules/settings/pages/UserManagement';
@@ -150,7 +149,6 @@ export default function App() {
                   <Route path="billing" element={<BillingFinanceSettingsPage />} />
                   <Route path="compliance" element={<DataCompliancePage />} />
                   <Route path="integrations" element={<IntegrationsSettingsPage />} />
-                  <Route path="dashboard" element={<DashboardSettings />} />
                   <Route path="system" element={<SystemPage />} />
                   <Route path="rbac-docs" element={<RBACDocumentationPage />} />
                 </Route>
