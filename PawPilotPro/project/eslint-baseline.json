@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3233,
-  "warnings": 407
+  "errors": 3202,
+  "warnings": 406
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -337,8 +337,8 @@
    "warnings": 2
   },
   "src/app/modules/customers/pages/ExportPage.tsx": {
-   "errors": 95,
-   "warnings": 10
+   "errors": 64,
+   "warnings": 9
   },
   "src/app/modules/customers/pages/HouseholdDetailPage.tsx": {
    "errors": 14,

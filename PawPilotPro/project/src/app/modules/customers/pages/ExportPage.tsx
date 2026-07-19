@@ -1,154 +1,179 @@
 // Export Page
-// Export customer data to Excel
+// Export customer data to Excel in the SAME format as the bulk import
+// template, so an exported file can be edited and re-uploaded via Bulk Import
+// to make bulk changes (import matches households by name/external ID and
+// updates them rather than duplicating).
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, DownloadSimple, CircleNotch, CalendarBlank } from '@phosphor-icons/react';
 import { toast } from 'sonner';
-import { useAuth } from '../../../context/AuthContext';
 import { useCustomerStore } from '../store';
+import { useSettingsStore } from '../../settings/store';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import * as XLSX from 'xlsx';
-import type { CustomerFilters } from '../types';
+import type { CustomerFilters, HouseholdFlag } from '../types';
+import { IMPORT_SHEETS, toTemplateRow } from '../importFormat';
+import { isPetFlagActive } from '../petFlagToggle';
 
 import { useBackNavigation } from '../../../components/BackButton';
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 
+// Sheets are written with the template's canonical headers even when empty,
+// so a filtered-down export still re-imports cleanly.
+function appendTemplateSheet(wb: XLSX.WorkBook, sheetName: keyof typeof IMPORT_SHEETS, rows: Array<Record<string, string | number>>) {
+  const headers = Object.keys(IMPORT_SHEETS[sheetName]);
+  const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
+  ws['!cols'] = headers.map((header) => ({ wch: Math.max(header.length + 2, 14) }));
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+}
+
 export function ExportPage() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/customers');
-  const { activeTenantId } = useAuth();
   const { filters } = useCustomerStore();
-  
+  const { locations, fetchLocations } = useSettingsStore();
+
   const [isExporting, setIsExporting] = useState(false);
   const [exportFilters, setExportFilters] = useState<CustomerFilters>({ ...filters });
   const [includeInactive, setIncludeInactive] = useState(false);
   const [includeContacts, setIncludeContacts] = useState(true);
   const [includePets, setIncludePets] = useState(true);
-  const [includeDocuments, setIncludeDocuments] = useState(false);
-  
+
+  // Location names for the Households sheet's Location column — the import
+  // resolves that column against Settings → Locations names.
+  useEffect(() => {
+    void fetchLocations();
+  }, [fetchLocations]);
+
   const handleExport = async () => {
     setIsExporting(true);
-    
+
     try {
       const authHeaders = await getAuthHeaders();
-      
+
       // Fetch all households
       const params = new URLSearchParams();
       if (exportFilters.search) params.set('search', exportFilters.search);
-      if (exportFilters.status) params.set('status', exportFilters.status);
-      if (exportFilters.location) params.set('location', exportFilters.location);
-      if (exportFilters.vip !== undefined) params.set('vip', exportFilters.vip.toString());
-      if (exportFilters.paymentHold !== undefined) params.set('paymentHold', exportFilters.paymentHold.toString());
       if (!includeInactive) params.set('status', exportFilters.status || 'active');
-      
+      else if (exportFilters.status) params.set('status', exportFilters.status);
+
       const hhUrl = params.toString() ? `${BASE_URL}/households?${params}` : `${BASE_URL}/households`;
       const hhRes = await fetch(hhUrl, { headers: authHeaders });
       if (!hhRes.ok) {
         const err = await hhRes.json().catch(() => ({}));
         throw new Error(err.error || `Failed to fetch households (${hhRes.status})`);
       }
-      const households: any[] = await hhRes.json();
-      
-      // Build household rows
-      const householdRows = households.map((h: any) => ({
-        'Household ID': h.id,
-        'Household Name': h.household_name || h.name || '',
-        'Status': h.status || '',
-        'Location': h.location || '',
-        'VIP': h.is_vip ? 'Yes' : 'No',
-        'Payment Hold': h.payment_hold ? 'Yes' : 'No',
-        'Primary Contact': h.primary_contact_name || '',
-        'Primary Email': h.primary_contact_email || '',
-        'Primary Phone': h.primary_contact_phone || '',
-        'Created': h.created_at ? new Date(h.created_at).toISOString().split('T')[0] : '',
-      }));
-      
-      const contactRows: any[] = [];
-      const petRows: any[] = [];
-      
+      let households: any[] = await hhRes.json();
+      // The list endpoint only supports vip=true; filter both ways here.
+      if (exportFilters.vip !== undefined) {
+        households = households.filter((h: any) => (h.vip === true) === exportFilters.vip);
+      }
+
+      const locationNameById = new Map(locations.map((loc) => [loc.id, loc.name]));
+
+      // Build household rows in the import template format
+      const householdRows = households.map((h: any) =>
+        toTemplateRow('Households', {
+          name: h.name,
+          external_id: h.external_id,
+          status: h.status ?? 'active',
+          vip: h.vip,
+          payment_hold: h.payment_hold,
+          hold_reason: h.hold_reason,
+          location: h.primary_location_id ? locationNameById.get(h.primary_location_id) : undefined,
+          address: h.address,
+          internal_notes: h.internal_notes,
+        })
+      );
+
+      const contactRows: Array<Record<string, string | number>> = [];
+      const petRows: Array<Record<string, string | number>> = [];
+
       // Fetch contacts and pets per household
       for (const h of households) {
-        const householdName = h.household_name || h.name || '';
-        
+        const householdName = h.name || '';
+
         if (includeContacts) {
           const cRes = await fetch(`${BASE_URL}/households/${h.id}/contacts`, { headers: authHeaders });
           if (cRes.ok) {
             const contacts: any[] = await cRes.json();
             contacts.forEach((c: any) => {
               if (!c.deleted_at) {
-                contactRows.push({
-                  'Contact ID': c.id,
-                  'Household ID': h.id,
-                  'Household Name': householdName,
-                  'First Name': c.first_name || '',
-                  'Last Name': c.last_name || '',
-                  'Email': c.email || '',
-                  'Phone': c.phone || '',
-                  'Type': c.contact_type || '',
-                  'Relationship': c.relationship || '',
-                  'Primary': c.is_primary ? 'Yes' : 'No',
-                  'Emergency': c.is_emergency ? 'Yes' : 'No',
-                  'Billing': c.is_billing ? 'Yes' : 'No',
-                });
+                contactRows.push(toTemplateRow('Contacts', {
+                  household_name: householdName,
+                  first_name: c.first_name,
+                  last_name: c.last_name,
+                  email: c.email,
+                  phone: c.phone,
+                  preferred_contact_method: c.preferred_contact_method,
+                  is_primary: c.is_primary,
+                  is_emergency_contact: c.is_emergency_contact,
+                  emergency_contact_relationship: c.emergency_contact_relationship,
+                  marketing_consent: c.marketing_consent,
+                  sms_consent: c.sms_consent,
+                  email_consent: c.email_consent,
+                }));
               }
             });
           }
         }
-        
+
         if (includePets) {
           const pRes = await fetch(`${BASE_URL}/households/${h.id}/pets`, { headers: authHeaders });
           if (pRes.ok) {
             const pets: any[] = await pRes.json();
+            // Needs Diaper is a pet-scoped flag, not a pet column. If the
+            // flags fetch fails, leave the cells blank (blank = keep the
+            // existing flag on re-import) rather than claiming "No".
+            let flags: HouseholdFlag[] | null = null;
+            const fRes = await fetch(`${BASE_URL}/households/${h.id}/flags`, { headers: authHeaders });
+            if (fRes.ok) flags = await fRes.json();
             pets.forEach((p: any) => {
               if (!p.deleted_at) {
-                petRows.push({
-                  'Pet ID': p.id,
-                  'Household ID': h.id,
-                  'Household Name': householdName,
-                  'Name': p.name || '',
-                  'Species': p.species || '',
-                  'Breed': p.breed || '',
-                  'Sex': p.sex || '',
-                  'Date of Birth': p.date_of_birth || '',
-                  'Age (years)': p.age_years || '',
-                  'Weight (lbs)': p.weight_lbs || '',
-                  'Colour': p.colour || '',
-                  'Microchip': p.microchip || '',
-                  'Spayed/Neutered': p.spayed_neutered ? 'Yes' : 'No',
-                  'Medical Conditions': Array.isArray(p.medical_conditions) ? p.medical_conditions.join(', ') : (p.medical_conditions || ''),
-                  'Behaviour Notes': p.behaviour_notes || '',
-                  'Active': p.is_active !== false ? 'Yes' : 'No',
-                });
+                petRows.push(toTemplateRow('Pets', {
+                  household_name: householdName,
+                  name: p.name,
+                  breed: p.breed,
+                  sex: p.sex,
+                  date_of_birth: p.date_of_birth,
+                  weight_kg: p.weight_kg,
+                  colour: p.colour,
+                  microchip: p.microchip,
+                  neutered_status: p.neutered_status,
+                  medical_notes: p.medical_notes,
+                  behaviour_notes: p.behaviour_notes,
+                  allergies: p.allergies,
+                  feeding_instructions: p.feeding_instructions,
+                  vet_name: p.vet_name,
+                  vet_phone: p.vet_phone,
+                  vet_address: p.vet_address,
+                  vaccination_expiry_date: p.vaccination_expiry_date,
+                  daycare_enrolled: p.daycare_enrolled,
+                  grooming_enrolled: p.grooming_enrolled,
+                  transport_enrolled: p.transport_enrolled,
+                  overnights_enrolled: p.overnights_enrolled,
+                  needs_diaper: flags ? isPetFlagActive(flags, p.id, 'needs_diaper') : undefined,
+                }));
               }
             });
           }
         }
       }
-      
-      // Build XLSX workbook
+
+      // Build XLSX workbook mirroring the import template's sheets
       const wb = XLSX.utils.book_new();
-      
-      const hhSheet = XLSX.utils.json_to_sheet(householdRows.length > 0 ? householdRows : [{}]);
-      XLSX.utils.book_append_sheet(wb, hhSheet, 'Households');
-      
-      if (includeContacts) {
-        const cSheet = XLSX.utils.json_to_sheet(contactRows.length > 0 ? contactRows : [{}]);
-        XLSX.utils.book_append_sheet(wb, cSheet, 'Contacts');
-      }
-      
-      if (includePets) {
-        const pSheet = XLSX.utils.json_to_sheet(petRows.length > 0 ? petRows : [{}]);
-        XLSX.utils.book_append_sheet(wb, pSheet, 'Pets');
-      }
-      
+      appendTemplateSheet(wb, 'Households', householdRows);
+      if (includeContacts) appendTemplateSheet(wb, 'Contacts', contactRows);
+      if (includePets) appendTemplateSheet(wb, 'Pets', petRows);
+
       // Write and download
       const exportDate = new Date().toISOString().split('T')[0];
       XLSX.writeFile(wb, `customers-export-${exportDate}.xlsx`);
-      
+
       toast.success(`Exported ${householdRows.length} households successfully`);
     } catch (error: any) {
       toast.error(error.message || 'Export failed');
@@ -204,16 +229,6 @@ export function ExportPage() {
                   className="w-4 h-4 border-slate-300 rounded text-blue-600 focus:ring-blue-500"
                 />
                 Include pet profiles
-              </label>
-              
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={includeDocuments}
-                  onChange={(e) => setIncludeDocuments(e.target.checked)}
-                  className="w-4 h-4 border-slate-300 rounded text-blue-600 focus:ring-blue-500"
-                />
-                Include document status
               </label>
               
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -293,8 +308,10 @@ export function ExportPage() {
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">Export Format</p>
               <p>
-                The export includes separate sheets for Households, Contacts, and Pets.
-                Open the file in Excel or Google Sheets.
+                The export uses the same spreadsheet format as the bulk import template,
+                with separate sheets for Households, Contacts, and Pets. Edit the file in
+                Excel or Google Sheets and re-upload it via Bulk Import to make bulk
+                changes — existing customers are matched by household name and updated.
               </p>
             </div>
           </div>

@@ -1471,6 +1471,9 @@ const importPetRowSchema = z.object({
   grooming_enrolled: importYesNo,
   transport_enrolled: importYesNo,
   overnights_enrolled: importYesNo,
+  // Backed by the pet-scoped needs_diaper flag, not a pet column — the import
+  // stages the same flag create/(de)activate the pet profile toggle performs.
+  needs_diaper: importYesNo,
 });
 
 const importBodySchema = z.object({
@@ -1544,7 +1547,22 @@ app.post('/import', requireRole('admin', 'manager'), async (c) => {
     }
 
     // ---- households ----
-    const existingHouseholds = (await kv.getByPrefix(`customer:${tenantId}:household:`)).filter((h: Record<string, unknown>) => !h.deleted_at);
+    // Flag records live under the household key prefix
+    // (customer:{t}:household:{hh}:flag:{id}), so one scan yields both;
+    // split on flag_key so flags are never mistaken for households.
+    const householdScan = (await kv.getByPrefix(`customer:${tenantId}:household:`)) as Array<Record<string, unknown>>;
+    const existingHouseholds = householdScan.filter((h) => h.flag_key === undefined && !h.deleted_at);
+    // Pet-scoped needs_diaper flags, keyed by "{householdId}:{petId}" — the
+    // Pets sheet's "Needs Diaper (Yes/No)" column toggles these.
+    const diaperFlagsByPet = new Map<string, Array<Record<string, unknown>>>();
+    for (const f of householdScan) {
+      if (f.flag_key === 'needs_diaper' && f.pet_id) {
+        const key = `${f.household_id}:${f.pet_id}`;
+        const list = diaperFlagsByPet.get(key) ?? [];
+        list.push(f);
+        diaperFlagsByPet.set(key, list);
+      }
+    }
     const householdsByName = new Map<string, Record<string, unknown>>();
     const householdsByExternalId = new Map<string, Record<string, unknown>>();
     const indexHousehold = (h: Record<string, unknown>) => {
@@ -1818,6 +1836,48 @@ app.post('/import', requireRole('admin', 'manager'), async (c) => {
         summary.pets.created++;
       }
       staged.set(`customer:${tenantId}:pet:${householdId}:${pet.id}`, pet);
+
+      // Needs Diaper column → pet-scoped flag, mirroring the profile toggle
+      // (petFlagToggle.ts): Yes reactivates the latest record or creates one,
+      // No deactivates the active record, blank leaves the flag untouched.
+      if (rowData.needs_diaper !== undefined) {
+        const petId = String(pet.id);
+        const mine = diaperFlagsByPet.get(`${householdId}:${petId}`) ?? [];
+        const active = mine.find((f) => f.is_active);
+        if (rowData.needs_diaper) {
+          if (!active) {
+            const latest = [...mine].sort((a, b) => String(b.updated_at ?? '').localeCompare(String(a.updated_at ?? '')))[0];
+            if (latest) {
+              latest.is_active = true;
+              latest.updated_at = now;
+              staged.set(`customer:${tenantId}:household:${householdId}:flag:${latest.id}`, latest);
+            } else {
+              const flag = {
+                id: generateId('flag'),
+                tenant_id: tenantId,
+                household_id: householdId,
+                pet_id: petId,
+                flag_key: 'needs_diaper',
+                severity: 'info',
+                is_active: true,
+                reason: 'Set by bulk import',
+                created_by: userId,
+                created_by_name: user.user_metadata?.full_name || user.email,
+                created_at: now,
+                updated_at: now,
+              };
+              const list = diaperFlagsByPet.get(`${householdId}:${petId}`) ?? [];
+              list.push(flag);
+              diaperFlagsByPet.set(`${householdId}:${petId}`, list);
+              staged.set(`customer:${tenantId}:household:${householdId}:flag:${flag.id}`, flag);
+            }
+          }
+        } else if (active) {
+          active.is_active = false;
+          active.updated_at = now;
+          staged.set(`customer:${tenantId}:household:${householdId}:flag:${active.id}`, active);
+        }
+      }
     }
 
     // ---- flush ----

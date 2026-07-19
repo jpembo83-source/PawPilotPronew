@@ -1,5 +1,5 @@
 {
- "total": 81,
+ "total": 77,
  "files": {
   "scripts/seed-test-data.ts": 1,
   "src/app/modules/billing/pages/BillingOverview.tsx": 1,
@@ -7,7 +7,6 @@
   "src/app/modules/customers/components/household-detail/OverviewTab.tsx": 3,
   "src/app/modules/customers/components/modals/EditPetModal.tsx": 3,
   "src/app/modules/customers/components/pet-profile/PetTimelineTab.tsx": 2,
-  "src/app/modules/customers/pages/ExportPage.tsx": 4,
   "src/app/modules/customers/pages/HouseholdDetailPage.tsx": 3,
   "src/app/modules/customers/pages/PetProfilePage.tsx": 1,
   "src/app/modules/customers/types.ts": 1,
