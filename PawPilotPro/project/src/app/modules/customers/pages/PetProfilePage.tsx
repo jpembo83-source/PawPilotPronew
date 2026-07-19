@@ -13,6 +13,7 @@ import {
   CircleNotch,
   CalendarPlus,
   SignIn,
+  Swap,
   X
 } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
@@ -61,6 +62,8 @@ import { PetTimelineTab } from '../components/pet-profile/PetTimelineTab';
 import { VaccinationManager } from '../components/pet-profile/VaccinationManager';
 import { EditPetModal } from '../components/modals/EditPetModal';
 import { FlagEditorModal } from '../components/FlagEditorModal';
+import { TransferPetDialog } from '../components/modals/TransferPetDialog';
+import { useAuth } from '../../../context/AuthContext';
 
 import { useBackNavigation } from '../../../components/BackButton';
 export function PetProfilePage() {
@@ -74,10 +77,14 @@ export function PetProfilePage() {
       ? `/customers/${currentPetProfile.household_id}?tab=pets`
       : '/customers',
   );
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [showBookingDialog, setShowBookingDialog] = useState(false);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
+  // Rehoming is admin/manager only (matches the server route's role gate).
+  const canTransfer = user?.role === 'admin' || user?.role === 'manager';
   const { confirm, confirmDialog } = useConfirmDialog();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -452,6 +459,12 @@ export function PetProfilePage() {
             Add Flag
           </Button>
           <Button variant="outline" onClick={() => setShowEditModal(true)}>Edit Pet</Button>
+          {canTransfer && (
+            <Button variant="outline" onClick={() => setShowTransferDialog(true)}>
+              <Swap className="h-4 w-4 mr-2" />
+              Move to Family
+            </Button>
+          )}
         </div>
       </div>
       
@@ -665,6 +678,16 @@ export function PetProfilePage() {
           },
           pet,
         }}
+      />
+
+      {/* Move to a new family (rehomed/adopted) — flags and history follow
+          the dog. Refetch reloads the profile under its new household. */}
+      <TransferPetDialog
+        open={showTransferDialog}
+        onOpenChange={setShowTransferDialog}
+        pet={pet}
+        currentHouseholdName={currentHouseholdDetail?.name}
+        onTransferred={() => void fetchPetProfile(pet.id)}
       />
 
       {confirmDialog}
