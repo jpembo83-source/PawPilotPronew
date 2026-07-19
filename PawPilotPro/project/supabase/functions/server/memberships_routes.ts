@@ -32,7 +32,15 @@ import { recordMembershipInvoice, withDueRenewal } from './lib/membership_store.
 
 const app = new Hono();
 
-app.use('*', requireAuth);
+// Scope requireAuth to this module's own surface. This sub-app mounts at the
+// bare function root (the /customer-packages path shape is fixed by the
+// packages-module client contract), so a `use('*')` here becomes
+// /make-server-fc003b23/* and intercepts every route registered after this
+// mount — including /portal/internal/tracker-event, whose service-to-service
+// bearer is not a user token and must be checked by that route itself.
+// Same pattern as messaging.ts / operational_rules.ts.
+app.use('/customer-packages', requireAuth);
+app.use('/customer-packages/*', requireAuth);
 
 const membershipKey = (tenantId: string, id: string) =>
   `customer_membership:${tenantId}:${id}`;
