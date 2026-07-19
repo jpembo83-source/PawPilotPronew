@@ -399,6 +399,11 @@ export function PetProfilePage() {
               <Badge variant={pet.active ? 'default' : 'destructive'}>
                 {pet.active ? 'active' : 'inactive'}
               </Badge>
+              {pet.non_billable && (
+                <Badge variant="outline" className="text-sm text-blue-700 border-blue-300">
+                  House
+                </Badge>
+              )}
               {hasAlerts && (
                 <Warning className="h-6 w-6 text-red-500" />
               )}

@@ -15,6 +15,7 @@ import {
   recordOvernightEvent,
   TERMINAL_OVERNIGHT_STATUSES,
 } from "./lib/overnights_shared.ts";
+import { isNonBillablePet } from "./lib/billing_exempt.ts";
 
 const routes = new Hono();
 
@@ -222,7 +223,12 @@ routes.post("/reservations", async (c) => {
 
     // The location's configured nightly rate is authoritative — the client
     // can't set the price. Lock it onto the reservation at creation.
-    const pricePerNight = await nightlyRateFor(tenantId, body.locationId);
+    // House dogs (pet.non_billable) still occupy a bed — the capacity gate
+    // above already counted them — but their stay is priced at zero so no
+    // charge can ever derive from the record.
+    const pet = await kv.get(`customer:${tenantId}:pet:${body.householdId}:${body.petId}`);
+    const petNonBillable = isNonBillablePet(pet);
+    const pricePerNight = petNonBillable ? 0 : await nightlyRateFor(tenantId, body.locationId);
 
     const now = new Date().toISOString();
     const reservation = {
@@ -231,6 +237,7 @@ routes.post("/reservations", async (c) => {
       totalNights,
       pricePerNight,
       totalPrice: pricePerNight * totalNights,
+      non_billable: petNonBillable,
       priceLockedAt: now,
       status: body.status || 'confirmed',
       requiresMedication: body.requiresMedication ?? false,
@@ -1211,13 +1218,19 @@ routes.post("/calculate-billing", async (c) => {
       if (!body.startDate || !body.endDate) {
         return c.json({ error: "startDate and endDate are required" }, 400);
       }
+      // Preview at the location's configured nightly rate — or zero for a
+      // house dog, matching what the create route will stamp. (Stored
+      // reservations already carry their locked price, so the id mode needs
+      // no pet lookup.)
+      const previewPet = body.petId
+        ? (await kv.getByPrefix(`customer:${tenantId}:pet:`)).find((p: { id?: string } | null) => p?.id === body.petId)
+        : undefined;
       reservation = {
         petId: body.petId,
         locationId: body.locationId,
         startDate: body.startDate,
         endDate: body.endDate,
-        // Preview at the location's configured nightly rate.
-        pricePerNight: await nightlyRateFor(tenantId, body.locationId),
+        pricePerNight: isNonBillablePet(previewPet) ? 0 : await nightlyRateFor(tenantId, body.locationId),
         currency: body.currency || 'GBP',
       };
     }
@@ -1402,8 +1415,12 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
       }
 
       // Server-priced from the location's configured rate — a transition is
-      // not a way around the price lock.
-      const pricePerNight = await nightlyRateFor(tenantId, locationId);
+      // not a way around the price lock. House dogs stay at zero here too.
+      const transitionPet = body.householdId
+        ? await kv.get(`customer:${tenantId}:pet:${body.householdId}:${petId}`)
+        : (await kv.getByPrefix(`customer:${tenantId}:pet:`)).find((p: { id?: string } | null) => p?.id === petId);
+      const petNonBillable = isNonBillablePet(transitionPet);
+      const pricePerNight = petNonBillable ? 0 : await nightlyRateFor(tenantId, locationId);
 
       overnightReservation = {
         id: crypto.randomUUID(),
@@ -1428,6 +1445,7 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
         pricePerNight,
         totalNights: 1,
         totalPrice: pricePerNight,
+        non_billable: petNonBillable,
         currency: body.currency || 'GBP',
         priceLockedAt: now,
         requiresPickup: false,

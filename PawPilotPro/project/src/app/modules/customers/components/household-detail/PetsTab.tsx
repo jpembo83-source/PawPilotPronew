@@ -123,6 +123,11 @@ export function PetsTab({ household, memberships = [] }: PetsTabProps) {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="font-semibold text-lg">{pet.name}</h3>
+                          {pet.non_billable && (
+                            <Badge variant="outline" className="text-sm text-blue-700 border-blue-300">
+                              House
+                            </Badge>
+                          )}
                           {hasAlerts && (
                             <Warning className="h-5 w-5 text-red-500" />
                           )}

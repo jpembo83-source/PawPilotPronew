@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pet } from '../../types';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Badge } from '../../../../components/ui/badge';
-import { 
-  Dog, 
-  Phone, 
-  MapPin, 
+import { Switch } from '../../../../components/ui/switch';
+import { toast } from 'sonner';
+import {
+  Dog,
+  Phone,
+  MapPin,
   Heart,
   Warning,
   Pill
 } from '@phosphor-icons/react';
 import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
+import { useAuth } from '../../../../context/AuthContext';
 import { ContactLink } from '../ContactLink';
 
 interface PetOverviewTabProps {
@@ -158,7 +161,9 @@ export function PetOverviewTab({ pet }: PetOverviewTabProps) {
           </div>
         </CardContent>
       </Card>
-      
+
+      <HouseDogCard pet={pet} />
+
       {/* Vet and Care Information - Two columns */}
       <div className="grid grid-cols-2 gap-4">
         {/* Vet Information */}
@@ -235,5 +240,59 @@ export function PetOverviewTab({ pet }: PetOverviewTabProps) {
         </Card>
       )}
     </div>
+  );
+}
+
+/**
+ * House-dog (non-billable) marker. The dog occupies capacity like any other,
+ * but every charge path prices its bookings at zero. Toggling is restricted
+ * to admin/manager — the server enforces this on the pet update route; lower
+ * roles see the state read-only.
+ */
+function HouseDogCard({ pet }: { pet: Pet }) {
+  const { user } = useAuth();
+  const { updatePet, fetchPetProfile } = useCustomerStore();
+  const [saving, setSaving] = useState(false);
+
+  const canToggle = user?.role === 'admin' || user?.role === 'manager';
+  const isHouseDog = pet.non_billable === true;
+
+  const toggle = async (next: boolean) => {
+    if (saving || !canToggle) return;
+    setSaving(true);
+    try {
+      await updatePet(pet.id, { non_billable: next });
+      await fetchPetProfile(pet.id);
+      toast.success(next ? `${pet.name} marked as a house dog` : `${pet.name} is billable again`);
+    } catch {
+      toast.error('Could not update the house-dog marker — please try again');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Billing</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">House dog / non-billable</p>
+            <p className="text-sm text-muted-foreground">
+              Occupies a capacity space like any other dog, but bookings are never charged.
+              {!canToggle && ' Only admins and managers can change this.'}
+            </p>
+          </div>
+          <Switch
+            checked={isHouseDog}
+            disabled={saving || !canToggle}
+            onCheckedChange={(value) => void toggle(value === true)}
+            aria-label="House dog / non-billable"
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }

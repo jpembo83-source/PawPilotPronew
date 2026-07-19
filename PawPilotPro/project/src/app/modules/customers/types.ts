@@ -99,9 +99,13 @@ export interface Pet {
   grooming_enrolled: boolean;
   transport_enrolled: boolean;
   overnights_enrolled: boolean;
-  
+
   // Status
   active: boolean;
+
+  /** House dog: occupies capacity like any other dog but is never charged.
+   *  Changing this is restricted to admin/manager (server-enforced). */
+  non_billable?: boolean;
   
   created_at: string;
   updated_at: string;
