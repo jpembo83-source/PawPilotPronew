@@ -19,6 +19,7 @@ import {
   type CustomerMembership,
 } from './lib/membership_catalog.ts';
 import { activeMembershipForHousehold } from './lib/membership_store.ts';
+import { countBehaviourMedicalAlerts } from './lib/dashboard_alerts.ts';
 
 const app = new Hono();
 
@@ -1763,7 +1764,33 @@ app.get('/stats', async (c) => {
     
     const now = new Date();
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    
+
+    // Behaviour/medical alerts, recomputed from LIVE data (pet notes + active
+    // operational flags) rather than the snapshot stamped on the booking at
+    // creation — the same sources the check-in screen reads. Without this a dog
+    // booked in with a behaviour_caution flag (or notes added after booking)
+    // never surfaces on the dashboard alert card. Scanned once here, not per
+    // booking, to keep the hot dashboard path to two prefix reads.
+    const livePets = (await kv.getByPrefix(`customer:${user.tenantId}:pet:`)) as
+      | { id?: string; behaviour_notes?: string | null; medical_notes?: string | null }[]
+      | null;
+    const petNotes = new Map<string, { behaviour_notes?: string | null; medical_notes?: string | null }>();
+    for (const p of Array.isArray(livePets) ? livePets : []) {
+      if (p && typeof p.id === 'string') {
+        petNotes.set(p.id, { behaviour_notes: p.behaviour_notes, medical_notes: p.medical_notes });
+      }
+    }
+    const flagsByHousehold = new Map<string, unknown[]>();
+    for (const householdId of new Set(activeBookings.map(b => b.household_id).filter(Boolean))) {
+      const flags = await kv.getByPrefix(`customer:${user.tenantId}:household:${householdId}:flag:`);
+      flagsByHousehold.set(householdId, Array.isArray(flags) ? flags : []);
+    }
+    const { behaviour_flags, medical_flags } = countBehaviourMedicalAlerts(
+      activeBookings,
+      petNotes,
+      flagsByHousehold,
+    );
+
     const serviceBreakdown = {
       full_day: activeBookings.filter(b => b.service_type === 'full_day').length,
       half_day: activeBookings.filter(b => b.service_type === 'half_day').length,
@@ -1798,8 +1825,8 @@ app.get('/stats', async (c) => {
       vaccination_alerts: todayBookings.filter(b => b.vaccination_status === 'expired' || b.vaccination_status === 'expiring_soon').length,
       waiver_alerts: todayBookings.filter(b => b.waiver_status === 'expired' || b.waiver_status === 'expiring_soon').length,
       hold_alerts: todayBookings.filter(b => b.has_booking_hold || b.has_payment_hold).length,
-      behaviour_flags: todayBookings.filter(b => b.has_behaviour_flag).length,
-      medical_flags: todayBookings.filter(b => b.has_medical_flag).length,
+      behaviour_flags,
+      medical_flags,
     };
     
     return c.json(stats);
