@@ -41,6 +41,32 @@ describe('countBehaviourMedicalAlerts', () => {
     });
   });
 
+  it('counts an active needs_diaper flag as a medical/care alert with a readable note', () => {
+    // Freddie's bug: marked as needing a diaper on the profile, dashboard
+    // alert card showed nothing.
+    const bookings: AlertBooking[] = [{ pet_id: 'p1', household_id: 'h1' }];
+    const flags = flagMap({
+      h1: [{ flag_key: 'needs_diaper', is_active: true, pet_id: 'p1', reason: 'Set from the pet care profile' }],
+    });
+    expect(countBehaviourMedicalAlerts(bookings, petMap({ p1: {} }), flags)).toEqual({
+      behaviour_flags: 0,
+      medical_flags: 1,
+    });
+    const [annotated] = annotateLiveAlertFlags(bookings, petMap({ p1: {} }), flags);
+    expect(annotated.medical_notes).toBe('Needs a diaper');
+  });
+
+  it('an inactive needs_diaper flag does not count', () => {
+    const bookings: AlertBooking[] = [{ pet_id: 'p1', household_id: 'h1' }];
+    const flags = flagMap({
+      h1: [{ flag_key: 'needs_diaper', is_active: false, pet_id: 'p1' }],
+    });
+    expect(countBehaviourMedicalAlerts(bookings, petMap({ p1: {} }), flags)).toEqual({
+      behaviour_flags: 0,
+      medical_flags: 0,
+    });
+  });
+
   it('a household-wide flag (pet_id null) applies to every pet in that household', () => {
     const bookings: AlertBooking[] = [
       { pet_id: 'p1', household_id: 'h1' },

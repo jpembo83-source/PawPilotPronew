@@ -138,16 +138,22 @@ function CareNeedsCard({ pet }: { pet: Pet }) {
     setSaving(true);
     try {
       if (action.type === 'create') {
-        // severity 'info': shows wherever flags render, never gates check-in.
+        // severity 'warn': shows wherever flags render AND surfaces as an
+        // acknowledgeable warning at check-in (flag_gate) — staff must see a
+        // care need like this when the dog arrives, not just on the profile.
         await createFlag(pet.household_id, {
           flag_key: diaperKey,
-          severity: 'info',
+          severity: 'warn',
           pet_id: pet.id,
           is_active: true,
           reason: 'Set from the pet care profile',
         });
+      } else if (action.type === 'activate') {
+        // Reactivation also normalises severity — older tick-box flags were
+        // created as 'info', which never reached the check-in warnings.
+        await updateFlag(action.flagId, { is_active: true, severity: 'warn' });
       } else {
-        await updateFlag(action.flagId, { is_active: action.type === 'activate' });
+        await updateFlag(action.flagId, { is_active: false });
       }
       toast.success(next ? `${diaperLabel} flag raised` : `${diaperLabel} flag cleared`);
     } catch {
