@@ -62,9 +62,12 @@ export interface DaycareBooking {
   // Flags
   has_behaviour_flag: boolean;
   has_medical_flag: boolean;
+  /** Live physical-care alert (e.g. needs a diaper), annotated server-side. */
+  has_care_flag?: boolean;
   behaviour_notes?: string;
   medical_notes?: string;
-  
+  care_notes?: string;
+
   // Requirements validation
   vaccination_status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
   waiver_status: 'valid' | 'expiring_soon' | 'expired' | 'missing';
@@ -202,6 +205,8 @@ export interface DaycareStats {
   hold_alerts: number;
   behaviour_flags: number;
   medical_flags: number;
+  /** Physical-care alerts (needs_diaper etc.) — the dashboard Care tile. */
+  care_flags?: number;
   vaccination_alerts: number;
   
   // Revenue (permission gated)

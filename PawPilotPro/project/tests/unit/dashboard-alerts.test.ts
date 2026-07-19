@@ -27,6 +27,7 @@ describe('countBehaviourMedicalAlerts', () => {
     expect(countBehaviourMedicalAlerts(bookings, petMap({ p1: {} }), flags)).toEqual({
       behaviour_flags: 1,
       medical_flags: 0,
+      care_flags: 0,
     });
   });
 
@@ -38,22 +39,26 @@ describe('countBehaviourMedicalAlerts', () => {
     expect(countBehaviourMedicalAlerts(bookings, petMap({ p1: {} }), flags)).toEqual({
       behaviour_flags: 0,
       medical_flags: 1,
+      care_flags: 0,
     });
   });
 
-  it('counts an active needs_diaper flag as a medical/care alert with a readable note', () => {
+  it('counts an active needs_diaper flag in the CARE bucket with a readable note', () => {
     // Freddie's bug: marked as needing a diaper on the profile, dashboard
-    // alert card showed nothing.
+    // alert card showed nothing. Care needs get their own tile, not Medical.
     const bookings: AlertBooking[] = [{ pet_id: 'p1', household_id: 'h1' }];
     const flags = flagMap({
       h1: [{ flag_key: 'needs_diaper', is_active: true, pet_id: 'p1', reason: 'Set from the pet care profile' }],
     });
     expect(countBehaviourMedicalAlerts(bookings, petMap({ p1: {} }), flags)).toEqual({
       behaviour_flags: 0,
-      medical_flags: 1,
+      medical_flags: 0,
+      care_flags: 1,
     });
     const [annotated] = annotateLiveAlertFlags(bookings, petMap({ p1: {} }), flags);
-    expect(annotated.medical_notes).toBe('Needs a diaper');
+    expect(annotated.has_care_flag).toBe(true);
+    expect(annotated.care_notes).toBe('Needs a diaper');
+    expect(annotated.medical_notes).toBeNull();
   });
 
   it('an inactive needs_diaper flag does not count', () => {
@@ -64,6 +69,7 @@ describe('countBehaviourMedicalAlerts', () => {
     expect(countBehaviourMedicalAlerts(bookings, petMap({ p1: {} }), flags)).toEqual({
       behaviour_flags: 0,
       medical_flags: 0,
+      care_flags: 0,
     });
   });
 
@@ -105,7 +111,7 @@ describe('countBehaviourMedicalAlerts', () => {
         petMap({ p1: { behaviour_notes: 'bites strangers', medical_notes: 'epilepsy' } }),
         flagMap({}),
       ),
-    ).toEqual({ behaviour_flags: 1, medical_flags: 1 });
+    ).toEqual({ behaviour_flags: 1, medical_flags: 1, care_flags: 0 });
   });
 
   it('live notes cleared on the pet override a stale booking snapshot', () => {
@@ -127,6 +133,7 @@ describe('countBehaviourMedicalAlerts', () => {
     expect(countBehaviourMedicalAlerts(bookings, petMap({}), flagMap({}))).toEqual({
       behaviour_flags: 1,
       medical_flags: 1,
+      care_flags: 0,
     });
   });
 
@@ -151,6 +158,7 @@ describe('countBehaviourMedicalAlerts', () => {
     expect(countBehaviourMedicalAlerts(bookings, petMap({ p1: {} }), flags)).toEqual({
       behaviour_flags: 0,
       medical_flags: 0,
+      care_flags: 0,
     });
   });
 
@@ -158,6 +166,7 @@ describe('countBehaviourMedicalAlerts', () => {
     expect(countBehaviourMedicalAlerts([], petMap({}), flagMap({}))).toEqual({
       behaviour_flags: 0,
       medical_flags: 0,
+      care_flags: 0,
     });
   });
 });

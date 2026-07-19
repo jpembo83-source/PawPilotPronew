@@ -102,6 +102,10 @@ export function DaycareBookings() {
       label: 'Behaviour flags',
       match: b => b.has_behaviour_flag,
     },
+    care: {
+      label: 'Care needs',
+      match: b => !!b.has_care_flag,
+    },
     paperwork: {
       label: 'Waiver issues & holds',
       match: b => b.waiver_status === 'expired' || b.waiver_status === 'expiring_soon'
