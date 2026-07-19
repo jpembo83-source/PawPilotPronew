@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3197,
-  "warnings": 406
+  "errors": 3169,
+  "warnings": 399
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -87,10 +87,6 @@
   "src/app/hooks/useModuleRealtimeSync.ts": {
    "errors": 1,
    "warnings": 0
-  },
-  "src/app/hooks/usePermissions.ts": {
-   "errors": 3,
-   "warnings": 1
   },
   "src/app/lib/realtime.ts": {
    "errors": 4,
@@ -380,14 +376,6 @@
    "errors": 14,
    "warnings": 4
   },
-  "src/app/modules/dashboard/constants.ts": {
-   "errors": 1,
-   "warnings": 1
-  },
-  "src/app/modules/dashboard/store.ts": {
-   "errors": 3,
-   "warnings": 1
-  },
   "src/app/modules/data-compliance/DataCompliancePage.tsx": {
    "errors": 2,
    "warnings": 0
@@ -401,8 +389,8 @@
    "warnings": 0
   },
   "src/app/modules/data-compliance/components/CreateExportDialog.tsx": {
-   "errors": 4,
-   "warnings": 2
+   "errors": 1,
+   "warnings": 0
   },
   "src/app/modules/data-compliance/components/CreateRequestDialog.tsx": {
    "errors": 1,
@@ -413,18 +401,10 @@
    "warnings": 2
   },
   "src/app/modules/data-compliance/pages/DataExportsPage.tsx": {
-   "errors": 6,
-   "warnings": 1
+   "errors": 1,
+   "warnings": 0
   },
   "src/app/modules/data-compliance/pages/IncidentsBreachesPage.tsx": {
-   "errors": 1,
-   "warnings": 0
-  },
-  "src/app/modules/data-compliance/pages/RetentionJobsPage.tsx": {
-   "errors": 1,
-   "warnings": 0
-  },
-  "src/app/modules/data-compliance/store.ts": {
    "errors": 1,
    "warnings": 0
   },
@@ -764,10 +744,6 @@
    "errors": 1,
    "warnings": 0
   },
-  "src/app/modules/settings/components/users/TemplateManager.tsx": {
-   "errors": 1,
-   "warnings": 0
-  },
   "src/app/modules/settings/components/users/UserList.tsx": {
    "errors": 8,
    "warnings": 1
@@ -775,10 +751,6 @@
   "src/app/modules/settings/constants/modules.ts": {
    "errors": 1,
    "warnings": 2
-  },
-  "src/app/modules/settings/pages/DashboardSettings.tsx": {
-   "errors": 3,
-   "warnings": 0
   },
   "src/app/modules/settings/pages/LocationSettings.tsx": {
    "errors": 18,
@@ -813,8 +785,8 @@
    "warnings": 5
   },
   "src/app/modules/settings/stores/userStore.ts": {
-   "errors": 45,
-   "warnings": 5
+   "errors": 38,
+   "warnings": 4
   },
   "src/app/modules/settings/utils/rbac.ts": {
    "errors": 26,

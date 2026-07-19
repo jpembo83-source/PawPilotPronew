@@ -1,5 +1,5 @@
 {
- "total": 76,
+ "total": 75,
  "files": {
   "scripts/seed-test-data.ts": 1,
   "src/app/modules/billing/pages/BillingOverview.tsx": 1,
@@ -23,7 +23,6 @@
   "src/app/modules/overnights/components/CreateReservationModal.tsx": 1,
   "src/app/modules/policies/store.ts": 1,
   "src/app/modules/services-pricing/pages/ApprovalsPage.tsx": 4,
-  "src/app/modules/settings/components/AuditLogViewer.tsx": 1,
   "src/app/modules/settings/pages/RBACDocumentationPage.tsx": 3,
   "src/app/modules/settings/types/permissions.ts": 2,
   "src/app/modules/settings/utils/rbac.ts": 3,
