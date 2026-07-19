@@ -50,7 +50,9 @@ const sections: SettingsSection[] = [
   // section had nothing useful to configure. The DashboardSettings page +
   // /settings/dashboard route are left in the source tree in case widgets
   // come back; they're just no longer surfaced in the sidebar/grid.
-  { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Environment and maintenance', sectionKey: 'system' },
+  // Retitled from 'System': the multi-tenant Organisations UI is gone and the
+  // job runner is hidden, so what remains is flags + environment + safeguards.
+  { id: 'system', label: 'Advanced / Maintenance', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environment, and maintenance', sectionKey: 'system' },
 ];
 
 export function SettingsLayout() {

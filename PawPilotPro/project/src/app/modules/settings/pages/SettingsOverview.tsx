@@ -40,7 +40,7 @@ const sections: SettingsSection[] = [
   { id: 'compliance', label: 'Data & Compliance', icon: ShieldCheck, path: '/settings/compliance', description: 'Data retention, GDPR requests, and document requirements.', sectionKey: 'compliance' },
   { id: 'integrations', label: 'Integrations', icon: GitBranch, path: '/settings/integrations', description: 'API keys, webhooks, and third-party connections.', sectionKey: 'integrations' },
   // 'Dashboard Config' removed — see SettingsLayout.tsx for the why.
-  { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environments, and system health status.', sectionKey: 'system' },
+  { id: 'system', label: 'Advanced / Maintenance', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environment, health, and maintenance safeguards.', sectionKey: 'system' },
 ];
 
 export function SettingsOverview() {
