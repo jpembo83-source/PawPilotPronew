@@ -8,6 +8,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
 import { CreateReservationModal } from '../components/CreateReservationModal';
 import { LocationPrompt } from '../components/LocationPrompt';
+import type { TonightsBoarder } from '../types';
 
 export function OvernightsPage() {
   const navigate = useNavigate();
@@ -37,10 +38,12 @@ export function OvernightsPage() {
   const today = new Date().toISOString().split('T')[0];
 
   // Staying TONIGHT: a stay occupies the nights [startDate, endDate) — a dog
-  // departing this morning is not one of tonight's boarders.
+  // departing this morning is not one of tonight's boarders. Any non-terminal
+  // status holds a bed tonight (matches the server's tonights-boarders set):
+  // booked/confirmed dogs count too, not just formally checked-in ones.
   const todayReservations = reservations.filter(r => {
     return r.startDate <= today && r.endDate > today &&
-           (r.status === 'checked_in' || r.status === 'in_stay');
+           r.status !== 'cancelled' && r.status !== 'no_show' && r.status !== 'checked_out';
   });
 
   const checkInsToday = reservations.filter(r => {
@@ -211,7 +214,7 @@ function TonightsBoardersView({ boarders }: { boarders: any }) {
 
   return (
     <div className="space-y-3">
-      {boarders.boarders.map((boarder: any) => (
+      {boarders.boarders.map((boarder: TonightsBoarder) => (
         <div
           key={boarder.reservationId}
           className="border border-border rounded-lg p-4 hover:border-ring/40 transition-colors cursor-pointer"
@@ -224,6 +227,11 @@ function TonightsBoardersView({ boarders }: { boarders: any }) {
                   {boarder.petName?.charAt(0) || '?'}
                 </div>
                 <h4 className="font-medium text-foreground">{boarder.petName}</h4>
+                {boarder.checkedIn === false && (
+                  <Badge variant="outline" className="text-sm text-amber-600 border-amber-200">
+                    Not checked in
+                  </Badge>
+                )}
                 <Badge variant="outline" className="text-sm">
                   {boarder.sleepingAreaName || 'Unassigned'}
                 </Badge>

@@ -3,6 +3,8 @@ import {
   occupiesNight,
   nightsOf,
   firstFullNight,
+  isTonightsBoarder,
+  IN_STAY_STATUSES,
   TERMINAL_OVERNIGHT_STATUSES,
 } from '../../supabase/functions/server/lib/overnight_semantics';
 import { overnightStaysForDate, type PlannerOvernightStay } from '../../src/app/modules/capacity/components/plannerFormat';
@@ -100,5 +102,59 @@ describe('firstFullNight (capacity gate)', () => {
 describe('TERMINAL_OVERNIGHT_STATUSES', () => {
   it('is exactly the bed-freeing set', () => {
     expect([...TERMINAL_OVERNIGHT_STATUSES].sort()).toEqual(['cancelled', 'checked_out', 'no_show']);
+  });
+});
+
+describe("isTonightsBoarder (the dashboard's Tonight's Boarders set)", () => {
+  // Stay spanning tonight: nights of the 13th–16th, out on the 17th.
+  const tonight = '2026-07-14';
+  const boarder = (status: string, startDate = '2026-07-13', endDate = '2026-07-17') => ({
+    startDate,
+    endDate,
+    status,
+  });
+
+  it('every non-terminal status occupying tonight appears — including pre-check-in stays', () => {
+    for (const status of ['booked', 'confirmed', 'checked_in', 'in_stay']) {
+      expect(isTonightsBoarder(boarder(status), tonight)).toBe(true);
+    }
+  });
+
+  it('terminal statuses are intentionally excluded even when the dates span tonight', () => {
+    for (const status of ['cancelled', 'no_show', 'checked_out']) {
+      expect(isTonightsBoarder(boarder(status), tonight)).toBe(false);
+    }
+  });
+
+  it('a stay starting tonight appears; one starting tomorrow does not', () => {
+    expect(isTonightsBoarder(boarder('confirmed', '2026-07-14', '2026-07-16'), tonight)).toBe(true);
+    expect(isTonightsBoarder(boarder('confirmed', '2026-07-15', '2026-07-16'), tonight)).toBe(false);
+  });
+
+  it('a dog departing this morning is not one of tonight’s boarders', () => {
+    expect(isTonightsBoarder(boarder('checked_in', '2026-07-10', '2026-07-14'), tonight)).toBe(false);
+  });
+
+  it('a stay that ended in the past does not appear', () => {
+    expect(isTonightsBoarder(boarder('confirmed', '2026-07-01', '2026-07-05'), tonight)).toBe(false);
+  });
+
+  it('matches the capacity semantics: whatever holds a bed is visible', () => {
+    // The exact regression: a confirmed stay counts against capacity
+    // (firstFullNight) — it must therefore be visible on the dashboard.
+    const confirmed = boarder('confirmed');
+    expect(firstFullNight('2026-07-13', '2026-07-15', [confirmed], 1)).toBe('2026-07-13');
+    expect(isTonightsBoarder(confirmed, tonight)).toBe(true);
+  });
+
+  it('null/undefined records never appear', () => {
+    expect(isTonightsBoarder(null, tonight)).toBe(false);
+    expect(isTonightsBoarder(undefined, tonight)).toBe(false);
+  });
+});
+
+describe('IN_STAY_STATUSES (drives the "Not checked in" badge)', () => {
+  it('is exactly the physically-on-site set', () => {
+    expect([...IN_STAY_STATUSES].sort()).toEqual(['checked_in', 'in_stay']);
   });
 });

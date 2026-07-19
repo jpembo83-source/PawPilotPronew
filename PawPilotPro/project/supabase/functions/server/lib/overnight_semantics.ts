@@ -37,6 +37,22 @@ export interface StayLike {
   status?: string;
 }
 
+/** Statuses meaning the dog is physically on site. */
+export const IN_STAY_STATUSES = new Set(["checked_in", "in_stay"]);
+
+/**
+ * Whether a reservation belongs on the dashboard's "Tonight's Boarders" list
+ * for `date`: any stay occupying that night whose status still holds a bed —
+ * including booked/confirmed dogs not (yet) checked in. This matches the
+ * capacity semantics above (firstFullNight counts the same set), so a dog
+ * that occupies a bed can never be invisible on the dashboard. Terminal
+ * stays (cancelled/no_show/checked_out) never show.
+ */
+export function isTonightsBoarder(reservation: StayLike | null | undefined, date: string): boolean {
+  if (!reservation || TERMINAL_OVERNIGHT_STATUSES.has(reservation.status ?? "")) return false;
+  return occupiesNight(reservation.startDate, reservation.endDate, date);
+}
+
 /**
  * The first night of [startDate, endDate) on which `reservations` already
  * fill `effectiveCapacity` beds, or null when every night fits. Terminal
