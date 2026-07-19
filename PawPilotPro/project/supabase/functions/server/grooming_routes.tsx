@@ -8,6 +8,7 @@ import * as kv from './kv_store.tsx';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
+import { isNonBillablePet } from './lib/billing_exempt.ts';
 import { petPhotoPathFromStored, signPetPhotoUrl, withSignedPetPhotos } from './lib/pet_photos.ts';
 
 const app = new Hono();
@@ -60,6 +61,8 @@ interface GroomingAppointment {
   vaccination_status: string;
   base_price: number;
   total_price: number;
+  /** House dog: appointment holds its slot but was priced at zero. */
+  non_billable?: boolean;
   currency: string;
   photos_taken: string[];
   created_by_id: string;
@@ -179,7 +182,14 @@ app.post('/appointments', async (c) => {
     const body = await c.req.json();
     
     const serviceDefaults = SERVICE_DEFAULTS[body.service_type] || SERVICE_DEFAULTS.custom;
-    
+
+    // House dogs (pet.non_billable) get zero-priced appointments — the slot
+    // and record exist as normal, no charge can derive from them.
+    const groomPet = body.household_id && body.pet_id
+      ? await kv.get(`customer:${tenantId}:pet:${body.household_id}:${body.pet_id}`)
+      : undefined;
+    const petNonBillable = isNonBillablePet(groomPet);
+
     const appointment: GroomingAppointment = {
       id: generateId('groom'),
       household_id: body.household_id,
@@ -208,8 +218,9 @@ app.post('/appointments', async (c) => {
       vaccination_status: body.vaccination_status || 'valid',
       customer_notes: body.customer_notes,
       grooming_instructions: body.grooming_instructions,
-      base_price: body.base_price || serviceDefaults.price,
-      total_price: body.total_price || serviceDefaults.price,
+      base_price: petNonBillable ? 0 : (body.base_price || serviceDefaults.price),
+      total_price: petNonBillable ? 0 : (body.total_price || serviceDefaults.price),
+      non_billable: petNonBillable,
       currency: body.currency || 'GBP',
       photos_taken: [],
       created_by_id: userInfo.id,

@@ -14,6 +14,7 @@ import { bookingReceivedEmail } from "./lib/email_templates/booking_received.ts"
 import { bookingConfirmedEmail } from "./lib/email_templates/booking_confirmed.ts";
 import { bookingDeclinedEmail } from "./lib/email_templates/booking_declined.ts";
 import { storedPetPhoto } from "./lib/pet_photos.ts";
+import { isNonBillablePet } from "./lib/billing_exempt.ts";
 import { nightlyRateFor, recordOvernightEvent } from "./lib/overnights_shared.ts";
 import { getPlanById } from "./lib/membership_catalog.ts";
 import { activeMembershipForHousehold } from "./lib/membership_store.ts";
@@ -1236,9 +1237,12 @@ async function replicatePortalToDaycare(
       has_booking_hold: household?.booking_hold === true,
       has_payment_hold: household?.payment_hold === true,
       hold_reason: household?.hold_reason ?? null,
-      base_price_locked: basePrice,
+      // House dogs replicate at zero — same exemption the staff create
+      // route applies (lib/billing_exempt.ts).
+      base_price_locked: isNonBillablePet(pet) ? 0 : basePrice,
       tax_rate: taxRate,
-      total_price: totalPrice,
+      total_price: isNonBillablePet(pet) ? 0 : totalPrice,
+      non_billable: isNonBillablePet(pet),
       currency: "CHF",
       billing_line_item_ids: [] as string[],
       requires_transport: !!(rec.services ?? []).includes("transport"),
@@ -1360,9 +1364,12 @@ async function replicatePortalToOvernights(
       requiresMedication: !!pet?.medical_notes,
       hasBehaviourConcerns: !!pet?.behaviour_notes,
       hasAllergies: !!pet?.allergy_notes,
-      pricePerNight,
+      // House dogs replicate at zero — same exemption the staff create
+      // route applies (lib/billing_exempt.ts).
+      pricePerNight: isNonBillablePet(pet) ? 0 : pricePerNight,
       totalNights,
-      totalPrice: pricePerNight * totalNights,
+      totalPrice: isNonBillablePet(pet) ? 0 : pricePerNight * totalNights,
+      non_billable: isNonBillablePet(pet),
       currency: "CHF",
       priceLockedAt: existing?.priceLockedAt ?? now,
       requiresPickup: false,

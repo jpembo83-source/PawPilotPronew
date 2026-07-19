@@ -11,6 +11,7 @@ import { buildPetUpdate, recordPetUpdate } from './lib/pet_updates.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
 import { signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
 import { findDuplicateBooking } from './lib/daycare_dedup.ts';
+import { isNonBillablePet } from './lib/billing_exempt.ts';
 import {
   consumeCredits,
   membershipCoverage,
@@ -98,6 +99,8 @@ interface DaycareBooking {
   tax_rate: number;
   total_price: number;
   currency: string;
+  /** House dog: booking occupies a slot but was priced at zero. */
+  non_billable?: boolean;
   /** Set when an active membership covered this booking: the covering
    *  customer_membership id and the credits drawn (0 for unlimited plans).
    *  Cancellation restores the credits via these fields. */
@@ -1038,6 +1041,14 @@ app.post('/bookings', async (c) => {
     const tax_rate = service?.tax_rate || 0.077; // Swiss VAT
     let total_price = base_price_locked * (1 + tax_rate);
 
+    // House dogs occupy the capacity slot below like any booking, but their
+    // records are stamped at zero so no charge can ever derive from them.
+    const petNonBillable = isNonBillablePet(pet);
+    if (petNonBillable) {
+      base_price_locked = 0;
+      total_price = 0;
+    }
+
     // Membership billing — client-requested, server-verified. Staff choose
     // "Membership" vs "PAYG" billing in the dialog (a customer may want to
     // save credits), and that intent arrives as service_type 'membership'.
@@ -1052,7 +1063,12 @@ app.post('/bookings', async (c) => {
     let effective_service_type = service_type;
     let membership_id: string | undefined;
     let membership_credits_used: number | undefined;
-    if (service_type === 'membership') {
+    // A house dog is already free — never draw membership credits for it,
+    // and record the honest session type instead of 'membership'.
+    if (service_type === 'membership' && petNonBillable) {
+      effective_service_type = sessionType ?? 'full_day';
+    }
+    if (service_type === 'membership' && !petNonBillable) {
       // Not covered after all → the honest service type for the record.
       effective_service_type = sessionType ?? 'full_day';
       // Applies any due lazy renewal first (an exhausted membership whose
@@ -1121,6 +1137,9 @@ app.post('/bookings', async (c) => {
       tax_rate,
       total_price,
       currency: 'CHF',
+      // House-dog marker on the record itself, so lists/exports can show WHY
+      // there is no charge without re-fetching the pet.
+      non_billable: petNonBillable,
       membership_id,
       membership_credits_used,
       billing_line_item_ids: [],

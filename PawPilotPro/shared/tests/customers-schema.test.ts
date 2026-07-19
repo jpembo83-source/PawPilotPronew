@@ -54,6 +54,33 @@ describe("customers record contract", () => {
     expect(r.success).toBe(true);
   });
 
+  it("defaults non_billable to false — legacy pets without the field are billable", () => {
+    const r = petSchema.safeParse({
+      id: "pet_1",
+      tenant_id: "demo-tenant-001",
+      household_id: "hh_1",
+      name: "Biscuit",
+      created_at: NOW,
+      updated_at: NOW,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.non_billable).toBe(false);
+  });
+
+  it("carries an explicit house-dog marker through", () => {
+    const r = petSchema.safeParse({
+      id: "pet_house",
+      tenant_id: "demo-tenant-001",
+      household_id: "hh_1",
+      name: "Office Dog",
+      non_billable: true,
+      created_at: NOW,
+      updated_at: NOW,
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.non_billable).toBe(true);
+  });
+
   it("rejects an unknown pet verification_status", () => {
     const r = petSchema.safeParse({
       id: "pet_1",
