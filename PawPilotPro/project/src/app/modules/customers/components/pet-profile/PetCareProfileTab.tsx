@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { Pet } from '../../types';
 import { useCustomerStore } from '../../store';
+import { derivePetFlagToggle, isPetFlagActive } from '../../petFlagToggle';
+import { getFlagIcon, getFlagLabel } from '../../flagMeta';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Badge } from '../../../../components/ui/badge';
 import { Button } from '../../../../components/ui/button';
+import { Checkbox } from '../../../../components/ui/checkbox';
 import { Textarea } from '../../../../components/ui/textarea';
 import { toast } from 'sonner';
 import {
@@ -104,10 +107,77 @@ export function PetCareProfileTab({ pet }: PetCareProfileTabProps) {
 
   return (
     <div className="space-y-6">
+      <CareNeedsCard pet={pet} />
       {CARE_SECTIONS.map((section) => (
         <EditableCareCard key={section.field} pet={pet} section={section} />
       ))}
     </div>
+  );
+}
+
+/**
+ * Boolean care needs, each a friendly control over an existing operational
+ * flag (no parallel data model): ticking ensures an ACTIVE pet-scoped flag,
+ * unticking deactivates it, and the tick state is read straight from the
+ * household's live flags (fetched by PetProfilePage on load). The server's
+ * flag routes enforce the same edit roles as pet updates.
+ */
+function CareNeedsCard({ pet }: { pet: Pet }) {
+  const { flags, createFlag, updateFlag } = useCustomerStore();
+  const [saving, setSaving] = useState(false);
+
+  const diaperKey = 'needs_diaper' as const;
+  const DiaperIcon = getFlagIcon(diaperKey);
+  const diaperLabel = getFlagLabel(diaperKey);
+  const checked = isPetFlagActive(flags, pet.id, diaperKey);
+
+  const toggleDiaper = async (next: boolean) => {
+    if (saving) return;
+    const action = derivePetFlagToggle(flags, pet.id, diaperKey, next);
+    if (action.type === 'none') return;
+    setSaving(true);
+    try {
+      if (action.type === 'create') {
+        // severity 'info': shows wherever flags render, never gates check-in.
+        await createFlag(pet.household_id, {
+          flag_key: diaperKey,
+          severity: 'info',
+          pet_id: pet.id,
+          is_active: true,
+          reason: 'Set from the pet care profile',
+        });
+      } else {
+        await updateFlag(action.flagId, { is_active: action.type === 'activate' });
+      }
+      toast.success(next ? `${diaperLabel} flag raised` : `${diaperLabel} flag cleared`);
+    } catch {
+      toast.error(`Could not update the ${diaperLabel.toLowerCase()} flag — please try again`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Care Needs</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* Whole row is the tap target (touch-target = 44px floor); the
+            checkbox itself keeps its compact visual size. */}
+        <label className="touch-target flex items-center gap-3 cursor-pointer select-none">
+          <Checkbox
+            checked={checked}
+            disabled={saving}
+            onCheckedChange={(value) => void toggleDiaper(value === true)}
+            aria-label={diaperLabel}
+          />
+          <DiaperIcon className="h-5 w-5 text-slate-500" />
+          <span className="text-sm font-medium">{diaperLabel}</span>
+          {saving && <CircleNotch className="h-4 w-4 animate-spin text-slate-400" />}
+        </label>
+      </CardContent>
+    </Card>
   );
 }
 

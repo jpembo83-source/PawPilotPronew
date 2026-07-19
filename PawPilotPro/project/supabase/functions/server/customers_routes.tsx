@@ -2332,7 +2332,9 @@ app.post('/households/:id/flags', requireRole('admin', 'manager', 'assistant_man
     }
     
     // Validate flag_key
-    const validKeys = ['vip', 'behaviour_caution', 'medical_caution', 'payment_hold', 'transport_instructions', 'grooming_restrictions', 'overnight_restrictions'];
+    // Mirrors the client FlagKey union (customers/types.ts) and the shared
+    // flagKeyEnum (shared/schemas/customers.ts) — change all three together.
+    const validKeys = ['vip', 'behaviour_caution', 'medical_caution', 'payment_hold', 'transport_instructions', 'grooming_restrictions', 'overnight_restrictions', 'needs_diaper'];
     if (!validKeys.includes(flag_key)) {
       return c.json({ error: 'Invalid flag key' }, 400);
     }
