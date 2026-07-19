@@ -7,6 +7,7 @@ import type {
   DataExport,
   DataAccessLog,
   RetentionJob,
+  JobExecution,
   BreachRecord,
   ComplianceAuditLog,
   ComplianceStats,
@@ -38,14 +39,17 @@ interface DataComplianceState {
   createRequestAction: (requestId: string, data: Partial<RequestAction>) => Promise<void>;
   
   loadExports: () => Promise<void>;
-  createExport: (data: Partial<DataExport>) => Promise<void>;
+  createExport: (data: Partial<DataExport>) => Promise<DataExport | null>;
   markExportDownloaded: (id: string, downloadedBy: string) => Promise<void>;
   
   loadAccessLogs: () => Promise<void>;
   
   loadRetentionJobs: () => Promise<void>;
   createRetentionJob: (data: Partial<RetentionJob>) => Promise<void>;
-  executeRetentionJob: (id: string) => Promise<void>;
+  executeRetentionJob: (
+    id: string,
+    options?: { dryRun?: boolean; confirm?: boolean },
+  ) => Promise<JobExecution | null>;
   
   loadBreaches: () => Promise<void>;
   createBreach: (data: Partial<BreachRecord>) => Promise<void>;
@@ -162,8 +166,10 @@ export const useDataComplianceStore = create<DataComplianceState>((set, get) => 
       const created = await api.createExport(data);
       set((state) => ({ exports: [created, ...state.exports] }));
       await get().loadStats();
+      return created;
     } catch (error) {
       set({ error: (error as Error).message });
+      return null;
     }
   },
 
@@ -207,14 +213,18 @@ export const useDataComplianceStore = create<DataComplianceState>((set, get) => 
     }
   },
 
-  executeRetentionJob: async (id) => {
+  executeRetentionJob: async (id, options) => {
     try {
-      await api.executeRetentionJob(id);
-      // Reload jobs after execution
-      setTimeout(() => get().loadRetentionJobs(), 3500);
-      await get().loadStats();
+      const execution = await api.executeRetentionJob(id, options);
+      // A dry run changes nothing, so only real runs refresh job metrics.
+      if (!execution.dry_run) {
+        await get().loadRetentionJobs();
+        await get().loadStats();
+      }
+      return execution;
     } catch (error) {
       set({ error: (error as Error).message });
+      return null;
     }
   },
 

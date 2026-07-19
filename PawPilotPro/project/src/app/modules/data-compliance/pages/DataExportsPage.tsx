@@ -5,20 +5,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Plus, DownloadSimple, Lock } from '@phosphor-icons/react';
+import { Plus, DownloadSimple } from '@phosphor-icons/react';
+import { toast } from 'sonner';
 import { useDataComplianceStore } from '../store';
+import { getExportDownloadUrl } from '../api';
+import type { DataExport } from '../types';
 import { CreateExportDialog } from '../components/CreateExportDialog';
 
 export function DataExportsPage() {
   const { exports, markExportDownloaded } = useDataComplianceStore();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [showPassword, setShowPassword] = useState<string | null>(null);
 
-  const handleDownload = async (exp: any) => {
-    if (exp.status === 'ready') {
-      setShowPassword(exp.id);
+  const handleDownload = async (exp: DataExport) => {
+    try {
+      // Files live in a private bucket; the server mints a short-lived
+      // signed URL (and audit-logs the access) on each download.
+      const { url } = await getExportDownloadUrl(exp.id);
+      window.open(url, '_blank', 'noopener');
       await markExportDownloaded(exp.id, 'current-user');
-      setTimeout(() => setShowPassword(null), 5000);
+    } catch {
+      toast.error('Could not get a download link for this export');
     }
   };
 
@@ -80,13 +86,11 @@ export function DataExportsPage() {
                     {exp.expires_at ? new Date(exp.expires_at).toLocaleDateString() : '-'}
                   </TableCell>
                   <TableCell>
-                    {exp.status === 'ready' ? (
+                    {exp.status === 'ready' || exp.status === 'downloaded' ? (
                       <Button size="sm" onClick={() => handleDownload(exp)}>
                         <DownloadSimple className="h-4 w-4 mr-2" />
-                        DownloadSimple
+                        Download
                       </Button>
-                    ) : exp.status === 'downloaded' ? (
-                      <Badge variant="secondary">Downloaded</Badge>
                     ) : (
                       <Badge variant="secondary">Not Ready</Badge>
                     )}
@@ -102,27 +106,6 @@ export function DataExportsPage() {
             </div>
           )}
 
-          {showPassword && (
-            <Card className="mt-4 border-green-600">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <Lock className="h-5 w-5 text-green-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Export Password</p>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Use this password to decrypt the export file:
-                    </p>
-                    <code className="bg-green-50 text-green-700 px-3 py-2 rounded font-mono text-lg">
-                      {exports.find((e) => e.id === showPassword)?.file_password}
-                    </code>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      This password will only be shown once. Store it securely.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </CardContent>
       </Card>
 

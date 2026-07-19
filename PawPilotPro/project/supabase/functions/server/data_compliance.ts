@@ -3,7 +3,14 @@
 
 import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
-import { requireAuth } from './_shared/auth.ts';
+import { requireAuth, requireRole } from './_shared/auth.ts';
+import { internalError } from './_shared/log.ts';
+import {
+  EXPORT_SIGNED_URL_TTL_SECONDS,
+  runSubjectExport,
+} from './lib/compliance_export.ts';
+import { makeExportStorage } from './lib/compliance_storage.ts';
+import { executeRetention, type RetentionJobConfig } from './lib/compliance_retention.ts';
 
 const app = new Hono();
 
@@ -215,43 +222,131 @@ app.get('/exports', async (c) => {
   return c.json(sorted);
 });
 
-app.post('/exports', async (c) => {
+// Exports assemble a subject's complete personal data set — restricted to
+// admin/manager, generated synchronously into the PRIVATE exports bucket,
+// and served only via short-lived signed URLs (never a stored URL).
+app.post('/exports', requireRole('admin', 'manager'), async (c) => {
   const data = await c.req.json();
+  const user = c.get('user');
+
+  if (data.scope !== 'household') {
+    return c.json(
+      { error: 'Only household-scoped (data subject) exports are supported' },
+      400,
+    );
+  }
+  const householdId = typeof data.scope_id === 'string' ? data.scope_id.trim() : '';
+  if (!householdId) {
+    return c.json({ error: 'scope_id (household id) is required' }, 400);
+  }
+  const household = await kv.get(`customer:${user.tenantId}:household:${householdId}`);
+  if (!household) {
+    return c.json({ error: 'Household not found' }, 404);
+  }
+
   const id = generateId();
   const key = `compliance:export:${id}`;
 
-  // Generate password for secure download
-  const password = Math.random().toString(36).slice(-8).toUpperCase();
+  try {
+    const result = await runSubjectExport({
+      tenantId: user.tenantId,
+      householdId,
+      exportId: id,
+      requestedBy: user.name,
+      storage: makeExportStorage(),
+    });
 
-  // Immediate, honest completion — no fake background job. Real export file
-  // generation is not implemented yet, so the metrics are explicit nulls.
-  // TODO: real metrics when implemented (file generation + storage upload).
-  const exportRecord = {
-    id,
-    ...data,
-    file_password: password,
-    status: 'ready',
-    file_url: null,
-    file_size_bytes: 0,
-    expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-    created_at: getCurrentTimestamp(),
-  };
+    const exportRecord = {
+      id,
+      ...data,
+      scope_id: householdId,
+      status: 'ready',
+      // Storage object paths in the private bucket — a download URL is only
+      // ever minted on demand by GET /exports/:id/download-url.
+      file_path: result.file_path,
+      summary_path: result.summary_path,
+      file_url: null,
+      file_size_bytes: result.file_size_bytes,
+      record_counts: result.record_counts,
+      total_records: result.total_records,
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+      created_at: getCurrentTimestamp(),
+      created_by: user.id,
+    };
 
-  await kv.set(key, exportRecord);
+    await kv.set(key, exportRecord);
 
-  // Audit log
-  await kv.set(`compliance:audit:${generateId()}`, {
-    action_type: 'export',
-    entity_type: 'export',
-    entity_id: id,
-    user_id: data.created_by || 'system',
-    user_name: 'User',
-    user_role: 'admin',
-    action_description: `Created ${data.export_type} export (${data.scope})`,
-    created_at: getCurrentTimestamp(),
-  });
+    // Audit log
+    await kv.set(`compliance:audit:${generateId()}`, {
+      action_type: 'export',
+      entity_type: 'export',
+      entity_id: id,
+      user_id: user.id,
+      user_name: user.name,
+      user_role: user.role,
+      action_description: `Generated ${data.export_type} export (${data.scope}) for household ${householdId}: ${result.total_records} records, ${result.file_size_bytes} bytes`,
+      created_at: getCurrentTimestamp(),
+    });
 
-  return c.json(exportRecord, 201);
+    return c.json(exportRecord, 201);
+  } catch (err) {
+    return internalError(c, 'compliance.export_failed', err);
+  }
+});
+
+// Mint short-lived signed URLs for an export's files. The bucket is private;
+// this is the only way an export ever becomes downloadable.
+app.get('/exports/:id/download-url', requireRole('admin', 'manager'), async (c) => {
+  const id = c.req.param('id');
+  const user = c.get('user');
+  const exportRecord = await kv.get(`compliance:export:${id}`);
+  if (!exportRecord) {
+    return c.json({ error: 'Export not found' }, 404);
+  }
+  if (typeof exportRecord.file_path !== 'string' || !exportRecord.file_path) {
+    return c.json({ error: 'Export has no generated file' }, 409);
+  }
+  if (exportRecord.expires_at && exportRecord.expires_at < getCurrentTimestamp()) {
+    return c.json({ error: 'Export has expired' }, 410);
+  }
+
+  try {
+    const storage = makeExportStorage();
+    const url = await storage.createSignedUrl(
+      exportRecord.file_path,
+      EXPORT_SIGNED_URL_TTL_SECONDS,
+    );
+    const summaryUrl =
+      typeof exportRecord.summary_path === 'string' && exportRecord.summary_path
+        ? await storage.createSignedUrl(
+            exportRecord.summary_path,
+            EXPORT_SIGNED_URL_TTL_SECONDS,
+          )
+        : null;
+    if (!url) {
+      return c.json({ error: 'Export file unavailable' }, 404);
+    }
+
+    // Audit log — minting a download link is access to the full data set.
+    await kv.set(`compliance:audit:${generateId()}`, {
+      action_type: 'export',
+      entity_type: 'export',
+      entity_id: id,
+      user_id: user.id,
+      user_name: user.name,
+      user_role: user.role,
+      action_description: 'Issued signed download URL for export file',
+      created_at: getCurrentTimestamp(),
+    });
+
+    return c.json({
+      url,
+      summary_url: summaryUrl,
+      expires_in_seconds: EXPORT_SIGNED_URL_TTL_SECONDS,
+    });
+  } catch (err) {
+    return internalError(c, 'compliance.export_download_url_failed', err);
+  }
 });
 
 app.put('/exports/:id/download', async (c) => {
@@ -359,53 +454,88 @@ app.post('/retention-jobs', async (c) => {
   return c.json(job, 201);
 });
 
-app.post('/retention-jobs/:id/execute', async (c) => {
+// The purge is destructive: admin/manager only, DRY-RUN by default, and a
+// real run demands an explicit `confirm: true`. The worker audit-logs every
+// execution (including dry runs) itself.
+app.post('/retention-jobs/:id/execute', requireRole('admin', 'manager'), async (c) => {
   const jobId = c.req.param('id');
   const job = await kv.get(`compliance:job:${jobId}`);
-  
+
   if (!job) {
     return c.json({ error: 'Job not found' }, 404);
   }
 
+  const body = await c.req.json().catch(() => ({}));
+  const dryRun = body.dry_run !== false; // anything short of an explicit false rehearses
+  if (!dryRun && body.confirm !== true) {
+    return c.json(
+      { error: 'A real purge is destructive: pass dry_run: false AND confirm: true' },
+      400,
+    );
+  }
+
+  const user = c.get('user');
   const executionId = generateId();
-  // Immediate, honest completion — no fake background job. Real retention
-  // processing is not implemented yet, so the metrics are explicit zeros.
-  // TODO: real metrics when implemented (actual record purge/anonymisation).
-  const recordsAffected = 0;
-  const execution = {
-    id: executionId,
-    job_id: jobId,
-    status: 'completed',
-    started_at: getCurrentTimestamp(),
-    completed_at: getCurrentTimestamp(),
-    records_affected: recordsAffected,
-    records_failed: 0,
-  };
+  const startedAt = getCurrentTimestamp();
 
-  await kv.set(`compliance:job_execution:${executionId}`, execution);
+  try {
+    const result = await executeRetention({
+      tenantId: user.tenantId,
+      job: job as RetentionJobConfig,
+      dryRun,
+      actor: { id: user.id, name: user.name, role: user.role },
+    });
 
-  // Update job
-  await kv.set(`compliance:job:${jobId}`, {
-    ...job,
-    last_run_at: getCurrentTimestamp(),
-    last_run_status: 'completed',
-    last_run_records_affected: recordsAffected,
-    updated_at: getCurrentTimestamp(),
-  });
+    const execution = {
+      id: executionId,
+      job_id: jobId,
+      status: 'completed',
+      dry_run: dryRun,
+      started_at: startedAt,
+      completed_at: getCurrentTimestamp(),
+      records_affected: result.records_affected,
+      records_failed: result.records_failed,
+      would_affect: result.candidates.length,
+      cutoff: result.cutoff,
+      candidates: result.candidates.map((cand) => ({
+        entity_type: cand.entity_type,
+        entity_id: cand.entity_id,
+        record_date: cand.record_date,
+        action: cand.action,
+      })),
+      skipped: result.skipped,
+      categories_evaluated: result.categories_evaluated,
+      categories_unsupported: result.categories_unsupported,
+    };
 
-  // Audit log
-  await kv.set(`compliance:audit:${generateId()}`, {
-    action_type: 'retention_action',
-    entity_type: 'job',
-    entity_id: jobId,
-    user_id: 'system',
-    user_name: 'System',
-    user_role: 'admin',
-    action_description: `Executed retention job: ${recordsAffected} records affected`,
-    created_at: getCurrentTimestamp(),
-  });
+    await kv.set(`compliance:job_execution:${executionId}`, execution);
 
-  return c.json(execution, 201);
+    // Only a real run moves the job's last-run metrics — a rehearsal doesn't
+    // count as the job having run.
+    if (!dryRun) {
+      await kv.set(`compliance:job:${jobId}`, {
+        ...job,
+        last_run_at: getCurrentTimestamp(),
+        last_run_status: result.records_failed > 0 ? 'failed' : 'completed',
+        last_run_records_affected: result.records_affected,
+        updated_at: getCurrentTimestamp(),
+      });
+    }
+
+    return c.json(execution, 201);
+  } catch (err) {
+    await kv.set(`compliance:job_execution:${executionId}`, {
+      id: executionId,
+      job_id: jobId,
+      status: 'failed',
+      dry_run: dryRun,
+      started_at: startedAt,
+      completed_at: getCurrentTimestamp(),
+      records_affected: 0,
+      records_failed: 0,
+    });
+    return internalError(c, 'compliance.retention_execute_failed', err);
+  }
 });
 
 // --- Incidents & Breaches ---

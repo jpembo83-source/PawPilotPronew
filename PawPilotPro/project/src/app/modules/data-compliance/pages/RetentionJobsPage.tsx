@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Play, Clock } from '@phosphor-icons/react';
+import { Play, Clock, Binoculars } from '@phosphor-icons/react';
 import { useDataComplianceStore } from '../store';
 import { toast } from 'sonner';
 import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
@@ -13,17 +13,39 @@ export function RetentionJobsPage() {
   const { retentionJobs, executeRetentionJob } = useDataComplianceStore();
   const { confirm, confirmDialog } = useConfirmDialog();
 
+  const describeRun = (execution: {
+    would_affect?: number;
+    records_affected: number;
+    skipped?: Array<{ reason: string }>;
+    dry_run?: boolean;
+  }) => {
+    const skippedCount = execution.skipped?.length ?? 0;
+    const skippedNote = skippedCount > 0 ? `, ${skippedCount} skipped (see execution log)` : '';
+    return execution.dry_run
+      ? `Dry run: ${execution.would_affect ?? 0} record(s) would be purged${skippedNote}. Nothing was deleted.`
+      : `Purge complete: ${execution.records_affected} record(s) affected${skippedNote}.`;
+  };
+
+  const handleDryRun = async (jobId: string) => {
+    const execution = await executeRetentionJob(jobId, { dryRun: true });
+    if (execution) toast.info(describeRun(execution));
+    else toast.error('Dry run failed');
+  };
+
   const handleExecute = async (jobId: string) => {
     if (
       await confirm({
-        title: 'Execute this retention job now?',
-        description: 'This action cannot be undone.',
-        confirmLabel: 'Execute job',
+        title: 'Run this purge for real?',
+        description:
+          'Records past the retention window will be permanently deleted or anonymised. ' +
+          'This cannot be undone — run a dry run first to see what will be affected.',
+        confirmLabel: 'Purge now',
         destructive: true,
       })
     ) {
-      await executeRetentionJob(jobId);
-      toast.success('Retention job started');
+      const execution = await executeRetentionJob(jobId, { dryRun: false, confirm: true });
+      if (execution) toast.success(describeRun(execution));
+      else toast.error('Retention job failed');
     }
   };
 
@@ -83,15 +105,26 @@ export function RetentionJobsPage() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleExecute(job.id)}
-                    disabled={!job.is_active}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Run Now
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleDryRun(job.id)}
+                      disabled={!job.is_active}
+                    >
+                      <Binoculars className="h-4 w-4 mr-2" />
+                      Dry Run
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleExecute(job.id)}
+                      disabled={!job.is_active}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Purge Now
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
