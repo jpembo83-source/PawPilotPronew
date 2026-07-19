@@ -15,7 +15,6 @@ import {
   ChatTeardrop,
   Receipt,
   ShieldCheck,
-  GitBranch,
   Gauge,
   SlidersHorizontal,
   CaretRight,
@@ -44,7 +43,9 @@ const sections: SettingsSection[] = [
   { id: 'comms', label: 'Communications', icon: ChatTeardrop, path: '/settings/communications', description: 'Templates and channels', sectionKey: 'communications' },
   { id: 'billing', label: 'Billing & Finance', icon: Receipt, path: '/settings/billing', description: 'Invoices, taxes, and penalties', sectionKey: 'billing' },
   { id: 'compliance', label: 'Data & Compliance', icon: ShieldCheck, path: '/settings/compliance', description: 'Retention and GDPR', sectionKey: 'compliance' },
-  { id: 'integrations', label: 'Integrations', icon: GitBranch, path: '/settings/integrations', description: 'API and webhooks', sectionKey: 'integrations' },
+  // 'Integrations' hidden — its sync runner is a stub and nothing live uses
+  // this module (Invoxia GPS runs via its own invoxia-sync edge functions).
+  // Route + module code stay in the tree for when a real integration lands.
   // 'Dashboard Config' removed — it managed widget visibility for an older
   // widget-based dashboard that no longer exists. The DashboardSettings page,
   // its /settings/dashboard route, and the widget slices of dashboardStore
