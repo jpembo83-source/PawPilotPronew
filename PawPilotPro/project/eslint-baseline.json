@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3248,
-  "warnings": 408
+  "errors": 3233,
+  "warnings": 407
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -645,8 +645,8 @@
    "warnings": 0
   },
   "src/app/modules/overnights/pages/OvernightsPage.tsx": {
-   "errors": 31,
-   "warnings": 2
+   "errors": 16,
+   "warnings": 1
   },
   "src/app/modules/overnights/store.ts": {
    "errors": 15,

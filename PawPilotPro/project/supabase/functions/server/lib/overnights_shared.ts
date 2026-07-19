@@ -9,12 +9,21 @@ import * as kv from "../kv_store.tsx";
 import {
   DEFAULT_OVERNIGHT_RATE,
   firstFullNight,
+  IN_STAY_STATUSES,
+  isTonightsBoarder,
   nightsOf,
   occupiesNight,
   TERMINAL_OVERNIGHT_STATUSES,
 } from "./overnight_semantics.ts";
 
-export { DEFAULT_OVERNIGHT_RATE, nightsOf, occupiesNight, TERMINAL_OVERNIGHT_STATUSES };
+export {
+  DEFAULT_OVERNIGHT_RATE,
+  IN_STAY_STATUSES,
+  isTonightsBoarder,
+  nightsOf,
+  occupiesNight,
+  TERMINAL_OVERNIGHT_STATUSES,
+};
 
 export interface OvernightCapacityRecord {
   maxOvernightCapacity?: number;

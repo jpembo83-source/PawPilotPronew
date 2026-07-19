@@ -367,6 +367,27 @@ export interface ApiErrorResponse {
   error?: string;
 }
 
+// One row of the dashboard's Tonight's Boarders list (/tonights-boarders).
+// Includes every active stay occupying tonight; `checkedIn` distinguishes
+// dogs physically on site from expected-but-not-checked-in ones.
+export interface TonightsBoarder {
+  reservationId: string;
+  petId: string;
+  petName: string;
+  customerId?: string;
+  customerName: string;
+  status?: ReservationStatus;
+  checkedIn?: boolean;
+  sleepingAreaName?: string;
+  assignedCarerUserId?: string;
+  assignedCarerName?: string;
+  requiresMedication?: boolean;
+  hasBehaviourConcerns?: boolean;
+  hasAllergies?: boolean;
+  careLogCompleted?: boolean;
+  specialNotes?: string;
+}
+
 // Raw reservation payload — the edge function may include a snake_case
 // location_id alongside the camelCase fields, used for realtime broadcasts.
 export interface OvernightReservationPayload extends OvernightReservation {

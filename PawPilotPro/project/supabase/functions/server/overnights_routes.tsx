@@ -10,6 +10,8 @@ import { requireAuth, AuthenticatedUser } from "./_shared/auth.ts";
 import { internalError } from "./_shared/log.ts";
 import {
   findFullNight,
+  IN_STAY_STATUSES,
+  isTonightsBoarder,
   nightlyRateFor,
   occupiesNight,
   recordOvernightEvent,
@@ -882,14 +884,17 @@ routes.get("/tonights-boarders", async (c) => {
     const capacity = await kv.get(`overnight:${tenantId}:capacity:${locationId}`);
     const maxCapacity = capacity?.maxOvernightCapacity || 0;
     
-    // Get active reservations staying tonight ([start, end) night semantics —
-    // a dog checking out this morning is not one of tonight's boarders).
+    // Every ACTIVE stay occupying tonight ([start, end) night semantics — a
+    // dog checking out this morning is not one of tonight's boarders). This
+    // includes booked/confirmed dogs not yet checked in: they hold a bed in
+    // the capacity semantics (firstFullNight), so they must be visible here
+    // too — filtering to checked_in/in_stay made every pre-check-in stay
+    // invisible on the dashboard. Terminal stays never show.
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
 
     const activeReservations = allReservations.filter((r: any) => {
       if (r.locationId !== locationId) return false;
-      if (r.status !== 'checked_in' && r.status !== 'in_stay') return false;
-      return occupiesNight(r.startDate, r.endDate, date);
+      return isTonightsBoarder(r, date);
     });
     
     // Get care logs for tonight
@@ -925,6 +930,10 @@ routes.get("/tonights-boarders", async (c) => {
         petName: r.petName || "Unknown Pet",
         customerId: r.customerId,
         customerName: r.customerName || "Unknown Customer",
+        // Additive fields: pre-arrival stays now appear here, so the client
+        // can badge dogs that are expected tonight but not yet checked in.
+        status: r.status,
+        checkedIn: IN_STAY_STATUSES.has(r.status ?? ''),
         sleepingAreaName: r.sleepingAreaId ? areaNames.get(r.sleepingAreaId) : undefined,
         assignedCarerUserId: r.assignedCarerUserId,
         assignedCarerName: r.assignedCarerUserId ? carerNames.get(r.assignedCarerUserId) : undefined,
