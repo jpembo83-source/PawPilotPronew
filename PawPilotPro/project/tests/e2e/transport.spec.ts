@@ -98,7 +98,19 @@ test.describe('Transport module', () => {
     expect(body).not.toContain('Cannot read');
 
     // Should have transport heading context
-    await expect(page.locator('h1').filter({ hasText: /transport/i }).first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('h2').filter({ hasText: /transport jobs/i }).first()).toBeVisible({ timeout: 8000 });
+
+    // Core controls of the jobs list must be present — proves the page
+    // actually rendered its UI, not just an error boundary with "transport"
+    // in the text.
+    await expect(page.getByPlaceholder(/search by pet/i)).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('button', { name: /new job/i })).toBeVisible();
+    await expect(page.locator('body')).toContainText(/job(s)? found/i, { timeout: 8000 });
+
+    // Opening Filters must reveal the status filter, including the new
+    // 'Failed' option (distinct from 'Cancelled').
+    await page.getByRole('button', { name: /filters/i }).click();
+    await expect(page.locator('option', { hasText: /^Failed$/ })).toHaveCount(1);
   });
 
   // ── 3. Create a transport job via the 4-step dialog ────────────────────────
@@ -203,16 +215,22 @@ test.describe('Transport module', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(3000);
 
-    // The household name or pet name should appear in the job list
-    const body = await page.locator('body').innerText();
-    // Check for household or pet name, or just that the page loaded with job data
-    const hasHousehold = body.includes(HOUSEHOLD_NAME) || body.includes(PET_NAME);
-    const hasJobContent = body.toLowerCase().includes('scheduled') ||
-                          body.toLowerCase().includes('pending') ||
-                          body.toLowerCase().includes('pickup') ||
-                          body.toLowerCase().includes('dropoff');
-    // At minimum, the page should have rendered transport content
-    expect(hasHousehold || hasJobContent).toBeTruthy();
+    // Search for the pet we created the job for and assert its row shows up —
+    // this proves the created job round-tripped through the API into the
+    // list, not merely that the page rendered some transport text.
+    const search = page.getByPlaceholder(/search by pet/i);
+    await expect(search).toBeVisible({ timeout: 8000 });
+    await search.fill(PET_NAME);
+    await page.waitForTimeout(1000);
+
+    await expect(page.locator('body')).toContainText(PET_NAME, { timeout: 10000 });
+    await expect(page.locator('body')).toContainText(HOUSEHOLD_NAME);
+    // The row renders the pickup address we entered in test 3.
+    await expect(page.locator('body')).toContainText(/123 Test Street/i);
+
+    // Clicking the row opens the detail page for this job.
+    await page.locator('text=' + PET_NAME).first().click();
+    await expect(page.locator('h1').filter({ hasText: /transport job details/i })).toBeVisible({ timeout: 10000 });
   });
 
   // ── 5. Vehicle manager loads ──────────────────────────────────────────────
@@ -226,21 +244,44 @@ test.describe('Transport module', () => {
     // Should render a heading or empty state without crashing
     const body = await page.locator('body').innerText();
     expect(body).not.toContain('Cannot read');
-    expect(body.length).toBeGreaterThan(50);
 
-    await expect(page.locator('h1, h2, h3').filter({ hasText: /vehicle|fleet|transport/i }).first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('h2').filter({ hasText: /fleet management/i })).toBeVisible({ timeout: 8000 });
+    // The Add Vehicle affordance must be present (button in header, or in the
+    // empty state) — proves the manager UI mounted, not just a shell.
+    await expect(page.getByRole('button', { name: /add vehicle/i }).first()).toBeVisible({ timeout: 8000 });
+
+    // Opening the dialog shows the vehicle form fields.
+    await page.getByRole('button', { name: /add vehicle/i }).first().click();
+    const dialog = page.locator('[role="dialog"]').first();
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText(/licence plate/i)).toBeVisible();
+    await expect(dialog.getByText(/capacity/i)).toBeVisible();
   });
 
   // ── 6. Driver view loads ──────────────────────────────────────────────────
 
-  test('6. Driver dashboard loads', async ({ page }) => {
+  test('6. Driver dashboard loads and fetches a route', async ({ page }) => {
+    // Regression guard: the desktop driver dashboard used to destructure a
+    // nonexistent `session` from useAuth and gate its fetch on it, so it hung
+    // on "Loading your route..." forever. Assert it resolves to a real state
+    // (route content OR the no-jobs empty state), never the perpetual spinner.
     await page.goto('/transport/driver', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
     const body = await page.locator('body').innerText();
     expect(body).not.toContain('Cannot read');
-    expect(body.length).toBeGreaterThan(50);
+
+    await expect
+      .poll(async () => (await page.locator('body').innerText()).toLowerCase(), { timeout: 15000 })
+      .not.toContain('loading your route');
+
+    // Resolved to either an active route (Start Route / Today's Route) or the
+    // explicit empty state — both are valid, a stuck spinner is not.
+    const resolved = /no active route|today's route|start route|route overview/i.test(
+      await page.locator('body').innerText()
+    );
+    expect(resolved).toBeTruthy();
   });
 
   // ── cleanup ──────────────────────────────────────────────────────────────

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ClipboardText, Moon, ArrowLeft, CheckCircle, XCircle, MagnifyingGlass, CaretDown } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
 import { useOvernightsStore } from '../store';
-import { useSettingsStore } from '../../settings/store';
-import { useDashboardStore } from '../../dashboard/store';
+import { useOvernightLocation } from '../hooks/useOvernightLocation';
+import { LocationPrompt } from '../components/LocationPrompt';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Card } from '../../../components/ui/card';
@@ -15,8 +15,7 @@ import { useBackNavigation } from '../../../components/BackButton';
 export function OvernightCareLogsPage() {
   const navigate = useNavigate();
   const goBack = useBackNavigation('/overnights');
-  const locations = useSettingsStore((s) => s.locations);
-  const { selectedLocationId } = useDashboardStore();
+  const { location: selectedLocation, needsSelection } = useOvernightLocation();
   const {
     tonightsBoarders,
     careLogs,
@@ -33,7 +32,7 @@ export function OvernightCareLogsPage() {
   const [selectedBoarder, setSelectedBoarder] = useState<BoarderSummary | null>(null);
   const [editingLog, setEditingLog] = useState<NightlyCareLog | undefined>(undefined);
 
-  const locationId = selectedLocationId === 'ALL' ? locations[0]?.id : selectedLocationId;
+  const locationId = selectedLocation?.id;
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
@@ -85,13 +84,7 @@ export function OvernightCareLogsPage() {
   };
 
   if (!locationId) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-500">
-        <Moon className="h-16 w-16 text-slate-300 mb-4" />
-        <h2 className="text-lg font-medium text-slate-900">No Location Selected</h2>
-        <p>Please select a location to manage care logs.</p>
-      </div>
-    );
+    return <LocationPrompt needsSelection={needsSelection} action="manage care logs" />;
   }
 
   if (selectedBoarder) {
@@ -139,11 +132,11 @@ export function OvernightCareLogsPage() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
               <ClipboardText className="h-6 w-6 text-orange-600" />
               Care Logs
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Tonight's boarding care records
             </p>
           </div>
@@ -153,12 +146,12 @@ export function OvernightCareLogsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-5">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center">
-              <Moon className="h-5 w-5 text-indigo-600" />
+            <div className="h-10 w-10 rounded-full bg-primary-tint flex items-center justify-center">
+              <Moon className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-slate-900">{totalCount}</p>
-              <p className="text-xs text-slate-500">Total Boarders</p>
+              <p className="text-2xl font-semibold text-foreground">{totalCount}</p>
+              <p className="text-sm text-muted-foreground">Total Boarders</p>
             </div>
           </div>
         </Card>
@@ -168,8 +161,8 @@ export function OvernightCareLogsPage() {
               <CheckCircle className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-slate-900">{completedCount}</p>
-              <p className="text-xs text-slate-500">Logs Completed</p>
+              <p className="text-2xl font-semibold text-foreground">{completedCount}</p>
+              <p className="text-sm text-muted-foreground">Logs Completed</p>
             </div>
           </div>
         </Card>
@@ -179,15 +172,15 @@ export function OvernightCareLogsPage() {
               <XCircle className="h-5 w-5 text-amber-600" />
             </div>
             <div>
-              <p className="text-2xl font-semibold text-slate-900">{totalCount - completedCount}</p>
-              <p className="text-xs text-slate-500">Logs Outstanding</p>
+              <p className="text-2xl font-semibold text-foreground">{totalCount - completedCount}</p>
+              <p className="text-sm text-muted-foreground">Logs Outstanding</p>
             </div>
           </div>
         </Card>
       </div>
 
       {totalCount > 0 && (
-        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+        <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
           <div
             className="bg-emerald-500 h-full rounded-full transition-all"
             style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
@@ -197,7 +190,7 @@ export function OvernightCareLogsPage() {
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
-          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-tertiary-foreground" />
           <Input
             placeholder="Search boarders..."
             value={searchTerm}
@@ -226,8 +219,8 @@ export function OvernightCareLogsPage() {
       )}
 
       {filteredBoarders.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <ClipboardText className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+        <div className="text-center py-12 text-muted-foreground">
+          <ClipboardText className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
           <p>{searchTerm || filterStatus !== 'all' ? 'No boarders match your filters' : 'No boarders staying tonight'}</p>
         </div>
       ) : (
@@ -240,45 +233,45 @@ export function OvernightCareLogsPage() {
             return (
               <div
                 key={boarder.reservationId}
-                className="border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors cursor-pointer"
+                className="border border-border rounded-lg p-4 hover:border-ring/40 transition-colors cursor-pointer"
                 onClick={() => handleOpenCareLog(boarder)}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                    <div className="h-10 w-10 rounded-full bg-primary-tint flex items-center justify-center text-primary font-bold">
                       {boarder.petName.charAt(0)}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-medium text-slate-900">{boarder.petName}</h4>
+                        <h4 className="font-medium text-foreground">{boarder.petName}</h4>
                         {boarder.careLogCompleted ? (
-                          <Badge className="bg-emerald-500 text-xs">
+                          <Badge className="bg-emerald-500 text-sm">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Complete
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
+                          <Badge variant="outline" className="text-sm text-amber-600 border-amber-200">
                             Incomplete
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-slate-500">{boarder.customerName}</p>
+                      <p className="text-sm text-muted-foreground">{boarder.customerName}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {boarder.requiresMedication && (
-                      <Badge variant="outline" className="text-xs text-rose-600 border-rose-200">
+                      <Badge variant="outline" className="text-sm text-rose-600 border-rose-200">
                         Medication
                       </Badge>
                     )}
                     {boarder.hasBehaviourConcerns && (
-                      <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
+                      <Badge variant="outline" className="text-sm text-amber-600 border-amber-200">
                         Behaviour
                       </Badge>
                     )}
                     {boarder.hasAllergies && (
-                      <Badge variant="outline" className="text-xs text-purple-600 border-purple-200">
+                      <Badge variant="outline" className="text-sm text-purple-600 border-purple-200">
                         Allergies
                       </Badge>
                     )}
@@ -289,7 +282,7 @@ export function OvernightCareLogsPage() {
                 </div>
 
                 {existingLog && (
-                  <div className="mt-3 ml-13 flex gap-4 text-xs text-slate-500">
+                  <div className="mt-3 ml-[52px] flex gap-4 text-sm text-muted-foreground">
                     {existingLog.feedingCompleted && (
                       <span className="flex items-center gap-1">
                         <CheckCircle className="h-3 w-3 text-emerald-500" /> Fed
@@ -307,7 +300,7 @@ export function OvernightCareLogsPage() {
                     )}
                     {existingLog.sleepQuality && (
                       <span className="flex items-center gap-1">
-                        <Moon className="h-3 w-3 text-indigo-500" /> Sleep: {existingLog.sleepQuality}
+                        <Moon className="h-3 w-3 text-primary" /> Sleep: {existingLog.sleepQuality}
                       </span>
                     )}
                   </div>

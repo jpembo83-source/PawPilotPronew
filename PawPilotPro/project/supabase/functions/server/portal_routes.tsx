@@ -32,6 +32,7 @@ import {
 // Phase 4 stage 2: every customer:* KV mutation is mirrored to Postgres.
 // Non-fatal, loud-on-failure; KV stays authoritative (no read changes).
 import { dualWriteCustomers, dwSet, dwDel, type CustomerDualWriteOp } from "./lib/customers_dualwrite.ts";
+import { activeMembershipForHousehold } from "./lib/membership_store.ts";
 
 const portal = new Hono();
 
@@ -1342,9 +1343,11 @@ portal.get("/pets/:id/timeline", async (c) => {
   }
 
   // Staff-side bookings live under per-service prefixes. Filter by pet_id.
+  // Overnights store reservations under overnight:{tenant}:reservation:*
+  // (camelCase fields) — there is no overnight:booking:* namespace.
   const STAFF_BOOKING_PREFIXES: Array<[string, string]> = [
     ["daycare:booking:", "daycare"],
-    ["overnight:booking:", "overnight"],
+    [`overnight:${tenantId}:reservation:`, "overnight"],
     ["grooming:booking:", "grooming"],
     ["transport:booking:", "transport"],
   ];
@@ -1358,7 +1361,7 @@ portal.get("/pets/:id/timeline", async (c) => {
         (Array.isArray(b.pet_ids) && b.pet_ids.includes(petId)) ||
         (Array.isArray(b.pets) && b.pets.some((p: any) => p === petId || p?.id === petId));
       if (!matchesPet) continue;
-      const ts = b.start_at || b.booking_date || b.created_at;
+      const ts = b.start_at || b.startDate || b.booking_date || b.created_at || b.createdAt;
       if (!inRange(ts)) continue;
       events.push({
         id: `sb-${service}-${b.id}`,
@@ -2143,6 +2146,32 @@ portal.post("/pets/:id/edit-request", async (c) => {
   ]);
 
   return c.json({ ok: true, id: reqId });
+});
+
+// ----- Current membership -------------------------------------------------
+// The signed-in owner's live plan (lazy-renewed), read-only. Returns
+// { membership: null } when the household has none — the memberships screen
+// shows the marketing tiers either way. Only the owner's own household is
+// ever readable (householdId comes from their verified portal token).
+portal.get("/memberships", async (c) => {
+  const auth = await readPortalUser(c);
+  if ("error" in auth) return c.json({ error: auth.error }, auth.status as 401 | 403);
+  const { tenantId, householdId } = auth;
+
+  const membership = await activeMembershipForHousehold(tenantId, householdId);
+  if (!membership) return c.json({ membership: null });
+
+  return c.json({
+    membership: {
+      plan_id: membership.package_id,
+      plan_name: membership.package_name,
+      package_type: membership.package_type,
+      session_type: membership.session_type ?? null,
+      credits_remaining: membership.credits_remaining ?? null,
+      next_billing_date: membership.next_billing_date ?? null,
+      status: membership.status,
+    },
+  });
 });
 
 // ----- Membership interest ------------------------------------------------

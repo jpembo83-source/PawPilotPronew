@@ -17,6 +17,7 @@ import integrationsSettingsRoutes from "./integrations_settings.ts";
 import systemRoutes from "./system.ts";
 import viewAsRoutes from "./view_as.ts";
 import billingRoutes from "./billing_routes.tsx";
+import membershipsRoutes from "./memberships_routes.ts";
 import policiesRoutes from "./policies_routes.tsx";
 import incidentsRoutes from "./incidents_routes.tsx";
 import daycareRoutes from "./daycare_routes.tsx";
@@ -509,6 +510,9 @@ app.route("/make-server-fc003b23/integrations", integrationsSettingsRoutes);
 app.route("/make-server-fc003b23/system", systemRoutes);
 app.route("/make-server-fc003b23/view-as", viewAsRoutes);
 app.route("/make-server-fc003b23/billing", billingRoutes);
+// Customer membership assignments (/customer-packages) — path shape is fixed
+// by the packages-module client contract, so it mounts at the function root.
+app.route("/make-server-fc003b23", membershipsRoutes);
 app.route("/make-server-fc003b23/policies", policiesRoutes);
 app.route("/make-server-fc003b23/incidents", incidentsRoutes);
 app.route("/make-server-fc003b23/daycare", daycareRoutes);

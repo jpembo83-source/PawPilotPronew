@@ -25,7 +25,7 @@ export function CreateJob() {
   };
   
   return (
-    <div className="h-[calc(100vh-100px)] flex items-center justify-center bg-slate-50">
+    <div className="h-[calc(100vh-100px)] flex items-center justify-center bg-muted">
       <div className="max-w-2xl w-full">
         <div className="mb-6">
           <Button

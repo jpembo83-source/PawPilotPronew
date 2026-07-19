@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3859,
-  "warnings": 414
+  "errors": 3248,
+  "warnings": 408
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -173,7 +173,7 @@
    "warnings": 1
   },
   "src/app/modules/billing/store.ts": {
-   "errors": 34,
+   "errors": 28,
    "warnings": 0
   },
   "src/app/modules/calendar/CalendarPage.tsx": {
@@ -433,8 +433,8 @@
    "warnings": 0
   },
   "src/app/modules/daycare/components/CreateBookingDialog.tsx": {
-   "errors": 74,
-   "warnings": 10
+   "errors": 51,
+   "warnings": 11
   },
   "src/app/modules/daycare/components/LiveOccupancy.tsx": {
    "errors": 1,
@@ -613,8 +613,8 @@
    "warnings": 0
   },
   "src/app/modules/overnights/components/CreateReservationModal.tsx": {
-   "errors": 71,
-   "warnings": 10
+   "errors": 69,
+   "warnings": 13
   },
   "src/app/modules/overnights/components/EventTimeline.tsx": {
    "errors": 4,
@@ -629,7 +629,7 @@
    "warnings": 0
   },
   "src/app/modules/overnights/pages/OvernightCheckIn.tsx": {
-   "errors": 12,
+   "errors": 10,
    "warnings": 2
   },
   "src/app/modules/overnights/pages/OvernightCheckOut.tsx": {
@@ -649,7 +649,7 @@
    "warnings": 2
   },
   "src/app/modules/overnights/store.ts": {
-   "errors": 16,
+   "errors": 15,
    "warnings": 0
   },
   "src/app/modules/overnights/types.ts": {
@@ -692,10 +692,6 @@
    "errors": 43,
    "warnings": 8
   },
-  "src/app/modules/pricing/store.ts": {
-   "errors": 226,
-   "warnings": 1
-  },
   "src/app/modules/reporting/pages/ReportViewerPage.tsx": {
    "errors": 9,
    "warnings": 4
@@ -732,10 +728,6 @@
    "errors": 4,
    "warnings": 2
   },
-  "src/app/modules/services-pricing/pages/tabs/MembershipsTab.tsx": {
-   "errors": 2,
-   "warnings": 0
-  },
   "src/app/modules/services-pricing/pages/tabs/PriceBooksTab.tsx": {
    "errors": 3,
    "warnings": 2
@@ -767,26 +759,6 @@
   "src/app/modules/settings/components/PermissionGuard.tsx": {
    "errors": 13,
    "warnings": 0
-  },
-  "src/app/modules/settings/components/pricing/LocationPricingOverrides.tsx": {
-   "errors": 72,
-   "warnings": 1
-  },
-  "src/app/modules/settings/components/pricing/MembershipsAndPackages.tsx": {
-   "errors": 66,
-   "warnings": 2
-  },
-  "src/app/modules/settings/components/pricing/PriceBooks.tsx": {
-   "errors": 77,
-   "warnings": 2
-  },
-  "src/app/modules/settings/components/pricing/PricingAuditLog.tsx": {
-   "errors": 26,
-   "warnings": 0
-  },
-  "src/app/modules/settings/components/pricing/ServiceCatalogue.tsx": {
-   "errors": 52,
-   "warnings": 1
   },
   "src/app/modules/settings/components/users/TemplateDialog.tsx": {
    "errors": 1,
@@ -827,10 +799,6 @@
   "src/app/modules/settings/pages/ServiceCapacitySettings.tsx": {
    "errors": 20,
    "warnings": 2
-  },
-  "src/app/modules/settings/pages/ServicesAndPricing.tsx": {
-   "errors": 12,
-   "warnings": 0
   },
   "src/app/modules/settings/pages/SettingsOverview.tsx": {
    "errors": 8,
@@ -893,51 +861,47 @@
    "warnings": 1
   },
   "src/app/modules/transport/Transportation.tsx": {
-   "errors": 4,
+   "errors": 3,
    "warnings": 0
   },
   "src/app/modules/transport/components/CreateFromBookingsDialog.tsx": {
-   "errors": 16,
-   "warnings": 1
+   "errors": 15,
+   "warnings": 2
   },
   "src/app/modules/transport/components/CreateTransportJobDialog.tsx": {
-   "errors": 59,
+   "errors": 35,
    "warnings": 3
-  },
-  "src/app/modules/transport/components/CreateTransportRequestModal.tsx": {
-   "errors": 7,
-   "warnings": 2
   },
   "src/app/modules/transport/pages/CreateJob.tsx": {
    "errors": 5,
    "warnings": 0
   },
   "src/app/modules/transport/pages/DriverDashboard.tsx": {
-   "errors": 7,
-   "warnings": 2
+   "errors": 3,
+   "warnings": 0
   },
   "src/app/modules/transport/pages/DriverMobileView.tsx": {
-   "errors": 8,
+   "errors": 7,
    "warnings": 0
   },
   "src/app/modules/transport/pages/JobDetail.tsx": {
-   "errors": 18,
+   "errors": 17,
    "warnings": 0
   },
   "src/app/modules/transport/pages/JobsList.tsx": {
-   "errors": 5,
+   "errors": 3,
    "warnings": 0
   },
   "src/app/modules/transport/pages/RoutePlanner.tsx": {
-   "errors": 30,
+   "errors": 29,
    "warnings": 1
   },
   "src/app/modules/transport/pages/TransportDashboard.tsx": {
-   "errors": 7,
+   "errors": 6,
    "warnings": 0
   },
   "src/app/modules/transport/pages/VehicleManager.tsx": {
-   "errors": 10,
+   "errors": 9,
    "warnings": 1
   },
   "src/app/modules/transport/store.ts": {

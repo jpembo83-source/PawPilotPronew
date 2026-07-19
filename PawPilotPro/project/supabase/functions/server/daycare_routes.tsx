@@ -10,6 +10,16 @@ import { internalError } from './_shared/log.ts';
 import { buildPetUpdate, recordPetUpdate } from './lib/pet_updates.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
 import { signPetPhotoUrl, storedPetPhoto, withSignedPetPhotos } from './lib/pet_photos.ts';
+import { findDuplicateBooking } from './lib/daycare_dedup.ts';
+import {
+  consumeCredits,
+  membershipCoverage,
+  restoreCredits,
+  sessionTypeForServiceId,
+  type CustomerMembership,
+} from './lib/membership_catalog.ts';
+import { activeMembershipForHousehold } from './lib/membership_store.ts';
+import { countBehaviourMedicalAlerts } from './lib/dashboard_alerts.ts';
 
 const app = new Hono();
 
@@ -52,6 +62,9 @@ interface DaycareBooking {
   service_name: string;
   service_type: 'hourly' | 'half_day' | 'full_day' | 'trial_day' | 'membership';
   booking_date: string;
+  /** Set when this booking is one day of a multi-day day-visit range, so the
+   *  days can be listed/managed together. Single bookings leave it unset. */
+  booking_group_id?: string;
   planned_start_time?: string;
   planned_end_time?: string;
   booking_status: BookingStatus;
@@ -80,6 +93,11 @@ interface DaycareBooking {
   tax_rate: number;
   total_price: number;
   currency: string;
+  /** Set when an active membership covered this booking: the covering
+   *  customer_membership id and the credits drawn (0 for unlimited plans).
+   *  Cancellation restores the credits via these fields. */
+  membership_id?: string;
+  membership_credits_used?: number;
   billing_line_item_ids: string[];
   requires_transport: boolean;
   transport_pickup_id?: string;
@@ -888,6 +906,7 @@ app.post('/bookings', async (c) => {
       planned_end_time,
       customer_notes,
       requires_transport,
+      booking_group_id,
     } = body;
     
     // Validation
@@ -926,7 +945,28 @@ app.post('/bookings', async (c) => {
     }
     
     const household = householdRecord;
-    
+
+    // Same-day duplicate guard: this pet can't already have an active booking
+    // at this location/date with an overlapping time window (AM + PM is fine).
+    const allBookingRecords = await kv.getByPrefix('daycare:booking:');
+    const activeBookings = allBookingRecords.filter(
+      (b: any) => b && typeof b === 'object' && b.id && b.pet_name,
+    );
+    const duplicate = findDuplicateBooking(activeBookings, {
+      pet_id,
+      location_id,
+      booking_date,
+      planned_start_time,
+      planned_end_time,
+    });
+    if (duplicate) {
+      return c.json({
+        error: `${pet.name} already has a booking at this location on ${booking_date}.`,
+        code: 'duplicate_booking',
+        existingBookingId: (duplicate as { id?: string }).id,
+      }, 409);
+    }
+
     const capacity = await getCapacity(location_id, booking_date);
     const ragStatus = calculateRAGStatus(capacity.current_bookings, capacity.max_capacity);
     
@@ -978,10 +1018,55 @@ app.post('/bookings', async (c) => {
     
     // Get pricing from Services & Pricing
     const service = await kv.get(`pricing:service:${service_id}`) as any;
-    const base_price_locked = service?.base_price || 99.00;
+    let base_price_locked = service?.base_price || 99.00;
     const tax_rate = service?.tax_rate || 0.077; // Swiss VAT
-    const total_price = base_price_locked * (1 + tax_rate);
-    
+    let total_price = base_price_locked * (1 + tax_rate);
+
+    // Membership billing — client-requested, server-verified. Staff choose
+    // "Membership" vs "PAYG" billing in the dialog (a customer may want to
+    // save credits), and that intent arrives as service_type 'membership'.
+    // The server never trusts the claim: it resolves the household's active
+    // membership from its own tenant-scoped data, checks the plan actually
+    // covers this session (sessionTypeForServiceId + membershipCoverage),
+    // and only then prices the booking at zero and draws a credit (with a
+    // ledger entry). An uncovered claim (no membership, wrong session type,
+    // no credits left — e.g. mid multi-day run) falls back to PAYG at full
+    // price rather than failing; the price on the record is what's owed.
+    const sessionType = sessionTypeForServiceId(service_id);
+    let effective_service_type = service_type;
+    let membership_id: string | undefined;
+    let membership_credits_used: number | undefined;
+    if (service_type === 'membership') {
+      // Not covered after all → the honest service type for the record.
+      effective_service_type = sessionType ?? 'full_day';
+      // Applies any due lazy renewal first (an exhausted membership whose
+      // billing date has passed gets topped up and covers this booking).
+      const activeMembership = await activeMembershipForHousehold(tenantId, household_id);
+      if (activeMembership) {
+        const coverage = membershipCoverage(activeMembership, sessionType);
+        if (coverage.covered && coverage.creditsNeeded > 0) {
+          const drawn = consumeCredits(activeMembership, coverage.creditsNeeded, new Date());
+          if (typeof drawn === 'string') {
+            // Coverage said yes but the draw failed (raced with another
+            // booking) — fall back to PAYG.
+            console.log(`Membership ${activeMembership.id} draw failed (${drawn}); booking priced PAYG`);
+          } else {
+            await kv.set(`customer_membership:${tenantId}:${drawn.id}`, drawn);
+            membership_id = drawn.id;
+            membership_credits_used = coverage.creditsNeeded;
+          }
+        } else if (coverage.covered) {
+          membership_id = activeMembership.id;
+          membership_credits_used = 0;
+        }
+      }
+    }
+    if (membership_id) {
+      base_price_locked = 0;
+      total_price = 0;
+      effective_service_type = 'membership';
+    }
+
     const bookingId = generateId('daybook');
     const now = new Date().toISOString();
     
@@ -998,8 +1083,9 @@ app.post('/bookings', async (c) => {
       location_name,
       service_id,
       service_name,
-      service_type,
+      service_type: effective_service_type,
       booking_date,
+      booking_group_id: typeof booking_group_id === 'string' ? booking_group_id : undefined,
       planned_start_time,
       planned_end_time,
       booking_status: 'confirmed',
@@ -1019,6 +1105,8 @@ app.post('/bookings', async (c) => {
       tax_rate,
       total_price,
       currency: 'CHF',
+      membership_id,
+      membership_credits_used,
       billing_line_item_ids: [],
       requires_transport,
       created_by_id: user.id,
@@ -1029,6 +1117,18 @@ app.post('/bookings', async (c) => {
     
     // Store booking
     await kv.set(`daycare:booking:${bookingId}`, booking);
+    if (membership_id && (membership_credits_used ?? 0) > 0) {
+      const usageId = crypto.randomUUID();
+      await kv.set(`membership_usage:${tenantId}:${membership_id}:${usageId}`, {
+        id: usageId,
+        customer_package_id: membership_id,
+        booking_id: bookingId,
+        pet_id,
+        credits_used: membership_credits_used,
+        created_at: now,
+        created_by: user.id,
+      });
+    }
     await kv.set(`daycare:booking:date:${location_id}:${booking_date}:${bookingId}`, bookingId);
     await kv.set(`daycare:booking:pet:${pet_id}:${bookingId}`, bookingId);
     await kv.set(`daycare:booking:household:${household_id}:${bookingId}`, bookingId);
@@ -1107,9 +1207,35 @@ app.post('/bookings/:id/cancel', async (c) => {
     booking.cancelled_by_name = user.name;
     booking.cancellation_reason = reason;
     booking.updated_at = new Date().toISOString();
-    
+
     await kv.set(`daycare:booking:${bookingId}`, booking);
-    
+
+    // Hand back the membership credit this booking drew. The ledger gets a
+    // compensating entry (negative credits) rather than deleting the original.
+    if (booking.membership_id && (booking.membership_credits_used ?? 0) > 0) {
+      const tenantId = user.tenantId;
+      const membershipKey = `customer_membership:${tenantId}:${booking.membership_id}`;
+      const membership = (await kv.get(membershipKey)) as CustomerMembership | undefined;
+      if (membership) {
+        const restored = restoreCredits(
+          membership,
+          booking.membership_credits_used ?? 0,
+          new Date(),
+        );
+        await kv.set(membershipKey, restored);
+        const usageId = crypto.randomUUID();
+        await kv.set(`membership_usage:${tenantId}:${booking.membership_id}:${usageId}`, {
+          id: usageId,
+          customer_package_id: booking.membership_id,
+          booking_id: bookingId,
+          pet_id: booking.pet_id,
+          credits_used: -(booking.membership_credits_used ?? 0),
+          created_at: new Date().toISOString(),
+          created_by: user.id,
+        });
+      }
+    }
+
     const capacity = await getCapacity(booking.location_id, booking.booking_date);
     capacity.current_bookings = Math.max(0, capacity.current_bookings - 1);
     capacity.available_slots = capacity.max_capacity - capacity.current_bookings;
@@ -1638,7 +1764,33 @@ app.get('/stats', async (c) => {
     
     const now = new Date();
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    
+
+    // Behaviour/medical alerts, recomputed from LIVE data (pet notes + active
+    // operational flags) rather than the snapshot stamped on the booking at
+    // creation — the same sources the check-in screen reads. Without this a dog
+    // booked in with a behaviour_caution flag (or notes added after booking)
+    // never surfaces on the dashboard alert card. Scanned once here, not per
+    // booking, to keep the hot dashboard path to two prefix reads.
+    const livePets = (await kv.getByPrefix(`customer:${user.tenantId}:pet:`)) as
+      | { id?: string; behaviour_notes?: string | null; medical_notes?: string | null }[]
+      | null;
+    const petNotes = new Map<string, { behaviour_notes?: string | null; medical_notes?: string | null }>();
+    for (const p of Array.isArray(livePets) ? livePets : []) {
+      if (p && typeof p.id === 'string') {
+        petNotes.set(p.id, { behaviour_notes: p.behaviour_notes, medical_notes: p.medical_notes });
+      }
+    }
+    const flagsByHousehold = new Map<string, unknown[]>();
+    for (const householdId of new Set(activeBookings.map(b => b.household_id).filter(Boolean))) {
+      const flags = await kv.getByPrefix(`customer:${user.tenantId}:household:${householdId}:flag:`);
+      flagsByHousehold.set(householdId, Array.isArray(flags) ? flags : []);
+    }
+    const { behaviour_flags, medical_flags } = countBehaviourMedicalAlerts(
+      activeBookings,
+      petNotes,
+      flagsByHousehold,
+    );
+
     const serviceBreakdown = {
       full_day: activeBookings.filter(b => b.service_type === 'full_day').length,
       half_day: activeBookings.filter(b => b.service_type === 'half_day').length,
@@ -1673,8 +1825,8 @@ app.get('/stats', async (c) => {
       vaccination_alerts: todayBookings.filter(b => b.vaccination_status === 'expired' || b.vaccination_status === 'expiring_soon').length,
       waiver_alerts: todayBookings.filter(b => b.waiver_status === 'expired' || b.waiver_status === 'expiring_soon').length,
       hold_alerts: todayBookings.filter(b => b.has_booking_hold || b.has_payment_hold).length,
-      behaviour_flags: todayBookings.filter(b => b.has_behaviour_flag).length,
-      medical_flags: todayBookings.filter(b => b.has_medical_flag).length,
+      behaviour_flags,
+      medical_flags,
     };
     
     return c.json(stats);

@@ -11,6 +11,21 @@ import { applyPetPhotoWrite, signPetPhotoUrl, storedPetPhoto, withSignedPetPhoto
 // Phase 4 stage 2: every customer:* KV mutation is mirrored to Postgres.
 // Non-fatal, loud-on-failure; KV stays authoritative (no read changes).
 import { dualWriteCustomers, dwSet, dwDel, type CustomerDualWriteOp } from './lib/customers_dualwrite.ts';
+// Phase 4 stage 3: list/detail/search reads served from Postgres when the
+// read_from_pg:customers flag is ON (KV otherwise), with shadow-read
+// sampling proving response parity either way. Dual-write stays on; flipping
+// the flag off is the rollback. See lib/customers_read_pg.ts for scope.
+import {
+  customersRead,
+  pgGetHouseholdBundle,
+  pgGetPet,
+  pgListContacts,
+  pgListHouseholds,
+  pgListPets,
+  pgLookup,
+  type HouseholdBundle,
+  type LookupResult,
+} from './lib/customers_read_pg.ts';
 
 const app = new Hono();
 
@@ -49,29 +64,40 @@ app.get('/households', async (c) => {
     const limitParam = c.req.query('limit');
     const offsetParam = c.req.query('offset');
 
-    // Fetch the tenant's households plus ALL contacts and pets in bulk
-    // (avoids N+1 lookups; KV returns already-parsed objects).
-    const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`) as HouseholdRecord[];
-    const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`) as ContactRecord[];
-    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`) as PetRecord[];
-
     // Pagination is opt-in so existing consumers that expect the full array
     // (export, grooming search, picker modals) keep working unchanged.
     const paginated = limitParam !== undefined || offsetParam !== undefined;
     const limit = Math.min(Math.max(parseInt(limitParam || '50', 10) || 50, 1), 200);
     const offset = Math.max(parseInt(offsetParam || '0', 10) || 0, 0);
 
-    const { rows, total } = listHouseholds(allHouseholds, allContacts, allPets, {
+    const query = {
       search,
       status,
       vip: vip === 'true',
       payment_hold: payment_hold === 'true',
       location_id,
-      sort: sort === 'primary_contact' ? 'primary_contact' : 'name',
-      dir: dir === 'desc' ? 'desc' : 'asc',
+      sort: sort === 'primary_contact' ? 'primary_contact' as const : 'name' as const,
+      dir: dir === 'desc' ? 'desc' as const : 'asc' as const,
       limit: paginated ? limit : undefined,
       offset: paginated ? offset : undefined,
-    });
+    };
+
+    const { rows, total } = await customersRead<{ rows: unknown[]; total: number }>(
+      'customers.listHouseholds',
+      {
+        // KV path: tenant-wide scans + in-memory filter/sort/page (unchanged).
+        kv: async () => {
+          // Fetch the tenant's households plus ALL contacts and pets in bulk
+          // (avoids N+1 lookups; KV returns already-parsed objects).
+          const allHouseholds = await kv.getByPrefix(`customer:${tenantId}:household:`) as HouseholdRecord[];
+          const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`) as ContactRecord[];
+          const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`) as PetRecord[];
+          return listHouseholds(allHouseholds, allContacts, allPets, query);
+        },
+        // PG path: indexed WHERE/ORDER BY/LIMIT + JOINed names (one RPC).
+        pg: () => pgListHouseholds(tenantId, query),
+      },
+    );
 
     if (paginated) {
       // Same envelope shape as the messaging threads list.
@@ -115,53 +141,58 @@ app.get('/lookup', async (c) => {
     const phone = normalisePhone(c.req.query('phone') ?? '');
     const name = (c.req.query('name') ?? '').trim().toLowerCase();
 
-    const result: {
-      contacts: any[];
-      households: Array<{ id: string; name: string }>;
-    } = { contacts: [], households: [] };
-
     if (!email && !phone && !name) {
-      return c.json(result);
+      return c.json({ contacts: [], households: [] });
     }
 
-    const households = await kv.getByPrefix(`customer:${tenantId}:household:`);
-    const householdNameById = new Map<string, string>(
-      households.map((h: any) => [h.id, h.name ?? 'Unnamed Household'])
-    );
+    const result = await customersRead<LookupResult>('customers.lookup', {
+      // KV path: tenant-wide household + contact scans (unchanged).
+      kv: async () => {
+        const out: LookupResult = { contacts: [], households: [] };
+        const households = await kv.getByPrefix(`customer:${tenantId}:household:`);
+        const householdNameById = new Map<string, string>(
+          households.map((h: Record<string, unknown>) => [String(h.id), (h.name as string) ?? 'Unnamed Household'])
+        );
 
-    if (email || phone) {
-      const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`);
-      for (const contact of allContacts as any[]) {
-        if (result.contacts.length >= LOOKUP_MAX_MATCHES) break;
+        if (email || phone) {
+          const allContacts = await kv.getByPrefix(`customer:${tenantId}:contact:`);
+          for (const contact of allContacts as Record<string, unknown>[]) {
+            if (out.contacts.length >= LOOKUP_MAX_MATCHES) break;
 
-        const matched: Array<'email' | 'phone'> = [];
-        if (email && contact.email && normaliseEmail(String(contact.email)) === email) {
-          matched.push('email');
+            const matched: Array<'email' | 'phone'> = [];
+            if (email && contact.email && normaliseEmail(String(contact.email)) === email) {
+              matched.push('email');
+            }
+            if (phone && contact.phone && phonesMatch(normalisePhone(String(contact.phone)), phone)) {
+              matched.push('phone');
+            }
+            if (matched.length === 0) continue;
+
+            out.contacts.push({
+              id: contact.id,
+              first_name: contact.first_name,
+              last_name: contact.last_name,
+              email: contact.email,
+              phone: contact.phone,
+              household_id: contact.household_id,
+              household_name: householdNameById.get(String(contact.household_id)) ?? 'Unnamed Household',
+              matched,
+            });
+          }
         }
-        if (phone && contact.phone && phonesMatch(normalisePhone(String(contact.phone)), phone)) {
-          matched.push('phone');
+
+        if (name) {
+          out.households = (households as Record<string, unknown>[])
+            .filter((h) => typeof h.name === 'string' && h.name.toLowerCase().includes(name))
+            .slice(0, LOOKUP_MAX_MATCHES)
+            .map((h) => ({ id: String(h.id), name: String(h.name) }));
         }
-        if (matched.length === 0) continue;
 
-        result.contacts.push({
-          id: contact.id,
-          first_name: contact.first_name,
-          last_name: contact.last_name,
-          email: contact.email,
-          phone: contact.phone,
-          household_id: contact.household_id,
-          household_name: householdNameById.get(contact.household_id) ?? 'Unnamed Household',
-          matched,
-        });
-      }
-    }
-
-    if (name) {
-      result.households = (households as any[])
-        .filter((h) => h.name?.toLowerCase().includes(name))
-        .slice(0, LOOKUP_MAX_MATCHES)
-        .map((h) => ({ id: h.id, name: h.name }));
-    }
+        return out;
+      },
+      // PG path: indexed lookup RPC (service-role only).
+      pg: () => pgLookup(tenantId, { email, phone, name }),
+    });
 
     return c.json(result);
   } catch (error: any) {
@@ -176,28 +207,33 @@ app.get('/households/:id', async (c) => {
     const tenantId = user.tenantId;
     const householdId = c.req.param('id');
     
-    const household = await kv.get(`customer:${tenantId}:household:${householdId}`);
-    
-    if (!household) {
+    const bundle = await customersRead<HouseholdBundle | null>('customers.getHousehold', {
+      // KV path: point read + 3 prefix scans (unchanged).
+      kv: async () => {
+        const household = await kv.get(`customer:${tenantId}:household:${householdId}`);
+        if (!household) return null;
+        // KV store returns already-parsed objects, not JSON strings
+        const contacts = await kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`);
+        const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`);
+        const documents = await kv.getByPrefix(`customer:${tenantId}:document:${householdId}:`);
+        return { household, contacts, pets, documents };
+      },
+      // PG path: PK + household_id-indexed selects.
+      pg: () => pgGetHouseholdBundle(tenantId, householdId),
+    });
+
+    if (!bundle) {
       return c.json({ error: 'Household not found' }, 404);
     }
-    
-    // KV store returns already-parsed objects, not JSON strings
-    const householdData = household;
-    
-    // Get related data
-    const contacts = await kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`);
-    const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`);
-    const documents = await kv.getByPrefix(`customer:${tenantId}:document:${householdId}:`);
-    
-    // KV store returns already-parsed objects, not JSON strings.
+
     // Pet photos live in a private bucket — photo_url is minted (signed)
-    // per response, the stored value is a storage path.
+    // per response (AFTER path selection, so shadow diffs never see tokens);
+    // the stored value is a storage path.
     return c.json({
-      ...householdData,
-      contacts: contacts,
-      pets: await withSignedPetPhotos(pets as Record<string, unknown>[]),
-      documents: documents,
+      ...bundle.household,
+      contacts: bundle.contacts,
+      pets: await withSignedPetPhotos(bundle.pets as Record<string, unknown>[]),
+      documents: bundle.documents,
     });
   } catch (error: any) {
     return internalError(c, 'customers.getHousehold', error);
@@ -436,10 +472,13 @@ app.get('/households/:household_id/contacts', async (c) => {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
-    
-    const contacts = await kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`);
-    
-    // KV store returns already-parsed objects, not JSON strings
+
+    const contacts = await customersRead<unknown[]>('customers.listContacts', {
+      // KV store returns already-parsed objects, not JSON strings
+      kv: () => kv.getByPrefix(`customer:${tenantId}:contact:${householdId}:`),
+      pg: () => pgListContacts(tenantId, householdId),
+    });
+
     return c.json(contacts);
   } catch (error: any) {
     return internalError(c, 'customers.listContacts', error);
@@ -648,11 +687,15 @@ app.get('/households/:household_id/pets', async (c) => {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
     const householdId = c.req.param('household_id');
-    
-    const pets = await kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`);
 
-    // photo_url is signed at response time (private bucket).
-    return c.json(await withSignedPetPhotos(pets as Record<string, unknown>[]));
+    const pets = await customersRead<Record<string, unknown>[]>('customers.listPets', {
+      kv: () => kv.getByPrefix(`customer:${tenantId}:pet:${householdId}:`) as Promise<Record<string, unknown>[]>,
+      pg: () => pgListPets(tenantId, householdId),
+    });
+
+    // photo_url is signed at response time (private bucket), after path
+    // selection so shadow diffs never see signed-URL tokens.
+    return c.json(await withSignedPetPhotos(pets));
   } catch (error: any) {
     return internalError(c, 'customers.listPets', error);
   }
@@ -664,18 +707,23 @@ app.get('/pets/:id', async (c) => {
     const user = c.get('user') as AuthenticatedUser;
     const tenantId = user.tenantId;
     const petId = c.req.param('id');
-    
-    // Find the pet
-    const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
-    const existingPet = allPets.find((p: any) => {
-      return p.id === petId;
+
+    const pet = await customersRead<Record<string, unknown> | null>('customers.getPet', {
+      // KV path: tenant-wide pet scan to find one id (unchanged).
+      kv: async () => {
+        const allPets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
+        const existingPet = (allPets as Record<string, unknown>[]).find((p) => p.id === petId);
+        return existingPet ?? null;
+      },
+      // PG path: primary-key lookup.
+      pg: () => pgGetPet(tenantId, petId),
     });
-    
-    if (!existingPet) {
+
+    if (!pet) {
       return c.json({ error: 'Pet not found' }, 404);
     }
 
-    const [wire] = await withSignedPetPhotos([existingPet as Record<string, unknown>]);
+    const [wire] = await withSignedPetPhotos([pet]);
     return c.json(wire);
   } catch (error: any) {
     return internalError(c, 'customers.getPet', error);

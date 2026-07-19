@@ -11,12 +11,33 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Badge } from '../../../components/ui/badge';
-import { MagnifyingGlass, Dog, Calendar, Warning, CaretLeft, Medal, CreditCard, MapPin } from '@phosphor-icons/react';
+import { MagnifyingGlass, Dog, Calendar, Warning, CaretLeft, Medal, CreditCard, MapPin, Moon, CalendarBlank } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { useConnectivity } from '../../../hooks/useConnectivity';
 import { MEMBERSHIP_PLANS } from '../../packages/membership-plans';
+import type { CustomerPackage } from '../../packages/types';
+import { CreateReservationModal, type ReservationPrefill } from '../../overnights/components/CreateReservationModal';
+import { expandDateRange, WEEKDAYS_MON_FRI, type Weekday } from '../lib/multiDayBooking';
+
+type BookingLength = 'single' | 'multi';
+type StayType = 'day_visits' | 'overnight';
+
+/** Weekday toggle order shown in the multi-day picker (Mon-first). */
+const WEEKDAY_CHIPS: { day: Weekday; label: string }[] = [
+  { day: 1, label: 'M' }, { day: 2, label: 'T' }, { day: 3, label: 'W' },
+  { day: 4, label: 'T' }, { day: 5, label: 'F' }, { day: 6, label: 'S' }, { day: 0, label: 'S' },
+];
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
+
+/** Skip the household search. With a specific `pet` (e.g. "Book" from a pet
+ *  profile) it opens on the details step; with only a `household` (e.g. "Book
+ *  Daycare" from a household with several dogs) it opens on pet-select so the
+ *  operator picks the dog first. */
+export interface BookingPrefill {
+  household: { household_id: string; household_name?: string; pets?: any[] };
+  pet?: { id: string; name: string; [k: string]: any };
+}
 
 interface CreateBookingDialogProps {
   open: boolean;
@@ -24,6 +45,8 @@ interface CreateBookingDialogProps {
   onSuccess: () => void;
   /** Prefill the booking date (e.g. opened from a capacity planner day). */
   initialDate?: string;
+  /** Pet/household to book for, skipping the search step. */
+  prefill?: BookingPrefill | null;
 }
 
 type ServiceType = 'full_day' | 'half_day_am' | 'half_day_pm';
@@ -44,11 +67,12 @@ interface HouseholdMembership {
   isHalfDay: boolean;
 }
 
-export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate }: CreateBookingDialogProps) {
+export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate, prefill }: CreateBookingDialogProps) {
   const { selectedLocationId } = useDashboardStore();
-  const { locations } = useSettingsStore();
+  const { locations, globalEnabledModules } = useSettingsStore();
   const { searchCustomers, createBooking, isLoading } = useDaycareStore();
   const isOnline = useConnectivity();
+  const overnightsEnabled = (globalEnabledModules ?? []).includes('overnights');
 
   const [step, setStep] = useState<'search' | 'select-pet' | 'details'>('search');
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +89,21 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
   const [searching, setSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Multi-day
+  const [bookingLength, setBookingLength] = useState<BookingLength>('single');
+  const [endDate, setEndDate] = useState('');
+  const [stayType, setStayType] = useState<StayType>('day_visits');
+  const [weekdays, setWeekdays] = useState<Set<Weekday>>(new Set(WEEKDAYS_MON_FRI));
+  const [creatingMulti, setCreatingMulti] = useState(false);
+  const [overnightHandoff, setOvernightHandoff] = useState<ReservationPrefill | null>(null);
+
+  const isOvernight = bookingLength === 'multi' && stayType === 'overnight';
+  // Concrete day-visit dates for the current range/weekday selection.
+  const dayVisitDates =
+    bookingLength === 'multi' && stayType === 'day_visits'
+      ? expandDateRange(bookingDate, endDate, weekdays)
+      : [bookingDate];
+
   useEffect(() => {
     if (!open) {
       setStep('search');
@@ -78,6 +117,12 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
       setHouseholdMembership(null);
       setNotes('');
       setLocalLocationId(selectedLocationId === 'ALL' ? '' : selectedLocationId);
+      setBookingLength('single');
+      setEndDate('');
+      setStayType('day_visits');
+      setWeekdays(new Set(WEEKDAYS_MON_FRI));
+      setCreatingMulti(false);
+      setOvernightHandoff(null);
     }
   }, [open]);
 
@@ -86,6 +131,26 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
   useEffect(() => {
     if (open && initialDate) setBookingDate(initialDate);
   }, [open, initialDate]);
+
+  // Prefilled open — skip the household search. A specific pet lands on
+  // details; a household with several dogs lands on pet-select so the operator
+  // picks first; a household with exactly one dog skips straight to details.
+  useEffect(() => {
+    if (!open || !prefill?.household) return;
+    setSelectedHousehold(prefill.household);
+    if (prefill.pet) {
+      setSelectedPet(prefill.pet);
+      setStep('details');
+    } else {
+      const pets = prefill.household.pets ?? [];
+      if (pets.length === 1) {
+        setSelectedPet(pets[0]);
+        setStep('details');
+      } else {
+        setStep('select-pet');
+      }
+    }
+  }, [open, prefill]);
 
   // Keep localLocationId in sync when dialog opens with a specific location already selected
   useEffect(() => {
@@ -129,18 +194,21 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
         );
         if (!res.ok) return;
 
-        const data = await res.json();
-        const active = (data.packages || []).find((p: any) => p.status === 'active');
+        const data = (await res.json()) as { packages?: CustomerPackage[] };
+        const active = (data.packages || []).find(p => p.status === 'active');
         if (!active) return;
 
         const plan = MEMBERSHIP_PLANS.find(p => p.id === active.package_id || p.name === active.package_name);
+        // Prefer the server's session_type snapshot (set at assignment);
+        // catalogue lookup only covers records from before the snapshot.
+        const sessionType = active.session_type ?? plan?.sessionType;
         setHouseholdMembership({
           customerPackageId: active.id,
           planId: active.package_id || active.id,
           planName: active.package_name,
           creditsRemaining: active.credits_remaining,
           creditsTotal: active.credits_total,
-          isHalfDay: plan?.sessionType === 'half_day' ?? false,
+          isHalfDay: sessionType === 'half_day',
         });
         setBillingType('membership');
       } catch { /* silent — default to PAYG */ }
@@ -165,6 +233,46 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
     setStep('details');
   };
 
+  // Shared service/time resolution — identical for single and each day of a
+  // multi-day range so a range bills exactly like N single bookings.
+  const resolveServiceFields = () => {
+    if (billingType === 'membership' && householdMembership) {
+      return {
+        serviceId: householdMembership.isHalfDay ? 'service-daycare-half-am' : 'service-daycare-full',
+        serviceName: householdMembership.isHalfDay ? 'Daycare — Membership (Half Day)' : 'Daycare — Membership (Full Day)',
+        finalServiceType: 'membership',
+        startTime: '07:00',
+        endTime: householdMembership.isHalfDay ? '13:00' : '18:00',
+      };
+    }
+    const svc = SERVICE_OPTIONS[serviceType];
+    return {
+      serviceId: svc.serviceId,
+      serviceName: svc.serviceName,
+      finalServiceType: serviceType,
+      startTime: svc.start,
+      endTime: svc.end,
+    };
+  };
+
+  const baseBookingPayload = () => {
+    const svc = resolveServiceFields();
+    const hh = selectedHousehold as { household_id: string };
+    const petSel = selectedPet as { id: string };
+    return {
+      household_id: hh.household_id,
+      pet_id: petSel.id,
+      location_id: localLocationId,
+      location_name: locations.find(l => l.id === localLocationId)?.name || 'Unknown Location',
+      service_id: svc.serviceId,
+      service_name: svc.serviceName,
+      service_type: svc.finalServiceType as any,
+      planned_start_time: svc.startTime,
+      planned_end_time: svc.endTime,
+      customer_notes: notes,
+    };
+  };
+
   const handleCreateBooking = async () => {
     if (!selectedHousehold || !selectedPet) {
       toast.error('Please select a household and pet');
@@ -175,42 +283,8 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
       return;
     }
 
-    let serviceId: string;
-    let serviceName: string;
-    let finalServiceType: string;
-    let startTime: string;
-    let endTime: string;
-
-    if (billingType === 'membership' && householdMembership) {
-      serviceId = householdMembership.isHalfDay ? 'service-daycare-half-am' : 'service-daycare-full';
-      serviceName = householdMembership.isHalfDay ? 'Daycare — Membership (Half Day)' : 'Daycare — Membership (Full Day)';
-      finalServiceType = 'membership';
-      startTime = '07:00';
-      endTime = householdMembership.isHalfDay ? '13:00' : '18:00';
-    } else {
-      const svc = SERVICE_OPTIONS[serviceType];
-      serviceId = svc.serviceId;
-      serviceName = svc.serviceName;
-      finalServiceType = serviceType;
-      startTime = svc.start;
-      endTime = svc.end;
-    }
-
     try {
-      await createBooking({
-        household_id: selectedHousehold.household_id,
-        pet_id: selectedPet.id,
-        location_id: localLocationId,
-        location_name: locations.find(l => l.id === localLocationId)?.name || 'Unknown Location',
-        service_id: serviceId,
-        service_name: serviceName,
-        service_type: finalServiceType as any,
-        booking_date: bookingDate,
-        planned_start_time: startTime,
-        planned_end_time: endTime,
-        customer_notes: notes,
-      });
-
+      await createBooking({ ...baseBookingPayload(), booking_date: bookingDate });
       toast.success(`Booking created for ${selectedPet.name}`);
       onSuccess();
     } catch (error: any) {
@@ -218,8 +292,101 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
     }
   };
 
+  // Multi-day day-visits: create one daycare booking per selected date, all
+  // sharing a group id. Each hits the server's per-day capacity check, so a
+  // full day is skipped (not fatal) and reported in the summary.
+  const handleCreateDayVisits = async () => {
+    if (!selectedHousehold || !selectedPet) {
+      toast.error('Please select a household and pet');
+      return;
+    }
+    if (!localLocationId) {
+      toast.error('Please select a location');
+      return;
+    }
+    if (dayVisitDates.length === 0) {
+      toast.error('Pick an end date and at least one weekday');
+      return;
+    }
+
+    const groupId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `grp-${Date.now()}`;
+    const payload = baseBookingPayload();
+    let created = 0;
+    const skipped: string[] = [];
+
+    const petName = (selectedPet as { name: string }).name;
+    setCreatingMulti(true);
+    try {
+      for (const date of dayVisitDates) {
+        try {
+          await createBooking({ ...payload, booking_date: date, booking_group_id: groupId });
+          created += 1;
+        } catch (error) {
+          skipped.push(`${date}: ${error instanceof Error ? error.message : 'failed'}`);
+        }
+      }
+    } finally {
+      setCreatingMulti(false);
+    }
+
+    if (created > 0 && skipped.length === 0) {
+      toast.success(`Created ${created} bookings for ${petName}`);
+      onSuccess();
+    } else if (created > 0) {
+      toast.warning(`Created ${created} of ${dayVisitDates.length}. Skipped ${skipped.length} (${skipped[0]})`);
+      onSuccess();
+    } else {
+      toast.error(`No bookings created. ${skipped[0] ?? ''}`);
+    }
+  };
+
+  // Overnight boarding: hand household/pet/dates to the overnights module,
+  // which owns per-night pricing, sleeping-area capacity and the review step.
+  const handleOvernightHandoff = () => {
+    if (!selectedHousehold || !selectedPet) {
+      toast.error('Please select a household and pet');
+      return;
+    }
+    if (!endDate || endDate <= bookingDate) {
+      toast.error('An overnight stay needs an end date after the start date');
+      return;
+    }
+    setOvernightHandoff({
+      household: selectedHousehold,
+      pet: selectedPet,
+      startDate: bookingDate,
+      endDate,
+    });
+  };
+
+  const handlePrimaryAction = () => {
+    if (bookingLength === 'single') { void handleCreateBooking(); return; }
+    if (isOvernight) { handleOvernightHandoff(); return; }
+    void handleCreateDayVisits();
+  };
+
+  // Default the end date to the start when the operator first switches to a
+  // multi-day booking, so the range is always valid to begin with.
+  const handleBookingLengthChange = (next: BookingLength) => {
+    setBookingLength(next);
+    if (next === 'multi' && !endDate) setEndDate(bookingDate);
+  };
+
+  const toggleWeekday = (day: Weekday) => {
+    setWeekdays(prev => {
+      const nextSet = new Set(prev);
+      if (nextSet.has(day)) nextSet.delete(day);
+      else nextSet.add(day);
+      return nextSet;
+    });
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+    <Dialog open={open && !overnightHandoff} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
@@ -351,7 +518,9 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
               </div>
             </div>
 
-            {/* Billing type toggle */}
+            {/* Billing type toggle — overnight billing is handled by the
+                boarding flow, so it's hidden here for overnight stays. */}
+            {!isOvernight && (
             <div>
               <Label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wide">Billing</Label>
               {checkingMembership ? (
@@ -408,6 +577,7 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
                 </div>
               )}
             </div>
+            )}
 
             {/* Location — only shown when "All Locations" is selected in the sidebar */}
             {selectedLocationId === 'ALL' && (
@@ -429,21 +599,145 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
               </div>
             )}
 
-            {/* Date */}
+            {/* Booking length: single day vs a multi-day range */}
             <div>
-              <Label htmlFor="booking-date" className="flex items-center gap-1.5 mb-1.5">
-                <Calendar size={14} /> Date
-              </Label>
-              <Input
-                id="booking-date"
-                type="date"
-                value={bookingDate}
-                onChange={(e) => setBookingDate(e.target.value)}
-              />
+              <Label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wide">Booking length</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleBookingLengthChange('single')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                    bookingLength === 'single'
+                      ? 'border-primary bg-primary-tint text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <Calendar size={14} /> Single day
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBookingLengthChange('multi')}
+                  className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
+                    bookingLength === 'multi'
+                      ? 'border-primary bg-primary-tint text-primary'
+                      : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <CalendarBlank size={14} /> Multiple days
+                </button>
+              </div>
             </div>
 
+            {/* Stay type — only when a range is chosen AND overnights is enabled */}
+            {bookingLength === 'multi' && overnightsEnabled && (
+              <div>
+                <Label className="mb-1.5 block text-xs font-semibold text-slate-500 uppercase tracking-wide">Stay type</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStayType('day_visits')}
+                    className={`p-3 rounded-xl border text-left transition-colors ${
+                      stayType === 'day_visits'
+                        ? 'border-primary bg-primary-tint'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Dog size={13} className={stayType === 'day_visits' ? 'text-primary' : 'text-slate-400'} />
+                      <span className={`text-xs font-semibold ${stayType === 'day_visits' ? 'text-primary' : 'text-slate-600'}`}>Day visits</span>
+                    </div>
+                    <p className="text-xs text-slate-500">Home each night</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStayType('overnight')}
+                    className={`p-3 rounded-xl border text-left transition-colors ${
+                      stayType === 'overnight'
+                        ? 'border-primary bg-primary-tint'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Moon size={13} className={stayType === 'overnight' ? 'text-primary' : 'text-slate-400'} />
+                      <span className={`text-xs font-semibold ${stayType === 'overnight' ? 'text-primary' : 'text-slate-600'}`}>Overnight boarding</span>
+                    </div>
+                    <p className="text-xs text-slate-500">Stays overnight</p>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Date(s) */}
+            <div className={bookingLength === 'multi' ? 'grid grid-cols-2 gap-2' : ''}>
+              <div>
+                <Label htmlFor="booking-date" className="flex items-center gap-1.5 mb-1.5">
+                  <Calendar size={14} /> {bookingLength === 'multi' ? (isOvernight ? 'Check-in' : 'Start date') : 'Date'}
+                </Label>
+                <Input
+                  id="booking-date"
+                  type="date"
+                  value={bookingDate}
+                  onChange={(e) => setBookingDate(e.target.value)}
+                />
+              </div>
+              {bookingLength === 'multi' && (
+                <div>
+                  <Label htmlFor="booking-end-date" className="flex items-center gap-1.5 mb-1.5">
+                    <Calendar size={14} /> {isOvernight ? 'Check-out' : 'End date'}
+                  </Label>
+                  <Input
+                    id="booking-end-date"
+                    type="date"
+                    min={bookingDate}
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Weekday picker — day visits only (overnight is continuous) */}
+            {bookingLength === 'multi' && !isOvernight && (
+              <div>
+                <Label className="mb-1.5 block">Days of the week</Label>
+                <div className="flex gap-1.5">
+                  {WEEKDAY_CHIPS.map(({ day, label }, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => toggleWeekday(day)}
+                      aria-pressed={weekdays.has(day)}
+                      aria-label={['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][day]}
+                      className={`h-9 w-9 rounded-full border text-sm font-medium transition-colors ${
+                        weekdays.has(day)
+                          ? 'border-primary bg-primary-tint text-primary'
+                          : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-slate-500 mt-1.5">
+                  {dayVisitDates.length > 0
+                    ? `${dayVisitDates.length} booking${dayVisitDates.length !== 1 ? 's' : ''} will be created.`
+                    : 'No days match — pick an end date and at least one weekday.'}
+                </p>
+              </div>
+            )}
+
+            {/* Overnight handoff note */}
+            {isOvernight && (
+              <div className="flex items-center gap-2 p-3 bg-primary-tint rounded-lg">
+                <Moon size={15} className="text-primary flex-shrink-0" />
+                <p className="text-sm text-slate-700">
+                  Continue to boarding details for per-night pricing and sleeping-area capacity.
+                </p>
+              </div>
+            )}
+
             {/* Service type — only shown for PAYG or if no membership */}
-            {billingType === 'payg' && (
+            {!isOvernight && billingType === 'payg' && (
               <div>
                 <Label className="mb-1.5 block">Session</Label>
                 <div className="grid grid-cols-3 gap-2">
@@ -466,11 +760,13 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
             )}
 
             {/* Membership session info — shown when using membership */}
-            {billingType === 'membership' && householdMembership && (
+            {!isOvernight && billingType === 'membership' && householdMembership && (
               <div className="flex items-center gap-2 p-3 bg-primary-tint rounded-lg">
                 <Medal size={15} className="text-primary flex-shrink-0" />
                 <p className="text-xs text-slate-700">
-                  1 {householdMembership.isHalfDay ? 'half' : 'full'} day will be deducted from{' '}
+                  {dayVisitDates.length > 1
+                    ? `${dayVisitDates.length} ${householdMembership.isHalfDay ? 'half' : 'full'} days will be deducted from `
+                    : `1 ${householdMembership.isHalfDay ? 'half' : 'full'} day will be deducted from `}
                   <strong>{householdMembership.planName}</strong>
                   {householdMembership.creditsRemaining !== undefined && (
                     <> ({householdMembership.creditsRemaining} remaining)</>
@@ -505,16 +801,47 @@ export function CreateBookingDialog({ open, onOpenChange, onSuccess, initialDate
           </Button>
           {step === 'details' && (
             <Button
-              onClick={handleCreateBooking}
-              disabled={isLoading || !localLocationId || !isOnline}
+              onClick={handlePrimaryAction}
+              disabled={
+                isLoading || creatingMulti || !localLocationId || !isOnline ||
+                (bookingLength === 'multi' && !isOvernight && dayVisitDates.length === 0) ||
+                (isOvernight && (!endDate || endDate <= bookingDate))
+              }
               style={{ backgroundColor: 'var(--primary)' }}
               className="text-white hover:opacity-90 disabled:opacity-50"
             >
-              {isLoading ? 'Creating…' : 'Create Booking'}
+              {isLoading || creatingMulti
+                ? 'Creating…'
+                : isOvernight
+                ? 'Continue to boarding'
+                : bookingLength === 'multi'
+                ? `Create ${dayVisitDates.length} Booking${dayVisitDates.length !== 1 ? 's' : ''}`
+                : 'Create Booking'}
             </Button>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Overnight boarding branch — reuses the overnights module's full flow
+        (per-night pricing, sleeping-area capacity, review) with the pet and
+        dates prefilled from here. */}
+    {overnightsEnabled && (
+      <CreateReservationModal
+        open={!!overnightHandoff}
+        prefill={overnightHandoff}
+        onOpenChange={(o) => {
+          if (!o) {
+            setOvernightHandoff(null);
+            onOpenChange(false);
+          }
+        }}
+        onSuccess={() => {
+          setOvernightHandoff(null);
+          onSuccess();
+        }}
+      />
+    )}
+    </>
   );
 }

@@ -84,7 +84,6 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
   
   fetchJobs: async (filters = {}) => {
     set({ isLoading: true, error: null });
-    console.log('[Transport Store] fetchJobs called with filters:', filters);
     try {
       const params = new URLSearchParams();
       if (filters.location_id) params.append('location_id', filters.location_id);
@@ -94,7 +93,6 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       
       const headers = await getAuthHeaders();
       const url = `${API_URL}/transport/jobs?${params}`;
-      console.log('[Transport Store] Fetching from URL:', url);
       const response = await fetch(url, {
         headers
       });
@@ -105,7 +103,6 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       }
       
       const data = (await response.json()) as { jobs?: TransportJobWithDetails[] };
-      console.log('[Transport Store] Received jobs:', data.jobs);
       set({ jobs: data.jobs || [], isLoading: false });
     } catch (error) {
       console.error('Error fetching transport jobs:', error);
@@ -263,20 +260,17 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
   // Fetch active driver count for a location
   fetchActiveDrivers: async (locationId) => {
     set({ isLoading: true, error: null });
-    console.log('[Transport Store] fetchActiveDrivers called with location:', locationId);
     try {
       const params = new URLSearchParams();
       if (locationId) params.append('location_id', locationId);
       
       const headers = await getAuthHeaders();
       const url = `${API_URL}/transport/active-drivers?${params}`;
-      console.log('[Transport Store] Fetching active drivers from:', url);
       
       const response = await fetch(url, {
         headers
       });
       
-      console.log('[Transport Store] Active drivers response status:', response.status);
       
       if (!response.ok) {
         const errorData = (await response.json().catch(() => ({ error: 'Failed to fetch active drivers' }))) as ApiErrorBody;
@@ -285,7 +279,6 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       }
       
       const data = (await response.json()) as ActiveDriversResponse;
-      console.log('[Transport Store] Active drivers data:', data);
       
       set({ 
         activeDrivers: data.drivers || [], 
@@ -362,10 +355,8 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
   updateVehicle: async (vehicleId, updates) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('[Transport Store] updateVehicle called with:', { vehicleId, updates });
       const headers = await getAuthHeaders();
       const url = `${API_URL}/transport/vehicles/${vehicleId}`;
-      console.log('[Transport Store] Updating vehicle at URL:', url);
       const response = await fetch(url, {
         method: 'PATCH',
         headers,
@@ -385,7 +376,6 @@ export const useTransportStore = create<TransportState>()((set, get) => ({
       }
       
       const result = (await response.json()) as { vehicle: Vehicle };
-      console.log('[Transport Store] Vehicle updated successfully:', result);
       
       // Update local state
       set(state => ({

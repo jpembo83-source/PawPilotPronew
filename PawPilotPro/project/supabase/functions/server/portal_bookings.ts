@@ -14,6 +14,9 @@ import { bookingReceivedEmail } from "./lib/email_templates/booking_received.ts"
 import { bookingConfirmedEmail } from "./lib/email_templates/booking_confirmed.ts";
 import { bookingDeclinedEmail } from "./lib/email_templates/booking_declined.ts";
 import { storedPetPhoto } from "./lib/pet_photos.ts";
+import { nightlyRateFor, recordOvernightEvent } from "./lib/overnights_shared.ts";
+import { getPlanById } from "./lib/membership_catalog.ts";
+import { activeMembershipForHousehold } from "./lib/membership_store.ts";
 
 const PORTAL_BASE_URL = Deno.env.get("PORTAL_BASE_URL") ?? "http://localhost:5175";
 
@@ -603,6 +606,15 @@ bookings.post("/portal/quote", async (c) => {
   const STAFF_CONFIRMS_CAVEAT = "Estimate · staff confirms the final price.";
   const CURRENCY_CAVEAT = "Currency may vary by location.";
 
+  // The owner's live membership (lazy-renewed): lets the quote say what the
+  // plan actually covers instead of the generic "if you have a membership"
+  // hedge. Coverage is still applied by the staff booking path — the quote
+  // remains an estimate and never zeroes a line itself.
+  const membership = await activeMembershipForHousehold(auth.tenantId, auth.householdId);
+  const membershipSession =
+    membership?.session_type ?? (membership && getPlanById(membership.package_id)?.sessionType);
+  let membershipMatchedUnits = 0;
+
   let usedTaxFallback = false;
   const lineItems: Array<{
     service: QuoteService;
@@ -695,6 +707,14 @@ bookings.post("/portal/quote", async (c) => {
           : `${svcLabel} · ${numberOfPets} dogs`;
     }
 
+    if (
+      item.service === "daycare" &&
+      membershipSession &&
+      membershipSession === (isHalfDay ? "half_day" : "full_day")
+    ) {
+      membershipMatchedUnits += quantity;
+    }
+
     const subtotal = round2(basePrice * quantity);
     const taxAmount = round2(subtotal * taxRate);
     const total = round2(subtotal + taxAmount);
@@ -723,7 +743,24 @@ bookings.post("/portal/quote", async (c) => {
   // (don't nag the owner when everything resolved cleanly). Currency caveat
   // fires when a locationId was specified — multi-location tenants may sell
   // in different currencies and the v1 portal can't yet model that.
-  const caveats: string[] = [STAFF_CONFIRMS_CAVEAT, MEMBERSHIP_CAVEAT];
+  let membershipCaveat = MEMBERSHIP_CAVEAT;
+  if (membership && membershipMatchedUnits > 0) {
+    const sessionsNoun = membershipMatchedUnits === 1 ? "session" : "sessions";
+    if (membership.package_type === "unlimited") {
+      membershipCaveat = `Your ${membership.package_name} membership covers these daycare ${sessionsNoun} — the team applies it when confirming.`;
+    } else {
+      const remaining = membership.credits_remaining ?? 0;
+      const coverable = Math.min(membershipMatchedUnits, remaining);
+      if (coverable > 0) {
+        membershipCaveat =
+          `Your ${membership.package_name} membership can cover ${coverable} of ${membershipMatchedUnits} daycare ${sessionsNoun} ` +
+          `(${remaining} credit${remaining === 1 ? "" : "s"} left) — applied when the team confirms.`;
+      } else {
+        membershipCaveat = `Your ${membership.package_name} membership has no credits left this period — these ${sessionsNoun} are billed at the standard rate.`;
+      }
+    }
+  }
+  const caveats: string[] = [STAFF_CONFIRMS_CAVEAT, membershipCaveat];
   if (usedTaxFallback) caveats.push(TAX_FALLBACK_CAVEAT);
   if (locationId) caveats.push(CURRENCY_CAVEAT);
 
@@ -1096,7 +1133,9 @@ async function applyStatusCascade(
  * recorded them if booked directly).
  *
  * Skips silently when:
- *   - service isn't daycare/overnights (no daycare dashboard surface)
+ *   - service isn't daycare (overnights replicate into the overnights
+ *     keyspace via replicatePortalToOvernights; grooming/transport have no
+ *     daycare dashboard surface)
  *   - locationId is missing (capacity tile needs a location to count under)
  *   - we'd be overwriting a checked-in / checked-out record (re-approval
  *     after a status change shouldn't blow away staff's in-day work)
@@ -1110,7 +1149,7 @@ async function replicatePortalToDaycare(
   staffUser: { id?: string; name?: string },
 ): Promise<void> {
   const service = rec?.service;
-  if (service !== "daycare" && service !== "overnights") return;
+  if (service !== "daycare") return;
   if (!rec.locationId) {
     console.warn(
       `[portal->daycare] approval skipped — portal_booking ${rec.id} has no locationId; ` +
@@ -1134,8 +1173,8 @@ async function replicatePortalToDaycare(
   const startTime = new Date(rec.startAt);
   const endTime = new Date(rec.endAt);
   const hours = (endTime.getTime() - startTime.getTime()) / 3_600_000;
-  const isHalfDay = service === "daycare" && hours > 0 && hours <= 5;
-  const basePrice = service === "daycare" ? (isHalfDay ? 69 : 99) : 99;
+  const isHalfDay = hours > 0 && hours <= 5;
+  const basePrice = isHalfDay ? 69 : 99;
   const taxRate = 0.081;
   const totalPrice = Math.round(basePrice * (1 + taxRate) * 100) / 100;
 
@@ -1179,9 +1218,9 @@ async function replicatePortalToDaycare(
       pet_photo_url: storedPetPhoto(pet),
       location_id: locationId,
       location_name: locationName,
-      service_id: service === "overnights" ? "service_overnight_owner_portal" : "service_daycare_owner_portal",
-      service_name: service === "overnights" ? "Overnight (portal)" : (isHalfDay ? "Daycare half-day" : "Daycare full-day"),
-      service_type: service === "overnights" ? "overnight" : "daycare",
+      service_id: "service_daycare_owner_portal",
+      service_name: isHalfDay ? "Daycare half-day" : "Daycare full-day",
+      service_type: "daycare",
       booking_date: bookingDate,
       planned_start_time: plannedStartTime,
       planned_end_time: plannedEndTime,
@@ -1240,6 +1279,129 @@ async function replicatePortalToDaycare(
   }
 }
 
+/**
+ * Replicate an approved portal OVERNIGHTS booking into the overnights
+ * keyspace (overnight:{tenant}:reservation:*) — the records the Overnights
+ * module's hub, check-in list, care logs, and capacity counts read. Without
+ * this bridge a client-booked stay is invisible to the night-shift tooling.
+ *
+ * One reservation per pet (the module is one-dog-per-reservation), priced
+ * server-side from the location's configured nightly rate. Idempotent ids
+ * derived from the portal booking + pet, and re-approval never tramples a
+ * reservation staff have already checked in.
+ */
+async function replicatePortalToOvernights(
+  tenantId: string,
+  rec: any,
+  staffUser: { id?: string; name?: string },
+): Promise<void> {
+  if (rec?.service !== "overnights") return;
+  if (!rec.locationId) {
+    console.warn(
+      `[portal->overnights] approval skipped — portal_booking ${rec.id} has no locationId; ` +
+      `an overnight reservation needs a location. Staff can manually book to backfill.`,
+    );
+    return;
+  }
+  const locationId = String(rec.locationId);
+
+  const household = (await kv.get(`customer:${tenantId}:household:${rec.householdId}`)) as any;
+  const householdName = household?.name ?? "Household";
+
+  const startDate = rec.startAt.slice(0, 10);
+  let endDate = rec.endAt.slice(0, 10);
+  if (endDate <= startDate) {
+    // Same-day request — an overnight stay is at least one night.
+    const next = new Date(`${startDate}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    endDate = next.toISOString().split("T")[0];
+  }
+  const totalNights = Math.max(
+    1,
+    Math.round((new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) / 86_400_000),
+  );
+  const pricePerNight = await nightlyRateFor(tenantId, locationId);
+
+  const petIds: string[] = Array.isArray(rec.petIds) ? rec.petIds : [];
+  const now = new Date().toISOString();
+
+  for (const petId of petIds) {
+    const pet = (await kv.get(`customer:${tenantId}:pet:${rec.householdId}:${petId}`)) as any;
+    if (!pet) {
+      console.warn(`[portal->overnights] pet ${petId} not found for portal_booking ${rec.id}`);
+      continue;
+    }
+
+    // Idempotency: stable id from portal booking + pet, so re-approvals
+    // update in place instead of duplicating.
+    const reservationId = `ovn_pb_${rec.id.slice(0, 8)}_${petId.slice(0, 6)}`;
+    const key = `overnight:${tenantId}:reservation:${reservationId}`;
+
+    // Don't trample a stay staff have already progressed.
+    const existing = (await kv.get(key)) as any;
+    if (existing && existing.status && existing.status !== "confirmed" && existing.status !== "booked") {
+      console.log(`[portal->overnights] preserving in-progress reservation ${reservationId}`);
+      continue;
+    }
+
+    const reservation = {
+      id: reservationId,
+      customerId: rec.householdId,
+      petId,
+      householdId: rec.householdId,
+      startDate,
+      endDate,
+      // Standard arrival/departure windows — owners pick dates, not slots.
+      checkInWindow: { start: "14:00", end: "18:00" },
+      checkOutWindow: { start: "08:00", end: "11:00" },
+      locationId,
+      status: "confirmed",
+      specialInstructions: rec.notes ?? undefined,
+      requiresMedication: !!pet?.medical_notes,
+      hasBehaviourConcerns: !!pet?.behaviour_notes,
+      hasAllergies: !!pet?.allergy_notes,
+      pricePerNight,
+      totalNights,
+      totalPrice: pricePerNight * totalNights,
+      currency: "CHF",
+      priceLockedAt: existing?.priceLockedAt ?? now,
+      requiresPickup: false,
+      requiresDropOff: false,
+      petName: pet?.name ?? "Pet",
+      customerName: householdName,
+      source: "portal" as const,
+      portal_booking_id: rec.id,
+      tenant_id: tenantId,
+      createdAt: existing?.createdAt ?? now,
+      createdBy: existing?.createdBy ?? (staffUser?.name ?? "Portal approver"),
+      updatedAt: now,
+      updatedBy: staffUser?.name ?? "Portal approver",
+    };
+
+    await kv.set(key, reservation);
+    if (!existing) {
+      await recordOvernightEvent(
+        tenantId,
+        reservationId,
+        "created",
+        staffUser?.id ?? "portal-approver",
+        staffUser?.name ?? "Portal approver",
+        { petId, locationId, startDate, endDate, source: "portal", portalBookingId: rec.id },
+      );
+    }
+  }
+}
+
+/** Route an approved portal booking into its service-native keyspace. */
+async function replicatePortalBooking(
+  tenantId: string,
+  rec: any,
+  staffUser: { id?: string; name?: string },
+): Promise<void> {
+  if (rec?.service === "daycare") return replicatePortalToDaycare(tenantId, rec, staffUser);
+  if (rec?.service === "overnights") return replicatePortalToOvernights(tenantId, rec, staffUser);
+}
+
 bookings.post("/portal-admin/bookings/:id/approve", async (c) => {
   const auth = await readStaff(c);
   if (!auth) return c.json({ error: "Unauthorized" }, 401);
@@ -1260,26 +1422,28 @@ bookings.post("/portal-admin/bookings/:id/approve", async (c) => {
   }));
 
   // -------------------------------------------------------------------
-  // Replicate to the daycare:* keyspace so the capacity dashboard sees
-  // this booking.  Per pet, per child if a bundle, idempotent.  Errors
-  // here do NOT roll back the portal-side approval — the owner still
-  // gets their "confirmed" status; staff can backfill manually if the
-  // daycare-side write fails for any reason.
+  // Replicate into the service-native keyspace the staff tooling reads:
+  // daycare bookings → daycare:* (capacity dashboard, check-in flow),
+  // overnights → overnight:{tenant}:reservation:* (overnights hub,
+  // check-in list, care logs, capacity).  Per pet, per child if a bundle,
+  // idempotent.  Errors here do NOT roll back the portal-side approval —
+  // the owner still gets their "confirmed" status; staff can backfill
+  // manually if the service-side write fails for any reason.
   // -------------------------------------------------------------------
   try {
     if (b.kind === "bundle_parent" && Array.isArray(b.childIds)) {
-      // Per-child replication so each line item lands as its own daycare row.
+      // Per-child replication so each line item lands as its own service row.
       for (const cid of b.childIds) {
         const child = (await kv.get(`portal_booking:${tenantId}:${cid}`)) as any;
         if (child) {
-          await replicatePortalToDaycare(tenantId, child, user);
+          await replicatePortalBooking(tenantId, child, user);
         }
       }
     } else {
-      await replicatePortalToDaycare(tenantId, updated, user);
+      await replicatePortalBooking(tenantId, updated, user);
     }
   } catch (e) {
-    console.error("[portal->daycare] replication failed (non-fatal)", e);
+    console.error("[portal->service] replication failed (non-fatal)", e);
   }
 
   const email = await getOwnerEmail(tenantId, b.householdId);

@@ -14,8 +14,9 @@ import {
   Warning,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
-import { MEMBERSHIP_PLANS, CANCELLATION_POLICY, formatPlanPrice } from '../membership-plans';
+import { MEMBERSHIP_PLANS, CANCELLATION_POLICY, formatPlanPrice, planFromServer } from '../membership-plans';
 import type { MembershipPlan } from '../membership-plans';
+import { useServicesPricingStore } from '../../services-pricing/store';
 import { AssignMembershipDialog } from '../components/AssignMembershipDialog';
 import type { CustomerPackage } from '../types';
 
@@ -178,13 +179,23 @@ function MembershipRow({ cp }: { cp: CustomerPackage }) {
 
 export function PackagesDashboard() {
   const { customerPackages, stats, isLoading, error, fetchCustomerPackages, fetchStats, clearError } = usePackagesStore();
+  const { membershipPlans: managedPlans, fetchMembershipPlans } = useServicesPricingStore();
 
   const [assignTarget, setAssignTarget] = useState<MembershipPlan | null>(null);
 
   useEffect(() => {
     fetchCustomerPackages();
     fetchStats();
+    void fetchMembershipPlans();
   }, []);
+
+  // Managed catalogue first (Settings → Services & Pricing → Memberships);
+  // the built-in MO01–MO05 plans remain the catalogue until any managed
+  // plan exists, so the dashboard is never empty on a fresh deployment.
+  const activeManagedPlans = managedPlans
+    .map(planFromServer)
+    .filter((p): p is MembershipPlan => p !== null);
+  const catalogue = activeManagedPlans.length > 0 ? activeManagedPlans : MEMBERSHIP_PLANS;
 
   useEffect(() => {
     if (error) { toast.error(error); clearError(); }
@@ -223,7 +234,7 @@ export function PackagesDashboard() {
       <div>
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">Plan Catalogue</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          {MEMBERSHIP_PLANS.map(plan => (
+          {catalogue.map(plan => (
             <PlanCard
               key={plan.id}
               plan={plan}

@@ -17,7 +17,6 @@ const USE_MOCK_DATA = false; // Set to true for development without backend
 
 export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'overdue' | 'void' | 'part_paid';
 export type PaymentMethod = 'card' | 'bank_transfer' | 'cash' | 'direct_debit' | 'provider';
-export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'past_due';
 
 export interface InvoiceLineItem {
   id: string;
@@ -114,27 +113,6 @@ export interface Refund {
   created_at: string;
 }
 
-export interface Subscription {
-  id: string;
-  household_id: string;
-  household_name: string;
-  plan_id: string;
-  plan_name: string;
-  plan_version: number;
-  pet_ids: string[];
-  status: SubscriptionStatus;
-  monthly_price: number;
-  credits_included?: number;
-  credits_used?: number;
-  billing_method: PaymentMethod;
-  renewal_date: string;
-  started_at: string;
-  paused_at?: string;
-  cancelled_at?: string;
-  created_by: string;
-  created_at: string;
-}
-
 export interface Fee {
   id: string;
   household_id: string;
@@ -222,18 +200,6 @@ export interface RecordPaymentPayload {
   created_by: string;
 }
 
-export interface CreateSubscriptionPayload {
-  household_id: string;
-  household_name: string;
-  plan_id: string;
-  plan_name: string;
-  plan_version?: number;
-  pet_ids: string[];
-  monthly_price: number;
-  billing_method: PaymentMethod;
-  created_by: string;
-}
-
 export interface CreateCreditPayload {
   household_id: string;
   household_name: string;
@@ -299,10 +265,6 @@ interface BillingState {
   selectedPayment: Payment | null;
   paymentAllocations: PaymentAllocation[];
   
-  // Subscriptions
-  subscriptions: Subscription[];
-  selectedSubscription: Subscription | null;
-  
   // Credits & Refunds
   credits: Credit[];
   refunds: Refund[];
@@ -331,11 +293,6 @@ interface BillingState {
   recordPayment: (data: RecordPaymentPayload) => Promise<Payment>;
   allocatePayment: (paymentId: string, invoiceId: string, amount: number, createdBy: string) => Promise<void>;
 
-  fetchSubscriptions: (filters?: BillingListFilters) => Promise<void>;
-  createSubscription: (data: CreateSubscriptionPayload) => Promise<Subscription>;
-  pauseSubscription: (id: string, reason: string) => Promise<void>;
-  cancelSubscription: (id: string, reason: string) => Promise<void>;
-
   fetchCredits: (householdId?: string) => Promise<void>;
   createCredit: (data: CreateCreditPayload) => Promise<Credit>;
   fetchRefunds: (householdId?: string) => Promise<void>;
@@ -359,8 +316,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   payments: [],
   selectedPayment: null,
   paymentAllocations: [],
-  subscriptions: [],
-  selectedSubscription: null,
   credits: [],
   refunds: [],
   fees: [],
@@ -683,119 +638,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     }
   },
 
-  // ========== SUBSCRIPTIONS ==========
-  fetchSubscriptions: async (filters = {}) => {
-    try {
-      const headers = await getAuthHeaders();
-      set({ loading: true, error: null });
-      
-      const params = new URLSearchParams(filters).toString();
-      const url = params ? `${BASE_URL}/subscriptions?${params}` : `${BASE_URL}/subscriptions`;
-      
-      const response = await fetch(url, { headers: await getAuthHeaders() });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch subscriptions');
-      }
-      
-      const { subscriptions } = (await response.json()) as { subscriptions: Subscription[] };
-      set({ subscriptions, loading: false });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: message, loading: false });
-      console.error('Error fetching subscriptions:', error);
-    }
-  },
-
-  createSubscription: async (data) => {
-    try {
-      const headers = await getAuthHeaders();
-      set({ loading: true, error: null });
-      
-      const response = await fetch(`${BASE_URL}/subscriptions`, {
-        method: 'POST',
-        headers: await getAuthHeaders(),
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to create subscription');
-      }
-      
-      const { subscription } = (await response.json()) as { subscription: Subscription };
-      set(state => ({ 
-        subscriptions: [subscription, ...state.subscriptions],
-        loading: false
-      }));
-
-      broadcastMutation('billing', 'subscription', 'created');
-
-      return subscription;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: message, loading: false });
-      console.error('Error creating subscription:', error);
-      throw error;
-    }
-  },
-
-  pauseSubscription: async (id, reason) => {
-    try {
-      const headers = await getAuthHeaders();
-      set({ loading: true, error: null });
-      
-      const response = await fetch(`${BASE_URL}/subscriptions/${id}/pause`, {
-        method: 'PATCH',
-        headers: await getAuthHeaders(),
-        body: JSON.stringify({ reason }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to pause subscription');
-      }
-      
-      const { subscription } = (await response.json()) as { subscription: Subscription };
-      set(state => ({
-        subscriptions: state.subscriptions.map(sub => sub.id === id ? subscription : sub),
-        loading: false,
-      }));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: message, loading: false });
-      console.error('Error pausing subscription:', error);
-      throw error;
-    }
-  },
-
-  cancelSubscription: async (id, reason) => {
-    try {
-      const headers = await getAuthHeaders();
-      set({ loading: true, error: null });
-      
-      const response = await fetch(`${BASE_URL}/subscriptions/${id}/cancel`, {
-        method: 'PATCH',
-        headers: await getAuthHeaders(),
-        body: JSON.stringify({ reason }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to cancel subscription');
-      }
-      
-      const { subscription } = (await response.json()) as { subscription: Subscription };
-      set(state => ({
-        subscriptions: state.subscriptions.map(sub => sub.id === id ? subscription : sub),
-        loading: false,
-      }));
-      broadcastMutation('billing', 'subscription', 'updated', id);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      set({ error: message, loading: false });
-      console.error('Error cancelling subscription:', error);
-      throw error;
-    }
-  },
-
   // ========== CREDITS & REFUNDS ==========
   fetchCredits: async (householdId) => {
     try {
@@ -1041,7 +883,6 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       await Promise.all([
         get().fetchInvoices(),
         get().fetchPayments(),
-        get().fetchSubscriptions(),
       ]);
       
       set({ loading: false });

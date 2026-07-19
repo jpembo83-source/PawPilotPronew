@@ -30,6 +30,18 @@ history. So these files alone do not reproduce prod exactly.
 | `20260625085232_harden_function_search_path.sql` | Exact SQL of the live prod migration. **Prod parity.** |
 | `20260625120000_active_schema_baseline.sql` | The active app schema staging was provisioned from: `kv_store` + `app` helpers + customer tables + RLS. Idempotent; no-op on prod. |
 
+## Phase 4 customers stage 3 (2026-07-19)
+| File | State |
+|---|---|
+| `20260719110000_phase4_customers_kv_tenant_canonicalization.sql` | **Applied to prod** 2026-07-19 (recorded as `phase4_customers_kv_tenant_canonicalization`). Data migration: folds the 25 alias-tenant KV keys (`ee4c3a1d-…`/`demo-tenant` → `demo-tenant-001`) to match the row canonicalisation prod applied 2026-07-11 (`20260711230224_phase4_customers_backfill_tenant_canonicalization`, recorded in prod history, not yet captured as a file here — it is a canonical_tenant re-run of `20260702093000_phase4_customers_backfill`). Idempotent; no-op on staging (no alias keys). |
+| `20260719120000_phase4_customers_read_indexes_rpc.sql` | **Applied to staging** 2026-07-19. Stage-3 read cutover: trigram search indexes, `phase4_ci_base` ICU collation, location/full-pets indexes, service-role-only `phase4_customers_list` / `phase4_customers_lookup` RPCs. Apply to prod at merge (additive + inert while `read_from_pg:customers` is off). |
+
+Also recorded in prod (2026-07-17, not yet captured as files here):
+`phase4_customers_dualwrite_deferrable_fks` — makes the customer FKs
+deferrable and re-creates `phase4_customers_apply` with
+`set constraints all deferred` (supersedes the body in
+`20260711220000_phase4_customers_dualwrite_rpc.sql`).
+
 ## Pending (files here, NOT yet applied to prod or staging)
 | File | Purpose |
 |---|---|

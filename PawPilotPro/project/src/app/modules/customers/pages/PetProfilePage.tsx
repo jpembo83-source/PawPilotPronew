@@ -11,9 +11,12 @@ import {
   Flag as FlagIcon,
   Camera,
   CircleNotch,
+  CalendarPlus,
+  SignIn,
   X
 } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
+import { CreateBookingDialog } from '../../daycare/components/CreateBookingDialog';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import {
@@ -63,7 +66,7 @@ import { useBackNavigation } from '../../../components/BackButton';
 export function PetProfilePage() {
   const { petId } = useParams<{ petId: string }>();
   const navigate = useNavigate();
-  const { currentPetProfile, isLoading, fetchPetProfile, updatePet, flags, fetchFlags } = useCustomerStore();
+  const { currentPetProfile, currentHouseholdDetail, isLoading, fetchPetProfile, updatePet, flags, fetchFlags } = useCustomerStore();
   // History-aware: returns to wherever staff came from (search, Portal
   // Inbox, household…); the household pets tab is the deep-link fallback.
   const goBack = useBackNavigation(
@@ -74,6 +77,7 @@ export function PetProfilePage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
+  const [showBookingDialog, setShowBookingDialog] = useState(false);
   const { confirm, confirmDialog } = useConfirmDialog();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -425,7 +429,17 @@ export function PetProfilePage() {
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Quick actions — take a booking or send this pet to check-in
+              without leaving the profile (the front-desk fast path). */}
+          <Button onClick={() => setShowBookingDialog(true)}>
+            <CalendarPlus className="h-4 w-4 mr-2" />
+            Book
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/daycare/check-in')}>
+            <SignIn className="h-4 w-4 mr-2" />
+            Check in
+          </Button>
           {/* Front-desk fast path: reactive behaviour at drop-off → flag →
               live check-in warning, without leaving the pet profile. */}
           <Button variant="outline" onClick={() => setShowFlagModal(true)}>
@@ -633,6 +647,21 @@ export function PetProfilePage() {
           fixedPet={pet}
         />
       )}
+      {/* Quick "Book" — prefilled to this pet, so it opens on the details step */}
+      <CreateBookingDialog
+        open={showBookingDialog}
+        onOpenChange={setShowBookingDialog}
+        onSuccess={() => setShowBookingDialog(false)}
+        prefill={{
+          household: {
+            household_id: pet.household_id,
+            household_name: currentHouseholdDetail?.name ?? 'Household',
+            pets: [pet],
+          },
+          pet,
+        }}
+      />
+
       {confirmDialog}
     </div>
   );

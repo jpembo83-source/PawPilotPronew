@@ -31,35 +31,42 @@ export function Transportation() {
   return (
     <div className="h-full flex flex-col">
       {/* Module Header */}
-      <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+      <div className="bg-card border-b border-border px-4 md:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+          <div className="bg-primary-tint p-2 rounded-lg text-primary-strong">
             <Truck className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Transportation</h1>
+          <h1 className="text-xl font-bold text-foreground">Transportation</h1>
         </div>
         
         {/* NavigationArrow Tabs - scrollable on mobile */}
-        <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto">
+        <div className="flex bg-muted p-1 rounded-lg overflow-x-auto">
           <NavLink 
             to="/transport" 
             end
-            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <SquaresFour className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </NavLink>
-          <NavLink 
-            to="/transport/jobs" 
-            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          <NavLink
+            to="/transport/jobs"
+            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <List className="h-4 w-4" />
             <span className="hidden sm:inline">Jobs</span>
           </NavLink>
+          <NavLink
+            to="/transport/planner"
+            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <CalendarBlank className="h-4 w-4" />
+            <span className="hidden sm:inline">Planner</span>
+          </NavLink>
           {(isAdmin || isManager) && (
             <NavLink 
               to="/transport/vehicles" 
-              className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
               <Truck className="h-4 w-4" />
               <span className="hidden sm:inline">Vehicles</span>
@@ -67,7 +74,7 @@ export function Transportation() {
           )}
           <NavLink 
             to="/transport/driver" 
-            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            className={({ isActive }) => `flex items-center gap-2 px-3 md:px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${isActive ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <NavigationArrow className="h-4 w-4" />
             <span className="hidden sm:inline">Driver</span>
@@ -78,7 +85,7 @@ export function Transportation() {
         {!isMobile && (
           <NavLink
             to="/transport/driver-mobile"
-            className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
           >
             <DeviceMobile className="h-4 w-4" />
             Mobile Preview
@@ -87,7 +94,7 @@ export function Transportation() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto p-4 md:p-6 bg-slate-50/50">
+      <div className="flex-1 overflow-auto p-4 md:p-6 bg-transparent">
         <Routes>
           <Route index element={<TransportDashboard />} />
           <Route path="jobs" element={<JobsList />} />

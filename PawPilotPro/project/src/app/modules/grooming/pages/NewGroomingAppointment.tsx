@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import { useGroomingStore } from '../store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
@@ -44,8 +44,16 @@ interface Pet {
   size?: string;
 }
 
+interface GroomingPrefillState {
+  household_id?: string;
+  household_name?: string;
+  pets?: Pet[];
+}
+
 export function NewGroomingAppointment() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = (location.state as GroomingPrefillState | null) ?? null;
   const goBack = useBackNavigation('/grooming/appointments');
   const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
@@ -80,6 +88,24 @@ export function NewGroomingAppointment() {
     const locId = selectedLocationForAppt || undefined;
     fetchGroomers(locId);
   }, [selectedLocationForAppt]);
+
+  // Opened from a household profile — pre-select the household and its pets so
+  // the operator skips the search. A single-dog household also pre-picks the pet.
+  useEffect(() => {
+    if (!prefill?.household_id || !prefill.household_name) return;
+    setSelectedHousehold({
+      household_id: prefill.household_id,
+      household_name: prefill.household_name,
+    });
+    setSearchQuery(prefill.household_name);
+    const prefillPets = prefill.pets ?? [];
+    if (prefillPets.length > 0) {
+      setPets(prefillPets);
+      if (prefillPets.length === 1) setSelectedPetId(prefillPets[0].id);
+    } else {
+      void fetchPetsForHousehold(prefill.household_id);
+    }
+  }, []);
 
   const handleSearch = useCallback(async (query: string) => {
     setSearchQuery(query);

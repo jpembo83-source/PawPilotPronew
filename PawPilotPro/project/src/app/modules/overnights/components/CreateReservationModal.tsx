@@ -3,6 +3,7 @@ import { useOvernightsStore } from '../store';
 import { useDaycareStore } from '../../daycare/store';
 import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
+import { useCurrency } from '../../../utils/currency';
 import {
   Dialog,
   DialogContent,
@@ -28,15 +29,30 @@ import {
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 
+/** Household/pet/dates handed over from another booking flow (e.g. the daycare
+ *  dialog's "Overnight boarding" branch) so this modal opens at its details
+ *  step instead of making the operator search again. */
+export interface ReservationPrefill {
+  household: { household_id?: string; household_name?: string; pets?: any[]; [k: string]: any };
+  /** Omit to open on pet-select (a household with several dogs). */
+  pet?: any;
+  startDate?: string;
+  endDate?: string;
+}
+
 interface CreateReservationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  prefill?: ReservationPrefill | null;
 }
 
-export function CreateReservationModal({ open, onOpenChange, onSuccess }: CreateReservationModalProps) {
+export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill }: CreateReservationModalProps) {
   const { selectedLocationId } = useDashboardStore();
   const { locations } = useSettingsStore();
+  // Overnight pricing follows the organisation currency (Settings → Organisation),
+  // never a hardcoded £.
+  const { currency, format: formatMoney } = useCurrency();
   const { createReservation, calculateBilling, isLoading } = useOvernightsStore();
   const { searchCustomers } = useDaycareStore();
 
@@ -82,8 +98,23 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
       tomorrow.setDate(tomorrow.getDate() + 1);
       const dayAfter = new Date();
       dayAfter.setDate(dayAfter.getDate() + 2);
-      setStartDate(tomorrow.toISOString().split('T')[0]);
-      setEndDate(dayAfter.toISOString().split('T')[0]);
+      const defaultStart = tomorrow.toISOString().split('T')[0];
+      const defaultEnd = dayAfter.toISOString().split('T')[0];
+
+      setStartDate(prefill?.startDate || defaultStart);
+      setEndDate(prefill?.endDate || defaultEnd);
+      if (prefill?.household) {
+        // Skip the search step. A specific pet → details; a household with
+        // several dogs → pet-select so the operator picks first.
+        setSelectedHousehold(prefill.household);
+        const pets = prefill.pet ? [prefill.pet] : (prefill.household.pets ?? []);
+        if (prefill.pet || pets.length === 1) {
+          setSelectedPet(prefill.pet ?? pets[0]);
+          setStep('details');
+        } else {
+          setStep('select-pet');
+        }
+      }
     }
   }, [open]);
 
@@ -142,6 +173,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
           startDate,
           endDate,
           totalNights,
+          currency,
         });
         setBillingBreakdown(breakdown);
       } catch {
@@ -194,7 +226,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
         pricePerNight: billingBreakdown?.pricePerNight || 45,
         totalNights,
         totalPrice: billingBreakdown?.total || totalNights * 45,
-        currency: 'GBP',
+        currency,
         priceLockedAt: new Date().toISOString(),
         requiresPickup: false,
         requiresDropOff: false,
@@ -232,7 +264,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
           <div className="space-y-4">
             <div className="flex gap-2">
               <div className="relative flex-1">
-                <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-tertiary-foreground" />
                 <Input
                   placeholder="Search households..."
                   value={searchQuery}
@@ -252,14 +284,14 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                   <div
                     key={index}
                     onClick={() => handleSelectHousehold(result)}
-                    className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer"
+                    className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-medium text-slate-900">{result.household_name}</p>
+                        <p className="font-medium text-foreground">{result.household_name}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <Dog className="h-3 w-3 text-slate-400" />
-                          <span className="text-sm text-slate-600">
+                          <Dog className="h-3 w-3 text-tertiary-foreground" />
+                          <span className="text-sm text-muted-foreground">
                             {result.pets.length} {result.pets.length === 1 ? 'pet' : 'pets'}
                           </span>
                         </div>
@@ -290,7 +322,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                 <div
                   key={pet.id}
                   onClick={() => handleSelectPet(pet)}
-                  className="p-4 border rounded-lg hover:bg-slate-50 cursor-pointer"
+                  className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer"
                 >
                   <div className="flex items-center gap-4">
                     {pet.photo_url && (
@@ -301,8 +333,8 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                       />
                     )}
                     <div className="flex-1">
-                      <p className="font-medium text-slate-900">{pet.name}</p>
-                      <p className="text-sm text-slate-600">{pet.breed}</p>
+                      <p className="font-medium text-foreground">{pet.name}</p>
+                      <p className="text-sm text-muted-foreground">{pet.breed}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {pet.behaviour_notes && (
@@ -335,14 +367,14 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
               &larr; Back
             </Button>
 
-            <div className="p-4 bg-slate-50 rounded-lg">
+            <div className="p-4 bg-muted/50 rounded-lg">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                <div className="h-10 w-10 rounded-full bg-primary-tint flex items-center justify-center text-primary font-bold">
                   {selectedPet.name?.charAt(0) || '?'}
                 </div>
                 <div>
-                  <p className="font-medium text-slate-900">{selectedPet.name}</p>
-                  <p className="text-sm text-slate-500">
+                  <p className="font-medium text-foreground">{selectedPet.name}</p>
+                  <p className="text-sm text-muted-foreground">
                     {selectedHousehold?.household_name} &middot; {selectedPet.breed || 'Unknown breed'}
                   </p>
                 </div>
@@ -371,7 +403,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
             </div>
 
             {totalNights > 0 && (
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 {totalNights} {totalNights === 1 ? 'night' : 'nights'}
               </p>
             )}
@@ -471,40 +503,40 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
 
             <div className="border rounded-lg divide-y">
               <div className="p-4">
-                <h4 className="text-sm font-medium text-slate-500 mb-1">Pet</h4>
-                <p className="font-medium text-slate-900">{selectedPet.name}</p>
-                <p className="text-sm text-slate-600">{selectedHousehold?.household_name}</p>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Pet</h4>
+                <p className="font-medium text-foreground">{selectedPet.name}</p>
+                <p className="text-sm text-muted-foreground">{selectedHousehold?.household_name}</p>
               </div>
               <div className="p-4">
-                <h4 className="text-sm font-medium text-slate-500 mb-1">Dates</h4>
-                <p className="font-medium text-slate-900">
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Dates</h4>
+                <p className="font-medium text-foreground">
                   {new Date(startDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                   {' '}&rarr;{' '}
                   {new Date(endDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                 </p>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted-foreground">
                   {totalNights} {totalNights === 1 ? 'night' : 'nights'}
                 </p>
               </div>
               {(specialInstructions || feedingInstructions || medicationInstructions || behaviourNotes) && (
                 <div className="p-4 space-y-2">
-                  <h4 className="text-sm font-medium text-slate-500">Notes</h4>
+                  <h4 className="text-sm font-medium text-muted-foreground">Notes</h4>
                   {specialInstructions && (
-                    <p className="text-sm text-slate-700"><span className="font-medium">Special:</span> {specialInstructions}</p>
+                    <p className="text-sm text-foreground"><span className="font-medium">Special:</span> {specialInstructions}</p>
                   )}
                   {feedingInstructions && (
-                    <p className="text-sm text-slate-700"><span className="font-medium">Feeding:</span> {feedingInstructions}</p>
+                    <p className="text-sm text-foreground"><span className="font-medium">Feeding:</span> {feedingInstructions}</p>
                   )}
                   {medicationInstructions && (
-                    <p className="text-sm text-slate-700"><span className="font-medium">Medication:</span> {medicationInstructions}</p>
+                    <p className="text-sm text-foreground"><span className="font-medium">Medication:</span> {medicationInstructions}</p>
                   )}
                   {behaviourNotes && (
-                    <p className="text-sm text-slate-700"><span className="font-medium">Behaviour:</span> {behaviourNotes}</p>
+                    <p className="text-sm text-foreground"><span className="font-medium">Behaviour:</span> {behaviourNotes}</p>
                   )}
                 </div>
               )}
               <div className="p-4">
-                <h4 className="text-sm font-medium text-slate-500 mb-2">Flags</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">Flags</h4>
                 <div className="flex flex-wrap gap-2">
                   {requiresMedication && (
                     <Badge variant="outline" className="text-rose-600 border-rose-200">
@@ -525,24 +557,24 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess }: Create
                     </Badge>
                   )}
                   {!requiresMedication && !hasBehaviourConcerns && !hasAllergies && (
-                    <span className="text-sm text-slate-500">No flags</span>
+                    <span className="text-sm text-muted-foreground">No flags</span>
                   )}
                 </div>
               </div>
               <div className="p-4">
-                <h4 className="text-sm font-medium text-slate-500 mb-1">Estimated Price</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-1">Estimated Price</h4>
                 {calculatingBilling ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CircleNotch className="h-4 w-4 animate-spin" />
                     Calculating...
                   </div>
                 ) : (
                   <>
-                    <p className="text-lg font-semibold text-slate-900">
-                      &pound;{(billingBreakdown?.total || totalNights * 45).toFixed(2)}
+                    <p className="text-lg font-semibold text-foreground">
+                      {formatMoney(billingBreakdown?.total || totalNights * 45)}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      &pound;{(billingBreakdown?.pricePerNight || 45).toFixed(2)} per night &times; {totalNights} {totalNights === 1 ? 'night' : 'nights'}
+                    <p className="text-sm text-muted-foreground">
+                      {formatMoney(billingBreakdown?.pricePerNight || 45)} per night &times; {totalNights} {totalNights === 1 ? 'night' : 'nights'}
                     </p>
                   </>
                 )}

@@ -58,6 +58,9 @@ import { DocumentManager } from '../components/DocumentManager';
 import { ContactLink } from '../components/ContactLink';
 import { PortalStatusChip, usePortalStatus } from '../components/PortalStatusChip';
 import { hasValidWaiver } from '../waiverStatus';
+import { CreateBookingDialog } from '../../daycare/components/CreateBookingDialog';
+import { CreateReservationModal } from '../../overnights/components/CreateReservationModal';
+import { CreateTransportJobDialog } from '../../transport/components/CreateTransportJobDialog';
 
 import { useBackNavigation } from '../../../components/BackButton';
 export function HouseholdDetailPage() {
@@ -79,6 +82,11 @@ export function HouseholdDetailPage() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Quick-action dialogs — all open prefilled to this household so the
+  // operator never re-searches; multi-dog households land on pet-select.
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [overnightOpen, setOvernightOpen] = useState(false);
+  const [transportOpen, setTransportOpen] = useState(false);
   
   // Validate householdId - accept any non-empty ID that's not "new"
   // We'll let the backend validate if it actually exists
@@ -301,6 +309,30 @@ export function HouseholdDetailPage() {
     return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
   
+  // Prefill payload shared by every quick-action dialog. Passing pets lets
+  // the dialogs decide: one dog → straight to details, several → pet-select.
+  const householdPrefill = {
+    household_id: household.id,
+    household_name: household.name,
+    pets,
+  };
+
+  // Route a quick action to its dialog (or, for grooming, its page). Grooming
+  // has no dialog yet, so we navigate to the booking page carrying the
+  // household via router state so it opens pre-scoped.
+  const handleQuickAction = (id: string) => {
+    switch (id) {
+      case 'daycare': setBookingOpen(true); break;
+      case 'overnights': setOvernightOpen(true); break;
+      case 'transport': setTransportOpen(true); break;
+      case 'grooming':
+        void navigate('/grooming/new', {
+          state: { household_id: household.id, household_name: household.name, pets },
+        });
+        break;
+    }
+  };
+
   // Define quick action buttons based on enabled modules
   const quickActions = [
     { id: 'daycare', label: 'Book Daycare', enabled: globalEnabledModules.includes('daycare') },
@@ -442,11 +474,11 @@ export function HouseholdDetailPage() {
         
         {/* Quick Actions */}
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setActiveTab('messages')}>
             <ChatTeardrop className="h-4 w-4 mr-2" />
             Send Message
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setBookingOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New Booking
           </Button>
@@ -535,7 +567,12 @@ export function HouseholdDetailPage() {
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {quickActions.map(action => (
-              <Button key={action.id} variant="outline" className="justify-start h-auto py-3">
+              <Button
+                key={action.id}
+                variant="outline"
+                className="justify-start h-auto py-3"
+                onClick={() => handleQuickAction(action.id)}
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 {action.label}
               </Button>
@@ -666,6 +703,69 @@ export function HouseholdDetailPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Quick-action dialogs — all prefilled to this household. Multi-dog
+          households open on pet-select; single-dog jumps to details. */}
+      <CreateBookingDialog
+        open={bookingOpen}
+        onOpenChange={setBookingOpen}
+        prefill={{ household: householdPrefill }}
+        onSuccess={() => {
+          setBookingOpen(false);
+          if (householdId) {
+            void useDaycareStore.getState().fetchBookings({ household_id: householdId })
+              .then(() => {
+                const bookings = useDaycareStore.getState().bookings;
+                setHouseholdBookingCount(bookings.filter(b => b.household_id === householdId).length);
+              })
+              .catch(() => {});
+          }
+        }}
+      />
+
+      <CreateReservationModal
+        open={overnightOpen}
+        onOpenChange={setOvernightOpen}
+        prefill={{ household: householdPrefill }}
+        onSuccess={() => setOvernightOpen(false)}
+      />
+
+      <CreateTransportJobDialog
+        open={transportOpen}
+        onOpenChange={setTransportOpen}
+        defaultLocationId={household.primary_location_id || ''}
+        prefillHousehold={{
+          id: household.id,
+          name: household.name,
+          primary_contact_id: household.primary_contact_id,
+          address: household.address
+            ? [
+                household.address.line1,
+                household.address.line2,
+                household.address.city,
+                household.address.postcode,
+                household.address.country,
+              ]
+                .filter(Boolean)
+                .join(', ')
+            : undefined,
+          pets: pets.map(p => ({
+            id: p.id,
+            name: p.name,
+            photo_url: p.photo_url,
+            household_id: household.id,
+          })),
+          contacts: contacts.map(ct => ({
+            id: ct.id,
+            first_name: ct.first_name,
+            last_name: ct.last_name,
+            email: ct.email,
+            phone: ct.phone,
+            relationship: (ct as { relationship?: string }).relationship || '',
+          })),
+        }}
+        onJobCreated={() => setTransportOpen(false)}
+      />
     </div>
   );
 }

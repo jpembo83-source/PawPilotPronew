@@ -8,27 +8,31 @@
 import { useIsMobile } from '../../../components/ui/use-mobile';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../../components/ui/sheet';
 import { usePermissions } from '../../../hooks/usePermissions';
-import { Plus, Van, Warning, FirstAidKit, CheckCircle } from '@phosphor-icons/react';
+import { Plus, Van, Warning, FirstAidKit, CheckCircle, Moon } from '@phosphor-icons/react';
 import type { PlannerBooking } from '../types';
-import { bookingsForDate, isCancelled, serviceShorthand } from './plannerFormat';
+import { bookingsForDate, isCancelled, serviceShorthand, overnightOnlyForDate, type PlannerOvernightStay } from './plannerFormat';
 
 interface DayBookingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   date: string;
   bookings: PlannerBooking[];
+  overnightStays?: PlannerOvernightStay[];
   maxDogs: number;
   onAddBooking: (date: string) => void;
 }
 
-export function DayBookingsSheet({ open, onOpenChange, date, bookings, maxDogs, onAddBooking }: DayBookingsSheetProps) {
+export function DayBookingsSheet({ open, onOpenChange, date, bookings, overnightStays = [], maxDogs, onAddBooking }: DayBookingsSheetProps) {
   const isMobile = useIsMobile();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission('daycare', 'create');
 
   const dayBookings = bookingsForDate(bookings, date);
   const active = dayBookings.filter((b) => !isCancelled(b));
-  const free = Math.max(0, maxDogs - active.length);
+  // Boarders present that day whose dog isn't already a daycare booking.
+  const dayBoarders = overnightOnlyForDate(bookings, overnightStays, date);
+  const onSite = active.length + dayBoarders.length;
+  const free = Math.max(0, maxDogs - onSite);
 
   const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -43,13 +47,14 @@ export function DayBookingsSheet({ open, onOpenChange, date, bookings, maxDogs, 
         <SheetHeader className="px-5 pt-5 pb-3 border-b border-[#E2DED8] text-left shrink-0">
           <SheetTitle className="text-lg font-bold text-[#1C1916]">{dateLabel}</SheetTitle>
           <SheetDescription className="text-sm text-[#6B6762]">
-            {active.length}/{maxDogs} booked · {free} free
+            {onSite}/{maxDogs} on-site · {free} free
+            {dayBoarders.length > 0 && ` · ${dayBoarders.length} boarding`}
             {dayBookings.length > active.length && ` · ${dayBookings.length - active.length} cancelled`}
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5" role="list" aria-label={`Dogs booked on ${dateLabel}`}>
-          {dayBookings.length === 0 && (
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5" role="list" aria-label={`Dogs on-site on ${dateLabel}`}>
+          {dayBookings.length === 0 && dayBoarders.length === 0 && (
             <p className="text-sm text-tertiary-foreground text-center py-10">No dogs booked yet.</p>
           )}
           {dayBookings.map((b) => {
@@ -100,6 +105,34 @@ export function DayBookingsSheet({ open, onOpenChange, date, bookings, maxDogs, 
               </div>
             );
           })}
+
+          {/* Overnight boarders on-site this day */}
+          {dayBoarders.map((s) => (
+            <div
+              key={s.id}
+              role="listitem"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[#E2DED8] bg-white"
+            >
+              <div
+                className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: '#EEF2FF', color: '#4338CA' }}
+                aria-hidden="true"
+              >
+                <Moon size={16} weight="fill" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-semibold text-[#1C1916]">{s.petName}</span>
+                  <span className="text-xs font-medium px-1.5 py-0.5 rounded-full" style={{ background: '#EEF2FF', color: '#4338CA' }}>
+                    Boarding
+                  </span>
+                </div>
+                <p className="text-xs text-[#6B6762] truncate">
+                  Overnight stay · {s.startDate} → {s.endDate}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {canCreate && (
