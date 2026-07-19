@@ -18,6 +18,7 @@ import { Label } from '../../../components/ui/label';
 import { Badge } from '../../../components/ui/badge';
 import { Textarea } from '../../../components/ui/textarea';
 import { Checkbox } from '../../../components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group';
 import {
   MagnifyingGlass,
   Dog,
@@ -72,6 +73,9 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
   const [requiresMedication, setRequiresMedication] = useState(false);
   const [hasBehaviourConcerns, setHasBehaviourConcerns] = useState(false);
   const [hasAllergies, setHasAllergies] = useState(false);
+  // "Day after final night is a daycare day" — off by default.
+  const [morningAfterDaycare, setMorningAfterDaycare] = useState(false);
+  const [morningDaycareType, setMorningDaycareType] = useState<'full' | 'half'>('full');
 
   const [billingBreakdown, setBillingBreakdown] = useState<any | null>(null);
   const [calculatingBilling, setCalculatingBilling] = useState(false);
@@ -92,6 +96,8 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
       setRequiresMedication(false);
       setHasBehaviourConcerns(false);
       setHasAllergies(false);
+      setMorningAfterDaycare(false);
+      setMorningDaycareType('full');
       setBillingBreakdown(null);
     } else {
       const tomorrow = new Date();
@@ -206,7 +212,7 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
     }
 
     try {
-      await createReservation({
+      const created = await createReservation({
         customerId: selectedHousehold.household_id,
         petId: selectedPet.id,
         householdId: selectedHousehold.household_id,
@@ -232,9 +238,15 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
         requiresDropOff: false,
         petName: selectedPet.name,
         customerName: selectedHousehold.household_name,
+        morningAfterDaycare: morningAfterDaycare ? morningDaycareType : undefined,
       });
 
       toast.success(`Reservation created for ${selectedPet.name}`);
+      // The check-out-morning daycare leg can be skipped (already booked /
+      // daycare full) — the reservation still succeeds, staff just need to know.
+      if (created.morningDaycare?.warning) {
+        toast.warning(created.morningDaycare.warning);
+      }
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
@@ -484,6 +496,40 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
               </div>
             </div>
 
+            <div className="space-y-3">
+              <Label>Check-out morning</Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="morningAfterDaycare"
+                  checked={morningAfterDaycare}
+                  onCheckedChange={(checked) => setMorningAfterDaycare(checked === true)}
+                />
+                <Label htmlFor="morningAfterDaycare" className="font-normal">
+                  Day after final night is a daycare day
+                </Label>
+              </div>
+              {morningAfterDaycare && (
+                <RadioGroup
+                  value={morningDaycareType}
+                  onValueChange={(value) => setMorningDaycareType(value === 'half' ? 'half' : 'full')}
+                  className="ml-6 flex flex-col gap-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="full" id="morningDaycareFull" />
+                    <Label htmlFor="morningDaycareFull" className="font-normal">
+                      Full day
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="half" id="morningDaycareHalf" />
+                    <Label htmlFor="morningDaycareHalf" className="font-normal">
+                      Half day (AM)
+                    </Label>
+                  </div>
+                </RadioGroup>
+              )}
+            </div>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
@@ -517,6 +563,11 @@ export function CreateReservationModal({ open, onOpenChange, onSuccess, prefill 
                 <p className="text-sm text-muted-foreground">
                   {totalNights} {totalNights === 1 ? 'night' : 'nights'}
                 </p>
+                {morningAfterDaycare && (
+                  <p className="text-sm text-foreground mt-1">
+                    + Daycare on the check-out morning ({morningDaycareType === 'full' ? 'full day' : 'half day AM'}), billed as a normal daycare day
+                  </p>
+                )}
               </div>
               {(specialInstructions || feedingInstructions || medicationInstructions || behaviourNotes) && (
                 <div className="p-4 space-y-2">
