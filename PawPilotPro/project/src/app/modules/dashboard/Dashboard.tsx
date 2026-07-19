@@ -9,14 +9,14 @@ import { ShareMomentModal, type ShareMomentPet } from '../daycare/components/Sha
 import {
   SignIn, SignOut, Plus, Users,
   ArrowRight, Dog, Camera, Warning, FirstAidKit,
-  Pulse, FileDashed, Syringe,
+  Pulse, Baby, Syringe,
 } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../../components/ui/tooltip';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
 
 interface AlertKind {
-  key: 'medical' | 'behaviour' | 'paperwork' | 'vaccination';
+  key: 'medical' | 'behaviour' | 'care' | 'vaccination';
   label: string;
   count: number;
   icon: Icon;
@@ -98,7 +98,9 @@ export function Dashboard() {
   const expectedArrivals = stats?.expected_arrivals_2h ?? 0;
 
   // Same categories the server counts over today's bookings (daycare /stats).
-  // Paperwork = waiver issues + account holds; safety flags stay separate.
+  // Care = physical-care flags (needs a diaper, …); safety flags stay
+  // separate. Waiver/hold paperwork still filters the bookings list
+  // (?flag=paperwork) — it just no longer takes an alert tile.
   const alertKinds: AlertKind[] = [
     {
       key: 'medical',
@@ -117,12 +119,12 @@ export function Dashboard() {
       fg: '#B45309', bg: '#FFFBEB', border: '#FDE68A',
     },
     {
-      key: 'paperwork',
-      label: 'Paperwork',
-      count: (stats?.waiver_alerts ?? 0) + (stats?.hold_alerts ?? 0),
-      icon: FileDashed,
+      key: 'care',
+      label: 'Care',
+      count: stats?.care_flags ?? 0,
+      icon: Baby,
       loud: false,
-      fg: '#6B6762', bg: '#FAFAF9', border: '#E7E5E4',
+      fg: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE',
     },
     {
       key: 'vaccination',

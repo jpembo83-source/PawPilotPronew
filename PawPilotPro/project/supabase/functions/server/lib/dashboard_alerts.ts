@@ -53,11 +53,19 @@ function activeFlag(flags: FlagLite[], petId: string | undefined, key: string): 
   });
 }
 
-interface LiveAlertState {
+/** Physical-care flag keys (diapers today; extensible). Their own dashboard
+ *  bucket — a care need is neither a medical nor a behaviour concern. */
+const CARE_FLAG_KEYS: { key: string; note: string }[] = [
+  { key: 'needs_diaper', note: 'Needs a diaper' },
+];
+
+export interface LiveAlertState {
   has_behaviour_flag: boolean;
   has_medical_flag: boolean;
+  has_care_flag: boolean;
   behaviour_notes?: string | null;
   medical_notes?: string | null;
+  care_notes?: string | null;
 }
 
 /**
@@ -79,23 +87,22 @@ function liveAlertState(
 
   const behaviourFlag = activeFlag(flags, b.pet_id, 'behaviour_caution');
   const medicalFlag = activeFlag(flags, b.pet_id, 'medical_caution');
-  // Physical-care flags count as medical/care alerts: a dog needing a diaper
-  // must reach the dashboard alert card, not just the profile.
-  const diaperFlag = activeFlag(flags, b.pet_id, 'needs_diaper');
+  // Care needs get their own bucket (Care tile on the dashboard) rather than
+  // inflating the Medical count.
+  const careNotes = CARE_FLAG_KEYS
+    .filter(({ key }) => activeFlag(flags, b.pet_id, key))
+    .map(({ note }) => note);
 
   const flagReason = (f: FlagLite | undefined): string | null =>
     f && typeof f.reason === 'string' && f.reason.trim() ? f.reason.trim() : null;
 
   return {
     has_behaviour_flag: hasBehaviourNote || !!behaviourFlag,
-    has_medical_flag: hasMedicalNote || !!medicalFlag || !!diaperFlag,
+    has_medical_flag: hasMedicalNote || !!medicalFlag,
+    has_care_flag: careNotes.length > 0,
     behaviour_notes: behaviourNotes || flagReason(behaviourFlag) || b.behaviour_notes || null,
-    medical_notes:
-      medicalNotes ||
-      flagReason(medicalFlag) ||
-      (diaperFlag ? 'Needs a diaper' : null) ||
-      b.medical_notes ||
-      null,
+    medical_notes: medicalNotes || flagReason(medicalFlag) || b.medical_notes || null,
+    care_notes: careNotes.length > 0 ? careNotes.join('; ') : null,
   };
 }
 
@@ -109,7 +116,7 @@ export function annotateLiveAlertFlags<T extends AlertBooking>(
   bookings: T[],
   petNotes: Map<string, LivePetNotes | undefined>,
   flagsByHousehold: Map<string, FlagLite[]>,
-): T[] {
+): (T & LiveAlertState)[] {
   return bookings.map((b) => {
     const live = b.pet_id ? petNotes.get(b.pet_id) : undefined;
     const flags = b.household_id ? flagsByHousehold.get(b.household_id) ?? [] : [];
@@ -118,9 +125,10 @@ export function annotateLiveAlertFlags<T extends AlertBooking>(
 }
 
 /**
- * Behaviour and medical alert counts over the given bookings, one per booking
- * whose LIVE state has a concern. Same derivation as annotateLiveAlertFlags,
- * so the /stats card count always matches the annotated list.
+ * Behaviour, medical, and care alert counts over the given bookings, one per
+ * booking whose LIVE state has a concern. Same derivation as
+ * annotateLiveAlertFlags, so the /stats card counts always match the
+ * annotated list.
  *
  * @param bookings          the bookings to count over (already filtered to the day/scope)
  * @param petNotes          pet id -> live notes; a pet absent here falls back to the booking snapshot
@@ -130,11 +138,12 @@ export function countBehaviourMedicalAlerts(
   bookings: AlertBooking[],
   petNotes: Map<string, LivePetNotes | undefined>,
   flagsByHousehold: Map<string, FlagLite[]>,
-): { behaviour_flags: number; medical_flags: number } {
+): { behaviour_flags: number; medical_flags: number; care_flags: number } {
   const annotated = annotateLiveAlertFlags(bookings, petNotes, flagsByHousehold);
   return {
     behaviour_flags: annotated.filter((b) => b.has_behaviour_flag).length,
     medical_flags: annotated.filter((b) => b.has_medical_flag).length,
+    care_flags: annotated.filter((b) => b.has_care_flag).length,
   };
 }
 

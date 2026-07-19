@@ -1810,7 +1810,7 @@ app.get('/stats', async (c) => {
     // The household prefix scan also returns the nested :flag: records — one
     // read covers every household's flags.
     const householdRecords = await kv.getByPrefix(`customer:${user.tenantId}:household:`);
-    const { behaviour_flags, medical_flags } = countBehaviourMedicalAlerts(
+    const { behaviour_flags, medical_flags, care_flags } = countBehaviourMedicalAlerts(
       activeBookings,
       buildPetNotesMap(Array.isArray(livePets) ? livePets : []),
       groupFlagsByHousehold(Array.isArray(householdRecords) ? householdRecords : []),
@@ -1852,6 +1852,7 @@ app.get('/stats', async (c) => {
       hold_alerts: todayBookings.filter(b => b.has_booking_hold || b.has_payment_hold).length,
       behaviour_flags,
       medical_flags,
+      care_flags,
     };
     
     return c.json(stats);
