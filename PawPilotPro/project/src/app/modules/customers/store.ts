@@ -26,6 +26,19 @@ import type {
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
 
+/** What the transfer endpoint moved, for the confirmation toast. */
+export interface PetTransferResult {
+  success: boolean;
+  pet: Pet;
+  moved: {
+    flags: number;
+    documents: number;
+    daycare_bookings: number;
+    overnight_reservations: number;
+    grooming_appointments: number;
+  };
+}
+
 export const HOUSEHOLD_PAGE_SIZE = 50;
 
 export interface HouseholdPageOptions {
@@ -88,6 +101,8 @@ interface CustomerState {
   fetchPetProfile: (id: string) => Promise<Pet>; // Alias — also returns the fetched pet
   createPet: (householdId: string, data: Partial<Pet>) => Promise<Pet>;
   updatePet: (id: string, data: Partial<Pet>) => Promise<Pet>;
+  /** Move a pet to another household (rehomed/adopted) — flags and history follow. */
+  transferPet: (id: string, toHouseholdId: string) => Promise<PetTransferResult>;
   
   // Actions - Documents
   fetchDocuments: (householdId: string) => Promise<void>;
@@ -667,7 +682,38 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       throw error;
     }
   },
-  
+
+  transferPet: async (id: string, toHouseholdId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${BASE_URL}/pets/${id}/transfer`, {
+        method: 'POST',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ to_household_id: toHouseholdId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json() as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to transfer pet');
+      }
+
+      const result = await response.json() as PetTransferResult;
+
+      set(state => ({
+        pets: state.pets.map(p => p.id === id ? result.pet : p),
+        isLoading: false,
+      }));
+
+      void broadcastMutation('customers', 'pet', 'updated', id)
+
+      return result;
+    } catch (error) {
+      console.error('Transfer pet error:', error);
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
   // ============================================================================
   // DOCUMENTS
   // ============================================================================
