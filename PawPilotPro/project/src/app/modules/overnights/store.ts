@@ -40,7 +40,7 @@ export interface OvernightsState {
   error: string | null;
 
   fetchReservations: (locationId?: string, startDate?: string, endDate?: string) => Promise<void>;
-  createReservation: (reservation: Omit<OvernightReservation, 'id' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>) => Promise<OvernightReservation>;
+  createReservation: (reservation: Omit<OvernightReservation, 'id' | 'createdAt' | 'createdBy' | 'updatedAt' | 'updatedBy'>) => Promise<OvernightReservationPayload>;
   updateReservation: (id: string, updates: Partial<OvernightReservation>) => Promise<void>;
   cancelReservation: (id: string, reason: string) => Promise<void>;
 

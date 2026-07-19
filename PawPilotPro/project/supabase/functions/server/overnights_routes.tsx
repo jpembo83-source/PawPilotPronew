@@ -15,6 +15,11 @@ import {
   recordOvernightEvent,
   TERMINAL_OVERNIGHT_STATUSES,
 } from "./lib/overnights_shared.ts";
+import {
+  cancelLinkedMorningDaycare,
+  createMorningAfterDaycare,
+  type MorningDaycareResult,
+} from "./lib/overnight_daycare_link.ts";
 
 const routes = new Hono();
 
@@ -82,6 +87,8 @@ const createReservationSchema = z
     customerName: z.string().max(200).optional(),
     daycareBookingId: z.string().optional(),
     currency: z.string().length(3).optional(),
+    // "Day after the final night is a daycare day" — absent means off.
+    morningAfterDaycare: z.enum(["full", "half"]).optional(),
   })
   .refine((d) => d.endDate > d.startDate, {
     message: "endDate must be after startDate",
@@ -238,6 +245,8 @@ routes.post("/reservations", async (c) => {
       hasAllergies: body.hasAllergies ?? false,
       requiresPickup: body.requiresPickup ?? false,
       requiresDropOff: body.requiresDropOff ?? false,
+      // Set below when the check-out-morning daycare leg is created.
+      morningDaycareBookingId: undefined as string | undefined,
       tenant_id: tenantId,
       createdAt: now,
       createdBy: userInfo.name,
@@ -246,15 +255,41 @@ routes.post("/reservations", async (c) => {
     };
 
     await kv.set(`overnight:${tenantId}:reservation:${reservation.id}`, reservation);
-    
+
     await recordEvent(tenantId, reservation.id, 'created', userInfo.id, userInfo.name, {
       petId: reservation.petId,
       locationId: reservation.locationId,
       startDate: reservation.startDate,
       endDate: reservation.endDate,
     });
-    
-    return c.json(reservation);
+
+    // "Day after the final night is a daycare day": book the check-out
+    // morning as a normal daycare day, server-side so every client path gets
+    // the same dedupe/capacity/billing rules. Non-fatal — the reservation is
+    // already committed; skips/failures come back as a warning.
+    let morningDaycare: MorningDaycareResult | undefined;
+    if (body.morningAfterDaycare) {
+      morningDaycare = await createMorningAfterDaycare(
+        tenantId,
+        userInfo,
+        reservation,
+        body.morningAfterDaycare,
+      );
+      if (morningDaycare.status === 'created' && morningDaycare.bookingId) {
+        reservation.morningDaycareBookingId = morningDaycare.bookingId;
+        reservation.updatedAt = new Date().toISOString();
+        await kv.set(`overnight:${tenantId}:reservation:${reservation.id}`, reservation);
+        await recordEvent(tenantId, reservation.id, 'morning_daycare_booked', userInfo.id, userInfo.name, {
+          daycareBookingId: morningDaycare.bookingId,
+          date: reservation.endDate,
+          type: body.morningAfterDaycare,
+        });
+      }
+    }
+
+    // morningDaycare is response-only (status + optional warning for the UI);
+    // the persisted link is morningDaycareBookingId on the reservation.
+    return c.json(morningDaycare ? { ...reservation, morningDaycare } : reservation);
   } catch (e: any) {
     return internalError(c, 'overnights.postReservations', e);
   }
@@ -319,6 +354,12 @@ routes.put("/reservations/:id", async (c) => {
         to: body.status,
         ...(body.cancellationReason ? { reason: body.cancellationReason } : {}),
       });
+    }
+
+    // Cancelling the stay cancels its linked check-out-morning daycare
+    // booking too (only if that booking hasn't started; non-fatal).
+    if (body.status === 'cancelled' && existing.status !== 'cancelled') {
+      await cancelLinkedMorningDaycare(userInfo, updated);
     }
 
     return c.json(updated);
