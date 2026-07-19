@@ -33,7 +33,7 @@ import calendarRoutes from "./calendar_routes.tsx";
 import portalRoutes from "./portal_routes.tsx";
 import portalInvites from "./portal_invites.ts";
 import portalBookings from "./portal_bookings.ts";
-import { requireAuth, requirePermission, UserContext } from "./settings_rbac.ts";
+import { requireAuth, requirePermission, logAudit, UserContext } from "./settings_rbac.ts";
 import { internalError } from "./_shared/log.ts";
 
 const app = new Hono();
@@ -351,6 +351,12 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
       console.log('[Create User] Saved user profile to KV store:', data.user.id);
     }
 
+    // Settings audit trail (metadata only — never the body, it carries the password)
+    await logAudit(caller, 'users', 'create', {
+      resourceId: data.user?.id,
+      metadata: { role: assignedRole, templateId: templateId ?? null },
+    }, c);
+
     return c.json(data.user);
   } catch (err: any) {
     return internalError(c, 'index.createUser', err);
@@ -433,6 +439,12 @@ app.put("/make-server-fc003b23/users/:id", requireAuth, requirePermission('users
       }
     }
 
+    // Settings audit trail (field names only — values may include a password)
+    await logAudit(c.get('user') as UserContext, 'users', 'update', {
+      resourceId: id,
+      metadata: { fields: Object.keys(body) },
+    }, c);
+
     return c.json(data.user);
   } catch (err: any) {
     return internalError(c, 'index.updateUser', err);
@@ -461,7 +473,9 @@ app.delete("/make-server-fc003b23/users/:id", requireAuth, requirePermission('us
       await kv.del(`user:${tenantId}:profile:${id}`);
       console.log('[Delete User] Removed user profile from KV store:', id);
     }
-    
+
+    await logAudit(c.get('user') as UserContext, 'users', 'delete', { resourceId: id }, c);
+
     return c.json({ success: true });
   } catch (err: any) {
     return internalError(c, 'index.deleteUser', err);

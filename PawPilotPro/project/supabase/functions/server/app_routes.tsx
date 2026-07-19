@@ -69,6 +69,306 @@ routes.get("/settings/audit-logs", requireAuth, async (c) => {
   }
 });
 
+// --- Permission Templates ---
+// Server-persisted in KV: localStorage is never the source of truth for
+// security data. The five system templates are seeded once when the tenant
+// has none; user-created templates are CRUD-able by admin/manager (enforced
+// by requirePermission('users', …)). A template assigned to a user is
+// referenced by app_metadata.templateId, which usePermissions resolves
+// against this list — so what is stored here is what actually gates the UI.
+
+interface TemplatePermission {
+  module: string;
+  action: string;
+  flags?: string[];
+}
+
+interface PermissionTemplateRecord {
+  id: string;
+  name: string;
+  description: string;
+  permissions: TemplatePermission[];
+  isSystem: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
+}
+
+const templateKey = (tenantId: string, id: string) =>
+  `settings:${tenantId}:permission_template:${id}`;
+const templatePrefix = (tenantId: string) =>
+  `settings:${tenantId}:permission_template:`;
+
+// Mirrors the templates the client previously seeded into localStorage —
+// same ids, so existing app_metadata.templateId assignments keep resolving.
+const SYSTEM_TEMPLATES: Omit<PermissionTemplateRecord, 'created_at' | 'updated_at'>[] = [
+  {
+    id: 'tpl-handler',
+    name: 'Daycare Handler',
+    description: 'Standard access for daycare staff. Can check-in dogs and view bookings.',
+    permissions: [
+      { module: 'dashboard', action: 'view' },
+      { module: 'daycare', action: 'view' },
+      { module: 'daycare', action: 'update' },
+      { module: 'customers', action: 'view' },
+      { module: 'incidents', action: 'view' },
+      { module: 'incidents', action: 'create' },
+    ],
+    isSystem: true,
+  },
+  {
+    id: 'tpl-groomer',
+    name: 'Groomer',
+    description: 'Access to grooming appointments and schedule.',
+    permissions: [
+      { module: 'dashboard', action: 'view' },
+      { module: 'grooming', action: 'view' },
+      { module: 'grooming', action: 'update' },
+      { module: 'customers', action: 'view' },
+      { module: 'incidents', action: 'view' },
+      { module: 'incidents', action: 'create' },
+    ],
+    isSystem: true,
+  },
+  {
+    id: 'tpl-driver',
+    name: 'Driver',
+    description: 'Access to Transportation module only.',
+    permissions: [
+      { module: 'dashboard', action: 'view' },
+      { module: 'transport', action: 'view' },
+      { module: 'transport', action: 'update' },
+      { module: 'customers', action: 'view' },
+      { module: 'incidents', action: 'view' },
+      { module: 'incidents', action: 'create' },
+    ],
+    isSystem: true,
+  },
+  {
+    id: 'tpl-frontdesk',
+    name: 'Front Desk',
+    description: 'Full operational access excluding finance settings.',
+    permissions: [
+      { module: 'dashboard', action: 'view' },
+      { module: 'daycare', action: 'view' },
+      { module: 'daycare', action: 'create' },
+      { module: 'daycare', action: 'update' },
+      { module: 'grooming', action: 'view' },
+      { module: 'grooming', action: 'create' },
+      { module: 'grooming', action: 'update' },
+      { module: 'customers', action: 'view' },
+      { module: 'customers', action: 'create' },
+      { module: 'customers', action: 'update' },
+      { module: 'messages', action: 'view' },
+      { module: 'messages', action: 'create' },
+      { module: 'incidents', action: 'view' },
+      { module: 'incidents', action: 'create' },
+      { module: 'incidents', action: 'update' },
+    ],
+    isSystem: true,
+  },
+  {
+    id: 'tpl-finance',
+    name: 'Finance Viewer',
+    description: 'Read-only access to billing and financial records.',
+    permissions: [
+      { module: 'dashboard', action: 'view' },
+      { module: 'billing', action: 'view' },
+      { module: 'billing', action: 'export' },
+      { module: 'invoices', action: 'view' },
+      { module: 'payments', action: 'view' },
+    ],
+    isSystem: true,
+  },
+];
+
+const TEMPLATE_ACTIONS = new Set(['view', 'create', 'update', 'delete', 'export', 'approve']);
+
+/** Validate a template payload down to exactly the fields we persist —
+ *  request bodies are never spread into stored records wholesale. */
+function parseTemplateBody(
+  body: unknown,
+): { name: string; description: string; permissions: TemplatePermission[] } | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const b = body as Record<string, unknown>;
+  const name = typeof b.name === 'string' ? b.name.trim() : '';
+  if (!name) return null;
+  const description = typeof b.description === 'string' ? b.description.trim() : '';
+  if (!Array.isArray(b.permissions)) return null;
+  const permissions: TemplatePermission[] = [];
+  for (const raw of b.permissions) {
+    if (typeof raw !== 'object' || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.module !== 'string' || !p.module.trim()) return null;
+    if (typeof p.action !== 'string' || !TEMPLATE_ACTIONS.has(p.action)) return null;
+    const perm: TemplatePermission = { module: p.module.trim(), action: p.action };
+    if (Array.isArray(p.flags) && p.flags.every((f) => typeof f === 'string')) {
+      perm.flags = p.flags as string[];
+    }
+    permissions.push(perm);
+  }
+  return { name, description, permissions };
+}
+
+/** List a tenant's templates, seeding the system set exactly once. */
+async function listPermissionTemplates(tenantId: string): Promise<PermissionTemplateRecord[]> {
+  const existing = (await kv.getByPrefix(templatePrefix(tenantId))) as PermissionTemplateRecord[];
+  if (existing && existing.length > 0) {
+    return existing.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  const now = new Date().toISOString();
+  const seeded = SYSTEM_TEMPLATES.map((t) => ({ ...t, created_at: now, updated_at: now }));
+  await kv.mset(
+    seeded.map((t) => templateKey(tenantId, t.id)),
+    seeded,
+  );
+  return seeded;
+}
+
+routes.get(
+  "/settings/permission-templates",
+  requireAuth,
+  requirePermission('users', 'view'),
+  async (c) => {
+    try {
+      const user = c.get('user') as UserContext;
+      const templates = await listPermissionTemplates(user.tenantId);
+      return c.json(templates);
+    } catch (e: any) { return internalError(c, 'app.listPermissionTemplates', e); }
+  },
+);
+
+// The caller's OWN assigned template — requireAuth only, no id parameter, so
+// every role (staff included) can resolve the template that gates their UI
+// without being able to enumerate or probe anyone else's.
+routes.get("/settings/my-permission-template", requireAuth, async (c) => {
+  try {
+    const user = c.get('user') as UserContext;
+    const templateId = user.app_metadata?.templateId;
+    if (typeof templateId !== 'string' || !templateId) {
+      return c.json(null);
+    }
+    const template = await kv.get(templateKey(user.tenantId, templateId));
+    return c.json(template ?? null);
+  } catch (e: any) { return internalError(c, 'app.myPermissionTemplate', e); }
+});
+
+routes.post(
+  "/settings/permission-templates",
+  requireAuth,
+  requirePermission('users', 'create'),
+  async (c) => {
+    try {
+      const user = c.get('user') as UserContext;
+      const parsed = parseTemplateBody(await c.req.json());
+      if (!parsed) {
+        return c.json({ error: 'name and a valid permissions array are required' }, 400);
+      }
+      // Seed first so a fresh tenant can't collide with a system template id later.
+      await listPermissionTemplates(user.tenantId);
+      const now = new Date().toISOString();
+      const template: PermissionTemplateRecord = {
+        id: crypto.randomUUID(),
+        ...parsed,
+        isSystem: false,
+        created_at: now,
+        updated_at: now,
+        created_by: user.id,
+      };
+      await kv.set(templateKey(user.tenantId, template.id), template);
+
+      await logAudit(user, 'users', 'create', {
+        resourceId: template.id,
+        after: template,
+        metadata: { resource: 'permission_template', name: template.name },
+      }, c);
+
+      return c.json(template, 201);
+    } catch (e: any) { return internalError(c, 'app.createPermissionTemplate', e); }
+  },
+);
+
+routes.put(
+  "/settings/permission-templates/:id",
+  requireAuth,
+  requirePermission('users', 'update'),
+  async (c) => {
+    try {
+      const user = c.get('user') as UserContext;
+      const id = c.req.param('id');
+      if (!id) return c.json({ error: 'Template not found' }, 404);
+      const existing = (await kv.get(templateKey(user.tenantId, id))) as PermissionTemplateRecord | null;
+      if (!existing) {
+        return c.json({ error: 'Template not found' }, 404);
+      }
+      const parsed = parseTemplateBody(await c.req.json());
+      if (!parsed) {
+        return c.json({ error: 'name and a valid permissions array are required' }, 400);
+      }
+      // id and isSystem are server-controlled; a client can never flip them.
+      const updated: PermissionTemplateRecord = {
+        ...existing,
+        ...parsed,
+        id: existing.id,
+        isSystem: existing.isSystem,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+      };
+      await kv.set(templateKey(user.tenantId, id), updated);
+
+      await logAudit(user, 'users', 'update', {
+        resourceId: id,
+        before: existing,
+        after: updated,
+        metadata: { resource: 'permission_template', name: updated.name },
+      }, c);
+
+      return c.json(updated);
+    } catch (e: any) { return internalError(c, 'app.updatePermissionTemplate', e); }
+  },
+);
+
+routes.delete(
+  "/settings/permission-templates/:id",
+  requireAuth,
+  requirePermission('users', 'delete'),
+  async (c) => {
+    try {
+      const user = c.get('user') as UserContext;
+      const id = c.req.param('id');
+      if (!id) return c.json({ error: 'Template not found' }, 404);
+      const existing = (await kv.get(templateKey(user.tenantId, id))) as PermissionTemplateRecord | null;
+      if (!existing) {
+        return c.json({ error: 'Template not found' }, 404);
+      }
+      if (existing.isSystem) {
+        return c.json({ error: 'System templates cannot be deleted' }, 403);
+      }
+      // Never orphan an assignment: a template still gating users stays.
+      const profiles = (await kv.getByPrefix(`user:${user.tenantId}:profile:`)) as Array<
+        Record<string, unknown>
+      >;
+      const assigned = (profiles ?? []).filter((p) => p?.templateId === id);
+      if (assigned.length > 0) {
+        return c.json(
+          { error: `Template is assigned to ${assigned.length} user(s) — reassign them first` },
+          409,
+        );
+      }
+      await kv.del(templateKey(user.tenantId, id));
+
+      await logAudit(user, 'users', 'delete', {
+        resourceId: id,
+        before: existing,
+        metadata: { resource: 'permission_template', name: existing.name },
+      }, c);
+
+      return c.json({ success: true });
+    } catch (e: any) { return internalError(c, 'app.deletePermissionTemplate', e); }
+  },
+);
+
 // --- Organisation Settings ---
 
 routes.get("/organisation", requireAuth, requirePermission('organisation', 'view'), async (c) => {
@@ -184,6 +484,7 @@ routes.put("/locations/:id", requireAuth, requirePermission('locations', 'update
   try {
     const user = c.get('user') as UserContext;
     const id = c.req.param("id");
+    if (!id) return c.json({ error: "Not found" }, 404);
     const body = await c.req.json();
     
     // Check location access for non-admins
@@ -226,6 +527,7 @@ routes.post("/locations/:id/header-image", requireAuth, requirePermission('locat
   try {
     const user = c.get('user') as UserContext;
     const id = c.req.param("id");
+    if (!id) return c.json({ error: "Not found" }, 404);
 
     // Defence in depth alongside requirePermission — unit-tested mirror.
     if (!canManageLocationHeader(user.role)) {
@@ -281,6 +583,7 @@ routes.delete("/locations/:id/header-image", requireAuth, requirePermission('loc
   try {
     const user = c.get('user') as UserContext;
     const id = c.req.param("id");
+    if (!id) return c.json({ error: "Not found" }, 404);
 
     if (!canManageLocationHeader(user.role)) {
       return c.json({ error: 'Forbidden' }, 403);

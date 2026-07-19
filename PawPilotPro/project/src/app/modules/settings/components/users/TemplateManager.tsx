@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useUserStore, PermissionTemplate } from '../../stores/userStore';
 import { Button } from '../../../../components/ui/button';
 import { Badge } from '../../../../components/ui/badge';
-import { Plus, Shield, Lock, Trash, PencilSimple } from '@phosphor-icons/react';
+import { Plus, Shield, Trash, PencilSimple } from '@phosphor-icons/react';
+import { toast } from 'sonner';
 import { TemplateDialog } from './TemplateDialog';
 
 export function TemplateManager() {
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useUserStore();
-  
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<PermissionTemplate | null>(null);
 
@@ -21,12 +22,24 @@ export function TemplateManager() {
     setIsDialogOpen(true);
   };
 
-  const handleSave = (tplData: Partial<PermissionTemplate>) => {
-    const actorName = 'Current Admin';
-    if (editingTemplate) {
-      updateTemplate(editingTemplate.id, tplData, actorName);
+  // Templates persist server-side; surface failures instead of pretending.
+  const handleSave = async (tplData: Partial<PermissionTemplate>) => {
+    const saved = editingTemplate
+      ? await updateTemplate(editingTemplate.id, tplData)
+      : await addTemplate(tplData as Omit<PermissionTemplate, 'id'>);
+    if (saved) {
+      toast.success(`Template "${saved.name}" saved`);
     } else {
-      addTemplate(tplData as Omit<PermissionTemplate, 'id'>, actorName);
+      toast.error(useUserStore.getState().error ?? 'Failed to save template');
+    }
+  };
+
+  const handleDelete = async (tpl: PermissionTemplate) => {
+    const ok = await deleteTemplate(tpl.id);
+    if (ok) {
+      toast.success(`Template "${tpl.name}" deleted`);
+    } else {
+      toast.error(useUserStore.getState().error ?? 'Failed to delete template');
     }
   };
 
@@ -57,7 +70,7 @@ export function TemplateManager() {
                     <PencilSimple className="h-4 w-4 text-slate-500" />
                  </Button>
                  {!tpl.isSystem && (
-                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => deleteTemplate(tpl.id, 'Admin')}>
+                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500" onClick={() => void handleDelete(tpl)}>
                      <Trash className="h-4 w-4" />
                    </Button>
                  )}
@@ -87,11 +100,11 @@ export function TemplateManager() {
         ))}
       </div>
 
-      <TemplateDialog 
-        open={isDialogOpen} 
-        onOpenChange={setIsDialogOpen} 
-        template={editingTemplate} 
-        onSave={handleSave} 
+      <TemplateDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        template={editingTemplate}
+        onSave={(tplData) => void handleSave(tplData)}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3202,
-  "warnings": 406
+  "errors": 3191,
+  "warnings": 404
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -87,10 +87,6 @@
   "src/app/hooks/useModuleRealtimeSync.ts": {
    "errors": 1,
    "warnings": 0
-  },
-  "src/app/hooks/usePermissions.ts": {
-   "errors": 3,
-   "warnings": 1
   },
   "src/app/lib/realtime.ts": {
    "errors": 4,
@@ -764,10 +760,6 @@
    "errors": 1,
    "warnings": 0
   },
-  "src/app/modules/settings/components/users/TemplateManager.tsx": {
-   "errors": 1,
-   "warnings": 0
-  },
   "src/app/modules/settings/components/users/UserList.tsx": {
    "errors": 8,
    "warnings": 1
@@ -813,8 +805,8 @@
    "warnings": 5
   },
   "src/app/modules/settings/stores/userStore.ts": {
-   "errors": 45,
-   "warnings": 5
+   "errors": 38,
+   "warnings": 4
   },
   "src/app/modules/settings/utils/rbac.ts": {
    "errors": 26,

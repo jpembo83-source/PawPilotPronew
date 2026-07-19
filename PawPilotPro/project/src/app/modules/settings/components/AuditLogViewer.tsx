@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FileText, Clock, User, Shield, Warning } from '@phosphor-icons/react';
-import { projectId } from '../../../../utils/supabase/info';
+import { projectId } from '../../../../../utils/supabase/info';
 import { SettingsSection } from '../types/permissions';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 
@@ -43,18 +43,20 @@ export function AuditLogViewer({
   
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [actionFilter, setActionFilter] = useState<string>('all');
+  // Simple paging: each "Load more" re-fetches with a larger window.
+  const [pageLimit, setPageLimit] = useState(limit);
 
   useEffect(() => {
     fetchLogs();
-  }, [section, limit]);
+  }, [section, pageLimit]);
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      
+
       const url = section
-        ? `${API_URL}/settings/audit-logs?section=${section}&limit=${limit}`
-        : `${API_URL}/settings/audit-logs?limit=${limit}`;
+        ? `${API_URL}/settings/audit-logs?section=${section}&limit=${pageLimit}`
+        : `${API_URL}/settings/audit-logs?limit=${pageLimit}`;
 
       const res = await fetch(url, {
         headers: await getAuthHeaders()
@@ -227,6 +229,19 @@ export function AuditLogViewer({
             </tbody>
           </table>
         </div>
+        {logs.length >= pageLimit && (
+          <div className="border-t border-slate-200 p-3 flex items-center justify-between">
+            <span className="text-sm text-slate-500">
+              Showing {filteredLogs.length} of at least {logs.length} entries
+            </span>
+            <button
+              onClick={() => setPageLimit((prev) => prev + limit)}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-md text-sm font-medium text-slate-700"
+            >
+              Load more
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Detail Modal */}
