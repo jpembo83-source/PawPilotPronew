@@ -5,14 +5,12 @@ import { useCommunicationsSettingsStore } from './store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card } from '../../components/ui/card';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { 
-  Radio, 
-  EnvelopeSimple, 
-  ChatTeardrop, 
-  FileText, 
-  Lightning, 
-  Clock, 
-  ShieldCheck, 
+import {
+  Radio,
+  EnvelopeSimple,
+  ChatTeardrop,
+  FileText,
+  ShieldCheck,
   MagnifyingGlass,
   CircleNotch,
   Warning
@@ -21,18 +19,18 @@ import { ChannelsSection } from './components/ChannelsSection';
 import { SenderIdentitySection } from './components/SenderIdentitySection';
 import { ConsentSection } from './components/ConsentSection';
 import { TemplatesSection } from './components/TemplatesSection';
-import { AutomationSection } from './components/AutomationSection';
-import { SLASection } from './components/SLASection';
 import { PermissionsSection } from './components/PermissionsSection';
 import { AuditLogsSection } from './components/AuditLogsSection';
 
+// 'Automation' and 'Response SLAs' tabs hidden (owner-confirmed unused):
+// enterprise-depth features a single daycare doesn't run. The section
+// components and all server routes stay intact for easy re-enabling —
+// restore the entries below and their TabsContent to bring them back.
 const sections = [
   { id: 'channels', label: 'Channels', icon: Radio, description: 'Enable/disable communication channels' },
   { id: 'sender-identity', label: 'Sender Identity', icon: EnvelopeSimple, description: 'Configure sender details' },
   { id: 'consent', label: 'Consent', icon: ShieldCheck, description: 'Manage consent policies' },
   { id: 'templates', label: 'Templates', icon: FileText, description: 'Message templates' },
-  { id: 'automation', label: 'Automation', icon: Lightning, description: 'Automated messages' },
-  { id: 'slas', label: 'Response SLAs', icon: Clock, description: 'Response time targets' },
   { id: 'permissions', label: 'Permissions', icon: ChatTeardrop, description: 'Who can communicate' },
   { id: 'audit', label: 'Audit & Logs', icon: MagnifyingGlass, description: 'Changes and delivery logs' },
 ];
@@ -59,7 +57,7 @@ export function CommunicationsSettingsPage() {
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Communications Settings</h2>
         <p className="text-slate-600 mt-1">
-          Configure channels, templates, automation, and messaging policies
+          Configure channels, templates, consent, and messaging policies
         </p>
       </div>
 
@@ -85,7 +83,7 @@ export function CommunicationsSettingsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-2">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 gap-2">
           {sections.map((section) => {
             const Icon = section.icon;
             return (
@@ -115,14 +113,6 @@ export function CommunicationsSettingsPage() {
 
         <TabsContent value="templates" className="space-y-4">
           <TemplatesSection />
-        </TabsContent>
-
-        <TabsContent value="automation" className="space-y-4">
-          <AutomationSection />
-        </TabsContent>
-
-        <TabsContent value="slas" className="space-y-4">
-          <SLASection />
         </TabsContent>
 
         <TabsContent value="permissions" className="space-y-4">
