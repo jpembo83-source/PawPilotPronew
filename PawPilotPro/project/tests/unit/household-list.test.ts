@@ -141,4 +141,29 @@ describe('listHouseholds', () => {
     expect(rows).toHaveLength(50);
     expect(elapsed).toBeLessThan(250);
   });
+
+  // Stage-3 parity semantics: both read paths must agree on these.
+  it('treats a household without status as active (contract default), matching the PG path', () => {
+    const households = [
+      { id: 'hh-a', name: 'Alpha', status: 'active' },
+      { id: 'hh-b', name: 'Beta' }, // pre-contract blob: status omitted
+      { id: 'hh-c', name: 'Gamma', status: 'inactive' },
+    ];
+    const { total, rows } = listHouseholds(households, [], [], { status: 'active' });
+    expect(total).toBe(2);
+    expect(rows.map((r) => r.id)).toEqual(['hh-a', 'hh-b']);
+    expect(listHouseholds(households, [], [], { status: 'inactive' }).total).toBe(1);
+  });
+
+  it('breaks sort-key ties deterministically by id, reversed under dir=desc', () => {
+    const households = [
+      { id: 'hh-3', name: 'Same' },
+      { id: 'hh-1', name: 'same' }, // base-equal name → tie with hh-3
+      { id: 'hh-2', name: 'Aardvark' },
+    ];
+    const asc = listHouseholds(households, [], [], {}).rows.map((r) => r.id);
+    expect(asc).toEqual(['hh-2', 'hh-1', 'hh-3']);
+    const desc = listHouseholds(households, [], [], { dir: 'desc' }).rows.map((r) => r.id);
+    expect(desc).toEqual(['hh-3', 'hh-1', 'hh-2']);
+  });
 });

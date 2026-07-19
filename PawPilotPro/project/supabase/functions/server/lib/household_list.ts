@@ -103,7 +103,10 @@ export function listHouseholds<H extends HouseholdRecord, C extends ContactRecor
   }
 
   if (query.status) {
-    filtered = filtered.filter((h) => h.status === query.status);
+    // Contract semantics: a blob that omits status is 'active' (the frozen
+    // default) — matches the Postgres read path, where the default column
+    // value is materialised. Prod has zero such blobs; parity for the edge.
+    filtered = filtered.filter((h) => (h.status ?? 'active') === query.status);
   }
   if (query.vip) {
     filtered = filtered.filter((h) => h.vip === true);
@@ -123,8 +126,13 @@ export function listHouseholds<H extends HouseholdRecord, C extends ContactRecor
       }
     : (h: H) => h.name ?? '';
 
+  // Ties break on id so the order is DETERMINISTIC (it used to fall back to
+  // KV enumeration order, which is unspecified heap order) and identical to
+  // the Postgres read path's ORDER BY … , id. reverse() flips the id
+  // tie-break too, matching the PG path's `id desc` under dir=desc.
   const sorted = [...filtered].sort((a, b) =>
-    sortValue(a).localeCompare(sortValue(b), undefined, { sensitivity: 'base' })
+    sortValue(a).localeCompare(sortValue(b), undefined, { sensitivity: 'base' }) ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
   );
   if (query.dir === 'desc') sorted.reverse();
 
