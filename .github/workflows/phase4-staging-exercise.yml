@@ -58,3 +58,5 @@ jobs:
           else
             node PawPilotPro/project/scripts/phase4/exercise-customers-readcutover.mjs
           fi
+
+# exercise re-run marker: stage-3 parity fixes deployed (fb09177)
