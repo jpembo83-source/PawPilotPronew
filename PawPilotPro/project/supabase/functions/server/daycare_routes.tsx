@@ -19,7 +19,12 @@ import {
   type CustomerMembership,
 } from './lib/membership_catalog.ts';
 import { activeMembershipForHousehold } from './lib/membership_store.ts';
-import { countBehaviourMedicalAlerts } from './lib/dashboard_alerts.ts';
+import {
+  annotateLiveAlertFlags,
+  buildPetNotesMap,
+  countBehaviourMedicalAlerts,
+  groupFlagsByHousehold,
+} from './lib/dashboard_alerts.ts';
 
 const app = new Hono();
 
@@ -847,6 +852,17 @@ app.get('/bookings', async (c) => {
       if (dateCompare !== 0) return dateCompare;
       return (b.planned_start_time || '').localeCompare(a.planned_start_time || '');
     });
+
+    // Overwrite the creation-time behaviour/medical snapshot with LIVE state
+    // (current pet notes + active caution flags) so the flag-filtered list,
+    // card badges, and check-out warnings match the dashboard alert count.
+    // The household prefix scan above already returned the :flag: records.
+    const livePets = await kv.getByPrefix(`customer:${tenantId}:pet:`);
+    bookings = annotateLiveAlertFlags(
+      bookings,
+      buildPetNotesMap(Array.isArray(livePets) ? livePets : []),
+      groupFlagsByHousehold(existingHouseholds),
+    );
 
     // pet_photo_url is stored as a storage path — sign per response.
     return c.json(await withSignedPetPhotos(bookings as unknown as Record<string, unknown>[], 'pet_photo_url'));
@@ -1771,24 +1787,14 @@ app.get('/stats', async (c) => {
     // booked in with a behaviour_caution flag (or notes added after booking)
     // never surfaces on the dashboard alert card. Scanned once here, not per
     // booking, to keep the hot dashboard path to two prefix reads.
-    const livePets = (await kv.getByPrefix(`customer:${user.tenantId}:pet:`)) as
-      | { id?: string; behaviour_notes?: string | null; medical_notes?: string | null }[]
-      | null;
-    const petNotes = new Map<string, { behaviour_notes?: string | null; medical_notes?: string | null }>();
-    for (const p of Array.isArray(livePets) ? livePets : []) {
-      if (p && typeof p.id === 'string') {
-        petNotes.set(p.id, { behaviour_notes: p.behaviour_notes, medical_notes: p.medical_notes });
-      }
-    }
-    const flagsByHousehold = new Map<string, unknown[]>();
-    for (const householdId of new Set(activeBookings.map(b => b.household_id).filter(Boolean))) {
-      const flags = await kv.getByPrefix(`customer:${user.tenantId}:household:${householdId}:flag:`);
-      flagsByHousehold.set(householdId, Array.isArray(flags) ? flags : []);
-    }
+    const livePets = await kv.getByPrefix(`customer:${user.tenantId}:pet:`);
+    // The household prefix scan also returns the nested :flag: records — one
+    // read covers every household's flags.
+    const householdRecords = await kv.getByPrefix(`customer:${user.tenantId}:household:`);
     const { behaviour_flags, medical_flags } = countBehaviourMedicalAlerts(
       activeBookings,
-      petNotes,
-      flagsByHousehold,
+      buildPetNotesMap(Array.isArray(livePets) ? livePets : []),
+      groupFlagsByHousehold(Array.isArray(householdRecords) ? householdRecords : []),
     );
 
     const serviceBreakdown = {
