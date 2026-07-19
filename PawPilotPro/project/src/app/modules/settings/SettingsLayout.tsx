@@ -7,7 +7,6 @@ import { getAccessibleSections, hasSettingsPermission } from './utils/rbac';
 import { SettingsSection as SettingsSectionKey } from './types/permissions';
 import { 
   Buildings,
-  Stack,
   MapPin,
   UsersThree,
   Tag,
@@ -32,7 +31,9 @@ interface SettingsSection {
 
 const sections: SettingsSection[] = [
   { id: 'org', label: 'Organisation', icon: Buildings, path: '/settings/organisation', description: 'Profile, brand, and global defaults', sectionKey: 'organisation' },
-  { id: 'modules', label: 'Modules', icon: Stack, path: '/settings/modules', description: 'Enable/disable platform modules', sectionKey: 'modules' },
+  // 'Modules' hidden (owner-confirmed): enabling/disabling platform modules
+  // is a multi-tenant concept with no value for one business using its
+  // modules. Page, route, and server code stay intact for re-enabling.
   { id: 'locations', label: 'Locations', icon: MapPin, path: '/settings/locations', description: 'Manage branches and capacity', sectionKey: 'locations' },
   { id: 'users', label: 'Users & Access', icon: UsersThree, path: '/settings/users', description: 'Staff accounts and roles', sectionKey: 'users' },
   { id: 'services', label: 'Services & Pricing', icon: Tag, path: '/settings/services', description: 'Service catalogue and price books', sectionKey: 'services' },

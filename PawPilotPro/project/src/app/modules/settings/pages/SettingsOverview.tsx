@@ -5,9 +5,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { getAccessibleSections } from '../utils/rbac';
 import { SettingsSection as SettingsSectionKey } from '../types/permissions';
 import { 
-  Buildings, 
-  Stack, 
-  MapPin, 
+  Buildings,
+  MapPin,
   UsersThree, 
   Tag, 
   BookOpen, 
@@ -29,7 +28,7 @@ interface SettingsSection {
 
 const sections: SettingsSection[] = [
   { id: 'org', label: 'Organisation', icon: Buildings, path: '/settings/organisation', description: 'Legal entity, brand settings, and global operational defaults.', sectionKey: 'organisation' },
-  { id: 'modules', label: 'Modules', icon: Stack, path: '/settings/modules', description: 'Enable/disable major functional modules across the organisation.', sectionKey: 'modules' },
+  // 'Modules' hidden (owner-confirmed) — see SettingsLayout.tsx for the why.
   { id: 'locations', label: 'Locations', icon: MapPin, path: '/settings/locations', description: 'Manage branch profiles, operating hours, and capacity limits.', sectionKey: 'locations' },
   { id: 'users', label: 'Users & Access', icon: UsersThree, path: '/settings/users', description: 'Staff accounts, roles, permissions, and security policies.', sectionKey: 'users' },
   { id: 'services', label: 'Services & Pricing', icon: Tag, path: '/settings/services', description: 'Service catalogue, price books, memberships, and packages.', sectionKey: 'services' },
