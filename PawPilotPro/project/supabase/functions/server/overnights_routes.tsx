@@ -7,7 +7,7 @@ import { Hono } from "npm:hono";
 import { z } from "npm:zod";
 import * as kv from "./kv_store.tsx";
 import { requireAuth, AuthenticatedUser } from "./_shared/auth.ts";
-import { internalError } from "./_shared/log.ts";
+import { internalError, logError, logInfo, logWarn } from "./_shared/log.ts";
 import {
   findFullNight,
   IN_STAY_STATUSES,
@@ -17,6 +17,11 @@ import {
   recordOvernightEvent,
   TERMINAL_OVERNIGHT_STATUSES,
 } from "./lib/overnights_shared.ts";
+import { deriveCareFlags, derivePetCareAppends } from "./lib/overnight_care_sync.ts";
+import { flagLabel } from "./lib/flag_gate.ts";
+// Pet + flag records live in the customer:* keyspace, so care-sync mutations
+// mirror to Postgres exactly like customers_routes writes do.
+import { dualWriteCustomers, dwSet, type CustomerDualWriteOp } from "./lib/customers_dualwrite.ts";
 
 const routes = new Hono();
 
@@ -154,6 +159,125 @@ async function checkConflictingAttendance(tenantId: string, petId: string, locat
 }
 
 // ============================================================================
+// CARE SYNC (booking → pet profile)
+// ============================================================================
+// A new reservation's care notes are appended onto the pet's profile fields
+// and its care booleans raise pet-scoped flags; lib/overnight_care_sync.ts
+// holds the pure derivation (append-only, per-booking idempotent, flags
+// deduped against the household's live flags). Runs server-side inside the
+// create request so every booking path gets it — clients are never trusted to
+// do this. Failure is NON-FATAL to the already-written reservation but is
+// logged loudly with a correlation ID.
+
+interface CareSyncSource {
+  id: string;
+  petId: string;
+  householdId: string;
+  startDate: string;
+  feedingInstructions?: string;
+  medicationInstructions?: string;
+  behaviourNotes?: string;
+  requiresMedication?: boolean;
+  hasBehaviourConcerns?: boolean;
+  hasAllergies?: boolean;
+}
+
+async function syncCareToPetProfile(
+  tenantId: string,
+  userInfo: { id: string; name: string },
+  reservation: CareSyncSource,
+): Promise<void> {
+  try {
+    const { petId, householdId } = reservation;
+    const petKey = `customer:${tenantId}:pet:${householdId}:${petId}`;
+    const pet = await kv.get(petKey);
+    if (!pet) {
+      logWarn("overnights.careSync.petNotFound", {
+        reservationId: reservation.id,
+        petId,
+        householdId,
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const dw: CustomerDualWriteOp[] = [];
+
+    const appends = derivePetCareAppends(reservation, pet);
+    const appendedFields = Object.keys(appends);
+    if (appendedFields.length > 0) {
+      const updatedPet = { ...pet, ...appends, updated_at: now };
+      await kv.set(petKey, updatedPet);
+      dw.push(dwSet(petKey, updatedPet));
+    }
+
+    const liveFlags = await kv.getByPrefix(`customer:${tenantId}:household:${householdId}:flag:`);
+    const toRaise = deriveCareFlags(reservation, liveFlags, petId);
+    for (const raise of toRaise) {
+      // Same record + activity shapes as the customers flag-create route, so
+      // these flags are indistinguishable from staff-created ones downstream
+      // (check-in gate, flag lists, dashboards).
+      const flagId = `flag_${crypto.randomUUID()}`;
+      const flag = {
+        id: flagId,
+        tenant_id: tenantId,
+        household_id: householdId,
+        pet_id: petId,
+        flag_key: raise.flag_key,
+        severity: raise.severity,
+        is_active: true,
+        reason: raise.reason,
+        created_by: userInfo.id,
+        created_by_name: userInfo.name,
+        created_at: now,
+        updated_at: now,
+      };
+      const flagKey = `customer:${tenantId}:household:${householdId}:flag:${flagId}`;
+      await kv.set(flagKey, flag);
+      dw.push(dwSet(flagKey, flag));
+
+      const activity = {
+        id: `activity_${crypto.randomUUID()}`,
+        tenant_id: tenantId,
+        household_id: householdId,
+        pet_id: petId,
+        activity_type: "flag_added",
+        title: `Flag Added: ${flagLabel(raise.flag_key)}`,
+        description: raise.reason,
+        metadata: {
+          flag_key: raise.flag_key,
+          severity: raise.severity,
+          is_active: true,
+        },
+        occurred_at: now,
+        created_by: userInfo.id,
+        created_by_name: userInfo.name,
+        created_at: now,
+      };
+      const activityKey = `customer:${tenantId}:activity:${activity.id}`;
+      await kv.set(activityKey, activity);
+      dw.push(dwSet(activityKey, activity));
+    }
+
+    if (dw.length > 0) {
+      await dualWriteCustomers(dw);
+      // Field names and flag keys only — never the note text (log redaction rules).
+      logInfo("overnights.careSync.applied", {
+        reservationId: reservation.id,
+        petId,
+        fieldsAppended: appendedFields,
+        flagsRaised: toRaise.map((f) => f.flag_key),
+      });
+    }
+  } catch (err) {
+    logError("overnights.careSync.failed", err, {
+      reservationId: reservation.id,
+      petId: reservation.petId,
+    });
+  }
+}
+
+// ============================================================================
 // RESERVATIONS
 // ============================================================================
 
@@ -255,7 +379,12 @@ routes.post("/reservations", async (c) => {
       startDate: reservation.startDate,
       endDate: reservation.endDate,
     });
-    
+
+    // Booking care notes flow onto the pet's profile and raise matching
+    // flags. Awaited so it completes within this request; non-fatal — the
+    // reservation above is already committed.
+    await syncCareToPetProfile(tenantId, userInfo, reservation);
+
     return c.json(reservation);
   } catch (e: any) {
     return internalError(c, 'overnights.postReservations', e);
