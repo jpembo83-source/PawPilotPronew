@@ -197,6 +197,7 @@ export const flagKeyEnum = z.enum([
   "transport_instructions",
   "grooming_restrictions",
   "overnight_restrictions",
+  "needs_diaper",
 ]);
 
 export const flagSeverityEnum = z.enum(["info", "warn", "block"]);

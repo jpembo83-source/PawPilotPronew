@@ -337,14 +337,15 @@ export interface HouseholdNote {
   pet_ids?: string[]; // Populated from join table
 }
 
-export type FlagKey = 
+export type FlagKey =
   | 'vip'
   | 'behaviour_caution'
   | 'medical_caution'
   | 'payment_hold'
   | 'transport_instructions'
   | 'grooming_restrictions'
-  | 'overnight_restrictions';
+  | 'overnight_restrictions'
+  | 'needs_diaper';
 
 export type FlagSeverity = 'info' | 'warn' | 'block';
 
