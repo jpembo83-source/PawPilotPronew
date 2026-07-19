@@ -13,9 +13,8 @@ import {
   BookOpen, 
   ChatTeardrop, 
   Receipt, 
-  ShieldCheck, 
-  GitBranch, 
-  Gauge, 
+  ShieldCheck,
+  Gauge,
   SlidersHorizontal 
 } from '@phosphor-icons/react';
 
@@ -38,7 +37,8 @@ const sections: SettingsSection[] = [
   { id: 'comms', label: 'Communications', icon: ChatTeardrop, path: '/settings/communications', description: 'Email/SMS templates, notification channels, and consent.', sectionKey: 'communications' },
   { id: 'billing', label: 'Billing & Finance', icon: Receipt, path: '/settings/billing', description: 'Payment providers, tax settings, invoices, and penalties.', sectionKey: 'billing' },
   { id: 'compliance', label: 'Data & Compliance', icon: ShieldCheck, path: '/settings/compliance', description: 'Data retention, GDPR requests, and document requirements.', sectionKey: 'compliance' },
-  { id: 'integrations', label: 'Integrations', icon: GitBranch, path: '/settings/integrations', description: 'API keys, webhooks, and third-party connections.', sectionKey: 'integrations' },
+  // 'Integrations' hidden — sync runner is a stub, nothing live uses it
+  // (Invoxia runs via its own edge functions). See SettingsLayout.tsx.
   // 'Dashboard Config' removed — see SettingsLayout.tsx for the why.
   { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environments, and system health status.', sectionKey: 'system' },
 ];
