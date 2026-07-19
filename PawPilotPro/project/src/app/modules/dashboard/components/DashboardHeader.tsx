@@ -22,9 +22,9 @@ import {
  * that toggled an `isCustomizing` flag. The dashboard body (Dashboard.tsx)
  * was rebuilt around hardcoded tiles and never consumed the flag — the
  * button only swapped its own heading + button labels and otherwise did
- * nothing. The old widget-based design (WidgetGrid + widgets/) has since
- * been deleted; the widget-layout slice of dashboardStore and constants.ts
- * remain only because the routed DashboardSettings page still reads them.
+ * nothing. The old widget-based design (WidgetGrid + widgets/), the
+ * DashboardSettings page, dashboard/constants.ts, and the widget-layout
+ * slices of dashboardStore have all been deleted.
  *
  * If a real customise surface comes back later it needs a parallel rebuild
  * of the body (per-tile IDs, draggable wrapper, hide-from-store
