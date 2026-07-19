@@ -1,7 +1,7 @@
 {
  "totals": {
-  "errors": 3195,
-  "warnings": 404
+  "errors": 3197,
+  "warnings": 406
  },
  "files": {
   "scripts/backfill-app-metadata-role.ts": {
@@ -379,6 +379,14 @@
   "src/app/modules/dashboard/components/PoliciesAlertBanner.tsx": {
    "errors": 14,
    "warnings": 4
+  },
+  "src/app/modules/dashboard/constants.ts": {
+   "errors": 1,
+   "warnings": 1
+  },
+  "src/app/modules/dashboard/store.ts": {
+   "errors": 3,
+   "warnings": 1
   },
   "src/app/modules/data-compliance/DataCompliancePage.tsx": {
    "errors": 2,
@@ -768,6 +776,10 @@
    "errors": 1,
    "warnings": 2
   },
+  "src/app/modules/settings/pages/DashboardSettings.tsx": {
+   "errors": 3,
+   "warnings": 0
+  },
   "src/app/modules/settings/pages/LocationSettings.tsx": {
    "errors": 18,
    "warnings": 0
@@ -833,7 +845,7 @@
    "warnings": 1
   },
   "src/app/modules/system/SystemPage.tsx": {
-   "errors": 15,
+   "errors": 10,
    "warnings": 0
   },
   "src/app/modules/system/api.ts": {

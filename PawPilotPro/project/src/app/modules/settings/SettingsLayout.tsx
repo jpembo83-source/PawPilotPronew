@@ -51,7 +51,9 @@ const sections: SettingsSection[] = [
   // its /settings/dashboard route, and the widget slices of dashboardStore
   // have been deleted; a future customise surface needs a fresh build against
   // the fixed-tile dashboard (see DashboardHeader.tsx).
-  { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Environment and maintenance', sectionKey: 'system' },
+  // Retitled from 'System': the multi-tenant Organisations UI is gone and the
+  // job runner is hidden, so what remains is flags + environment + safeguards.
+  { id: 'system', label: 'Advanced / Maintenance', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environment, and maintenance', sectionKey: 'system' },
 ];
 
 export function SettingsLayout() {

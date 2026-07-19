@@ -40,7 +40,7 @@ const sections: SettingsSection[] = [
   // 'Integrations' hidden — sync runner is a stub, nothing live uses it
   // (Invoxia runs via its own edge functions). See SettingsLayout.tsx.
   // 'Dashboard Config' removed — see SettingsLayout.tsx for the why.
-  { id: 'system', label: 'System', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environments, and system health status.', sectionKey: 'system' },
+  { id: 'system', label: 'Advanced / Maintenance', icon: SlidersHorizontal, path: '/settings/system', description: 'Feature flags, environment, health, and maintenance safeguards.', sectionKey: 'system' },
 ];
 
 export function SettingsOverview() {

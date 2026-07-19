@@ -15,10 +15,13 @@ import { SupabaseConnectivityCheck } from './components/SupabaseConnectivityChec
 import { UATSeedPanel } from './components/UATSeedPanel';
 
 export function SystemPage() {
-  const { 
-    loadAll, seedData, isLoading, overview, organisations, featureFlags, modules, 
-    environment, jobs, health, logs, auditLogs, suspendOrganisation, reactivateOrganisation,
-    updateFeatureFlag, pauseJob, resumeJob, setMaintenanceMode, forceLogoutAll
+  // Single-tenant deployment: the multi-tenant Organisations management UI and
+  // the job pause/resume controls are no longer surfaced (the scheduled-job
+  // runner is not implemented server-side). The store/server code stays intact.
+  const {
+    loadAll, seedData, isLoading, overview, featureFlags, modules,
+    environment, jobs, health, logs,
+    updateFeatureFlag, setMaintenanceMode, forceLogoutAll
   } = useSystemStore();
   const [activeTab, setActiveTab] = useState('overview');
   const { confirm, confirmDialog } = useConfirmDialog();
@@ -37,14 +40,6 @@ export function SystemPage() {
     ) {
       await seedData();
       toast.success('System data seeded successfully');
-    }
-  };
-
-  const handleSuspendOrg = async (id: string, name: string) => {
-    const reason = prompt(`Suspend organisation "${name}"?\n\nReason:`);
-    if (reason) {
-      await suspendOrganisation(id, reason);
-      toast.success('Organisation suspended');
     }
   };
 
@@ -73,10 +68,10 @@ export function SystemPage() {
           <div>
             <div className="flex items-center gap-2">
               <HardDrives className="h-6 w-6 text-destructive" />
-              <h1 className="text-2xl">System Control</h1>
+              <h1 className="text-2xl">Advanced / Maintenance</h1>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              Global system behaviour, safety, availability, and governance
+              Feature flags, environment, health, and maintenance safeguards
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -100,9 +95,8 @@ export function SystemPage() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid grid-cols-10 w-full">
+            <TabsList className="grid grid-cols-9 w-full">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="organisations">Organisations</TabsTrigger>
               <TabsTrigger value="features">Features</TabsTrigger>
               <TabsTrigger value="defaults">Defaults</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
@@ -115,20 +109,7 @@ export function SystemPage() {
 
             {/* 1. Overview */}
             <TabsContent value="overview">
-              <div className="grid grid-cols-4 gap-4 mb-6">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Organisations</CardTitle>
-                    <UsersThree className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{overview?.active_organisations || 0}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {overview?.suspended_organisations || 0} suspended
-                    </p>
-                  </CardContent>
-                </Card>
-
+              <div className="grid grid-cols-3 gap-4 mb-6">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -171,15 +152,17 @@ export function SystemPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Module Adoption</CardTitle>
-                  <CardDescription>Organisations using each module</CardDescription>
+                  <CardTitle>Modules in Use</CardTitle>
+                  <CardDescription>Currently enabled platform modules</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {overview && Object.entries(overview.enabled_modules).map(([module, count]) => (
                       <div key={module} className="flex items-center justify-between">
                         <span className="capitalize">{module}</span>
-                        <Badge variant="outline">{count} organisations</Badge>
+                        <Badge variant={count > 0 ? 'success' : 'outline'}>
+                          {count > 0 ? 'Enabled' : 'Disabled'}
+                        </Badge>
                       </div>
                     ))}
                   </div>
@@ -187,59 +170,10 @@ export function SystemPage() {
               </Card>
             </TabsContent>
 
-            {/* 2. Organisations */}
-            <TabsContent value="organisations">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Organisation Management</CardTitle>
-                  <CardDescription>Platform organisations</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Locations</TableHead>
-                        <TableHead>Users</TableHead>
-                        <TableHead>Modules</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {organisations.map((org) => (
-                        <TableRow key={org.id}>
-                          <TableCell className="font-medium">{org.name}</TableCell>
-                          <TableCell>
-                            <Badge variant={org.status === 'active' ? 'success' : 'destructive'} className="capitalize">
-                              {org.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{org.location_count}</TableCell>
-                          <TableCell>{org.user_count}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{org.enabled_modules.length}</Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">{new Date(org.created_at).toLocaleDateString()}</TableCell>
-                          <TableCell>
-                            {org.status === 'active' ? (
-                              <Button size="sm" variant="destructive" onClick={() => handleSuspendOrg(org.id, org.name)}>
-                                Suspend
-                              </Button>
-                            ) : (
-                              <Button size="sm" onClick={() => reactivateOrganisation(org.id)}>
-                                Reactivate
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
+            {/* 'Organisations' tab removed — multi-tenant org management is
+                meaningless for this single-tenant deployment. The server
+                routes and store actions remain for a future multi-tenant
+                revival; they're just no longer surfaced. */}
 
             {/* 3. Feature Flags */}
             <TabsContent value="features">
@@ -392,6 +326,17 @@ export function SystemPage() {
                   <CardDescription>Scheduled and async processes</CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* The scheduled-job runner is not implemented server-side
+                      (system.ts execute stub), so no pause/resume/run controls
+                      are shown — buttons that do nothing only mislead. */}
+                  <div className="mb-4 flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-4">
+                    <Warning className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+                    <p className="text-sm text-amber-800">
+                      The scheduled-job runner is not yet available. Job schedules
+                      listed below are configuration only — nothing executes them,
+                      and no controls are offered until a real runner exists.
+                    </p>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -400,7 +345,6 @@ export function SystemPage() {
                         <TableHead>Status</TableHead>
                         <TableHead>Last Run</TableHead>
                         <TableHead>Next Run</TableHead>
-                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -409,7 +353,7 @@ export function SystemPage() {
                           <TableCell className="font-medium">{job.job_name}</TableCell>
                           <TableCell className="capitalize">{job.job_type}</TableCell>
                           <TableCell>
-                            <Badge variant={job.status === 'running' ? 'success' : 'secondary'} className="capitalize">
+                            <Badge variant="secondary" className="capitalize">
                               {job.status}
                             </Badge>
                           </TableCell>
@@ -418,13 +362,6 @@ export function SystemPage() {
                           </TableCell>
                           <TableCell className="text-sm">
                             {job.next_run_at ? new Date(job.next_run_at).toLocaleString() : '-'}
-                          </TableCell>
-                          <TableCell>
-                            {job.status === 'running' ? (
-                              <Button size="sm" variant="outline" onClick={() => pauseJob(job.id)}>Pause</Button>
-                            ) : (
-                              <Button size="sm" onClick={() => resumeJob(job.id)}>Resume</Button>
-                            )}
                           </TableCell>
                         </TableRow>
                       ))}
