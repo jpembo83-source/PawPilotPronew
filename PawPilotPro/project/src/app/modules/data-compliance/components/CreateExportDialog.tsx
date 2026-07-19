@@ -7,8 +7,9 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { Checkbox } from '../../../components/ui/checkbox';
+import { toast } from 'sonner';
 import { useDataComplianceStore } from '../store';
-import type { ExportFormat, ExportScope, DataCategory } from '../types';
+import type { DataExport, ExportFormat, ExportScope, DataCategory } from '../types';
 
 interface CreateExportDialogProps {
   open: boolean;
@@ -17,27 +18,28 @@ interface CreateExportDialogProps {
 
 export function CreateExportDialog({ open, onOpenChange }: CreateExportDialogProps) {
   const { createExport } = useDataComplianceStore();
-  const [formData, setFormData] = useState({
-    export_type: 'customer' as any,
+  const emptyForm = {
+    export_type: 'customer' as DataExport['export_type'],
     scope: 'household' as ExportScope,
-    format: 'csv' as ExportFormat,
+    format: 'json' as ExportFormat,
+    scope_id: '',
     scope_description: '',
     data_categories: [] as DataCategory[],
-  });
+  };
+  const [formData, setFormData] = useState(emptyForm);
 
   const handleSubmit = async () => {
-    await createExport({
+    const created = await createExport({
       ...formData,
       created_by: 'current-user',
     });
+    if (!created) {
+      toast.error('Export failed — check the household ID and try again');
+      return;
+    }
+    toast.success(`Export ready: ${created.total_records ?? 0} records gathered`);
     onOpenChange(false);
-    setFormData({
-      export_type: 'customer',
-      scope: 'household',
-      format: 'csv',
-      scope_description: '',
-      data_categories: [],
-    });
+    setFormData(emptyForm);
   };
 
   const categories: DataCategory[] = ['personal', 'medical', 'behavioural', 'financial', 'operational'];
@@ -56,7 +58,9 @@ export function CreateExportDialog({ open, onOpenChange }: CreateExportDialogPro
               <Label>Export Type</Label>
               <Select
                 value={formData.export_type}
-                onValueChange={(value) => setFormData({ ...formData, export_type: value as any })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, export_type: value as DataExport['export_type'] })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -82,8 +86,8 @@ export function CreateExportDialog({ open, onOpenChange }: CreateExportDialogPro
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="household">Single Household</SelectItem>
-                  <SelectItem value="location">Location</SelectItem>
-                  <SelectItem value="organisation">Organisation-wide</SelectItem>
+                  <SelectItem value="location" disabled>Location (not yet supported)</SelectItem>
+                  <SelectItem value="organisation" disabled>Organisation-wide (not yet supported)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -99,11 +103,24 @@ export function CreateExportDialog({ open, onOpenChange }: CreateExportDialogPro
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="csv">CSV</SelectItem>
-                <SelectItem value="pdf">PDF</SelectItem>
-                <SelectItem value="json">JSON</SelectItem>
+                <SelectItem value="json">JSON (+ readable summary)</SelectItem>
+                <SelectItem value="csv" disabled>CSV (not yet supported)</SelectItem>
+                <SelectItem value="pdf" disabled>PDF (not yet supported)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Household ID (data subject)</Label>
+            <Input
+              value={formData.scope_id}
+              onChange={(e) => setFormData({ ...formData, scope_id: e.target.value })}
+              placeholder="e.g., household-001"
+            />
+            <p className="text-sm text-muted-foreground">
+              The export gathers every record held for this household across
+              the whole app.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -139,7 +156,9 @@ export function CreateExportDialog({ open, onOpenChange }: CreateExportDialogPro
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit}>Create Export</Button>
+          <Button onClick={handleSubmit} disabled={!formData.scope_id.trim()}>
+            Create Export
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

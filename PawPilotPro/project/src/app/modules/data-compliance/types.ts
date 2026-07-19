@@ -55,6 +55,12 @@ export interface DataExport {
   scope_description: string;
   data_categories: DataCategory[];
   file_url?: string;
+  /** Object paths in the private exports bucket; downloads go through
+   *  short-lived signed URLs minted by GET /exports/:id/download-url. */
+  file_path?: string;
+  summary_path?: string;
+  record_counts?: Record<string, number>;
+  total_records?: number;
   file_password?: string;
   file_size_bytes?: number;
   expires_at?: string;
@@ -108,10 +114,25 @@ export interface JobExecution {
   id: string;
   job_id: string;
   status: JobStatus;
+  /** True when this execution was a rehearsal: candidates were identified but
+   *  nothing was deleted or anonymised. */
+  dry_run?: boolean;
   started_at: string;
   completed_at?: string;
   records_affected: number;
   records_failed: number;
+  /** How many records the run found in-window (dry-run and real alike). */
+  would_affect?: number;
+  cutoff?: string;
+  candidates?: Array<{
+    entity_type: string;
+    entity_id: string;
+    record_date: string;
+    action: 'delete' | 'anonymise';
+  }>;
+  skipped?: Array<{ entity_type: string; entity_id: string; reason: string }>;
+  categories_evaluated?: string[];
+  categories_unsupported?: string[];
   error_message?: string;
   execution_log?: string;
 }

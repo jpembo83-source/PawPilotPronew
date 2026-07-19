@@ -92,6 +92,21 @@ export async function createExport(data: Partial<DataExport>): Promise<DataExpor
   return response.json();
 }
 
+export interface ExportDownloadUrls {
+  url: string;
+  summary_url: string | null;
+  expires_in_seconds: number;
+}
+
+/** Mint short-lived signed URLs for an export's files (private bucket). */
+export async function getExportDownloadUrl(id: string): Promise<ExportDownloadUrls> {
+  const response = await fetch(`${BASE_URL}/exports/${id}/download-url`, {
+    headers: await getAuthHeaders(),
+  });
+  if (!response.ok) throw new Error('Failed to get export download link');
+  return (await response.json()) as ExportDownloadUrls;
+}
+
 export async function markExportDownloaded(id: string, downloadedBy: string): Promise<DataExport> {
   const response = await fetch(`${BASE_URL}/exports/${id}/download`, {
     method: 'PUT',
@@ -144,10 +159,22 @@ export async function createRetentionJob(data: Partial<RetentionJob>): Promise<R
   return response.json();
 }
 
-export async function executeRetentionJob(id: string): Promise<JobExecution> {
+/**
+ * Execute a retention job. Defaults to a DRY RUN (nothing is deleted); a
+ * real purge requires BOTH dryRun: false and confirm: true — the server
+ * rejects anything less.
+ */
+export async function executeRetentionJob(
+  id: string,
+  options: { dryRun?: boolean; confirm?: boolean } = {},
+): Promise<JobExecution> {
   const response = await fetch(`${BASE_URL}/retention-jobs/${id}/execute`, {
     method: 'POST',
     headers: await getAuthHeaders(),
+    body: JSON.stringify({
+      dry_run: options.dryRun !== false,
+      confirm: options.confirm === true,
+    }),
   });
   if (!response.ok) throw new Error('Failed to execute retention job');
   return response.json();
