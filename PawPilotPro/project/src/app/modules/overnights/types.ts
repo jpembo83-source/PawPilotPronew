@@ -77,6 +77,11 @@ export interface OvernightReservation {
 
   daycareBookingId?: string;
 
+  /** "Day after the final night is a daycare day" — requested type, if any. */
+  morningAfterDaycare?: 'full' | 'half';
+  /** The linked daycare booking on the check-out morning, once created. */
+  morningDaycareBookingId?: string;
+
   createdAt: string;
   createdBy: string;
   updatedAt: string;
@@ -367,10 +372,40 @@ export interface ApiErrorResponse {
   error?: string;
 }
 
+// One row of the dashboard's Tonight's Boarders list (/tonights-boarders).
+// Includes every active stay occupying tonight; `checkedIn` distinguishes
+// dogs physically on site from expected-but-not-checked-in ones.
+export interface TonightsBoarder {
+  reservationId: string;
+  petId: string;
+  petName: string;
+  customerId?: string;
+  customerName: string;
+  status?: ReservationStatus;
+  checkedIn?: boolean;
+  sleepingAreaName?: string;
+  assignedCarerUserId?: string;
+  assignedCarerName?: string;
+  requiresMedication?: boolean;
+  hasBehaviourConcerns?: boolean;
+  hasAllergies?: boolean;
+  careLogCompleted?: boolean;
+  specialNotes?: string;
+}
+
+// Outcome of the check-out-morning daycare leg, returned (response-only) by
+// the create endpoint when morningAfterDaycare was requested.
+export interface MorningDaycareOutcome {
+  status: 'created' | 'skipped_duplicate' | 'skipped_full' | 'skipped_error';
+  bookingId?: string;
+  warning?: string;
+}
+
 // Raw reservation payload — the edge function may include a snake_case
 // location_id alongside the camelCase fields, used for realtime broadcasts.
 export interface OvernightReservationPayload extends OvernightReservation {
   location_id?: string;
+  morningDaycare?: MorningDaycareOutcome;
 }
 
 // Raw care log payload — as above, may carry a snake_case location_id.

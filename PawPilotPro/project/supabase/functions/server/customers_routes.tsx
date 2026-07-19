@@ -774,6 +774,9 @@ app.post('/households/:household_id/pets', requireRole('admin', 'manager', 'assi
       transport_enrolled: body.transport_enrolled || false,
       overnights_enrolled: body.overnights_enrolled || false,
       active: body.active !== undefined ? body.active : true,
+      // House-dog marker: only admin/manager may set it (assistant_manager
+      // can create pets but not exempt them from billing).
+      non_billable: body.non_billable === true && (user.role === 'admin' || user.role === 'manager'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -826,7 +829,17 @@ app.put('/pets/:id', requireRole('admin', 'manager', 'assistant_manager'), async
     
     const petData = existingPet;
     const householdId = petData.household_id;
-    
+
+    // Changing the house-dog (non_billable) marker is admin/manager only —
+    // the PUT body-spread below would otherwise let any pet editor flip it.
+    if (
+      'non_billable' in body &&
+      (body.non_billable === true) !== (petData.non_billable === true) &&
+      user.role !== 'admin' && user.role !== 'manager'
+    ) {
+      return c.json({ error: 'Only admins and managers can change the house-dog marker' }, 403);
+    }
+
     const updated = {
       ...petData,
       ...body,
@@ -2332,7 +2345,9 @@ app.post('/households/:id/flags', requireRole('admin', 'manager', 'assistant_man
     }
     
     // Validate flag_key
-    const validKeys = ['vip', 'behaviour_caution', 'medical_caution', 'payment_hold', 'transport_instructions', 'grooming_restrictions', 'overnight_restrictions'];
+    // Mirrors the client FlagKey union (customers/types.ts) and the shared
+    // flagKeyEnum (shared/schemas/customers.ts) — change all three together.
+    const validKeys = ['vip', 'behaviour_caution', 'medical_caution', 'payment_hold', 'transport_instructions', 'grooming_restrictions', 'overnight_restrictions', 'needs_diaper'];
     if (!validKeys.includes(flag_key)) {
       return c.json({ error: 'Invalid flag key' }, 400);
     }

@@ -11,6 +11,7 @@ import {
   Truck,
   Scissors,
   House,
+  Baby,
   Flag,
   type Icon,
 } from '@phosphor-icons/react';
@@ -24,6 +25,7 @@ export const FLAG_KEYS: FlagKey[] = [
   'transport_instructions',
   'grooming_restrictions',
   'overnight_restrictions',
+  'needs_diaper',
 ];
 
 const FLAG_ICONS: Record<FlagKey, Icon> = {
@@ -34,6 +36,12 @@ const FLAG_ICONS: Record<FlagKey, Icon> = {
   transport_instructions: Truck,
   grooming_restrictions: Scissors,
   overnight_restrictions: House,
+  needs_diaper: Baby,
+};
+
+// Keys whose display name isn't just the title-cased key.
+const FLAG_LABELS: Partial<Record<FlagKey, string>> = {
+  needs_diaper: 'Needs a diaper',
 };
 
 export function getFlagIcon(key: FlagKey): Icon {
@@ -41,10 +49,13 @@ export function getFlagIcon(key: FlagKey): Icon {
 }
 
 export function getFlagLabel(key: FlagKey): string {
-  return key
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+  return (
+    FLAG_LABELS[key] ??
+    key
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  );
 }
 
 export function getSeverityColor(severity: FlagSeverity): string {

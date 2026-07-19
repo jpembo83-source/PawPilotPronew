@@ -7,14 +7,27 @@ import { Hono } from "npm:hono";
 import { z } from "npm:zod";
 import * as kv from "./kv_store.tsx";
 import { requireAuth, AuthenticatedUser } from "./_shared/auth.ts";
-import { internalError } from "./_shared/log.ts";
+import { internalError, logError, logInfo, logWarn } from "./_shared/log.ts";
 import {
   findFullNight,
+  IN_STAY_STATUSES,
+  isTonightsBoarder,
   nightlyRateFor,
   occupiesNight,
   recordOvernightEvent,
   TERMINAL_OVERNIGHT_STATUSES,
 } from "./lib/overnights_shared.ts";
+import { deriveCareFlags, derivePetCareAppends } from "./lib/overnight_care_sync.ts";
+import { flagLabel } from "./lib/flag_gate.ts";
+// Pet + flag records live in the customer:* keyspace, so care-sync mutations
+// mirror to Postgres exactly like customers_routes writes do.
+import { dualWriteCustomers, dwSet, type CustomerDualWriteOp } from "./lib/customers_dualwrite.ts";
+import {
+  cancelLinkedMorningDaycare,
+  createMorningAfterDaycare,
+  type MorningDaycareResult,
+} from "./lib/overnight_daycare_link.ts";
+import { isNonBillablePet } from "./lib/billing_exempt.ts";
 
 const routes = new Hono();
 
@@ -82,6 +95,8 @@ const createReservationSchema = z
     customerName: z.string().max(200).optional(),
     daycareBookingId: z.string().optional(),
     currency: z.string().length(3).optional(),
+    // "Day after the final night is a daycare day" — absent means off.
+    morningAfterDaycare: z.enum(["full", "half"]).optional(),
   })
   .refine((d) => d.endDate > d.startDate, {
     message: "endDate must be after startDate",
@@ -149,6 +164,125 @@ async function checkConflictingAttendance(tenantId: string, petId: string, locat
   }
 
   return { hasConflict: false };
+}
+
+// ============================================================================
+// CARE SYNC (booking → pet profile)
+// ============================================================================
+// A new reservation's care notes are appended onto the pet's profile fields
+// and its care booleans raise pet-scoped flags; lib/overnight_care_sync.ts
+// holds the pure derivation (append-only, per-booking idempotent, flags
+// deduped against the household's live flags). Runs server-side inside the
+// create request so every booking path gets it — clients are never trusted to
+// do this. Failure is NON-FATAL to the already-written reservation but is
+// logged loudly with a correlation ID.
+
+interface CareSyncSource {
+  id: string;
+  petId: string;
+  householdId: string;
+  startDate: string;
+  feedingInstructions?: string;
+  medicationInstructions?: string;
+  behaviourNotes?: string;
+  requiresMedication?: boolean;
+  hasBehaviourConcerns?: boolean;
+  hasAllergies?: boolean;
+}
+
+async function syncCareToPetProfile(
+  tenantId: string,
+  userInfo: { id: string; name: string },
+  reservation: CareSyncSource,
+): Promise<void> {
+  try {
+    const { petId, householdId } = reservation;
+    const petKey = `customer:${tenantId}:pet:${householdId}:${petId}`;
+    const pet = await kv.get(petKey);
+    if (!pet) {
+      logWarn("overnights.careSync.petNotFound", {
+        reservationId: reservation.id,
+        petId,
+        householdId,
+      });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const dw: CustomerDualWriteOp[] = [];
+
+    const appends = derivePetCareAppends(reservation, pet);
+    const appendedFields = Object.keys(appends);
+    if (appendedFields.length > 0) {
+      const updatedPet = { ...pet, ...appends, updated_at: now };
+      await kv.set(petKey, updatedPet);
+      dw.push(dwSet(petKey, updatedPet));
+    }
+
+    const liveFlags = await kv.getByPrefix(`customer:${tenantId}:household:${householdId}:flag:`);
+    const toRaise = deriveCareFlags(reservation, liveFlags, petId);
+    for (const raise of toRaise) {
+      // Same record + activity shapes as the customers flag-create route, so
+      // these flags are indistinguishable from staff-created ones downstream
+      // (check-in gate, flag lists, dashboards).
+      const flagId = `flag_${crypto.randomUUID()}`;
+      const flag = {
+        id: flagId,
+        tenant_id: tenantId,
+        household_id: householdId,
+        pet_id: petId,
+        flag_key: raise.flag_key,
+        severity: raise.severity,
+        is_active: true,
+        reason: raise.reason,
+        created_by: userInfo.id,
+        created_by_name: userInfo.name,
+        created_at: now,
+        updated_at: now,
+      };
+      const flagKey = `customer:${tenantId}:household:${householdId}:flag:${flagId}`;
+      await kv.set(flagKey, flag);
+      dw.push(dwSet(flagKey, flag));
+
+      const activity = {
+        id: `activity_${crypto.randomUUID()}`,
+        tenant_id: tenantId,
+        household_id: householdId,
+        pet_id: petId,
+        activity_type: "flag_added",
+        title: `Flag Added: ${flagLabel(raise.flag_key)}`,
+        description: raise.reason,
+        metadata: {
+          flag_key: raise.flag_key,
+          severity: raise.severity,
+          is_active: true,
+        },
+        occurred_at: now,
+        created_by: userInfo.id,
+        created_by_name: userInfo.name,
+        created_at: now,
+      };
+      const activityKey = `customer:${tenantId}:activity:${activity.id}`;
+      await kv.set(activityKey, activity);
+      dw.push(dwSet(activityKey, activity));
+    }
+
+    if (dw.length > 0) {
+      await dualWriteCustomers(dw);
+      // Field names and flag keys only — never the note text (log redaction rules).
+      logInfo("overnights.careSync.applied", {
+        reservationId: reservation.id,
+        petId,
+        fieldsAppended: appendedFields,
+        flagsRaised: toRaise.map((f) => f.flag_key),
+      });
+    }
+  } catch (err) {
+    logError("overnights.careSync.failed", err, {
+      reservationId: reservation.id,
+      petId: reservation.petId,
+    });
+  }
 }
 
 // ============================================================================
@@ -222,7 +356,12 @@ routes.post("/reservations", async (c) => {
 
     // The location's configured nightly rate is authoritative — the client
     // can't set the price. Lock it onto the reservation at creation.
-    const pricePerNight = await nightlyRateFor(tenantId, body.locationId);
+    // House dogs (pet.non_billable) still occupy a bed — the capacity gate
+    // above already counted them — but their stay is priced at zero so no
+    // charge can ever derive from the record.
+    const pet = await kv.get(`customer:${tenantId}:pet:${body.householdId}:${body.petId}`);
+    const petNonBillable = isNonBillablePet(pet);
+    const pricePerNight = petNonBillable ? 0 : await nightlyRateFor(tenantId, body.locationId);
 
     const now = new Date().toISOString();
     const reservation = {
@@ -231,6 +370,7 @@ routes.post("/reservations", async (c) => {
       totalNights,
       pricePerNight,
       totalPrice: pricePerNight * totalNights,
+      non_billable: petNonBillable,
       priceLockedAt: now,
       status: body.status || 'confirmed',
       requiresMedication: body.requiresMedication ?? false,
@@ -238,6 +378,8 @@ routes.post("/reservations", async (c) => {
       hasAllergies: body.hasAllergies ?? false,
       requiresPickup: body.requiresPickup ?? false,
       requiresDropOff: body.requiresDropOff ?? false,
+      // Set below when the check-out-morning daycare leg is created.
+      morningDaycareBookingId: undefined as string | undefined,
       tenant_id: tenantId,
       createdAt: now,
       createdBy: userInfo.name,
@@ -246,15 +388,46 @@ routes.post("/reservations", async (c) => {
     };
 
     await kv.set(`overnight:${tenantId}:reservation:${reservation.id}`, reservation);
-    
+
     await recordEvent(tenantId, reservation.id, 'created', userInfo.id, userInfo.name, {
       petId: reservation.petId,
       locationId: reservation.locationId,
       startDate: reservation.startDate,
       endDate: reservation.endDate,
     });
-    
-    return c.json(reservation);
+
+    // Booking care notes flow onto the pet's profile and raise matching
+    // flags. Awaited so it completes within this request; non-fatal — the
+    // reservation above is already committed.
+    await syncCareToPetProfile(tenantId, userInfo, reservation);
+
+    // "Day after the final night is a daycare day": book the check-out
+    // morning as a normal daycare day, server-side so every client path gets
+    // the same dedupe/capacity/billing rules. Non-fatal — the reservation is
+    // already committed; skips/failures come back as a warning.
+    let morningDaycare: MorningDaycareResult | undefined;
+    if (body.morningAfterDaycare) {
+      morningDaycare = await createMorningAfterDaycare(
+        tenantId,
+        userInfo,
+        reservation,
+        body.morningAfterDaycare,
+      );
+      if (morningDaycare.status === 'created' && morningDaycare.bookingId) {
+        reservation.morningDaycareBookingId = morningDaycare.bookingId;
+        reservation.updatedAt = new Date().toISOString();
+        await kv.set(`overnight:${tenantId}:reservation:${reservation.id}`, reservation);
+        await recordEvent(tenantId, reservation.id, 'morning_daycare_booked', userInfo.id, userInfo.name, {
+          daycareBookingId: morningDaycare.bookingId,
+          date: reservation.endDate,
+          type: body.morningAfterDaycare,
+        });
+      }
+    }
+
+    // morningDaycare is response-only (status + optional warning for the UI);
+    // the persisted link is morningDaycareBookingId on the reservation.
+    return c.json(morningDaycare ? { ...reservation, morningDaycare } : reservation);
   } catch (e: any) {
     return internalError(c, 'overnights.postReservations', e);
   }
@@ -319,6 +492,12 @@ routes.put("/reservations/:id", async (c) => {
         to: body.status,
         ...(body.cancellationReason ? { reason: body.cancellationReason } : {}),
       });
+    }
+
+    // Cancelling the stay cancels its linked check-out-morning daycare
+    // booking too (only if that booking hasn't started; non-fatal).
+    if (body.status === 'cancelled' && existing.status !== 'cancelled') {
+      await cancelLinkedMorningDaycare(userInfo, updated);
     }
 
     return c.json(updated);
@@ -882,14 +1061,17 @@ routes.get("/tonights-boarders", async (c) => {
     const capacity = await kv.get(`overnight:${tenantId}:capacity:${locationId}`);
     const maxCapacity = capacity?.maxOvernightCapacity || 0;
     
-    // Get active reservations staying tonight ([start, end) night semantics —
-    // a dog checking out this morning is not one of tonight's boarders).
+    // Every ACTIVE stay occupying tonight ([start, end) night semantics — a
+    // dog checking out this morning is not one of tonight's boarders). This
+    // includes booked/confirmed dogs not yet checked in: they hold a bed in
+    // the capacity semantics (firstFullNight), so they must be visible here
+    // too — filtering to checked_in/in_stay made every pre-check-in stay
+    // invisible on the dashboard. Terminal stays never show.
     const allReservations = await kv.getByPrefix(`overnight:${tenantId}:reservation:`);
 
     const activeReservations = allReservations.filter((r: any) => {
       if (r.locationId !== locationId) return false;
-      if (r.status !== 'checked_in' && r.status !== 'in_stay') return false;
-      return occupiesNight(r.startDate, r.endDate, date);
+      return isTonightsBoarder(r, date);
     });
     
     // Get care logs for tonight
@@ -925,6 +1107,10 @@ routes.get("/tonights-boarders", async (c) => {
         petName: r.petName || "Unknown Pet",
         customerId: r.customerId,
         customerName: r.customerName || "Unknown Customer",
+        // Additive fields: pre-arrival stays now appear here, so the client
+        // can badge dogs that are expected tonight but not yet checked in.
+        status: r.status,
+        checkedIn: IN_STAY_STATUSES.has(r.status ?? ''),
         sleepingAreaName: r.sleepingAreaId ? areaNames.get(r.sleepingAreaId) : undefined,
         assignedCarerUserId: r.assignedCarerUserId,
         assignedCarerName: r.assignedCarerUserId ? carerNames.get(r.assignedCarerUserId) : undefined,
@@ -1211,13 +1397,19 @@ routes.post("/calculate-billing", async (c) => {
       if (!body.startDate || !body.endDate) {
         return c.json({ error: "startDate and endDate are required" }, 400);
       }
+      // Preview at the location's configured nightly rate — or zero for a
+      // house dog, matching what the create route will stamp. (Stored
+      // reservations already carry their locked price, so the id mode needs
+      // no pet lookup.)
+      const previewPet = body.petId
+        ? (await kv.getByPrefix(`customer:${tenantId}:pet:`)).find((p: { id?: string } | null) => p?.id === body.petId)
+        : undefined;
       reservation = {
         petId: body.petId,
         locationId: body.locationId,
         startDate: body.startDate,
         endDate: body.endDate,
-        // Preview at the location's configured nightly rate.
-        pricePerNight: await nightlyRateFor(tenantId, body.locationId),
+        pricePerNight: isNonBillablePet(previewPet) ? 0 : await nightlyRateFor(tenantId, body.locationId),
         currency: body.currency || 'GBP',
       };
     }
@@ -1402,8 +1594,12 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
       }
 
       // Server-priced from the location's configured rate — a transition is
-      // not a way around the price lock.
-      const pricePerNight = await nightlyRateFor(tenantId, locationId);
+      // not a way around the price lock. House dogs stay at zero here too.
+      const transitionPet = body.householdId
+        ? await kv.get(`customer:${tenantId}:pet:${body.householdId}:${petId}`)
+        : (await kv.getByPrefix(`customer:${tenantId}:pet:`)).find((p: { id?: string } | null) => p?.id === petId);
+      const petNonBillable = isNonBillablePet(transitionPet);
+      const pricePerNight = petNonBillable ? 0 : await nightlyRateFor(tenantId, locationId);
 
       overnightReservation = {
         id: crypto.randomUUID(),
@@ -1428,6 +1624,7 @@ routes.post("/transition/daycare-to-overnight", async (c) => {
         pricePerNight,
         totalNights: 1,
         totalPrice: pricePerNight,
+        non_billable: petNonBillable,
         currency: body.currency || 'GBP',
         priceLockedAt: now,
         requiresPickup: false,

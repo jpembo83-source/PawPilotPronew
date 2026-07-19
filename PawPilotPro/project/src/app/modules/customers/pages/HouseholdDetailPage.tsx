@@ -22,16 +22,12 @@ import {
   Receipt,
   ChatTeardrop,
   FileText,
-  Flag,
   PencilSimple,
   Check,
   X,
-  ShieldWarning,
-  Truck,
-  Scissors,
-  House,
   Trash
 } from '@phosphor-icons/react';
+import { getFlagIcon, getFlagLabel, getSeverityColor } from '../flagMeta';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
@@ -280,35 +276,9 @@ export function HouseholdDetailPage() {
   // Get household-wide active flags (pet_id is null)
   const householdFlags = flags.filter(f => f.is_active && !f.pet_id);
   
-  // Helper function to get flag icon
-  const getFlagIcon = (key: string) => {
-    switch (key) {
-      case 'vip': return Star;
-      case 'behaviour_caution': return Warning;
-      case 'medical_caution': return ShieldWarning;
-      case 'payment_hold': return Prohibit;
-      case 'transport_instructions': return Truck;
-      case 'grooming_restrictions': return Scissors;
-      case 'overnight_restrictions': return House;
-      default: return Flag;
-    }
-  };
-  
-  // Helper function to get severity colors
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'info': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'warn': return 'bg-amber-100 text-amber-800 border-amber-300';
-      case 'block': return 'bg-red-100 text-red-800 border-red-300';
-      default: return 'bg-slate-100 text-slate-800 border-slate-300';
-    }
-  };
-  
-  // Helper function to get flag label
-  const getFlagLabel = (key: string) => {
-    return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  };
-  
+  // Flag icon/label/severity rendering comes from flagMeta — the single
+  // source for the taxonomy's presentation (new keys land there once).
+
   // Prefill payload shared by every quick-action dialog. Passing pets lets
   // the dialogs decide: one dog → straight to details, several → pet-select.
   const householdPrefill = {

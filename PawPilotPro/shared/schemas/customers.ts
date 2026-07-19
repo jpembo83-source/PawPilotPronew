@@ -120,6 +120,9 @@ export const petSchema = z.object({
   transport_enrolled: z.boolean().default(false),
   overnights_enrolled: z.boolean().default(false),
   active: z.boolean().default(true),
+  /** House dog — occupies capacity but is never charged. Post-dates the
+   *  original freeze; additive with a safe default. */
+  non_billable: z.boolean().default(false),
   /** True when the owner self-added the pet via the portal. */
   owner_added: z.boolean().default(false),
   /** Booking creation rejects anything but "verified" (portal_bookings.ts). */
@@ -197,6 +200,7 @@ export const flagKeyEnum = z.enum([
   "transport_instructions",
   "grooming_restrictions",
   "overnight_restrictions",
+  "needs_diaper",
 ]);
 
 export const flagSeverityEnum = z.enum(["info", "warn", "block"]);

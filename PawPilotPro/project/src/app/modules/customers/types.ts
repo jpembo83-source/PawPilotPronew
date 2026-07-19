@@ -99,9 +99,13 @@ export interface Pet {
   grooming_enrolled: boolean;
   transport_enrolled: boolean;
   overnights_enrolled: boolean;
-  
+
   // Status
   active: boolean;
+
+  /** House dog: occupies capacity like any other dog but is never charged.
+   *  Changing this is restricted to admin/manager (server-enforced). */
+  non_billable?: boolean;
   
   created_at: string;
   updated_at: string;
@@ -337,14 +341,15 @@ export interface HouseholdNote {
   pet_ids?: string[]; // Populated from join table
 }
 
-export type FlagKey = 
+export type FlagKey =
   | 'vip'
   | 'behaviour_caution'
   | 'medical_caution'
   | 'payment_hold'
   | 'transport_instructions'
   | 'grooming_restrictions'
-  | 'overnight_restrictions';
+  | 'overnight_restrictions'
+  | 'needs_diaper';
 
 export type FlagSeverity = 'info' | 'warn' | 'block';
 
