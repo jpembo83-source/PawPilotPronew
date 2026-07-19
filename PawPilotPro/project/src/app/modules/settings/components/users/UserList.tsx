@@ -46,13 +46,11 @@ export function UserList() {
   };
 
   const handleSave = (userData: Partial<User>) => {
-    // In a real app, actorName would come from auth context
-    const actorName = 'Current Admin'; 
-
+    // Mutations are audit-logged server-side with the authenticated actor.
     if (editingUser) {
-      updateUser(editingUser.id, userData, actorName);
+      updateUser(editingUser.id, userData);
     } else {
-      addUser(userData as Omit<User, 'id'>, actorName);
+      addUser(userData as Omit<User, 'id'>);
     }
   };
 
@@ -64,7 +62,7 @@ export function UserList() {
   const handleSendReset = async (user: User) => {
     const toastId = toast.loading(`Sending password reset link to ${user.email}…`);
     try {
-      await sendPasswordReset(user.email, 'Current Admin');
+      await sendPasswordReset(user.email);
       toast.success(`Password reset link sent to ${user.email}`, { id: toastId });
     } catch (e: any) {
       toast.error(e.message || 'Failed to send password reset email', { id: toastId });
@@ -204,7 +202,7 @@ export function UserList() {
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className={user.isActive ? "text-red-600" : ""}
-                              onClick={() => toggleUserStatus(user.id, 'Current Admin')}
+                              onClick={() => toggleUserStatus(user.id)}
                             >
                               {user.isActive ? 'Disable User' : 'Enable User'}
                             </DropdownMenuItem>

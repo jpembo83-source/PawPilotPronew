@@ -87,8 +87,10 @@ export function hasPermission(
   action: SettingsAction,
   context?: PermissionContext & { userLocationIds?: string[] }
 ): boolean {
-  // Admin always has full access
-  if (userRole === 'admin') {
+  // Admin always has full access. Compared via a widened alias so TS does not
+  // narrow `userRole` here — the per-section matrix below intentionally spells
+  // out its admin cases again so each section reads as a complete rule.
+  if ((userRole as string) === 'admin') {
     return true;
   }
   
@@ -308,14 +310,19 @@ export async function getAuditLogs(
   limit: number = 100
 ): Promise<AuditLogEntry[]> {
   try {
-    const prefix = section ? `audit:settings:${section}:` : 'audit:settings:';
-    const entries = await kv.getByPrefix(prefix);
-    
+    // Keys are `audit:settings:{timestamp}:{id}` — the section lives in the
+    // entry, not the key, so filter on the field (a section-prefixed key
+    // lookup would never match anything).
+    const entries = await kv.getByPrefix('audit:settings:');
+    const filtered = section
+      ? entries.filter((e: AuditLogEntry) => e.section === section)
+      : entries;
+
     // Sort by timestamp descending
-    const sorted = entries.sort((a: AuditLogEntry, b: AuditLogEntry) => 
+    const sorted = filtered.sort((a: AuditLogEntry, b: AuditLogEntry) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
-    
+
     return sorted.slice(0, limit);
   } catch (error) {
     console.error('Failed to get audit logs:', error);

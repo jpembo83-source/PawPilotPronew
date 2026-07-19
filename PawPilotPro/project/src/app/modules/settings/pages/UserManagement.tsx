@@ -5,6 +5,7 @@ import { AccessAudit } from '../components/users/AccessAudit';
 import { Button } from '../../../components/ui/button';
 import { UsersThree, Shield, ClockCounterClockwise, Eye } from '@phosphor-icons/react';
 import { useSettingsStore } from '../store';
+import { useUserStore } from '../stores/userStore';
 import { ViewAsManagement } from '../../../modules/view-as/ViewAsManagement';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -13,14 +14,18 @@ type Tab = 'users' | 'templates' | 'audit' | 'view-as';
 export function UserManagement() {
   const [activeTab, setActiveTab] = useState<Tab>('users');
   const { fetchLocations } = useSettingsStore();
+  const { fetchTemplates } = useUserStore();
   const { user, isLoading: isAuthLoading } = useAuth();
 
   // Fetch locations when component mounts to populate location selection in UserDialog - only when authenticated
   useEffect(() => {
     if (!isAuthLoading && user) {
       fetchLocations();
+      // Permission templates are server-backed; load them once for the
+      // Users (assignment dropdown) and Roles & Templates tabs.
+      void fetchTemplates();
     }
-  }, [fetchLocations, isAuthLoading, user]);
+  }, [fetchLocations, fetchTemplates, isAuthLoading, user]);
 
   return (
     <div className="space-y-6">

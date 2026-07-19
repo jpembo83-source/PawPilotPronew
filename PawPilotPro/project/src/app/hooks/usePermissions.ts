@@ -4,8 +4,8 @@
 // Single source of truth for permission checking throughout the application
 // Resolves permissions from: user overrides > template > role defaults
 
-import { useMemo } from 'react';
-import { useAuth, Role, Permission, User } from '../context/AuthContext';
+import { useEffect, useMemo } from 'react';
+import { useAuth, Role, Permission } from '../context/AuthContext';
 import { useUserStore } from '../modules/settings/stores/userStore';
 
 // Module-level permission actions
@@ -103,12 +103,19 @@ interface PermissionResult {
  */
 export function usePermissions(): PermissionResult {
   const { user } = useAuth();
-  const { templates } = useUserStore();
+  const { templates, myTemplate, ensureMyTemplate } = useUserStore();
+
+  // Templates are server-backed; every role can fetch its OWN assigned
+  // template so enforcement works for staff too (who cannot list all
+  // templates). Loaded once per session, cached in the store.
+  useEffect(() => {
+    if (user) void ensureMyTemplate();
+  }, [user, ensureMyTemplate]);
 
   // Resolve effective permissions for the current user
   const effectivePermissions = useMemo((): Permission[] => {
     if (!user) return [];
-    
+
     // Admin gets everything
     if (user.role === 'admin') {
       return ROLE_DEFAULT_PERMISSIONS.admin;
@@ -117,11 +124,14 @@ export function usePermissions(): PermissionResult {
     // Start with role defaults
     let permissions = [...(ROLE_DEFAULT_PERMISSIONS[user.role] || [])];
 
-    // If user has a templateId, get permissions from template
-    // Note: user object may have templateId from user_metadata
-    const templateId = (user as any).templateId;
-    if (templateId && templates.length > 0) {
-      const template = templates.find(t => t.id === templateId);
+    // templateId comes from app_metadata (server-set) via AuthContext; the
+    // template body comes from the server (full list for managers, or the
+    // caller's own via /settings/my-permission-template for everyone else).
+    const templateId = user.templateId;
+    if (templateId) {
+      const template =
+        templates.find(t => t.id === templateId) ??
+        (myTemplate?.id === templateId ? myTemplate : undefined);
       if (template) {
         // Template permissions REPLACE role defaults (more specific)
         permissions = [...template.permissions];
@@ -142,7 +152,7 @@ export function usePermissions(): PermissionResult {
     }
 
     return permissions;
-  }, [user, templates]);
+  }, [user, templates, myTemplate]);
 
   // Check if user has a specific permission
   const hasPermission = (module: string, action: PermissionAction): boolean => {

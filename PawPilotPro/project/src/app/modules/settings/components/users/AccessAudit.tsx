@@ -1,11 +1,11 @@
 import React from 'react';
-import { useUserStore } from '../../stores/userStore';
-import { format } from 'date-fns';
-import { ClockCounterClockwise, User } from '@phosphor-icons/react';
+import { ClockCounterClockwise } from '@phosphor-icons/react';
+import { AuditLogViewer } from '../AuditLogViewer';
 
+// The audit tab reads the REAL server audit trail (/settings/audit-logs,
+// entries written by logAudit on every settings/user/template mutation) —
+// not a client-side in-memory list that evaporated on reload.
 export function AccessAudit() {
-  const { auditLog } = useUserStore();
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -14,57 +14,13 @@ export function AccessAudit() {
         </div>
         <div>
           <h3 className="text-lg font-medium text-slate-900">Access Audit Log</h3>
-          <p className="text-sm text-slate-500">Track all security and access changes.</p>
+          <p className="text-sm text-slate-500">
+            Server-recorded changes to settings, users, and permission templates.
+          </p>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-slate-50 text-slate-500 font-medium">
-            <tr>
-              <th className="px-6 py-3">Timestamp</th>
-              <th className="px-6 py-3">Actor</th>
-              <th className="px-6 py-3">Action</th>
-              <th className="px-6 py-3">Target</th>
-              <th className="px-6 py-3">Details</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {auditLog.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                  No audit records found.
-                </td>
-              </tr>
-            ) : (
-              auditLog.map(log => (
-                <tr key={log.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-slate-500">
-                    {format(new Date(log.timestamp), 'MMM d, yyyy HH:mm:ss')}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <User className="h-3 w-3 text-slate-400" />
-                      <span className="font-medium text-slate-900">{log.actorName}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-                      {log.action}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-slate-800">
-                    {log.targetName}
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 max-w-xs truncate">
-                    {log.details}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <AuditLogViewer limit={50} showFilters />
     </div>
   );
 }
