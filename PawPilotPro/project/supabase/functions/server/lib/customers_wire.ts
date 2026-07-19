@@ -108,6 +108,9 @@ export function toWirePet(row: Row): WireRecord {
   putRequired(out, "active", row.active);
   putRequired(out, "owner_added", row.owner_added);
   putRequired(out, "verification_status", row.verification_status);
+  // House-dog marker (20260719210000): contract default false, so legacy
+  // KV blobs without the field and PG's column default agree.
+  putRequired(out, "non_billable", row.non_billable);
   putTs(out, "created_at", row.created_at);
   putTs(out, "updated_at", row.updated_at);
   return out;
