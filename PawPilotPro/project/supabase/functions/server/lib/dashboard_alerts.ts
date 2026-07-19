@@ -79,15 +79,23 @@ function liveAlertState(
 
   const behaviourFlag = activeFlag(flags, b.pet_id, 'behaviour_caution');
   const medicalFlag = activeFlag(flags, b.pet_id, 'medical_caution');
+  // Physical-care flags count as medical/care alerts: a dog needing a diaper
+  // must reach the dashboard alert card, not just the profile.
+  const diaperFlag = activeFlag(flags, b.pet_id, 'needs_diaper');
 
   const flagReason = (f: FlagLite | undefined): string | null =>
     f && typeof f.reason === 'string' && f.reason.trim() ? f.reason.trim() : null;
 
   return {
     has_behaviour_flag: hasBehaviourNote || !!behaviourFlag,
-    has_medical_flag: hasMedicalNote || !!medicalFlag,
+    has_medical_flag: hasMedicalNote || !!medicalFlag || !!diaperFlag,
     behaviour_notes: behaviourNotes || flagReason(behaviourFlag) || b.behaviour_notes || null,
-    medical_notes: medicalNotes || flagReason(medicalFlag) || b.medical_notes || null,
+    medical_notes:
+      medicalNotes ||
+      flagReason(medicalFlag) ||
+      (diaperFlag ? 'Needs a diaper' : null) ||
+      b.medical_notes ||
+      null,
   };
 }
 
