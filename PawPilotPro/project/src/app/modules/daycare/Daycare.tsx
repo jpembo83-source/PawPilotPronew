@@ -9,6 +9,7 @@ import { DaycareAttendance } from './pages/DaycareAttendance';
 import { DaycareBookings } from './pages/DaycareBookings';
 import { DaycarePhotoReview } from './pages/DaycarePhotoReview';
 import { DaycarePhotoUpload } from './pages/DaycarePhotoUpload';
+import { DaycarePaperImport } from './pages/DaycarePaperImport';
 
 export function Daycare() {
   return (
@@ -20,6 +21,7 @@ export function Daycare() {
       <Route path="bookings" element={<DaycareBookings />} />
       <Route path="photo-review" element={<DaycarePhotoReview />} />
       <Route path="photo-upload" element={<DaycarePhotoUpload />} />
+      <Route path="paper-import" element={<DaycarePaperImport />} />
       <Route path="*" element={<Navigate to="/daycare" replace />} />
     </Routes>
   );

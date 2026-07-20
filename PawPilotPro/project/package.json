@@ -84,6 +84,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.112.3",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "4.1.12",
