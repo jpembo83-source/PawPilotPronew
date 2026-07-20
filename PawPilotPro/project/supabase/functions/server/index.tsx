@@ -33,6 +33,7 @@ import calendarRoutes from "./calendar_routes.tsx";
 import portalRoutes from "./portal_routes.tsx";
 import portalInvites from "./portal_invites.ts";
 import portalBookings from "./portal_bookings.ts";
+import notificationsRoutes from "./notifications_routes.ts";
 import { requireAuth, requirePermission, logAudit, UserContext } from "./settings_rbac.ts";
 import { internalError } from "./_shared/log.ts";
 
@@ -522,6 +523,7 @@ app.route("/make-server-fc003b23/billing-finance", billingFinanceSettingsRoutes)
 app.route("/make-server-fc003b23/data-compliance", dataComplianceRoutes);
 app.route("/make-server-fc003b23/integrations", integrationsSettingsRoutes);
 app.route("/make-server-fc003b23/system", systemRoutes);
+app.route("/make-server-fc003b23/notifications", notificationsRoutes);
 app.route("/make-server-fc003b23/view-as", viewAsRoutes);
 app.route("/make-server-fc003b23/billing", billingRoutes);
 // Customer membership assignments (/customer-packages) — path shape is fixed

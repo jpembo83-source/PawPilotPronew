@@ -27,6 +27,8 @@ import { useSettingsStore } from '../../modules/settings/store';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useBetaFeatures } from '../../hooks/useBetaFeatures';
 import { OfflineBanner } from './OfflineBanner';
+import { NotificationsSheet } from '../notifications/NotificationsSheet';
+import { useNotifications } from '../../hooks/useNotifications';
 import defaultLogo from '../../../assets/logo.svg';
 import { getVisibleNavEntries, groupNavEntries, bottomBarEntries } from './navManifest';
 import { useInboxCounts, formatBadgeCount } from '../../hooks/useInboxCounts';
@@ -42,6 +44,15 @@ export function MobileLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notifications = useNotifications();
+
+  const handleOpenNotifications = () => {
+    setNotificationsOpen(true);
+    void notifications.reload();
+    // Opening the panel is "seeing" the items — clear the dot for this user.
+    void notifications.markRead();
+  };
 
   const canSearch =
     permissions.canAccessModule('customers') || permissions.canAccessModule('daycare');
@@ -150,6 +161,7 @@ export function MobileLayout() {
             </button>
           )}
           <button
+            onClick={handleOpenNotifications}
             className="-mr-2 rounded-lg transition-colors relative flex items-center justify-center touch-target"
             style={{ WebkitTapHighlightColor: 'transparent' }}
             aria-label="Notifications"
@@ -159,11 +171,13 @@ export function MobileLayout() {
             onTouchEnd={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <Bell className="h-6 w-6" style={{ color: '#6B6762' }} />
-            {/* Brand dot — visible when there are notifications */}
-            <span
-              className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
-              style={{ background: 'var(--primary)' }}
-            />
+            {/* Brand dot — only when something is actually waiting */}
+            {notifications.unreadCount > 0 && (
+              <span
+                className="absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white"
+                style={{ background: 'var(--primary)' }}
+              />
+            )}
           </button>
         </div>
       </header>
@@ -172,6 +186,14 @@ export function MobileLayout() {
 
       {/* Global search — header icon or Cmd/Ctrl+K */}
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+
+      {/* Notifications panel behind the header bell */}
+      <NotificationsSheet
+        open={notificationsOpen}
+        onOpenChange={setNotificationsOpen}
+        items={notifications.items}
+        isLoading={notifications.isLoading}
+      />
 
       {/* ── Main Content ───────────────────────────────────────── */}
       <main className="flex-1 overflow-auto">
