@@ -20,6 +20,7 @@ import {
   Plus,
   XCircle,
   Camera,
+  NotePencil,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 
@@ -275,6 +276,18 @@ export function DaycareDashboard() {
             >
               <Camera className="h-6 w-6 text-primary" />
               <span className="font-medium text-sm text-[#1C1916]">Add Photos</span>
+            </button>
+          )}
+
+          {/* Paper pad → draft bookings in a confirm queue (nothing books
+              without a human confirming). */}
+          {canCreate && (
+            <button
+              className="bg-white rounded-2xl border border-[#E2DED8] p-4 flex flex-col items-center gap-2 cursor-pointer hover:border-primary hover:bg-primary-tint transition-colors active:scale-[0.98]"
+              onClick={() => { void navigate('/daycare/paper-import'); }}
+            >
+              <NotePencil className="h-6 w-6 text-primary" />
+              <span className="font-medium text-sm text-[#1C1916]">Import from Paper</span>
             </button>
           )}
 

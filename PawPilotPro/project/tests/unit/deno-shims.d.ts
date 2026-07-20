@@ -19,6 +19,11 @@ declare module "npm:@supabase/supabase-js" {
   export * from "@supabase/supabase-js";
 }
 
+declare module "npm:@anthropic-ai/sdk" {
+  export * from "@anthropic-ai/sdk";
+  export { default } from "@anthropic-ai/sdk";
+}
+
 declare module "jsr:@supabase/supabase-js@2" {
   export * from "@supabase/supabase-js";
 }

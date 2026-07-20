@@ -22,6 +22,7 @@ import policiesRoutes from "./policies_routes.tsx";
 import incidentsRoutes from "./incidents_routes.tsx";
 import daycareRoutes from "./daycare_routes.tsx";
 import daycareStandingRoutes from "./daycare_standing_routes.tsx";
+import daycareNotepadRoutes from "./daycare_notepad_routes.tsx";
 import reorderRoutes from "./reorder_routes.tsx";
 import petPhotoUploadRoutes from "./pet_photo_upload.tsx";
 import petUpdatesRoutes from "./pet_updates_routes.tsx";
@@ -534,6 +535,8 @@ app.route("/make-server-fc003b23/daycare", daycareRoutes);
 // Standing (recurring) daycare schedules — own prefix so the two Hono apps'
 // middleware chains never overlap.
 app.route("/make-server-fc003b23/daycare-standing", daycareStandingRoutes);
+// Paper-notepad booking ingest (photo → drafts → human-confirmed bookings).
+app.route("/make-server-fc003b23/daycare-notepad", daycareNotepadRoutes);
 app.route("/make-server-fc003b23/reorder", reorderRoutes);
 app.route("/make-server-fc003b23/pet-photo-upload", petPhotoUploadRoutes);
 app.route("/make-server-fc003b23/pet-updates", petUpdatesRoutes);

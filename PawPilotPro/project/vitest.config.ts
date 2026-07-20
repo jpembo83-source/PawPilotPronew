@@ -7,6 +7,7 @@ export default defineConfig({
     alias: [
       { find: /^npm:hono$/, replacement: 'hono' },
       { find: /^npm:@supabase\/supabase-js$/, replacement: '@supabase/supabase-js' },
+      { find: /^npm:@anthropic-ai\/sdk$/, replacement: '@anthropic-ai/sdk' },
       { find: /^npm:zod$/, replacement: 'zod' },
       { find: /^jsr:@supabase\/supabase-js@.*$/, replacement: '@supabase/supabase-js' },
     ],
