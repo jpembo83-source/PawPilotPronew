@@ -168,7 +168,8 @@ describe('upload', () => {
   });
 
   it('rejects non-images, oversized files, and foreign locations', async () => {
-    const tooBig = new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'big.jpg', { type: 'image/jpeg' });
+    // Cap is now 15MB (clients downscale before upload; this is the backstop).
+    const tooBig = new File([new Uint8Array(15 * 1024 * 1024 + 1)], 'big.jpg', { type: 'image/jpeg' });
     const notImage = new File([new Uint8Array([1])], 'notes.pdf', { type: 'application/pdf' });
     const formData = new FormData();
     formData.append('location_id', 'loc-1');

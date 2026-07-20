@@ -15,9 +15,13 @@ import { Camera, X, PaperPlaneTilt, CircleNotch } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import {
+  prepareImageForUpload,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_LABEL,
+} from '../../../utils/imageCompression';
 
 const MOMENT_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/pet-updates/moment`;
-const MAX_BYTES = 5 * 1024 * 1024;
 
 export interface ShareMomentPet {
   id: string;
@@ -48,14 +52,19 @@ export function ShareMomentModal({ open, onClose, pet }: ShareMomentModalProps) 
     }
   }, [open]);
 
-  const pickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { toast.error('Photos only'); return; }
-    if (file.size > MAX_BYTES) { toast.error('Photo must be under 5MB'); return; }
+    // Downscaled on-device so full-size phone photos just work.
+    const prepared = await prepareImageForUpload(file);
+    if (prepared.size > MAX_UPLOAD_BYTES) {
+      toast.error(`Photo must be under ${MAX_UPLOAD_LABEL}`);
+      return;
+    }
     setPhoto(prev => {
       if (prev) URL.revokeObjectURL(prev.preview);
-      return { file, preview: URL.createObjectURL(file) };
+      return { file: prepared, preview: URL.createObjectURL(prepared) };
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -139,7 +148,7 @@ export function ShareMomentModal({ open, onClose, pet }: ShareMomentModalProps) 
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={pickFile}
+          onChange={e => void pickFile(e)}
           className="hidden"
         />
 

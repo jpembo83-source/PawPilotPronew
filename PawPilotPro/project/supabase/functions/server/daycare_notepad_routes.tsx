@@ -32,7 +32,7 @@ import { extractNotepadRows, VisionNotConfiguredError } from './lib/notepad_visi
 const app = new Hono();
 app.use('*', requireAuth);
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 const MAX_UPLOAD_FILES = 10;
 
 // Same role model as daycare bookings: anyone who can take a booking can
@@ -71,7 +71,7 @@ const canUseLocation = (user: AuthenticatedUser, locationId: string): boolean =>
 
 function validatePhotoFile(file: File): string | null {
   if (!file.type.startsWith('image/')) return 'File must be an image';
-  if (file.size > MAX_PHOTO_BYTES) return 'Photo must be under 5MB';
+  if (file.size > MAX_PHOTO_BYTES) return 'Photo must be under 15MB';
   return null;
 }
 

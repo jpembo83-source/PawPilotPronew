@@ -49,7 +49,8 @@ import { notify } from "./lib/notify.ts";
 const app = new Hono();
 app.use("*", requireAuth);
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+// 15MB: clients downscale before upload; this is the undecodable-file backstop.
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 
 // Mirrors daycare_routes' role model: anyone who can run check-in/out can
 // share a moment.
@@ -92,7 +93,7 @@ function canUseLocation(user: AuthenticatedUser, locationId: string): boolean {
 
 function validatePhotoFile(file: File): string | null {
   if (!file.type.startsWith("image/")) return "File must be an image";
-  if (file.size > MAX_PHOTO_BYTES) return "Photo must be under 5MB";
+  if (file.size > MAX_PHOTO_BYTES) return "Photo must be under 15MB";
   return null;
 }
 
@@ -244,7 +245,7 @@ app.post("/moment", async (c) => {
     let photoPath: string | undefined;
     if (file) {
       if (!file.type.startsWith("image/")) return c.json({ error: "File must be an image" }, 400);
-      if (file.size > MAX_PHOTO_BYTES) return c.json({ error: "Photo must be under 5MB" }, 400);
+      if (file.size > MAX_PHOTO_BYTES) return c.json({ error: "Photo must be under 15MB" }, 400);
 
       await ensureMomentsBucket(admin);
       const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");

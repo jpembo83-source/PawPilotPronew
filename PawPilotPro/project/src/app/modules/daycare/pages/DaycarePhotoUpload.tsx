@@ -22,9 +22,13 @@ import {
 import { toast } from 'sonner';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
+import {
+  prepareImageForUpload,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_LABEL,
+} from '../../../utils/imageCompression';
 
 const UPLOAD_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/pet-updates/upload`;
-const MAX_BYTES = 5 * 1024 * 1024;
 const MAX_FILES = 20;
 
 type FileStatus = 'queued' | 'uploading' | 'done' | 'failed';
@@ -81,7 +85,7 @@ export function DaycarePhotoUpload() {
   const canPost = ['admin', 'manager', 'assistant_manager', 'staff'].includes(user?.role ?? '');
   const isManager = user?.role === 'admin' || user?.role === 'manager';
 
-  const addFiles = (picked: FileList | null) => {
+  const addFiles = async (picked: FileList | null) => {
     if (!picked) return;
     const next: QueuedFile[] = [];
     for (const file of Array.from(picked)) {
@@ -89,14 +93,17 @@ export function DaycarePhotoUpload() {
         toast.error(`${file.name}: photos only`);
         continue;
       }
-      if (file.size > MAX_BYTES) {
-        toast.error(`${file.name}: must be under 5MB`);
+      // Phone photos are downscaled on-device before upload, so full-size
+      // iPhone shots (3–12MB) just work; the cap only catches undecodable files.
+      const prepared = await prepareImageForUpload(file);
+      if (prepared.size > MAX_UPLOAD_BYTES) {
+        toast.error(`${file.name}: must be under ${MAX_UPLOAD_LABEL}`);
         continue;
       }
       next.push({
         key: `${file.name}-${file.size}-${crypto.randomUUID().slice(0, 6)}`,
-        file,
-        preview: URL.createObjectURL(file),
+        file: prepared,
+        preview: URL.createObjectURL(prepared),
         status: 'queued',
       });
     }
@@ -259,7 +266,7 @@ export function DaycarePhotoUpload() {
         accept="image/*"
         capture="environment"
         multiple
-        onChange={e => addFiles(e.target.files)}
+        onChange={e => void addFiles(e.target.files)}
         className="hidden"
       />
       <input
@@ -267,7 +274,7 @@ export function DaycarePhotoUpload() {
         type="file"
         accept="image/*"
         multiple
-        onChange={e => addFiles(e.target.files)}
+        onChange={e => void addFiles(e.target.files)}
         className="hidden"
       />
 
