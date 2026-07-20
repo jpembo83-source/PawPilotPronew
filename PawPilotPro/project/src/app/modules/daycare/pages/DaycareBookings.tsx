@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useDaycareStore } from '../store';
+import { useStandingStore } from '../standingStore';
 import { useDashboardStore } from '../../dashboard/store';
 import { useAuth } from '../../../context/AuthContext';
 import { Button } from '../../../components/ui/button';
@@ -70,6 +71,17 @@ export function DaycareBookings() {
       searchParams.delete('action');
       setSearchParams(searchParams);
     }
+  }, []);
+
+  // Keep the standing-schedule horizon topped up whenever staff look at
+  // bookings (idempotent + throttled server call; reload only on new days).
+  useEffect(() => {
+    void useStandingStore
+      .getState()
+      .generate()
+      .then((summary) => {
+        if (summary && summary.created > 0) void loadBookings();
+      });
   }, []);
 
   useEffect(() => {

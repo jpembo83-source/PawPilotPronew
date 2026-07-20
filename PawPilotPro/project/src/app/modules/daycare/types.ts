@@ -35,6 +35,8 @@ export interface DaycareBooking {
   // Scheduling
   booking_date: string; // YYYY-MM-DD
   booking_group_id?: string; // set on each day of a multi-day day-visit range
+  /** Set when generated from a standing (recurring) schedule. */
+  standing_booking_id?: string;
   planned_start_time?: string; // HH:mm
   planned_end_time?: string; // HH:mm
   

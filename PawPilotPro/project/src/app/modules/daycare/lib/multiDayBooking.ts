@@ -70,3 +70,55 @@ export function nightsBetween(start: string, end: string): number {
 export const WEEKDAYS_MON_FRI: ReadonlyArray<Weekday> = [1, 2, 3, 4, 5];
 /** All seven days. */
 export const WEEKDAYS_ALL: ReadonlyArray<Weekday> = [0, 1, 2, 3, 4, 5, 6];
+
+// ── Daycare sessions ─────────────────────────────────────────────────────────
+// The one client-side source of truth for what a daycare day can be. The
+// booking dialog and the standing-schedule editor both render from this map;
+// the server mirrors it in lib/standing_bookings.ts (keep in sync — servers
+// can't import Vite-world modules).
+
+/** A bookable daycare day: full day or one of the two half-day windows. */
+export type DaycareSession = 'full_day' | 'half_day_am' | 'half_day_pm';
+
+export interface DaycareSessionDetails {
+  label: string;
+  /** Compact register shorthand ("Full", "½ AM"). */
+  shortLabel: string;
+  start: string; // HH:mm
+  end: string; // HH:mm
+  serviceId: string;
+  serviceName: string;
+}
+
+export const SESSION_DETAILS: Record<DaycareSession, DaycareSessionDetails> = {
+  full_day: {
+    label: 'Full Day',
+    shortLabel: 'Full',
+    start: '07:00',
+    end: '18:00',
+    serviceId: 'service-daycare-full',
+    serviceName: 'Daycare (Full Day)',
+  },
+  half_day_am: {
+    label: 'Half Day (AM)',
+    shortLabel: '½ AM',
+    start: '07:00',
+    end: '13:00',
+    serviceId: 'service-daycare-half-am',
+    serviceName: 'Daycare (Half Day AM)',
+  },
+  half_day_pm: {
+    label: 'Half Day (PM)',
+    shortLabel: '½ PM',
+    start: '13:00',
+    end: '18:00',
+    serviceId: 'service-daycare-half-pm',
+    serviceName: 'Daycare (Half Day PM)',
+  },
+};
+
+export const ALL_SESSIONS: ReadonlyArray<DaycareSession> = [
+  'full_day',
+  'half_day_am',
+  'half_day_pm',
+];

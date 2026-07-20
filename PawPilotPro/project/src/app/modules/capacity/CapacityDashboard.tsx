@@ -13,8 +13,10 @@ import {
   Truck,
 } from '@phosphor-icons/react';
 import { WeekPlannerGrid } from './components/WeekPlannerGrid';
-import { DayBookingsSheet } from './components/DayBookingsSheet';
+import { DayBookingsSheet, type StandingOccurrenceAction } from './components/DayBookingsSheet';
 import { CreateBookingDialog } from '../daycare/components/CreateBookingDialog';
+import { useStandingStore } from '../daycare/standingStore';
+import { toast } from 'sonner';
 import type { ServiceCapacity, DailyCapacitySummary } from './types';
 
 function formatDate(date: Date): string {
@@ -199,6 +201,47 @@ export function CapacityDashboard() {
     void fetchWeekBookings(formatDate(currentWeekStart), selectedLocationId);
   };
 
+  // Top up the standing-schedule horizon when the planner opens (idempotent
+  // and throttled), so the week arrives pre-filled from the weekly patterns
+  // and staff only touch the exceptions. Refresh only if days were created.
+  useEffect(() => {
+    void useStandingStore
+      .getState()
+      .generate()
+      .then((summary) => {
+        if (summary && summary.created > 0) refreshAll();
+        if (summary && summary.warnings.length > 0) {
+          const w = summary.warnings[0];
+          toast.warning(
+            `${summary.warnings.length} recurring day${summary.warnings.length === 1 ? '' : 's'} could not be booked (${w.pet_name} on ${w.date}${w.reason === 'capacity_full' ? ' — capacity full' : ''}).`,
+          );
+        }
+      });
+  }, []);
+
+  // Per-occurrence skip / session override / restore from the day list.
+  const handleStandingAction = async (action: StandingOccurrenceAction) => {
+    const { addException, removeException } = useStandingStore.getState();
+    try {
+      const generation =
+        action.type === 'restore'
+          ? await removeException(action.scheduleId, action.date)
+          : await addException(action.scheduleId, action.date, action.type, action.session);
+      if (generation.warnings.length > 0) {
+        toast.warning(`Could not rebook ${action.date}: ${generation.warnings[0].reason === 'capacity_full' ? 'capacity full' : generation.warnings[0].reason}`);
+      } else if (action.type === 'skip') {
+        toast.success('Day skipped — the weekly pattern is unchanged');
+      } else if (action.type === 'restore') {
+        toast.success('Day restored to the weekly pattern');
+      } else {
+        toast.success('Session changed for this day only');
+      }
+      refreshAll();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not update the day');
+    }
+  };
+
   const openDayList = (date: string) => {
     setSelectedDate(date);
     setSheetDate(date);
@@ -345,6 +388,7 @@ export function CapacityDashboard() {
         overnightStays={weekOvernights}
         maxDogs={maxDogs}
         onAddBooking={openCreate}
+        onStandingAction={(action) => void handleStandingAction(action)}
       />
 
       {/* Booking creation, prefilled with the tapped day */}

@@ -91,4 +91,9 @@ export interface PlannerBooking {
   requires_transport?: boolean;
   has_behaviour_flag?: boolean;
   has_medical_flag?: boolean;
+  /** Present when the booking was generated from a standing (recurring)
+   *  schedule — the planner marks these and offers per-day skip/override. */
+  standing_booking_id?: string;
+  /** Server-stamped reason; a standing-schedule skip is recognisable here. */
+  cancellation_reason?: string;
 }
