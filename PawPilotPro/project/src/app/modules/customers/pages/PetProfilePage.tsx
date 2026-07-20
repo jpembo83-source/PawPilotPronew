@@ -14,10 +14,12 @@ import {
   CalendarPlus,
   SignIn,
   Swap,
-  X
+  X,
+  ArrowsClockwise
 } from '@phosphor-icons/react';
 import { Button } from '../../../components/ui/button';
 import { CreateBookingDialog } from '../../daycare/components/CreateBookingDialog';
+import { StandingScheduleDialog } from '../../daycare/components/StandingScheduleDialog';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import {
@@ -82,6 +84,7 @@ export function PetProfilePage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showFlagModal, setShowFlagModal] = useState(false);
   const [showBookingDialog, setShowBookingDialog] = useState(false);
+  const [showStandingDialog, setShowStandingDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   // Rehoming is admin/manager only (matches the server route's role gate).
   const canTransfer = user?.role === 'admin' || user?.role === 'manager';
@@ -448,6 +451,12 @@ export function PetProfilePage() {
             <CalendarPlus className="h-4 w-4 mr-2" />
             Book
           </Button>
+          {/* Weekly regulars: enter the pattern once; the weeks book
+              themselves and staff only record exceptions. */}
+          <Button variant="outline" onClick={() => setShowStandingDialog(true)}>
+            <ArrowsClockwise className="h-4 w-4 mr-2" />
+            Standing schedule
+          </Button>
           <Button variant="outline" onClick={() => navigate('/daycare/check-in')}>
             <SignIn className="h-4 w-4 mr-2" />
             Check in
@@ -679,6 +688,16 @@ export function PetProfilePage() {
           pet,
         }}
       />
+
+      {/* Weekly pattern editor — generates the upcoming weeks' bookings */}
+      {showStandingDialog && (
+        <StandingScheduleDialog
+          open={showStandingDialog}
+          onOpenChange={setShowStandingDialog}
+          pet={pet}
+          householdId={pet.household_id}
+        />
+      )}
 
       {/* Move to a new family (rehomed/adopted) — flags and history follow
           the dog. Refetch reloads the profile under its new household. */}

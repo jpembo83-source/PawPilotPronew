@@ -17,7 +17,13 @@ import { useConnectivity } from '../../../hooks/useConnectivity';
 import { MEMBERSHIP_PLANS } from '../../packages/membership-plans';
 import type { CustomerPackage } from '../../packages/types';
 import { CreateReservationModal, type ReservationPrefill } from '../../overnights/components/CreateReservationModal';
-import { expandDateRange, WEEKDAYS_MON_FRI, type Weekday } from '../lib/multiDayBooking';
+import {
+  expandDateRange,
+  SESSION_DETAILS,
+  WEEKDAYS_MON_FRI,
+  type DaycareSession,
+  type Weekday,
+} from '../lib/multiDayBooking';
 
 type BookingLength = 'single' | 'multi';
 type StayType = 'day_visits' | 'overnight';
@@ -49,14 +55,12 @@ interface CreateBookingDialogProps {
   prefill?: BookingPrefill | null;
 }
 
-type ServiceType = 'full_day' | 'half_day_am' | 'half_day_pm';
+type ServiceType = DaycareSession;
 type BillingType = 'membership' | 'payg';
 
-const SERVICE_OPTIONS: Record<ServiceType, { label: string; start: string; end: string; serviceId: string; serviceName: string }> = {
-  full_day:     { label: 'Full Day',       start: '07:00', end: '18:00', serviceId: 'service-daycare-full',    serviceName: 'Daycare (Full Day)' },
-  half_day_am:  { label: 'Half Day (AM)',  start: '07:00', end: '13:00', serviceId: 'service-daycare-half-am', serviceName: 'Daycare (Half Day AM)' },
-  half_day_pm:  { label: 'Half Day (PM)',  start: '13:00', end: '18:00', serviceId: 'service-daycare-half-pm', serviceName: 'Daycare (Half Day PM)' },
-};
+// Session catalogue (times, service ids) — shared with the standing-schedule
+// editor and mirrored server-side; see lib/multiDayBooking.
+const SERVICE_OPTIONS = SESSION_DETAILS;
 
 interface HouseholdMembership {
   customerPackageId: string;

@@ -7,10 +7,28 @@
 
 import { useIsMobile } from '../../../components/ui/use-mobile';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../../components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../../components/ui/dropdown-menu';
 import { usePermissions } from '../../../hooks/usePermissions';
-import { Plus, Van, Warning, FirstAidKit, CheckCircle, Moon } from '@phosphor-icons/react';
+import { Plus, Van, Warning, FirstAidKit, CheckCircle, Moon, ArrowsClockwise, DotsThreeVertical } from '@phosphor-icons/react';
+import { ALL_SESSIONS, SESSION_DETAILS, type DaycareSession } from '../../daycare/lib/multiDayBooking';
+import { STANDING_SKIP_REASON } from '../../daycare/standingStore';
 import type { PlannerBooking } from '../types';
 import { bookingsForDate, isCancelled, serviceShorthand, overnightOnlyForDate, type PlannerOvernightStay } from './plannerFormat';
+
+/** A per-occurrence action on a standing-schedule booking. */
+export interface StandingOccurrenceAction {
+  scheduleId: string;
+  date: string;
+  type: 'skip' | 'override' | 'restore';
+  session?: DaycareSession;
+}
 
 interface DayBookingsSheetProps {
   open: boolean;
@@ -20,9 +38,12 @@ interface DayBookingsSheetProps {
   overnightStays?: PlannerOvernightStay[];
   maxDogs: number;
   onAddBooking: (date: string) => void;
+  /** When present, standing-schedule occurrences get inline skip/override
+   *  (and skipped ones a restore) without leaving the day list. */
+  onStandingAction?: (action: StandingOccurrenceAction) => void;
 }
 
-export function DayBookingsSheet({ open, onOpenChange, date, bookings, overnightStays = [], maxDogs, onAddBooking }: DayBookingsSheetProps) {
+export function DayBookingsSheet({ open, onOpenChange, date, bookings, overnightStays = [], maxDogs, onAddBooking, onStandingAction }: DayBookingsSheetProps) {
   const isMobile = useIsMobile();
   const { hasPermission } = usePermissions();
   const canCreate = hasPermission('daycare', 'create');
@@ -60,6 +81,12 @@ export function DayBookingsSheet({ open, onOpenChange, date, bookings, overnight
           {dayBookings.map((b) => {
             const cancelled = isCancelled(b);
             const checkedIn = b.check_in_status === 'checked_in';
+            const isStanding = !!b.standing_booking_id;
+            const isSkipped = cancelled && isStanding && b.cancellation_reason === STANDING_SKIP_REASON;
+            // Inline exception controls: active standing occurrences can be
+            // skipped or switched; a skipped one can be restored. Checked-in
+            // dogs are past the point of rebooking.
+            const canAct = !!onStandingAction && canCreate && isStanding && b.check_in_status !== 'checked_in';
             return (
               <div
                 key={b.id}
@@ -83,6 +110,14 @@ export function DayBookingsSheet({ open, onOpenChange, date, bookings, overnight
                     <span className="text-xs font-medium px-1.5 py-0.5 rounded-full" style={{ background: 'var(--primary-tint)', color: 'var(--primary-strong)' }}>
                       {serviceShorthand(b)}
                     </span>
+                    {isStanding && (
+                      <span
+                        className="inline-flex items-center gap-0.5 text-xs font-medium text-[#6B6762]"
+                        title="From a standing schedule"
+                      >
+                        <ArrowsClockwise size={12} aria-hidden="true" /> Recurring
+                      </span>
+                    )}
                     {b.requires_transport && (
                       <span className="inline-flex items-center gap-0.5 text-xs font-medium text-[#6B6762]">
                         <Van size={12} aria-hidden="true" /> PU/DO
@@ -99,9 +134,61 @@ export function DayBookingsSheet({ open, onOpenChange, date, bookings, overnight
                   <p className="text-xs text-[#6B6762] truncate">
                     {b.household_name}
                     {b.planned_start_time && ` · ${b.planned_start_time}${b.planned_end_time ? `–${b.planned_end_time}` : ''}`}
-                    {cancelled && (b.booking_status === 'no_show' ? ' · no-show' : ' · cancelled')}
+                    {cancelled && (isSkipped ? ' · skipped' : b.booking_status === 'no_show' ? ' · no-show' : ' · cancelled')}
                   </p>
                 </div>
+
+                {/* Per-occurrence exception controls — the series is never touched */}
+                {canAct && isSkipped && (
+                  <button
+                    onClick={() =>
+                      onStandingAction({ scheduleId: b.standing_booking_id as string, date, type: 'restore' })
+                    }
+                    className="shrink-0 h-11 px-3 rounded-lg border border-[#E2DED8] text-sm font-medium text-[#1C1916] hover:bg-[#FAFAF8] transition-colors"
+                  >
+                    Restore
+                  </button>
+                )}
+                {canAct && !cancelled && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="shrink-0 h-11 w-11 rounded-lg flex items-center justify-center text-[#6B6762] hover:bg-[#FAFAF8] transition-colors"
+                        aria-label={`Adjust ${b.pet_name}'s recurring day`}
+                      >
+                        <DotsThreeVertical size={20} weight="bold" aria-hidden="true" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel className="text-sm">This day only</DropdownMenuLabel>
+                      <DropdownMenuItem
+                        className="text-sm"
+                        onClick={() =>
+                          onStandingAction({ scheduleId: b.standing_booking_id as string, date, type: 'skip' })
+                        }
+                      >
+                        Skip — {b.pet_name} is off
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {ALL_SESSIONS.filter((s) => serviceShorthand(b) !== SESSION_DETAILS[s].shortLabel).map((session) => (
+                        <DropdownMenuItem
+                          key={session}
+                          className="text-sm"
+                          onClick={() =>
+                            onStandingAction({
+                              scheduleId: b.standing_booking_id as string,
+                              date,
+                              type: 'override',
+                              session,
+                            })
+                          }
+                        >
+                          Switch to {SESSION_DETAILS[session].label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             );
           })}

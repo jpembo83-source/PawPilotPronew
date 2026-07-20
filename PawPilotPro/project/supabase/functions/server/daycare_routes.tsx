@@ -55,7 +55,7 @@ interface DaycareEvent {
   timestamp: string;
 }
 
-interface DaycareBooking {
+export interface DaycareBooking {
   id: string;
   household_id: string;
   household_name: string;
@@ -71,6 +71,10 @@ interface DaycareBooking {
   /** Set when this booking is one day of a multi-day day-visit range, so the
    *  days can be listed/managed together. Single bookings leave it unset. */
   booking_group_id?: string;
+  /** Set when this booking was generated from a standing (recurring) schedule
+   *  — the planner shows these with a recurring marker and offers per-day
+   *  skip/override. Manual bookings leave it unset. */
+  standing_booking_id?: string;
   planned_start_time?: string;
   planned_end_time?: string;
   booking_status: BookingStatus;
@@ -310,7 +314,7 @@ const validateCheckIn = async (booking: DaycareBooking, tenantId: string) => {
   const householdDocs = await kv.getByPrefix(`customer:${tenantId}:document:${booking.household_id}:`);
   console.log('[validateCheckIn] Found', householdDocs.length, 'documents');
   
-  const waiverDoc = householdDocs.find((d: string) => {
+  const waiverDoc = householdDocs.find((d) => {
     const doc = d;
     console.log('[validateCheckIn] Checking document:', doc.id, 'type:', doc.document_type, 'pet_id:', doc.pet_id, 'checking_in_pet:', booking.pet_id);
     // Waiver must be for this household AND either:
@@ -794,7 +798,7 @@ app.get('/bookings', async (c) => {
     // Parse JSON strings into objects
     // Filter to only actual booking records (not index entries like daycare:booking:date:...)
     let bookings: DaycareBooking[] = bookingsData
-      .map((b: string) => {
+      .map((b) => {
         try {
           const parsed = b;
           // Only include if it's a full booking object (has required fields)
@@ -902,65 +906,94 @@ app.get('/bookings/:id', async (c) => {
   }
 });
 
-// Create booking
-app.post('/bookings', async (c) => {
-  try {
-    const user = c.get('user') as AuthenticatedUser;
-    
-    if (!hasPermission(user.role, 'create_booking')) {
-      return c.json({ error: 'Access denied: insufficient permissions to create bookings' }, 403);
-    }
-    
-    const body = await c.req.json();
-    const {
-      household_id,
-      pet_id,
-      location_id,
-      location_name,
-      service_id,
-      service_name,
-      service_type,
-      booking_date,
-      planned_start_time,
-      planned_end_time,
-      customer_notes,
-      requires_transport,
-      booking_group_id,
-    } = body;
-    
-    // Validation
-    if (!household_id || !pet_id || !location_id || !service_id || !booking_date) {
-      return c.json({ error: 'Missing required fields' }, 400);
-    }
-    
-    // Validate and fetch pet from customer database
-    const tenantId = user.tenantId;
+// The shared creation core: everything a daycare booking needs regardless of
+// where it comes from — the staff dialog (POST /bookings) or the standing-
+// schedule generator (daycare_standing_routes.tsx). Both paths get identical
+// validation, duplicate/capacity guards, house-dog zeroing, membership
+// coverage and event logging, so a generated occurrence bills and counts
+// exactly like a manual booking. Permission checks stay in the routes.
+export interface CreateBookingInput {
+  household_id: string;
+  pet_id: string;
+  location_id: string;
+  location_name?: string;
+  service_id: string;
+  service_name?: string;
+  service_type?: string;
+  booking_date: string;
+  planned_start_time?: string;
+  planned_end_time?: string;
+  customer_notes?: string;
+  requires_transport?: boolean;
+  booking_group_id?: string;
+  standing_booking_id?: string;
+}
+
+export type CreateBookingResult =
+  | { ok: true; booking: DaycareBooking }
+  | {
+      ok: false;
+      status: number;
+      error: string;
+      code?: 'duplicate_booking' | 'capacity_full';
+      existingBookingId?: string;
+    };
+
+export async function createBookingCore(
+  user: AuthenticatedUser,
+  input: CreateBookingInput,
+  opts: { allowCapacityOverride: boolean },
+): Promise<CreateBookingResult> {
+  const {
+    household_id,
+    pet_id,
+    location_id,
+    location_name,
+    service_id,
+    service_name,
+    service_type,
+    booking_date,
+    planned_start_time,
+    planned_end_time,
+    customer_notes,
+    requires_transport,
+    booking_group_id,
+    standing_booking_id,
+  } = input;
+
+  // Validation
+  if (!household_id || !pet_id || !location_id || !service_id || !booking_date) {
+    return { ok: false, status: 400, error: 'Missing required fields' };
+  }
+
+  // Validate and fetch pet from customer database
+  const tenantId = user.tenantId;
     const petData = await kv.getByPrefix(`customer:${tenantId}:pet:`);
-    const petRecord = petData.find((p: string) => {
+    const petRecord = petData.find((p) => {
       const pet = p;
       return pet.id === pet_id;
     });
     
     if (!petRecord) {
-      return c.json({ error: 'Pet not found in customer database' }, 404);
+      return { ok: false, status: 404, error: 'Pet not found in customer database' };
     }
-    
+
     const pet = petRecord;
-    
+
     // Validate pet belongs to household
     if (pet.household_id !== household_id) {
-      return c.json({ error: 'Pet does not belong to selected household' }, 400);
+      return { ok: false, status: 400, error: 'Pet does not belong to selected household' };
     }
     
     // Fetch household data
     const householdData = await kv.getByPrefix(`customer:${tenantId}:household:`);
-    const householdRecord = householdData.find((h: string) => {
+    const householdRecord = householdData.find((h) => {
       const household = h;
       return household.id === household_id;
     });
     
     if (!householdRecord) {
-      return c.json({ error: 'Household not found' }, 404);
+      return { ok: false, status: 404, error: 'Household not found' };
     }
     
     const household = householdRecord;
@@ -979,18 +1012,25 @@ app.post('/bookings', async (c) => {
       planned_end_time,
     });
     if (duplicate) {
-      return c.json({
+      return {
+        ok: false,
+        status: 409,
         error: `${pet.name} already has a booking at this location on ${booking_date}.`,
         code: 'duplicate_booking',
         existingBookingId: (duplicate as { id?: string }).id,
-      }, 409);
+      };
     }
 
     const capacity = await getCapacity(location_id, booking_date);
     const ragStatus = calculateRAGStatus(capacity.current_bookings, capacity.max_capacity);
-    
-    if (capacity.is_full && !hasPermission(user.role, 'override_rules')) {
-      return c.json({ error: 'Capacity full for selected date. Manager override required.' }, 400);
+
+    if (capacity.is_full && !opts.allowCapacityOverride) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Capacity full for selected date. Manager override required.',
+        code: 'capacity_full',
+      };
     }
     if (ragStatus === 'red' && !capacity.is_full) {
       // Allow but will be flagged
@@ -1001,7 +1041,7 @@ app.post('/bookings', async (c) => {
     
     // Get waiver status from household documents
     const householdDocs = await kv.getByPrefix(`customer:${tenantId}:document:`);
-    const waiverDoc = householdDocs.find((d: string) => {
+    const waiverDoc = householdDocs.find((d) => {
       const doc = d;
       return doc.household_id === household_id && doc.document_type === 'waiver';
     });
@@ -1110,14 +1150,15 @@ app.post('/bookings', async (c) => {
       pet_id,
       pet_name: pet.name,
       // Storage path (or legacy URL) — read endpoints sign it per response.
-      pet_photo_url: storedPetPhoto(pet),
+      pet_photo_url: storedPetPhoto(pet) ?? undefined,
       location_id,
-      location_name,
+      location_name: location_name || '',
       service_id,
-      service_name,
-      service_type: effective_service_type,
+      service_name: service_name || '',
+      service_type: effective_service_type as DaycareBooking['service_type'],
       booking_date,
       booking_group_id: typeof booking_group_id === 'string' ? booking_group_id : undefined,
+      standing_booking_id: typeof standing_booking_id === 'string' ? standing_booking_id : undefined,
       planned_start_time,
       planned_end_time,
       booking_status: 'confirmed',
@@ -1143,7 +1184,7 @@ app.post('/bookings', async (c) => {
       membership_id,
       membership_credits_used,
       billing_line_item_ids: [],
-      requires_transport,
+      requires_transport: requires_transport === true,
       created_by_id: user.id,
       created_by_name: user.name || user.email || '',
       created_at: now,
@@ -1183,12 +1224,41 @@ app.post('/bookings', async (c) => {
       description: `Booking created for ${pet.name} (${service_type}) on ${booking_date}`,
       metadata: { service_type, booking_date, pet_name: pet.name, household_name: household.name, rag_status: capacity.rag_status },
     });
-    
-    if (requires_transport) {
+
+  return { ok: true, booking };
+}
+
+// Create booking
+app.post('/bookings', async (c) => {
+  try {
+    const user = c.get('user') as AuthenticatedUser;
+
+    if (!hasPermission(user.role, 'create_booking')) {
+      return c.json({ error: 'Access denied: insufficient permissions to create bookings' }, 403);
+    }
+
+    const body = await c.req.json();
+
+    const result = await createBookingCore(user, body as CreateBookingInput, {
+      allowCapacityOverride: hasPermission(user.role, 'override_rules'),
+    });
+    if (!result.ok) {
+      return c.json(
+        {
+          error: result.error,
+          ...(result.code ? { code: result.code } : {}),
+          ...(result.existingBookingId ? { existingBookingId: result.existingBookingId } : {}),
+        },
+        result.status as 400,
+      );
+    }
+    const booking = result.booking;
+
+    if (booking.requires_transport) {
       const pickupAddress = body.transport_pickup_address || '';
       const dropoffAddress = body.transport_dropoff_address || '';
-      const locationAddr = body.location_address || location_name || '';
-      
+      const locationAddr = body.location_address || booking.location_name || '';
+
       try {
         if (pickupAddress) {
           const pickupJobId = await createTransportJobFromBooking(booking, 'pickup', user, pickupAddress, locationAddr);
@@ -1199,42 +1269,42 @@ app.post('/bookings', async (c) => {
           booking.transport_dropoff_id = dropoffJobId;
         }
         if (booking.transport_pickup_id || booking.transport_dropoff_id) {
-          await kv.set(`daycare:booking:${bookingId}`, booking);
+          await kv.set(`daycare:booking:${booking.id}`, booking);
         }
       } catch (transportError) {
         console.error('Transport job creation failed (non-blocking):', transportError);
       }
     }
-    
+
     return c.json({ ...booking, pet_photo_url: await signPetPhotoUrl(booking.pet_photo_url) }, 201);
   } catch (error: any) {
     return internalError(c, 'daycare.createBooking', error);
   }
 });
 
-// Cancel booking
-app.post('/bookings/:id/cancel', async (c) => {
-  try {
-    const user = c.get('user') as AuthenticatedUser;
-    const bookingId = c.req.param('id');
-    
-    if (!hasPermission(user.role, 'cancel')) {
-      return c.json({ error: 'Access denied' }, 403);
-    }
-    
-    const booking = await kv.get(`daycare:booking:${bookingId}`) as DaycareBooking | null;
-    
-    if (!booking) {
-      return c.json({ error: 'Booking not found' }, 404);
-    }
-    
-    if (booking.booking_status === 'cancelled' || booking.booking_status === 'completed') {
-      return c.json({ error: 'Cannot cancel this booking' }, 400);
-    }
-    
-    const body = await c.req.json();
-    const { reason } = body;
-    
+// Shared cancellation core — used by POST /bookings/:id/cancel and by the
+// standing-schedule skip/override flow (cancelling one generated occurrence
+// must do the same credit-restore/capacity/event bookkeeping as a manual
+// cancellation). Permission checks stay in the routes.
+export type CancelBookingResult =
+  | { ok: true; booking: DaycareBooking }
+  | { ok: false; status: number; error: string };
+
+export async function cancelBookingCore(
+  user: AuthenticatedUser,
+  bookingId: string,
+  reason: string | undefined,
+): Promise<CancelBookingResult> {
+  const booking = await kv.get(`daycare:booking:${bookingId}`) as DaycareBooking | null;
+
+  if (!booking) {
+    return { ok: false, status: 404, error: 'Booking not found' };
+  }
+
+  if (booking.booking_status === 'cancelled' || booking.booking_status === 'completed') {
+    return { ok: false, status: 400, error: 'Cannot cancel this booking' };
+  }
+
     // Update booking
     booking.booking_status = 'cancelled';
     booking.cancelled_at = new Date().toISOString();
@@ -1287,20 +1357,40 @@ app.post('/bookings/:id/cancel', async (c) => {
       description: `Booking cancelled for ${booking.pet_name}: ${reason || 'No reason given'}`,
       metadata: { reason, pet_name: booking.pet_name },
     });
-    
-    if (booking.requires_transport) {
-      try {
-        const tenantId = user.tenantId;
-        const cancelledCount = await cancelTransportJobsForBooking(bookingId, tenantId, user.id);
-        if (cancelledCount > 0) {
-          console.log(`[Daycare] Cancelled ${cancelledCount} transport job(s) for booking ${bookingId}`);
-        }
-      } catch (transportError) {
-        console.error('Transport job cancellation failed (non-blocking):', transportError);
+
+  if (booking.requires_transport) {
+    try {
+      const cancelledCount = await cancelTransportJobsForBooking(bookingId, user.tenantId, user.id);
+      if (cancelledCount > 0) {
+        console.log(`[Daycare] Cancelled ${cancelledCount} transport job(s) for booking ${bookingId}`);
       }
+    } catch (transportError) {
+      console.error('Transport job cancellation failed (non-blocking):', transportError);
     }
-    
-    return c.json({ ...booking, pet_photo_url: await signPetPhotoUrl(booking.pet_photo_url) });
+  }
+
+  return { ok: true, booking };
+}
+
+// Cancel booking
+app.post('/bookings/:id/cancel', async (c) => {
+  try {
+    const user = c.get('user') as AuthenticatedUser;
+    const bookingId = c.req.param('id');
+
+    if (!hasPermission(user.role, 'cancel')) {
+      return c.json({ error: 'Access denied' }, 403);
+    }
+
+    const body = await c.req.json();
+    const { reason } = body;
+
+    const result = await cancelBookingCore(user, bookingId, reason);
+    if (!result.ok) {
+      return c.json({ error: result.error }, result.status as 400);
+    }
+
+    return c.json({ ...result.booking, pet_photo_url: await signPetPhotoUrl(result.booking.pet_photo_url) });
   } catch (error: any) {
     return internalError(c, 'daycare.cancelBooking', error);
   }
