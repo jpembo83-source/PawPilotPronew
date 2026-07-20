@@ -13,7 +13,9 @@ export function isActive(b: PlannerBooking): boolean {
 /** "Full", "½ AM", "½ PM", "Trial", "Member" — the register's service shorthand. */
 export function serviceShorthand(b: PlannerBooking): string {
   switch (b.service_type) {
-    case 'half_day': {
+    case 'half_day':
+    case 'half_day_am':
+    case 'half_day_pm': {
       const start = b.planned_start_time ?? '';
       return start && start >= '12:00' ? '½ PM' : '½ AM';
     }

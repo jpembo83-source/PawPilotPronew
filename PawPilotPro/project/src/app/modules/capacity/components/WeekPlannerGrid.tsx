@@ -2,7 +2,7 @@
 // booked that day with the register's shorthand. Desktop/tablet only —
 // phones use the existing week strip + day drill-down, which fits 390px.
 
-import { Plus, Van, Moon } from '@phosphor-icons/react';
+import { Plus, Van, Moon, ArrowsClockwise } from '@phosphor-icons/react';
 import { usePermissions } from '../../../hooks/usePermissions';
 import type { PlannerBooking } from '../types';
 import {
@@ -106,6 +106,13 @@ export function WeekPlannerGrid({ days, bookings, overnightStays = [], maxDogs, 
                     key={b.id}
                     className={`block text-[13px] leading-snug truncate ${cancelled ? 'line-through text-[#A09893]' : 'text-[#1C1916]'}`}
                   >
+                    {b.standing_booking_id && (
+                      <ArrowsClockwise
+                        size={11}
+                        aria-label="recurring booking"
+                        className="inline mr-1 text-[#6B6762] align-[-1px]"
+                      />
+                    )}
                     <span className="font-medium">{b.pet_name}</span>
                     <span className="text-[#6B6762]"> {serviceShorthand(b)}</span>
                     {b.requires_transport && !cancelled && (
