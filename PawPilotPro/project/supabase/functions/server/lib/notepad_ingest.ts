@@ -21,6 +21,9 @@ export interface NotepadPage {
   tenant_id: string;
   location_id: string;
   photo_path: string;
+  /** MIME type as uploaded (browser-reported) — the vision call needs the
+   *  real type, not an extension guess. */
+  content_type?: string;
   /** Monday of the week the page describes — weekday-only rows resolve
    *  against it. */
   week_start: string; // YYYY-MM-DD

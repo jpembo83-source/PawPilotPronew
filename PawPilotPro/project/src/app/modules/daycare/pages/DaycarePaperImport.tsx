@@ -25,6 +25,7 @@ import { useDashboardStore } from '../../dashboard/store';
 import { useSettingsStore } from '../../settings/store';
 import { useNotepadStore, type NotepadDraft, type NotepadPage, type RosterCandidate } from '../notepadStore';
 import { ALL_SESSIONS, SESSION_DETAILS, type DaycareSession } from '../lib/multiDayBooking';
+import { normalizePagePhoto } from '../lib/normalizePagePhoto';
 
 const STATUS_LABELS: Record<NotepadDraft['status'], { label: string; className: string }> = {
   ready: { label: 'Ready', className: 'bg-emerald-100 text-emerald-700' },
@@ -345,6 +346,9 @@ function PageCard({ page }: { page: NotepadPage }) {
             {page.status === 'parsed' && pageDrafts.length > 0 &&
               ` · ${readyCount} ready${reviewCount ? `, ${reviewCount} to review` : ''}`}
           </p>
+          {page.status === 'parse_failed' && page.parse_error && (
+            <p className="text-sm text-red-700">{page.parse_error}</p>
+          )}
         </div>
         {page.status === 'uploaded' || page.status === 'parse_failed' ? (
           <Button onClick={() => void handleParse()} disabled={working} className="h-11">
@@ -416,7 +420,10 @@ export function DaycarePaperImport() {
     }
     setUploading(true);
     try {
-      const result = await uploadPages(Array.from(files), localLocationId, weekDate);
+      // Downscale + convert to JPEG before upload: faster reads, smaller
+      // uploads, and formats the vision model can't take get normalised.
+      const prepared = await Promise.all(Array.from(files).map(normalizePagePhoto));
+      const result = await uploadPages(prepared, localLocationId, weekDate);
       if (result.failed.length > 0) {
         toast.warning(`${result.failed.length} photo(s) rejected (${result.failed[0].error})`);
       }

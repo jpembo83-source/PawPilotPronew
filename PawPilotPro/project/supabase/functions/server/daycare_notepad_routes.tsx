@@ -27,7 +27,11 @@ import {
   type NotepadPage,
   type RosterPet,
 } from './lib/notepad_ingest.ts';
-import { extractNotepadRows, VisionNotConfiguredError } from './lib/notepad_vision.ts';
+import {
+  extractNotepadRows,
+  VisionInputError,
+  VisionNotConfiguredError,
+} from './lib/notepad_vision.ts';
 
 const app = new Hono();
 app.use('*', requireAuth);
@@ -288,6 +292,7 @@ app.post('/upload', async (c) => {
         tenant_id: user.tenantId,
         location_id: locationId,
         photo_path: photoPath,
+        content_type: file.type,
         week_start: weekStart,
         status: 'uploaded',
         uploaded_by_id: user.id,
@@ -335,7 +340,12 @@ app.post('/pages/:id/parse', async (c) => {
     }
     const imageBase64 = btoa(binary);
     const ext = page.photo_path.split('.').pop() ?? 'jpg';
-    const mediaType = extToMediaType[ext] ?? 'image/jpeg';
+    // The browser-reported MIME type wins; the extension map is the fallback
+    // for pages uploaded before content_type was recorded.
+    const mediaType =
+      page.content_type && page.content_type.startsWith('image/')
+        ? page.content_type
+        : extToMediaType[ext] ?? 'image/jpeg';
 
     let rows;
     try {
@@ -344,14 +354,18 @@ app.post('/pages/:id/parse', async (c) => {
       if (visionError instanceof VisionNotConfiguredError) {
         return c.json({ error: 'Paper import is not configured on this server' }, 503);
       }
+      const reason =
+        visionError instanceof VisionInputError
+          ? visionError.message
+          : 'Could not read the page — retake the photo and try again';
       const failedPage: NotepadPage = {
         ...page,
         status: 'parse_failed',
-        parse_error: 'Could not read the page — retake the photo and try again',
+        parse_error: reason,
       };
       await kv.set(pageKey(page.id), failedPage);
       console.error('[daycareNotepad.parse] vision extraction failed:', visionError);
-      return c.json({ error: 'Could not read the page — retake the photo and try again' }, 502);
+      return c.json({ error: reason }, visionError instanceof VisionInputError ? 400 : 502);
     }
 
     // Roster + context: dogs with bookings at this location around the
