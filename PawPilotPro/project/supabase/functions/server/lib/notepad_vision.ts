@@ -83,16 +83,23 @@ const EXTRACTION_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const PROMPT = `This photo shows a handwritten page from a dog daycare owner's paper booking pad. Extract every intended daycare booking you can read.
+const PROMPT = `This photo shows a page from a dog daycare owner's paper booking pad — typically a weekly planner: one column per day with a weekday + date heading (e.g. "monday JUL 21"), and one handwritten line per dog booked that day. The photo may show a two-page spread; read every day column on both pages. Extract every intended DAYCARE booking.
+
+The owner's shorthand:
+- "Full" after the name = a full day → session full_day.
+- "½ AM", "AM" or "morning" → half_day_am; "½ PM", "PM" or "afternoon" → half_day_pm.
+- "ON" after the name = overnight boarding, NOT daycare — EXCLUDE those rows entirely.
+- "+ PU", "+ DO", "+ PU/DO" are transport (pick-up / drop-off) notes — they do not change the session; a "Full + PU/DO" line is still full_day.
+- A number right after a name ("Odin 2", "Winston 1") is part of the dog's name — keep it in dog_name_as_written.
+- A struck-through / crossed-out line is a cancellation — exclude it.
 
 Rules:
-- One output row per dog per day. A dog listed under three day columns is three rows.
-- dog_name_as_written must be the name EXACTLY as written (keep initials, spelling mistakes and all) — do not correct it to a name you think it should be.
-- The page describes the week starting ${'{WEEK_START}'} (a Monday). If a row only has a weekday (column heading, "Mon", etc.), return that weekday and leave date null. Only set date when an explicit calendar date is written.
-- session: full_day unless the writing clearly marks a half day — "AM", "morning", "½ AM" → half_day_am; "PM", "afternoon", "½ PM" → half_day_pm.
+- One output row per dog per day column. The same dog appearing under three columns is three rows.
+- dog_name_as_written: the name EXACTLY as written (initials, numbers, spelling mistakes kept), without the session/transport shorthand. Do not correct it to a name you think it should be.
+- Dates: the page describes the week starting ${'{WEEK_START}'} (a Monday). When a column heading shows a calendar date (like "JUL 21"), combine it with that week's year into YYYY-MM-DD for every row in the column; otherwise return the column's weekday name and leave date null.
 - confidence: how sure you are you read the row correctly (0..1). Use low values for scrawls you had to guess.
 - y_top / y_bottom: the row's approximate vertical span in the image (0 = top edge, 1 = bottom edge), so a reviewer can find it.
-- Ignore anything that is not a daycare booking (phone numbers, totals, doodles, crossed-out lines).`;
+- Ignore anything that is not a daycare booking: holiday/absence notes ("holiday 3 weeks"), reminders, deliveries, lunches, phone numbers, page-printed text, doodles.`;
 
 /**
  * Extract the structured booking rows from one page photo. Returns validated

@@ -7,9 +7,10 @@
 // Best-effort: if the browser can't decode the file (exotic format on an old
 // browser), the original is returned and the server reports a clear error.
 
-/** Long-edge target — matches the vision model's maximum useful resolution
- *  (2576px on Opus-tier high-res vision), with margin removed for speed. */
-const MAX_DIMENSION = 2400;
+/** Long-edge target — the vision model's maximum useful resolution (2576px
+ *  on Opus-tier high-res vision). Dense handwriting needs every pixel the
+ *  model can actually see; anything above this is discarded server-side. */
+const MAX_DIMENSION = 2576;
 const JPEG_QUALITY = 0.85;
 
 async function decode(file: File): Promise<ImageBitmap | HTMLImageElement | null> {
