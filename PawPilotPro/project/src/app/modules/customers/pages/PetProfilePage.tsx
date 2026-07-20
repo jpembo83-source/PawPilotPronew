@@ -31,6 +31,11 @@ import { toast } from 'sonner';
 import { useConfirmDialog } from '../../../hooks/useConfirmDialog';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
+import {
+  prepareImageForUpload,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_LABEL,
+} from '../../../utils/imageCompression';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -204,15 +209,17 @@ export function PetProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Photo is too large — maximum size is 5MB');
-      return;
-    }
-
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('That file is not an image — please choose a JPG, PNG, or similar');
+      return;
+    }
+
+    // Downscaled on-device before upload — the cap only catches
+    // files the browser cannot decode.
+    const prepared = await prepareImageForUpload(file);
+    if (prepared.size > MAX_UPLOAD_BYTES) {
+      toast.error(`Photo is too large — maximum size is ${MAX_UPLOAD_LABEL}`);
       return;
     }
     
@@ -221,7 +228,7 @@ export function PetProfilePage() {
     try {
       // Create form data
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', prepared);
       formData.append('petId', currentPetProfile!.id);
       
       // Upload to backend. FormData posts must not send the JSON Content-Type

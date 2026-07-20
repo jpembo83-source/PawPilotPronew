@@ -6,6 +6,11 @@ import { Camera, UploadSimple, X, CircleNotch } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { projectId } from '../../../../../../utils/supabase/info';
 import { getAuthHeaders } from '../../../../../utils/supabase/authHeaders';
+import {
+  prepareImageForUpload,
+  MAX_UPLOAD_BYTES,
+  MAX_UPLOAD_LABEL,
+} from '../../../../utils/imageCompression';
 import { useConfirmDialog } from '../../../../hooks/useConfirmDialog';
 
 interface PetProfilePictureProps {
@@ -29,9 +34,11 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
       return;
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
+    // Downscaled on-device before upload — the cap only catches
+    // files the browser cannot decode.
+    const prepared = await prepareImageForUpload(file);
+    if (prepared.size > MAX_UPLOAD_BYTES) {
+      toast.error(`File size must be less than ${MAX_UPLOAD_LABEL}`);
       return;
     }
     
@@ -40,7 +47,7 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
     try {
       // UploadSimple via backend (bypasses RLS)
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', prepared);
       formData.append('petId', pet.id);
       
       // FormData posts must not send the JSON Content-Type the shared util
@@ -156,7 +163,7 @@ export function PetProfilePicture({ pet, onUpdate }: PetProfilePictureProps) {
           </Button>
           
           <p className="text-xs text-slate-500 text-center">
-            JPG, PNG or GIF (max 5MB)
+            JPG, PNG, HEIC or GIF — large photos are resized automatically
           </p>
         </div>
         {confirmDialog}

@@ -112,7 +112,7 @@ app.get("/make-server-fc003b23/health", (c) => {
         // URLs (lib/pet_photos.ts). Reads and writes both go through the
         // service-role server — no public access.
         public: false,
-        fileSizeLimit: 5242880, // 5MB
+        fileSizeLimit: 15728640, // 15MB
         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
       });
       

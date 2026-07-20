@@ -38,8 +38,8 @@ app.post("/upload", async (c) => {
       return c.json({ error: "File must be an image" }, 400);
     }
     
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validate file size (15MB backstop; clients downscale before upload)
+    if (file.size > 15 * 1024 * 1024) {
       return c.json({ error: "File size must be less than 5MB" }, 400);
     }
     
