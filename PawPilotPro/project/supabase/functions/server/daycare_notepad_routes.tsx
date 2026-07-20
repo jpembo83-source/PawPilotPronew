@@ -65,9 +65,15 @@ async function ensureBucket(admin: {
 }
 
 /** Operators may only ingest for a location they belong to (locationIds from
- *  app_metadata via requireAuth, never from the request). */
+ *  app_metadata via requireAuth, never from the request). Admins are
+ *  unrestricted, and accounts carry either an explicit location list, the
+ *  'all' sentinel (see transport's driver matching), or an empty list —
+ *  the latter two mean every location. */
 const canUseLocation = (user: AuthenticatedUser, locationId: string): boolean =>
-  user.locationIds.length === 0 || user.locationIds.includes(locationId);
+  user.role === 'admin' ||
+  user.locationIds.length === 0 ||
+  user.locationIds.includes('all') ||
+  user.locationIds.includes(locationId);
 
 function validatePhotoFile(file: File): string | null {
   if (!file.type.startsWith('image/')) return 'File must be an image';

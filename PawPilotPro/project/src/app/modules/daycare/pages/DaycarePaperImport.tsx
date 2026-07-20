@@ -14,6 +14,7 @@ import {
   Check,
   Checks,
   CircleNotch,
+  Images,
   MagnifyingGlass,
   Trash,
   Warning,
@@ -398,6 +399,7 @@ export function DaycarePaperImport() {
   const { pages, isLoading, fetchPages, uploadPages, parsePage } = useNotepadStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [localLocationId, setLocalLocationId] = useState(selectedLocationId === 'ALL' ? '' : selectedLocationId);
   const [weekDate, setWeekDate] = useState(new Date().toISOString().split('T')[0]);
   const [uploading, setUploading] = useState(false);
@@ -489,6 +491,8 @@ export function DaycarePaperImport() {
             <p className="text-sm text-muted-foreground mt-1">Any day in that week works — we use its Monday.</p>
           </div>
         </div>
+        {/* Two inputs: `capture` forces the camera on phones, so the gallery
+            path needs its own capture-less input. */}
         <input
           ref={fileInputRef}
           type="file"
@@ -498,19 +502,38 @@ export function DaycarePaperImport() {
           className="hidden"
           onChange={(e) => void handleFiles(e.target.files)}
         />
-        <Button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          style={{ backgroundColor: 'var(--primary)' }}
-          className="w-full h-12 text-white hover:opacity-90"
-        >
-          {uploading ? (
-            <CircleNotch size={18} className="animate-spin mr-2" aria-hidden="true" />
-          ) : (
-            <Camera size={18} className="mr-2" aria-hidden="true" />
-          )}
-          {uploading ? 'Uploading & reading…' : 'Photograph the page'}
-        </Button>
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => void handleFiles(e.target.files)}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            style={{ backgroundColor: 'var(--primary)' }}
+            className="h-12 text-white hover:opacity-90"
+          >
+            {uploading ? (
+              <CircleNotch size={18} className="animate-spin mr-2" aria-hidden="true" />
+            ) : (
+              <Camera size={18} className="mr-2" aria-hidden="true" />
+            )}
+            {uploading ? 'Uploading & reading…' : 'Photograph the page'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => galleryInputRef.current?.click()}
+            disabled={uploading}
+            className="h-12"
+          >
+            <Images size={18} className="mr-2" aria-hidden="true" />
+            Upload from gallery
+          </Button>
+        </div>
       </div>
 
       {/* Pages */}

@@ -82,12 +82,18 @@ async function ensureMomentsBucket(admin: ReturnType<typeof createClient>) {
  *  source of truth for assignment and the search fallback. */
 const loadTenantPets = (tenantId: string) => kv.getByPrefix(`customer:${tenantId}:pet:`);
 
-/** Operators may only upload into a location they belong to. Users with no
- *  locationIds (typically admins) are unrestricted — matches the staff app's
- *  location-switcher semantics. locationIds comes from app_metadata via
+/** Operators may only upload into a location they belong to. Admins are
+ *  unrestricted, and accounts carry either an explicit location list, the
+ *  'all' sentinel (see transport's driver matching), or an empty list — the
+ *  latter two mean every location. locationIds comes from app_metadata via
  *  requireAuth, never from the request. */
 function canUseLocation(user: AuthenticatedUser, locationId: string): boolean {
-  return user.locationIds.length === 0 || user.locationIds.includes(locationId);
+  return (
+    user.role === "admin" ||
+    user.locationIds.length === 0 ||
+    user.locationIds.includes("all") ||
+    user.locationIds.includes(locationId)
+  );
 }
 
 function validatePhotoFile(file: File): string | null {
