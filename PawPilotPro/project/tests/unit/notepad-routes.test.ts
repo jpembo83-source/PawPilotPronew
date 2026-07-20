@@ -148,6 +148,7 @@ beforeEach(() => {
   storedFiles.clear();
   extractMock.mockReset();
   currentUser.role = 'staff';
+  currentUser.locationIds = ['loc-1'];
   seed();
 });
 
@@ -165,6 +166,20 @@ describe('upload', () => {
     expect(page.status).toBe('uploaded');
     // Nothing has been booked by uploading.
     expect(bookings()).toHaveLength(0);
+  });
+
+  it("accepts uploads from accounts with the 'all' location sentinel and from admins", async () => {
+    // Real accounts carry locationIds: ['all'] meaning every location — the
+    // gate must not read that as "only a location literally named all".
+    currentUser.locationIds = ['all'];
+    await uploadPage();
+
+    currentUser.locationIds = ['somewhere-else'];
+    currentUser.role = 'admin';
+    await uploadPage();
+
+    currentUser.role = 'staff';
+    currentUser.locationIds = ['loc-1'];
   });
 
   it('rejects non-images, oversized files, and foreign locations', async () => {

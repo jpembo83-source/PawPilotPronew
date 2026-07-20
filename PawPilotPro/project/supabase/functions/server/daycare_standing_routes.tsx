@@ -76,9 +76,15 @@ function addDaysISO(iso: string, days: number): string {
   return d.toISOString().split('T')[0];
 }
 
+// Accounts carry an explicit location list, the 'all' sentinel, or an empty
+// list — the latter two mean every location (same semantics as the notepad
+// ingest and transport's driver matching).
 const canAccessLocation = (user: AuthenticatedUser, locationId: string): boolean =>
   user.role === 'admin' ||
-  (Array.isArray(user.locationIds) && user.locationIds.includes(locationId));
+  !Array.isArray(user.locationIds) ||
+  user.locationIds.length === 0 ||
+  user.locationIds.includes('all') ||
+  user.locationIds.includes(locationId);
 
 async function loadSchedule(id: string): Promise<StandingBooking | null> {
   const record = (await kv.get(scheduleKey(id))) as StandingBooking | null;
