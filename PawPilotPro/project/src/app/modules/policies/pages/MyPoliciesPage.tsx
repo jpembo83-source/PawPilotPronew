@@ -562,7 +562,7 @@ export function MyPoliciesPage() {
                         className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors flex items-center gap-2 text-sm"
                       >
                         <DownloadSimple className="w-4 h-4" />
-                        DownloadSimple
+                        Download
                       </button>
                       {assignment.status === 'acknowledged' && assignment.acknowledged_at && (
                         <p className="text-xs text-green-600 text-center mt-1">

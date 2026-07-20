@@ -46,7 +46,7 @@ export function UserManagement() {
           }`}
         >
           <UsersThree className="h-4 w-4" />
-          UsersThree
+          Users
         </button>
         <button
           onClick={() => setActiveTab('templates')}
