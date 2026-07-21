@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu';
 import {
@@ -62,16 +63,43 @@ export function DashboardHeader() {
     switch (range) {
       case 'today':
         return 'Today';
+      case 'tomorrow':
+        return 'Tomorrow';
       case 'yesterday':
         return 'Yesterday';
       case '7d':
         return 'Last 7 Days';
       case '30d':
         return 'Last 30 Days';
+      case 'next7d':
+        return 'Next 7 Days';
+      case 'next30d':
+        return 'Next 30 Days';
       case 'custom':
         return 'Custom Range';
       default:
         return 'Today';
+    }
+  };
+
+  // Subtitle follows the selected window so the header never claims "today"
+  // while the tiles below show another period.
+  const getRangeSubtitle = (range: DateRange) => {
+    switch (range) {
+      case 'tomorrow':
+        return "Here's what's coming up tomorrow.";
+      case 'next7d':
+        return "Here's what's coming up over the next 7 days.";
+      case 'next30d':
+        return "Here's what's coming up over the next 30 days.";
+      case 'yesterday':
+        return "Here's what happened yesterday.";
+      case '7d':
+        return "Here's what happened over the last 7 days.";
+      case '30d':
+        return "Here's what happened over the last 30 days.";
+      default:
+        return "Here's what's happening today.";
     }
   };
 
@@ -138,7 +166,7 @@ export function DashboardHeader() {
           </h1>
 
           <p className="text-sm text-[#6B6762]" style={textShadow}>
-            Here's what's happening today.
+            {getRangeSubtitle(dateRange)}
           </p>
         </div>
 
@@ -156,6 +184,10 @@ export function DashboardHeader() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setDateRange('today')}>Today</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDateRange('tomorrow')}>Tomorrow</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDateRange('next7d')}>Next 7 Days</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDateRange('next30d')}>Next 30 Days</DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setDateRange('yesterday')}>Yesterday</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDateRange('7d')}>Last 7 Days</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setDateRange('30d')}>Last 30 Days</DropdownMenuItem>

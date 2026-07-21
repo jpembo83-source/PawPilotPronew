@@ -6,6 +6,7 @@ import { useDaycareStore } from '../daycare/store';
 import { useDashboardStore } from './store';
 import { useAuth } from '../../context/AuthContext';
 import { ShareMomentModal, type ShareMomentPet } from '../daycare/components/ShareMomentModal';
+import { dashboardWindow } from './dateRangeWindow';
 import {
   SignIn, SignOut, Plus, Users,
   ArrowRight, Dog, Camera, Warning, FirstAidKit,
@@ -79,23 +80,49 @@ function FlagBadge({ kind, petName, text }: {
 export function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { selectedLocationId } = useDashboardStore();
+  const { selectedLocationId, dateRange } = useDashboardStore();
   const { stats, bookings, isLoading, fetchStats, fetchBookings } = useDaycareStore();
   const [momentPet, setMomentPet] = useState<ShareMomentPet | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  // The header's date-range filter drives what the tiles and lists cover.
+  // Stats (capacity, alerts) are per-day, so they describe win.statsDate;
+  // bookings cover the whole window.
+  const win = dashboardWindow(dateRange);
 
   useEffect(() => {
     const loc = selectedLocationId === 'ALL' ? undefined : selectedLocationId;
-    fetchStats(loc, today);
-    fetchBookings({ location_id: loc, date: today });
-  }, [selectedLocationId]);
+    fetchStats(loc, win.statsDate);
+    fetchBookings(
+      win.isSingleDay
+        ? { location_id: loc, date: win.statsDate }
+        : { location_id: loc, start_date: win.startDate, end_date: win.endDate }
+    );
+  }, [selectedLocationId, dateRange]);
 
   const checkedIn = stats?.checked_in_count ?? 0;
   const available = stats?.available_slots ?? 0;
   const utilisation = stats?.capacity_utilisation ? Math.round(stats.capacity_utilisation) : 0;
-  const totalBookings = stats?.total_bookings ?? 0;
+  // Single day: the per-day stats figure. Multi-day window: count the
+  // fetched bookings themselves — /stats can't aggregate a range.
+  const windowBookings = bookings.filter(b => b.booking_status !== 'cancelled');
+  const totalBookings = win.isSingleDay
+    ? stats?.total_bookings ?? 0
+    : windowBookings.length;
+  const confirmedBookings = win.isSingleDay
+    ? stats?.confirmed_bookings ?? 0
+    : windowBookings.filter(b => b.booking_status === 'confirmed').length;
   const expectedArrivals = stats?.expected_arrivals_2h ?? 0;
+
+  const bookingsTileLabel = {
+    today: 'Bookings today',
+    tomorrow: 'Bookings tomorrow',
+    yesterday: 'Bookings yesterday',
+    '7d': 'Bookings — last 7 days',
+    '30d': 'Bookings — last 30 days',
+    next7d: 'Bookings — next 7 days',
+    next30d: 'Bookings — next 30 days',
+    custom: 'Bookings today',
+  }[dateRange] ?? 'Bookings today';
 
   // Same categories the server counts over today's bookings (daycare /stats).
   // Care = physical-care flags (needs a diaper, …); safety flags stay
@@ -139,9 +166,21 @@ export function Dashboard() {
   const alertCount = alertKinds.reduce((sum, k) => sum + k.count, 0);
 
   const onSite = bookings.filter(b => b.check_in_status === 'checked_in');
-  const arriving = bookings.filter(b =>
-    b.check_in_status === 'not_checked_in' && b.booking_status === 'confirmed'
-  ).slice(0, 8);
+  // Viewing today: a live check-in queue. Any other window: the window's
+  // bookings in date order — a planning list, not a check-in queue.
+  const arrivingToday = win.isSingleDay && win.includesToday;
+  const arriving = arrivingToday
+    ? bookings.filter(b =>
+        b.check_in_status === 'not_checked_in' && b.booking_status === 'confirmed'
+      ).slice(0, 8)
+    : [...windowBookings].sort((a, b) => a.booking_date.localeCompare(b.booking_date)).slice(0, 8);
+  const arrivingTitle = arrivingToday
+    ? 'Arriving Today'
+    : win.isForward || win.includesToday ? 'Upcoming Bookings' : 'Bookings';
+  const formatBookingDate = (isoDate: string) =>
+    new Date(`${isoDate}T00:00:00`).toLocaleDateString('en-GB', {
+      weekday: 'short', day: 'numeric', month: 'short',
+    });
 
   const firstName = user?.name?.split(' ')[0] ?? '';
 
@@ -196,12 +235,14 @@ export function Dashboard() {
           <div
             className="rounded-2xl px-4 py-4 flex flex-col justify-between cursor-pointer transition-all hover:shadow-md"
             style={{ background: '#fff', border: '1px solid #E2DED8' }}
-            onClick={() => navigate(`/daycare/bookings?filter=today&date=${today}`)}
+            onClick={() => navigate(win.isSingleDay
+              ? `/daycare/bookings?filter=today&date=${win.statsDate}`
+              : `/daycare/bookings?date=${win.startDate}`)}
           >
-            <p className="text-xs text-tertiary-foreground font-medium mb-2">Bookings today</p>
+            <p className="text-xs text-tertiary-foreground font-medium mb-2">{bookingsTileLabel}</p>
             <div>
               <p className="text-3xl font-bold text-[#1C1916]">{totalBookings}</p>
-              <p className="text-xs text-tertiary-foreground mt-0.5">{stats?.confirmed_bookings ?? 0} confirmed</p>
+              <p className="text-xs text-tertiary-foreground mt-0.5">{confirmedBookings} confirmed</p>
             </div>
           </div>
 
@@ -224,7 +265,7 @@ export function Dashboard() {
                   <button
                     key={kind.key}
                     aria-label={`${kind.count} ${kind.label.toLowerCase()} alert${kind.count === 1 ? '' : 's'} — view affected dogs`}
-                    onClick={() => navigate(`/daycare/bookings?filter=today&date=${today}&flag=${kind.key}`)}
+                    onClick={() => navigate(`/daycare/bookings?filter=today&date=${win.statsDate}&flag=${kind.key}`)}
                     className="min-h-[44px] rounded-xl px-2 py-1.5 flex flex-col items-center justify-center transition-all hover:shadow-sm active:scale-[0.97]"
                     style={{
                       background: active ? kind.bg : '#FAFAF9',
@@ -320,9 +361,11 @@ export function Dashboard() {
           </button>
         </div>
 
-        {/* Live lists */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Live lists — On Site is a "right now" card, so it only renders
+            when the selected window includes today */}
+        <div className={`grid grid-cols-1 ${win.includesToday ? 'md:grid-cols-2' : ''} gap-4`}>
           {/* On Site */}
+          {win.includesToday && (
           <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid #E2DED8' }}>
             <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #F0EDE8' }}>
               <div className="flex items-center gap-2">
@@ -390,20 +433,21 @@ export function Dashboard() {
               </div>
             )}
           </div>
+          )}
 
-          {/* Arriving */}
+          {/* Arriving today / bookings in the selected window */}
           <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid #E2DED8' }}>
             <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid #F0EDE8' }}>
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#D97706] animate-pulse" />
-                <span className="text-sm font-semibold text-[#1C1916]">Arriving Today</span>
+                <span className={`h-2 w-2 rounded-full bg-[#D97706] ${arrivingToday ? 'animate-pulse' : ''}`} />
+                <span className="text-sm font-semibold text-[#1C1916]">{arrivingTitle}</span>
                 <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#FEF3C7] text-[#B45309]">{arriving.length}</span>
               </div>
               <button
-                onClick={() => navigate('/daycare/check-in')}
+                onClick={() => navigate(arrivingToday ? '/daycare/check-in' : '/daycare/bookings')}
                 className="text-xs font-medium text-primary flex items-center gap-1 hover:gap-1.5 transition-all"
               >
-                Check in <ArrowRight size={12} />
+                {arrivingToday ? 'Check in' : 'View all'} <ArrowRight size={12} />
               </button>
             </div>
 
@@ -415,13 +459,15 @@ export function Dashboard() {
               <div className="flex flex-col items-center justify-center py-10">
                 <Dog size={36} weight="thin" className="text-[#D4CFC9] mb-2" />
                 <p className="text-sm text-tertiary-foreground">
-                  {totalBookings > 0 ? 'All booked dogs have arrived' : 'No bookings today'}
+                  {arrivingToday
+                    ? (totalBookings > 0 ? 'All booked dogs have arrived' : 'No bookings today')
+                    : 'No bookings in this period'}
                 </p>
               </div>
             ) : (
               <div className="divide-y divide-[#F5F3F0]">
                 {arriving.map(b => {
-                  const isLate = (() => {
+                  const isLate = arrivingToday && (() => {
                     if (!b.planned_start_time) return false;
                     const [h, m] = b.planned_start_time.split(':').map(Number);
                     const planned = new Date(); planned.setHours(h, m, 0, 0);
@@ -443,13 +489,22 @@ export function Dashboard() {
                       </div>
                       <p className="text-xs text-tertiary-foreground truncate">{b.household_name}</p>
                     </div>
-                    <button
-                      onClick={() => navigate('/daycare/check-in')}
-                      className="text-xs px-2.5 py-1 rounded-lg font-medium flex-shrink-0 text-primary bg-primary-tint hover:opacity-90 transition-opacity"
-                      style={{ border: '1px solid color-mix(in srgb, var(--primary) 30%, transparent)' }}
-                    >
-                      Check in
-                    </button>
+                    {arrivingToday ? (
+                      <button
+                        onClick={() => navigate('/daycare/check-in')}
+                        className="text-xs px-2.5 py-1 rounded-lg font-medium flex-shrink-0 text-primary bg-primary-tint hover:opacity-90 transition-opacity"
+                        style={{ border: '1px solid color-mix(in srgb, var(--primary) 30%, transparent)' }}
+                      >
+                        Check in
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => void navigate(`/daycare/bookings?filter=today&date=${b.booking_date}`)}
+                        className="text-xs px-2.5 py-1 rounded-lg font-medium flex-shrink-0 text-[#6B6762] hover:text-[#1C1916] hover:bg-[#F5F3F0] transition-colors"
+                      >
+                        {formatBookingDate(b.booking_date)}
+                      </button>
+                    )}
                   </div>
                   );
                 })}

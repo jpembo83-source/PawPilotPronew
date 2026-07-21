@@ -1,7 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type DateRange = 'today' | 'yesterday' | '7d' | '30d' | 'custom';
+export type DateRange =
+  | 'today'
+  | 'yesterday'
+  | 'tomorrow'
+  | '7d'
+  | '30d'
+  | 'next7d'
+  | 'next30d'
+  | 'custom';
 
 // Global dashboard/app filters. The widget-era slices (rolePermissions,
 // userLayouts, userHiddenWidgets and their actions) were deleted along with
