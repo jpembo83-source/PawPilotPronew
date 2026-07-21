@@ -330,3 +330,19 @@ body.mobile-shell [role="button"] {
   min-height: 56px;
   min-width: 56px;
 }
+
+/* iOS Safari auto-zooms the page when a focused form control's font-size is
+   under 16px, and the zoom persists across navigation — logging in through a
+   14px input leaves the whole app zoomed until the user pinches out. Flooring
+   control fonts at 16px on touch-primary devices removes the trigger at the
+   root. !important is required because Tailwind text-sm/text-xs are class
+   selectors and would otherwise beat an element selector. Element-level so it
+   also covers the login page, which renders outside body.mobile-shell.
+   Desktop (hover-capable pointers) keeps its compact control sizes. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
