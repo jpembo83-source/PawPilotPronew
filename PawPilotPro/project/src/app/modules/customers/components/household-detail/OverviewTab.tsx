@@ -52,7 +52,9 @@ export function OverviewTab({ household }: OverviewTabProps) {
   
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-6">
+      {/* Stacked on phones; side-by-side only where both cards get a full
+          reading width. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {/* Contacts Summary */}
         <Card>
           <CardHeader>
@@ -79,32 +81,32 @@ export function OverviewTab({ household }: OverviewTabProps) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <p className="font-medium">{contact.first_name} {contact.last_name}</p>
                     {contact.is_primary && (
-                      <Badge className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
+                      <Badge className="gap-1 bg-yellow-100 text-yellow-800 border-yellow-200">
                         <Star className="h-3 w-3 fill-yellow-600" />
                         Primary
                       </Badge>
                     )}
                   </div>
                   <p className="text-sm text-slate-600 capitalize">{contact.relationship}</p>
-                  <div className="flex items-center gap-3 mt-2 text-sm text-slate-600">
-                    <div className="flex items-center gap-1">
-                      <EnvelopeSimple className="h-3 w-3" />
-                      <ContactLink
-                        kind="email"
-                        value={contact.email}
-                        contactName={`${contact.first_name} ${contact.last_name}`}
-                      />
-                    </div>
+                  <div className="flex items-center gap-1 mt-2 text-sm text-slate-600 min-w-0">
+                    <EnvelopeSimple className="h-3 w-3 shrink-0" />
+                    <ContactLink
+                      kind="email"
+                      value={contact.email}
+                      contactName={`${contact.first_name} ${contact.last_name}`}
+                      className="truncate"
+                    />
                   </div>
-                  <div className="flex items-center gap-1 mt-1 text-sm text-slate-600">
-                    <Phone className="h-3 w-3" />
+                  <div className="flex items-center gap-1 mt-1 text-sm text-slate-600 min-w-0">
+                    <Phone className="h-3 w-3 shrink-0" />
                     <ContactLink
                       kind="phone"
                       value={contact.phone}
                       contactName={`${contact.first_name} ${contact.last_name}`}
+                      className="truncate"
                     />
                   </div>
                 </div>
@@ -167,17 +169,14 @@ export function OverviewTab({ household }: OverviewTabProps) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">{pet.name}</h3>
+                          <h3 className="font-semibold truncate">{pet.name}</h3>
                           {hasAlerts && (
-                            <Warning className="h-4 w-4 text-red-500" />
+                            <Warning className="h-4 w-4 text-red-500 shrink-0" />
                           )}
                         </div>
-                        <p className="text-sm text-slate-600">{pet.breed}</p>
+                        <p className="text-sm text-slate-600 truncate">{pet.breed}</p>
                         <div className="flex items-center gap-2 mt-2">
-                          <Badge
-                            variant={pet.active ? 'default' : 'destructive'}
-                            className="text-xs"
-                          >
+                          <Badge variant={pet.active ? 'default' : 'destructive'}>
                             {pet.active ? 'active' : 'inactive'}
                           </Badge>
                         </div>

@@ -164,8 +164,8 @@ export function PetOverviewTab({ pet }: PetOverviewTabProps) {
 
       <HouseDogCard pet={pet} />
 
-      {/* Vet and Care Information - Two columns */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Vet and Care Information - stacked on phones, two columns from lg */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Vet Information */}
         {(pet.vet_name || pet.vet_phone || pet.vet_address) && (
           <Card>

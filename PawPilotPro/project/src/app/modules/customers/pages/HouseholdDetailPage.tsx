@@ -609,8 +609,9 @@ export function HouseholdDetailPage() {
         </TabsContent>
       </Tabs>
       
-      {/* Danger Zone */}
-      {!showDeleteConfirm && (
+      {/* Danger Zone — only roles the server lets delete a household
+          (DELETE /households/:id is admin/manager) see the card at all. */}
+      {(user?.role === 'admin' || user?.role === 'manager') && !showDeleteConfirm && (
         <Card className="border-red-200">
           <CardHeader>
             <CardTitle className="text-red-600">Danger Zone</CardTitle>
