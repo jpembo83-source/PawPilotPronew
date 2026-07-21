@@ -3,6 +3,7 @@ import { Eye, EyeSlash, CheckCircle, Warning } from '@phosphor-icons/react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '@/utils/supabase/client';
 import defaultLogo from '../../../assets/logo.svg';
+import loginMobileBg from '../../../assets/login-mobile-bg.jpg';
 
 // Cache keys for branding (set by settings store after login)
 const CACHED_LOGO_KEY = 'paw_pilot_cached_logo';
@@ -69,9 +70,28 @@ export function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex"
+      className="relative min-h-screen flex"
       style={{ background: '#F4F3EF', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
     >
+      {/* ── Mobile-only background photo (decorative) ──────────── */}
+      {/* Desktop keeps the split-panel layout; on phones the daycare photo
+          fills the screen behind the sign-in card. The scrim keeps the card
+          edges and footer legible whatever the photo underneath is doing. */}
+      <div className="absolute inset-0 md:hidden" aria-hidden="true">
+        <img
+          src={loginMobileBg}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(to bottom, rgba(28,25,22,0.50), rgba(28,25,22,0.18) 45%, rgba(28,25,22,0.42))',
+          }}
+        />
+      </div>
+
       {/* ── Left Panel (desktop only) ──────────────────────────── */}
       <div
         className="hidden md:flex md:w-1/2 flex-col items-center justify-center relative overflow-hidden p-12"
@@ -121,7 +141,7 @@ export function LoginPage() {
       </div>
 
       {/* ── Right Panel / Login Card ───────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 md:p-12">
+      <div className="relative flex-1 flex flex-col items-center justify-center p-6 md:p-12">
         <div
           className="bg-white rounded-2xl w-full max-w-md p-8 md:p-10"
           style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}
@@ -311,8 +331,11 @@ export function LoginPage() {
           </form>
         </div>
 
-        {/* Footer */}
-        <p className="mt-8 text-xs text-center" style={{ color: 'var(--tertiary-foreground)' }}>
+        {/* Footer — frosted chip on mobile so it stays readable on the photo */}
+        <p
+          className="mt-8 text-xs text-center max-md:bg-white/80 max-md:backdrop-blur-sm max-md:px-3.5 max-md:py-1.5 max-md:rounded-full"
+          style={{ color: 'var(--tertiary-foreground)' }}
+        >
           PawPilotPro &middot; Staff Operations Platform
         </p>
       </div>
