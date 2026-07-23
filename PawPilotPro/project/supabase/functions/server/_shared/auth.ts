@@ -14,6 +14,31 @@ import { logWarn } from "./log.ts";
 
 export type Role = 'admin' | 'manager' | 'assistant_manager' | 'staff';
 
+const VALID_ROLES = ['admin', 'manager', 'assistant_manager', 'staff'] as const;
+
+/**
+ * Resolve the STAFF role from app_metadata, or null when this token must not
+ * reach staff routes. Pure — unit-tested in
+ * tests/unit/staff-role-guard.test.ts.
+ *
+ * The invariant: staff access requires a valid, server-set staff role.
+ * Customer portal accounts are created WITHOUT a role (portal accept-invite
+ * sets only portal_user/tenant/household), so they are rejected here — a
+ * missing role must never default to 'staff' (repo rule: fail fast, no auth
+ * fallbacks); that default is what let customer logins reach staff endpoints.
+ * Note portal_user itself is NOT a reject signal: a staff member who also
+ * accepted a portal invite (dual account) carries portal_user AND a real
+ * role, and keeps staff access.
+ */
+export function resolveStaffRole(
+  appMetadata: Record<string, unknown> | null | undefined,
+): Role | null {
+  const role = appMetadata?.role;
+  return typeof role === 'string' && (VALID_ROLES as readonly string[]).includes(role)
+    ? (role as Role)
+    : null;
+}
+
 export interface AuthenticatedUser {
   id: string;
   role: Role;
@@ -123,7 +148,19 @@ export async function validateUserToken(c: Context): Promise<AuthenticatedUser |
   const appMetadata = (u.app_metadata ?? {}) as AuthenticatedUser['app_metadata'] & Record<string, unknown>;
   const userMetadata = (u.user_metadata ?? {}) as AuthenticatedUser['user_metadata'] & Record<string, unknown>;
 
-  const role: Role = (appMetadata?.role as Role) ?? 'staff';
+  // Customer portal accounts and role-less tokens are rejected outright —
+  // a valid signature alone does not make a token a STAFF token.
+  const role = resolveStaffRole(appMetadata);
+  if (role === null) {
+    logWarn('auth.staff_access_denied', {
+      userId: u.id,
+      portalUser: appMetadata?.portal_user === true,
+      hasRole: typeof appMetadata?.role === 'string',
+      method: c.req.method,
+      path: c.req.path,
+    });
+    return null;
+  }
 
   // Tenant and locations are authorization-bearing: read from app_metadata
   // only (via metaField). user_metadata is never consulted.

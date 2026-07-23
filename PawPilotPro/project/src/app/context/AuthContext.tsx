@@ -73,14 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!initialSessionResolved) {
         initialSessionResolved = true;
-        if (session?.user) {
-          setUser(mapSupabaseUser(session.user));
-        setActiveTenantId(tenantOf(session.user));
-        } else {
-          setUser(null);
-        setActiveTenantId(null);
-        }
-        setIsLoading(false);
+        applySession(session?.user ?? null);
       }
     }).catch(() => {
       if (!initialSessionResolved) {
@@ -93,14 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       initialSessionResolved = true;
-      if (session?.user) {
-        setUser(mapSupabaseUser(session.user));
-        setActiveTenantId(tenantOf(session.user));
-      } else {
-        setUser(null);
-        setActiveTenantId(null);
-      }
-      setIsLoading(false);
+      applySession(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
@@ -120,13 +106,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('mdc-temp-login-flag');
     }
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error) {
       setIsLoading(false);
       throw error;
+    }
+    // Customer portal accounts must never get a staff session — sign the
+    // session straight back out and tell the user which app to use. The
+    // server rejects their tokens with 401 anyway (resolveStaffRole); this
+    // makes the staff login fail fast with a clear message instead.
+    if (data.user && staffRoleOf(data.user) === null) {
+      await supabase.auth.signOut();
+      setIsLoading(false);
+      throw new Error(
+        'This is a customer account. Staff sign-in is for employees only — please use the customer portal instead.'
+      );
     }
   };
 
@@ -144,6 +141,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const tenantOf = (sbUser: SupabaseUser): string | null =>
     sbUser.app_metadata?.tenant_id ?? sbUser.app_metadata?.tenantId ?? null;
 
+  // Mirror of the server's resolveStaffRole (_shared/auth.ts): staff access
+  // requires a valid, server-set staff role. Customer portal accounts are
+  // created without one, so they never get a staff session — a missing role
+  // must NOT default to 'staff'; that fallback is what let customer logins
+  // reach the employee dashboard. (portal_user alone is not a reject signal:
+  // staff who also accepted a portal invite keep their real role.)
+  const STAFF_ROLES = ['admin', 'manager', 'assistant_manager', 'staff'] as const;
+  const staffRoleOf = (sbUser: SupabaseUser): Role | null => {
+    const role = (sbUser.app_metadata || {}).role as unknown;
+    return typeof role === 'string' && (STAFF_ROLES as readonly string[]).includes(role)
+      ? (role as Role)
+      : null;
+  };
+
+  // The single gate every session goes through (initial load + auth state
+  // changes): staff accounts get a session, anything else is signed out.
+  const applySession = (sbUser: SupabaseUser | null) => {
+    if (sbUser && staffRoleOf(sbUser) !== null) {
+      setUser(mapSupabaseUser(sbUser));
+      setActiveTenantId(tenantOf(sbUser));
+    } else {
+      if (sbUser) void supabase.auth.signOut();
+      setUser(null);
+      setActiveTenantId(null);
+    }
+    setIsLoading(false);
+  };
+
   const mapSupabaseUser = (sbUser: SupabaseUser): User => {
     const metadata = sbUser.user_metadata || {};
     const appMetadata = sbUser.app_metadata || {};
@@ -151,7 +176,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // a malicious user could call supabase.auth.updateUser({ data: { role: 'admin' } })
     // and self-promote if we trusted user_metadata.role here. The server-side
     // requireAuth middleware also reads from app_metadata for the same reason.
-    const role = (sbUser.app_metadata?.role as Role) || 'staff';
+    // Callers gate on staffRoleOf first (applySession / login), so a null
+    // here is unreachable; the ! keeps the guard the single source of truth.
+    const role = staffRoleOf(sbUser)!;
     return {
       id: sbUser.id,
       name: metadata.name || sbUser.email || 'Unknown',
