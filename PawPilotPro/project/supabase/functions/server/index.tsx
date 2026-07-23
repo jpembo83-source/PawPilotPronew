@@ -293,7 +293,7 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
     const supabase = getSupabase();
     const caller = c.get('user') as UserContext;
     const body = await c.req.json();
-    const { email, password, role, name, locationIds, permissions, templateId, tenant_id, tenantId } = body;
+    const { email, password, role, name, locationIds, permissions, templateId } = body;
 
     // Never fall back to a guessable default password — require an explicit one.
     if (!password || typeof password !== "string" || password.length < 8) {
@@ -308,8 +308,12 @@ app.post("/make-server-fc003b23/users", requireAuth, requirePermission('users', 
       return c.json({ error: 'You cannot assign a role higher than your own' }, 403);
     }
 
-    // Get tenant ID from body (validated caller is already authenticated)
-    const finalTenantId = tenant_id || tenantId;
+    // Tenant comes from the AUTHENTICATED CALLER, never the request body.
+    // Trusting the body meant a client that omitted tenant_id created a
+    // tenant-less user, siloed in a phantom tenant (their own user id) with
+    // an empty customers list — and a forged body could plant a user in an
+    // arbitrary tenant. New users always join their creator's tenant.
+    const finalTenantId = caller.tenantId;
 
     const { data, error } = await supabase.auth.admin.createUser({
       email,
