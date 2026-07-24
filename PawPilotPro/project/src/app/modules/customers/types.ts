@@ -3,6 +3,18 @@
 
 export type HouseholdStatus = 'active' | 'inactive';
 
+// Named saved address ("Home", "Office", "Vet") offered as a transport
+// pickup/drop-off option. Mirrors shared/schemas/household_addresses.ts.
+export interface SavedAddress {
+  id: string;
+  label: string;
+  line1: string;
+  line2?: string | null;
+  city?: string | null;
+  postcode?: string | null;
+  country?: string | null;
+}
+
 export interface Household {
   id: string;
   tenant_id: string;
@@ -23,6 +35,10 @@ export interface Household {
     country?: string;
   };
   internal_notes?: string;
+  /** Named transport addresses — served by the household detail endpoint
+   *  from its own KV record; absent on list rows. null = no record yet
+   *  (clients may derive a "Home" seed), [] = deliberately cleared. */
+  saved_addresses?: SavedAddress[] | null;
   created_by: string;
   created_at: string;
   updated_at: string;

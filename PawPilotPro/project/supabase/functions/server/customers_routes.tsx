@@ -59,6 +59,39 @@ const generateId = (prefix: string) => {
 };
 
 // ============================================================================
+// SAVED ADDRESSES (runtime mirror of shared/schemas/household_addresses.ts —
+// keep in sync)
+// ============================================================================
+// Named pickup/drop-off addresses per household ("Home"/"Office"/"Vet") for
+// the transport dialog. KV-only and OUTSIDE the frozen Phase-4 customers
+// family: its own key prefix, no dual-write, no drift-check involvement. The
+// household's primary address and contact address fields are untouched.
+
+const savedAddressSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().trim().min(1).max(40),
+  line1: z.string().trim().min(1).max(200),
+  line2: z.string().max(200).nullish(),
+  city: z.string().max(100).nullish(),
+  postcode: z.string().max(20).nullish(),
+  country: z.string().max(100).nullish(),
+});
+
+const savedAddressesUpdateSchema = z
+  .object({ addresses: z.array(savedAddressSchema).max(20) })
+  .strict();
+
+const savedAddressesKey = (tenantId: string, householdId: string) =>
+  `customer_saved_addresses:${tenantId}:${householdId}`;
+
+interface SavedAddressesRecord {
+  tenant_id: string;
+  household_id: string;
+  addresses: Array<Record<string, unknown>>;
+  updated_at: string;
+}
+
+// ============================================================================
 // HOUSEHOLDS
 // ============================================================================
 
@@ -240,11 +273,21 @@ app.get('/households/:id', async (c) => {
       return c.json({ error: 'Household not found' }, 404);
     }
 
+    // Saved addresses are a KV-only side record (not part of the Phase-4
+    // bundle) — fetched and attached AFTER path selection, like pet photos,
+    // so KV/PG shadow diffs never see them.
+    const savedAddresses = (await kv.get(
+      savedAddressesKey(tenantId, householdId),
+    )) as SavedAddressesRecord | null;
+
     // Pet photos live in a private bucket — photo_url is minted (signed)
     // per response (AFTER path selection, so shadow diffs never see tokens);
     // the stored value is a storage path.
+    // null (no record yet) vs [] (deliberately cleared) is meaningful:
+    // clients derive a "Home" seed from the primary contact only for null.
     return c.json({
       ...bundle.household,
+      saved_addresses: savedAddresses ? savedAddresses.addresses : null,
       contacts: bundle.contacts,
       pets: await withSignedPetPhotos(bundle.pets as Record<string, unknown>[]),
       documents: bundle.documents,
@@ -362,6 +405,56 @@ app.put('/households/:id', requireRole('admin', 'manager', 'assistant_manager'),
   }
 });
 
+// Replace a household's saved addresses (add/edit/remove all funnel through
+// this replace-all write — the list is small and bounded).
+app.put('/households/:id/saved-addresses', requireRole('admin', 'manager', 'assistant_manager'), async (c) => {
+  try {
+    const user = c.get('user') as AuthenticatedUser;
+    const tenantId = user.tenantId;
+    const userId = user.id;
+    const householdId = c.req.param('id');
+
+    const household = await kv.get(`customer:${tenantId}:household:${householdId}`);
+    if (!household) {
+      return c.json({ error: 'Household not found' }, 404);
+    }
+
+    const body = await c.req.json();
+    const parsed = savedAddressesUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid saved addresses payload' }, 400);
+    }
+
+    const record: SavedAddressesRecord = {
+      tenant_id: tenantId,
+      household_id: householdId,
+      addresses: parsed.data.addresses,
+      updated_at: new Date().toISOString(),
+    };
+    await kv.set(savedAddressesKey(tenantId, householdId), record);
+
+    // The activity IS a normal Phase-4 customer activity — dual-written like
+    // every other; only the saved-addresses record itself stays KV-only.
+    const activity = {
+      id: generateId('act'),
+      household_id: householdId,
+      activity_type: 'household_updated',
+      title: 'Saved Addresses Updated',
+      description: `Saved addresses updated (${record.addresses.length} on file)`,
+      occurred_at: record.updated_at,
+      created_by: userId,
+    };
+    await kv.set(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity);
+    await dualWriteCustomers([
+      dwSet(`customer:${tenantId}:activity:${householdId}:${activity.id}`, activity),
+    ]);
+
+    return c.json({ saved_addresses: record.addresses });
+  } catch (error: any) {
+    return internalError(c, 'customers.updateSavedAddresses', error);
+  }
+});
+
 // Delete household
 app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
   try {
@@ -429,6 +522,9 @@ app.delete('/households/:id', requireRole('admin', 'manager'), async (c) => {
         await kv.del(`overnight:${tenantId}:reservation:${reservation.id}`);
       }
     }
+
+    // 6b. Delete the saved-addresses side record (KV-only, no dual-write)
+    await kv.del(savedAddressesKey(tenantId, householdId));
 
     // 7. Delete all documents
     const documents = await kv.getByPrefix(`customer:${tenantId}:document:${householdId}:`);

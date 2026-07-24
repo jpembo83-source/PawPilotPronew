@@ -551,6 +551,19 @@ app.get('/search-customers', async (c) => {
     for (const r of trimmed) {
       r.pets = await withSignedPetPhotos(r.pets);
     }
+
+    // Attach each household's saved addresses (named transport pickup/
+    // drop-off points) in one scan; records carry household_id. null (no
+    // record yet) vs [] (deliberately cleared) is meaningful: clients derive
+    // a "Home" fallback from the contact address only for null.
+    const savedAddressRecords = await kv.getByPrefix(`customer_saved_addresses:${tenantId}:`);
+    const savedByHousehold = new Map<string, unknown[]>(
+      savedAddressRecords.map((rec: any) => [rec.household_id, rec.addresses ?? []])
+    );
+    for (const r of trimmed) {
+      r.saved_addresses = savedByHousehold.get(r.household_id) ?? null;
+    }
+
     return c.json(trimmed); // Limit to 20 results
   } catch (error: any) {
     return internalError(c, 'daycare.searchCustomers', error);
