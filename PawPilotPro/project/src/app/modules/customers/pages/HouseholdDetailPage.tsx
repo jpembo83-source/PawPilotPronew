@@ -4,6 +4,7 @@ import { useCustomerStore } from '../store';
 import { useDaycareStore } from '../../daycare/store';
 import { useBillingStore } from '../../billing/store';
 import { usePackagesStore } from '../../packages/store';
+import { MembershipCard } from '../../packages/components/MembershipCard';
 import { useAuth } from '../../../context/AuthContext';
 import { useCurrency } from '../../../utils/currency';
 import { useSettingsStore } from '../../settings/store';
@@ -568,7 +569,10 @@ export function HouseholdDetailPage() {
         </TabsList>
         
         <TabsContent value="overview">
-          <OverviewTab household={currentHouseholdDetail} />
+          <div className="space-y-6">
+            <OverviewTab household={currentHouseholdDetail} />
+            <MembershipCard householdId={household.id} />
+          </div>
         </TabsContent>
         
         <TabsContent value="contacts">

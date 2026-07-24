@@ -77,6 +77,36 @@ export function normalizeCatalogPlan(record: unknown): MembershipPlan | null {
   };
 }
 
+/** Validated input for an admin-defined custom agreement — a per-household
+ *  plan that isn't a catalogue template (e.g. a negotiated special
+ *  arrangement). Mirrors the POST /customer-packages custom_plan payload. */
+export interface CustomPlanInput {
+  name: string;
+  price: number;
+  session_type: 'full_day' | 'half_day';
+  days_per_month: number | 'unlimited';
+  currency?: string;
+}
+
+/**
+ * Build the internal plan a custom agreement runs on. The plan itself is
+ * never stored — buildMembership snapshots everything the engine later needs
+ * (session_type for coverage, monthly_credits for renewal, monthly_price for
+ * invoicing), so custom plans work through the existing draw-down with no
+ * catalogue entry and no special-casing anywhere downstream.
+ */
+export function customPlan(input: CustomPlanInput, id: string): MembershipPlan {
+  return {
+    id,
+    name: input.name,
+    price: input.price,
+    currency: input.currency ?? 'CHF',
+    sessionType: input.session_type,
+    daysPerMonth: input.days_per_month,
+    serviceType: 'daycare',
+  };
+}
+
 export const MEMBERSHIP_PLANS: MembershipPlan[] = [
   { id: 'MO01', name: 'SPLIT MY SOCIAL',    price: 493,  currency: 'CHF', sessionType: 'half_day', daysPerMonth: 8,           serviceType: 'daycare' },
   { id: 'MO02', name: 'STAYIN IN CONTACT',  price: 473,  currency: 'CHF', sessionType: 'full_day', daysPerMonth: 5,           serviceType: 'daycare' },
@@ -120,6 +150,9 @@ export interface CustomerMembership {
   subscription_status: 'active' | 'paused' | 'cancelled' | 'expired';
   next_billing_date?: string;
   status: 'active' | 'expired' | 'exhausted' | 'cancelled';
+  /** Free-text inclusions/terms of a custom agreement ("2 washes included").
+   *  Only set on custom assignments (package_id "custom-…"); display-only. */
+  custom_terms?: string;
   created_at: string;
   updated_at: string;
   created_by: string;

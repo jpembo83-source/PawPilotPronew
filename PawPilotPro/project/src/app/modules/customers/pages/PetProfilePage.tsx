@@ -63,6 +63,7 @@ const EMPTY_SUMMARY: PetSummary = {
 
 // Import tab components
 import { PetOverviewTab } from '../components/pet-profile/PetOverviewTab';
+import { MembershipCard } from '../../packages/components/MembershipCard';
 import { DocumentManager } from '../components/DocumentManager';
 import { PetCareProfileTab } from '../components/pet-profile/PetCareProfileTab';
 import { PetTimelineTab } from '../components/pet-profile/PetTimelineTab';
@@ -641,7 +642,12 @@ export function PetProfilePage() {
         </TabsList>
 
         <TabsContent value="overview">
-          <PetOverviewTab pet={currentPetProfile} />
+          <div className="space-y-6">
+            <PetOverviewTab pet={currentPetProfile} />
+            {/* Memberships are per-household; the card says so — assigning
+                here covers this dog (and any housemates) automatically. */}
+            <MembershipCard householdId={currentPetProfile.household_id} />
+          </div>
         </TabsContent>
 
         <TabsContent value="documents">

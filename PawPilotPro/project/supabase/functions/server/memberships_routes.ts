@@ -23,6 +23,7 @@ import { internalError, logInfo, logWarn } from './_shared/log.ts';
 import {
   buildMembership,
   consumeCredits,
+  customPlan,
   getPlanById,
   normalizeCatalogPlan,
   type CustomerMembership,
@@ -62,10 +63,29 @@ async function resolveAssignablePlan(planId: string): Promise<MembershipPlan | u
   return getPlanById(planId);
 }
 
-const assignSchema = z.object({
-  customer_id: z.string().min(1),
-  package_id: z.string().min(1),
+// Custom agreement — a per-household plan that isn't a catalogue template.
+// Bounded like every KV write: an allowance is a handful of days, not a
+// gazetteer of credits.
+const customPlanSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  price: z.number().finite().min(0),
+  session_type: z.enum(['full_day', 'half_day']),
+  days_per_month: z.union([z.literal('unlimited'), z.number().int().positive().max(62)]),
+  currency: z.string().trim().min(1).max(8).optional(),
+  /** Free-text inclusions/terms shown on the profile ("2 washes included"). */
+  terms: z.string().trim().max(1000).optional(),
 });
+
+// Exactly one of package_id (catalogue template) or custom_plan.
+const assignSchema = z
+  .object({
+    customer_id: z.string().min(1),
+    package_id: z.string().min(1).optional(),
+    custom_plan: customPlanSchema.optional(),
+  })
+  .refine((d) => (d.package_id ? !d.custom_plan : !!d.custom_plan), {
+    message: 'provide exactly one of package_id or custom_plan',
+  });
 
 const useSchema = z.object({
   pet_id: z.string().min(1),
@@ -109,9 +129,14 @@ app.post('/customer-packages', requireRole('admin', 'manager'), async (c) => {
     if (!parsed.success) {
       return c.json({ error: 'invalid_request' }, 400);
     }
-    const { customer_id, package_id } = parsed.data;
+    const { customer_id, package_id, custom_plan } = parsed.data;
 
-    const plan = await resolveAssignablePlan(package_id);
+    // Custom agreements build their plan inline (buildMembership snapshots
+    // session/credits/price, so the engine never needs a catalogue entry);
+    // catalogue assignments resolve against KV + compiled plans as before.
+    const plan = custom_plan
+      ? customPlan(custom_plan, `custom-${crypto.randomUUID()}`)
+      : await resolveAssignablePlan(package_id!);
     if (!plan) {
       return c.json({ error: 'unknown_plan' }, 400);
     }
@@ -136,19 +161,23 @@ app.post('/customer-packages', requireRole('admin', 'manager'), async (c) => {
       return c.json({ error: 'membership_already_active' }, 409);
     }
 
-    const membership = buildMembership({
+    const built = buildMembership({
       id: crypto.randomUUID(),
       customerId: customer_id,
       plan,
       createdBy: user.id,
       now: new Date(),
     });
+    const membership: CustomerMembership = custom_plan?.terms
+      ? { ...built, custom_terms: custom_plan.terms }
+      : built;
 
     await kv.set(membershipKey(user.tenantId, membership.id), membership);
     logInfo('memberships.assigned', {
       membershipId: membership.id,
       planId: plan.id,
       householdId: customer_id,
+      custom: !!custom_plan,
     });
     // First billing period invoices at assignment; renewal invoices the rest.
     // Invoicing failure never rolls back the assignment (finance follow-up).

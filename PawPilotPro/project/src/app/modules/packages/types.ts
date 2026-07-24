@@ -56,10 +56,25 @@ export interface CustomerPackage {
   
   // Status
   status: 'active' | 'expired' | 'exhausted' | 'cancelled';
-  
+
+  /** Free-text inclusions/terms of a custom agreement (server-set on custom
+   *  assignments only — package_id "custom-…"); display-only. */
+  custom_terms?: string;
+
   // Audit
   created_at: string;
   updated_at: string;
+}
+
+/** Payload for assigning a custom (non-catalogue) agreement — mirrors the
+ *  memberships route's custom_plan schema. Admin/manager only (server-gated). */
+export interface CustomPlanInput {
+  name: string;
+  price: number;
+  session_type: 'full_day' | 'half_day';
+  days_per_month: number | 'unlimited';
+  currency?: string;
+  terms?: string;
 }
 
 export interface PackageUsage {
