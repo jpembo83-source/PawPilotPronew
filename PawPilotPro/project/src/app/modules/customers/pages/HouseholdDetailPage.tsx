@@ -709,6 +709,7 @@ export function HouseholdDetailPage() {
           id: household.id,
           name: household.name,
           primary_contact_id: household.primary_contact_id,
+          saved_addresses: household.saved_addresses ?? null,
           address: household.address
             ? [
                 household.address.line1,
