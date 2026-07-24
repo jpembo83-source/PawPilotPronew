@@ -13,6 +13,7 @@ import { useCustomerStore } from '../../store';
 import { useSettingsStore } from '../../../settings/store';
 import { toast } from 'sonner';
 import type { Pet, PetSex } from '../../types';
+import { BreedCombobox } from '../forms/BreedCombobox';
 import { useUnsavedChangesGuard, formIsDirty } from '../../../../hooks/useUnsavedChangesGuard';
 
 interface EditPetModalProps {
@@ -255,11 +256,10 @@ export function EditPetModal({ open, onClose, pet, onPetUpdated }: EditPetModalP
 
               <div className="space-y-2">
                 <Label htmlFor="breed">Breed</Label>
-                <Input
+                <BreedCombobox
                   id="breed"
                   value={formData.breed}
-                  onChange={(e) => handleChange('breed', e.target.value)}
-                  placeholder="Labrador Retriever"
+                  onChange={(value) => handleChange('breed', value)}
                   disabled={isSubmitting}
                 />
               </div>
