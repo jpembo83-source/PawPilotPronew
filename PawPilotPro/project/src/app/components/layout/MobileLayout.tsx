@@ -22,6 +22,7 @@ import {
 } from '@phosphor-icons/react';
 import { GlobalSearch } from '../search/GlobalSearch';
 import { useAuth } from '../../context/AuthContext';
+import { useAccountStore } from '../../stores/accountStore';
 import { useDashboardStore } from '../../modules/dashboard/store';
 import { useSettingsStore } from '../../modules/settings/store';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -35,6 +36,8 @@ import { useInboxCounts, formatBadgeCount } from '../../hooks/useInboxCounts';
 
 export function MobileLayout() {
   const { user, logout } = useAuth();
+  const openAccount = useAccountStore((s) => s.openAccount);
+  const avatarUrl = useAccountStore((s) => s.avatarUrl);
   const location = useLocation();
   const permissions = usePermissions();
   const { filterNavItems } = useBetaFeatures();
@@ -392,13 +395,24 @@ export function MobileLayout() {
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 16px)',
               }}
             >
-              {/* User info row */}
-              <div className="flex items-center gap-3 mb-3">
+              {/* User info row — opens the My Account hub */}
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  openAccount();
+                }}
+                aria-label="Open My Account"
+                className="flex items-center gap-3 mb-3 w-full text-left rounded-xl px-1 py-1 touch-target"
+              >
                 <div
-                  className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden"
                   style={{ background: 'var(--primary-tint)', color: 'var(--primary)' }}
                 >
-                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    user?.name?.charAt(0)?.toUpperCase() || 'U'
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: '#1C1916' }}>
@@ -408,7 +422,8 @@ export function MobileLayout() {
                     {user?.role}
                   </p>
                 </div>
-              </div>
+                <CaretRight className="h-4 w-4 shrink-0" style={{ color: '#A09893' }} aria-hidden="true" />
+              </button>
 
               {/* Sign out button */}
               <button
