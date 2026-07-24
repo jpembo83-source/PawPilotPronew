@@ -12,6 +12,7 @@ import {
   orgTimezone,
   checkTimeWithinHours,
   checkWindowWithinHours,
+  clampWindowToHours,
   minutesInTimeZone,
   checkIsoWindowWithinHours,
 } from '../../supabase/functions/server/lib/operating_hours.ts';
@@ -75,6 +76,40 @@ describe('checkTimeWithinHours / checkWindowWithinHours (daycare + grooming)', (
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain('end time');
     expect(checkWindowWithinHours({ start: '08:00', end: '17:00' }, HOURS).ok).toBe(true);
+  });
+});
+
+describe('clampWindowToHours (daycare sessions — fixed catalogue times)', () => {
+  it('clamps the catalogue full day (07:00–18:00) into 07:30–18:30 hours', () => {
+    expect(clampWindowToHours({ start: '07:00', end: '18:00' }, HOURS)).toEqual({
+      start: '07:30',
+      end: '18:00',
+    });
+  });
+  it('clamps an end past closing down to the close', () => {
+    expect(clampWindowToHours({ start: '08:00', end: '19:00' }, HOURS)).toEqual({
+      start: '08:00',
+      end: '18:30',
+    });
+  });
+  it('leaves windows already inside the hours untouched', () => {
+    expect(clampWindowToHours({ start: '09:00', end: '17:00' }, HOURS)).toEqual({
+      start: '09:00',
+      end: '17:00',
+    });
+  });
+  it('refuses a session with no overlap at all (PM session, morning-only org)', () => {
+    const morningOnly = parseOperatingHours('08:00 - 12:00')!;
+    expect(clampWindowToHours({ start: '13:00', end: '18:00' }, morningOnly)).toBeNull();
+    expect(clampWindowToHours({ start: '13:00' }, morningOnly)).toBeNull();
+    expect(clampWindowToHours({ end: '07:00' }, morningOnly)).toBeNull();
+  });
+  it('passes absent times through unchanged', () => {
+    expect(clampWindowToHours({}, HOURS)).toEqual({ start: undefined, end: undefined });
+    expect(clampWindowToHours({ start: '07:00' }, HOURS)).toEqual({
+      start: '07:30',
+      end: undefined,
+    });
   });
 });
 

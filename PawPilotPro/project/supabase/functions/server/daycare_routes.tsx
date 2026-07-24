@@ -26,7 +26,7 @@ import {
   countBehaviourMedicalAlerts,
   groupFlagsByHousehold,
 } from './lib/dashboard_alerts.ts';
-import { checkWindowWithinHours, operatingHoursFromOrg } from './lib/operating_hours.ts';
+import { clampWindowToHours, operatingHoursFromOrg } from './lib/operating_hours.ts';
 
 const app = new Hono();
 
@@ -954,32 +954,43 @@ export async function createBookingCore(
     service_name,
     service_type,
     booking_date,
-    planned_start_time,
-    planned_end_time,
     customer_notes,
     requires_transport,
     booking_group_id,
     standing_booking_id,
   } = input;
+  let { planned_start_time, planned_end_time } = input;
 
   // Validation
   if (!household_id || !pet_id || !location_id || !service_id || !booking_date) {
     return { ok: false, status: 400, error: 'Missing required fields' };
   }
 
-  // Booking times must honour the organisation's operating hours
-  // (Settings → Organisation → Default Operating Hours). Applies to every
-  // creation path through this core — staff dialog, multi-day ranges, and
-  // standing-schedule generation. Skipped when no parseable hours are set.
+  // Booking times honour the organisation's operating hours (Settings →
+  // Organisation → Default Operating Hours) at every creation path through
+  // this core — staff dialog, multi-day ranges, standing-schedule
+  // generation. Daycare times come from the FIXED session catalogue (full
+  // day 07:00–18:00 etc.), not a human picking a clock time, so a session
+  // reaching past the hours is CLAMPED into them ("full day" = all day
+  // within opening hours) rather than rejected — rejection would make the
+  // session permanently unbookable. Only a session with no overlap at all
+  // (e.g. a PM session under a morning-only org) is refused. Skipped when
+  // no parseable hours are configured.
   const orgHours = operatingHoursFromOrg(await kv.get('settings:org'));
   if (orgHours) {
-    const hoursCheck = checkWindowWithinHours(
-      { start: input.planned_start_time, end: input.planned_end_time },
+    const clamped = clampWindowToHours(
+      { start: planned_start_time, end: planned_end_time },
       orgHours,
     );
-    if (!hoursCheck.ok) {
-      return { ok: false, status: 400, error: hoursCheck.error };
+    if (!clamped) {
+      return {
+        ok: false,
+        status: 400,
+        error: `This session falls outside operating hours (${orgHours.label}) — adjust the organisation hours or pick a different session.`,
+      };
     }
+    planned_start_time = clamped.start;
+    planned_end_time = clamped.end;
   }
 
   // Validate and fetch pet from customer database

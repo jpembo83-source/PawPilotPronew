@@ -96,6 +96,45 @@ export function checkWindowWithinHours(
 }
 
 /**
+ * Clamp a session window into operating hours — for DAYCARE bookings,
+ * whose times come from the fixed session catalogue (full day 07:00–18:00
+ * etc.), not from a human picking a clock time. "Full day" means "all day
+ * within operating hours", so a 07:00 session start under a 07:30 open
+ * becomes 07:30 rather than a rejection that would make the session
+ * permanently unbookable. Returns:
+ *  - the (possibly adjusted) window when it overlaps the hours,
+ *  - null when the window and the hours don't overlap at all (e.g. a PM
+ *    session under a morning-only org) — callers reject with a message.
+ * Absent times pass through unchanged; malformed times also pass through
+ * (unparseable catalogue data is a bug to surface elsewhere, not silently
+ * rewrite).
+ */
+export function clampWindowToHours(
+  window: { start?: unknown; end?: unknown },
+  hours: OperatingHours,
+): { start?: string; end?: string } | null {
+  const startMins = parseTimeToMinutes(window.start);
+  const endMins = parseTimeToMinutes(window.end);
+  const clampedStart = startMins === null ? null : Math.min(Math.max(startMins, hours.start), hours.end);
+  const clampedEnd = endMins === null ? null : Math.min(Math.max(endMins, hours.start), hours.end);
+  // No overlap: the whole window sits outside the hours (both bounds pinned
+  // to the same edge), or the clamp inverted the pair.
+  if (startMins !== null && endMins !== null && clampedStart !== null && clampedEnd !== null) {
+    if (clampedStart >= clampedEnd && startMins < endMins) return null;
+  }
+  if (startMins !== null && endMins === null && startMins > hours.end) return null;
+  if (endMins !== null && startMins === null && endMins < hours.start) return null;
+  return {
+    start: clampedStart === null
+      ? (typeof window.start === "string" && window.start ? window.start : undefined)
+      : minutesToLabel(clampedStart),
+    end: clampedEnd === null
+      ? (typeof window.end === "string" && window.end ? window.end : undefined)
+      : minutesToLabel(clampedEnd),
+  };
+}
+
+/**
  * Minutes-of-day of an ISO instant in the given IANA timezone (what the
  * clock on the wall at the org would read). Returns null when the instant
  * or timezone is unusable — callers skip enforcement rather than misjudge.
