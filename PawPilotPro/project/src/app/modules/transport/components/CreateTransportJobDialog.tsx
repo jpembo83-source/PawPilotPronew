@@ -4,13 +4,15 @@
  * British English throughout, tenant-isolated
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSettingsStore } from '../../settings/store';
 import { useTransportStore } from '../store';
 import { TimePicker } from './TimePicker';
 import { projectId } from '../../../../../utils/supabase/info';
 import { getAuthHeaders } from '@/utils/supabase/authHeaders';
+import { formatSavedAddress } from '../../customers/savedAddresses';
+import type { SavedAddress } from '../../customers/types';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -55,6 +57,9 @@ interface Household {
   name: string;
   primary_contact_id?: string;
   address?: string;
+  /** null = no saved list yet (fall back to `address` as "Home");
+   *  [] = deliberately cleared. */
+  saved_addresses?: SavedAddress[] | null;
   pets?: Pet[];
   contacts?: Contact[];
 }
@@ -76,6 +81,21 @@ interface Contact {
   email?: string;
   phone?: string;
   relationship: string;
+  address_line1?: string;
+  address_line2?: string;
+  address_city?: string;
+  address_postcode?: string;
+  address_country?: string;
+}
+
+// Shape of a /daycare/search-customers result row (the fields this dialog
+// reads — the endpoint returns more).
+interface CustomerSearchResult {
+  household_id: string;
+  household_name: string;
+  saved_addresses?: SavedAddress[] | null;
+  pets?: Pet[];
+  contacts?: Contact[];
 }
 
 type TransportDirection = 'pickup' | 'dropoff' | 'roundtrip';
@@ -87,10 +107,15 @@ interface TransportJobFormState {
   service_date: string;
   address_pickup: string;
   address_dropoff: string;
-  pickup_type: 'location' | 'other';
-  dropoff_type: 'location' | 'other';
+  // 'saved' = one of the household's named addresses (Home/Office/Vet…).
+  // Only the resolved address strings go in the payload — the job record
+  // is unchanged.
+  pickup_type: 'saved' | 'location' | 'other';
+  dropoff_type: 'saved' | 'location' | 'other';
   pickup_location_id: string;
   dropoff_location_id: string;
+  pickup_saved_id: string;
+  dropoff_saved_id: string;
   time_window_start: string;
   time_window_end: string;
   notes: string;
@@ -133,10 +158,27 @@ export function CreateTransportJobDialog({
     dropoff_type: 'location',
     pickup_location_id: '',
     dropoff_location_id: '',
+    pickup_saved_id: '',
+    dropoff_saved_id: '',
     time_window_start: '',
     time_window_end: '',
     notes: '',
   });
+
+  // The household's selectable saved addresses. When it has no persisted
+  // list (null/undefined), the single address the dialog already derives
+  // from the primary contact stands in as "Home" — the pre-feature address
+  // keeps working with zero migration. An empty persisted list stays empty.
+  const savedAddressOptions = useMemo(() => {
+    const saved = selectedHousehold?.saved_addresses;
+    if (saved) {
+      return saved.map((a) => ({ id: a.id, label: a.label, address: formatSavedAddress(a) }));
+    }
+    if (selectedHousehold?.address) {
+      return [{ id: 'derived-home', label: 'Home', address: selectedHousehold.address }];
+    }
+    return [];
+  }, [selectedHousehold]);
 
   // Initialize location
   useEffect(() => {
@@ -161,12 +203,23 @@ export function CreateTransportJobDialog({
     }
   }, [formData.location_id, fetchActiveDrivers]);
 
-  // Auto-populate addresses when household selected
+  // Auto-populate pickup when household selected: default to the first saved
+  // address (usually "Home") so the common case needs no typing at all;
+  // households with nothing on file keep the old free-text behaviour.
   useEffect(() => {
-    if (selectedHousehold?.address && formData.pickup_type === 'other' && !formData.address_pickup) {
+    if (!selectedHousehold || formData.pickup_type !== 'other' || formData.address_pickup) return;
+    if (savedAddressOptions.length > 0) {
+      const first = savedAddressOptions[0];
+      setFormData(prev => ({
+        ...prev,
+        pickup_type: 'saved',
+        pickup_saved_id: first.id,
+        address_pickup: first.address,
+      }));
+    } else if (selectedHousehold.address) {
       setFormData(prev => ({ ...prev, address_pickup: selectedHousehold.address || '' }));
     }
-  }, [selectedHousehold]);
+  }, [selectedHousehold, savedAddressOptions]);
 
   // Customer search
   const performSearch = async (query: string) => {
@@ -193,11 +246,12 @@ export function CreateTransportJobDialog({
         throw new Error(errorData.error || 'Failed to search customers');
       }
 
-      const data = await response.json();
-      
+      const data: unknown = await response.json();
+
       // Transform search results to match our Household interface
       // The API returns an array directly, not wrapped in a results property
-      const transformedResults: Household[] = (Array.isArray(data) ? data : []).map((result: any) => {
+      const rows: CustomerSearchResult[] = Array.isArray(data) ? (data as CustomerSearchResult[]) : [];
+      const transformedResults: Household[] = rows.map((result) => {
         // Build address from contact fields
         const primaryContact = result.contacts?.[0];
         let address = '';
@@ -217,6 +271,7 @@ export function CreateTransportJobDialog({
           name: result.household_name,
           primary_contact_id: result.contacts?.[0]?.id,
           address: address,
+          saved_addresses: result.saved_addresses ?? null,
           pets: result.pets || [],
           contacts: result.contacts || [],
         };
@@ -247,6 +302,19 @@ export function CreateTransportJobDialog({
 
   const handleSelectHousehold = (household: Household) => {
     setSelectedHousehold(household);
+    // Clear any address state from a previously selected household — the
+    // auto-populate effect refills from the new household's saved addresses.
+    setFormData(prev => ({
+      ...prev,
+      pickup_type: 'other',
+      dropoff_type: 'location',
+      pickup_location_id: '',
+      dropoff_location_id: '',
+      pickup_saved_id: '',
+      dropoff_saved_id: '',
+      address_pickup: '',
+      address_dropoff: '',
+    }));
     setSearchQuery('');
     setSearchResults([]);
     setCurrentStep(1);
@@ -357,6 +425,8 @@ export function CreateTransportJobDialog({
       dropoff_type: 'location',
       pickup_location_id: '',
       dropoff_location_id: '',
+      pickup_saved_id: '',
+      dropoff_saved_id: '',
       time_window_start: '',
       time_window_end: '',
       notes: '',
@@ -548,9 +618,42 @@ export function CreateTransportJobDialog({
             <div className="space-y-1.5">
               <Label>Pick-up Address</Label>
               <div className="flex gap-1.5">
+                {savedAddressOptions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => {
+                        const selected =
+                          savedAddressOptions.find((o) => o.id === prev.pickup_saved_id) ??
+                          savedAddressOptions[0];
+                        return {
+                          ...prev,
+                          pickup_type: 'saved',
+                          pickup_location_id: '',
+                          pickup_saved_id: selected.id,
+                          address_pickup: selected.address,
+                        };
+                      })
+                    }
+                    className={`flex-1 py-1.5 px-3 rounded-md border text-sm font-medium transition-colors ${
+                      formData.pickup_type === 'saved'
+                        ? 'border-primary bg-primary-tint text-primary-strong'
+                        : 'border-border hover:border-input text-muted-foreground'
+                    }`}
+                  >
+                    Saved
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, pickup_type: 'location', address_pickup: '' }))}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      pickup_type: 'location',
+                      pickup_saved_id: '',
+                      address_pickup: '',
+                    }))
+                  }
                   className={`flex-1 py-1.5 px-3 rounded-md border text-sm font-medium transition-colors ${
                     formData.pickup_type === 'location'
                       ? 'border-primary bg-primary-tint text-primary-strong'
@@ -566,6 +669,7 @@ export function CreateTransportJobDialog({
                       ...prev,
                       pickup_type: 'other',
                       pickup_location_id: '',
+                      pickup_saved_id: '',
                       address_pickup: selectedHousehold?.address || '',
                     }))
                   }
@@ -578,6 +682,28 @@ export function CreateTransportJobDialog({
                   Other
                 </button>
               </div>
+
+              {formData.pickup_type === 'saved' && (
+                <select
+                  value={formData.pickup_saved_id}
+                  onChange={(e) => {
+                    const option = savedAddressOptions.find((o) => o.id === e.target.value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      pickup_saved_id: e.target.value,
+                      address_pickup: option?.address || '',
+                    }));
+                  }}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-input-background text-sm text-foreground"
+                >
+                  <option value="">Select an address...</option>
+                  {savedAddressOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label} — {option.address}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {formData.pickup_type === 'location' && (
                 <select
@@ -618,9 +744,42 @@ export function CreateTransportJobDialog({
             <div className="space-y-1.5">
               <Label>Drop-off Address</Label>
               <div className="flex gap-1.5">
+                {savedAddressOptions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => {
+                        const selected =
+                          savedAddressOptions.find((o) => o.id === prev.dropoff_saved_id) ??
+                          savedAddressOptions[0];
+                        return {
+                          ...prev,
+                          dropoff_type: 'saved',
+                          dropoff_location_id: '',
+                          dropoff_saved_id: selected.id,
+                          address_dropoff: selected.address,
+                        };
+                      })
+                    }
+                    className={`flex-1 py-1.5 px-3 rounded-md border text-sm font-medium transition-colors ${
+                      formData.dropoff_type === 'saved'
+                        ? 'border-primary bg-primary-tint text-primary-strong'
+                        : 'border-border hover:border-input text-muted-foreground'
+                    }`}
+                  >
+                    Saved
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setFormData((prev) => ({ ...prev, dropoff_type: 'location', address_dropoff: '' }))}
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      dropoff_type: 'location',
+                      dropoff_saved_id: '',
+                      address_dropoff: '',
+                    }))
+                  }
                   className={`flex-1 py-1.5 px-3 rounded-md border text-sm font-medium transition-colors ${
                     formData.dropoff_type === 'location'
                       ? 'border-primary bg-primary-tint text-primary-strong'
@@ -636,6 +795,7 @@ export function CreateTransportJobDialog({
                       ...prev,
                       dropoff_type: 'other',
                       dropoff_location_id: '',
+                      dropoff_saved_id: '',
                       address_dropoff: selectedHousehold?.address || '',
                     }))
                   }
@@ -648,6 +808,28 @@ export function CreateTransportJobDialog({
                   Other
                 </button>
               </div>
+
+              {formData.dropoff_type === 'saved' && (
+                <select
+                  value={formData.dropoff_saved_id}
+                  onChange={(e) => {
+                    const option = savedAddressOptions.find((o) => o.id === e.target.value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      dropoff_saved_id: e.target.value,
+                      address_dropoff: option?.address || '',
+                    }));
+                  }}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-input-background text-sm text-foreground"
+                >
+                  <option value="">Select an address...</option>
+                  {savedAddressOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label} — {option.address}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               {formData.dropoff_type === 'location' && (
                 <select

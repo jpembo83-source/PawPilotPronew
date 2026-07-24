@@ -22,6 +22,7 @@ import type {
   HouseholdListPage,
   HouseholdSortKey,
   DocumentDeleteResponse,
+  SavedAddress,
 } from './types';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/customers`;
@@ -88,6 +89,7 @@ interface CustomerState {
   createHousehold: (data: Partial<Household>) => Promise<Household>;
   updateHousehold: (id: string, data: Partial<Household>) => Promise<Household>;
   deleteHousehold: (id: string) => Promise<Household>;
+  saveHouseholdAddresses: (id: string, addresses: SavedAddress[]) => Promise<SavedAddress[]>;
   
   // Actions - Contacts
   fetchContacts: (householdId: string) => Promise<void>;
@@ -397,7 +399,41 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       throw error;
     }
   },
-  
+
+  saveHouseholdAddresses: async (id: string, addresses: SavedAddress[]) => {
+    try {
+      const response = await fetch(`${BASE_URL}/households/${id}/saved-addresses`, {
+        method: 'PUT',
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ addresses }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json() as ApiErrorResponse;
+        throw new Error(error.error || 'Failed to save addresses');
+      }
+
+      const { saved_addresses } = await response.json() as { saved_addresses: SavedAddress[] };
+
+      set(state => ({
+        selectedHousehold: state.selectedHousehold?.id === id
+          ? { ...state.selectedHousehold, saved_addresses }
+          : state.selectedHousehold,
+        currentHouseholdDetail: state.currentHouseholdDetail?.id === id
+          ? { ...state.currentHouseholdDetail, saved_addresses }
+          : state.currentHouseholdDetail,
+      }));
+
+      void broadcastMutation('customers', 'household', 'updated', id);
+
+      return saved_addresses;
+    } catch (error) {
+      console.error('Save household addresses error:', error);
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
   deleteHousehold: async (id: string) => {
     set({ isLoading: true, error: null });
     try {

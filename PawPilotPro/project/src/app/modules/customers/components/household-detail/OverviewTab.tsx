@@ -23,6 +23,7 @@ import {
   Star
 } from '@phosphor-icons/react';
 import { ContactLink } from '../ContactLink';
+import { SavedAddressesCard } from './SavedAddressesCard';
 
 interface OverviewTabProps {
   household: Household & { 
@@ -189,7 +190,10 @@ export function OverviewTab({ household }: OverviewTabProps) {
           </CardContent>
         </Card>
       </div>
-      
+
+      {/* Saved transport addresses */}
+      <SavedAddressesCard household={household} />
+
       {/* Active Alerts */}
       {petsWithAlerts.length > 0 && (
         <Card className="border-red-200 bg-red-50">
