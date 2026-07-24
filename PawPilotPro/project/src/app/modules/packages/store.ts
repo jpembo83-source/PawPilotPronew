@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { getAuthHeaders } from '../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../utils/supabase/info';
-import type { Package, CustomerPackage, PackageUsage, PackageStats } from './types';
+import type { Package, CustomerPackage, CustomPlanInput, PackageUsage, PackageStats } from './types';
 
 const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23`;
 
@@ -34,6 +34,7 @@ interface PackagesState {
   // Actions - Customer Packages
   fetchCustomerPackages: (customerId?: string) => Promise<void>;
   purchasePackage: (customerId: string, packageId: string) => Promise<CustomerPackage>;
+  assignCustomPackage: (customerId: string, customPlan: CustomPlanInput) => Promise<CustomerPackage>;
   useCredits: (customerPackageId: string, petId: string, credits: number, bookingId?: string) => Promise<void>;
   cancelPackage: (customerPackageId: string) => Promise<void>;
   
@@ -191,6 +192,30 @@ export const usePackagesStore = create<PackagesState>((set, get) => ({
       
       if (!response.ok) throw new Error('Failed to purchase package');
       
+      const data = (await response.json()) as CustomerPackage;
+      set(state => ({
+        customerPackages: [...state.customerPackages, data],
+        isLoading: false
+      }));
+      return data;
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  assignCustomPackage: async (customerId, customPlan) => {
+    set({ isLoading: true, error: null });
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`${API_BASE}/customer-packages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ customer_id: customerId, custom_plan: customPlan }),
+      });
+
+      if (!response.ok) throw new Error('Failed to assign custom membership');
+
       const data = (await response.json()) as CustomerPackage;
       set(state => ({
         customerPackages: [...state.customerPackages, data],
