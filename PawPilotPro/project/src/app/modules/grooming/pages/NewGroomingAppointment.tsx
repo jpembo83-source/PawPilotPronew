@@ -32,6 +32,7 @@ import { getAuthHeaders } from '../../../../utils/supabase/authHeaders';
 import { projectId } from '../../../../../utils/supabase/info';
 
 import { useBackNavigation } from '../../../components/BackButton';
+import { isTimeWithinHours, parseOperatingHours } from '../../../lib/operatingHours';
 interface SearchResult {
   household_id: string;
   household_name: string;
@@ -57,7 +58,10 @@ export function NewGroomingAppointment() {
   const goBack = useBackNavigation('/grooming/appointments');
   const { user } = useAuth();
   const { selectedLocationId } = useDashboardStore();
-  const { locations } = useSettingsStore();
+  const { locations, organisation } = useSettingsStore();
+  // Server-enforced window (Settings -> Organisation); hinted here so the
+  // picker guides staff before the server rejects an out-of-hours time.
+  const orgHours = parseOperatingHours(organisation.defaultOperatingHours);
   const { createAppointment, fetchGroomers, groomers } = useGroomingStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -202,6 +206,10 @@ export function NewGroomingAppointment() {
     }
     if (!appointmentTime) {
       toast.error('Please select a time');
+      return;
+    }
+    if (!isTimeWithinHours(appointmentTime, orgHours)) {
+      toast.error(`Appointment time must be within operating hours (${orgHours!.label})`);
       return;
     }
     if (!selectedLocationForAppt) {
@@ -433,9 +441,16 @@ export function NewGroomingAppointment() {
                   id="appointment-time"
                   type="time"
                   value={appointmentTime}
+                  min={orgHours?.startLabel}
+                  max={orgHours?.endLabel}
                   onChange={(e) => setAppointmentTime(e.target.value)}
                   className="mt-1"
                 />
+                {orgHours && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Operating hours: {orgHours.label}
+                  </p>
+                )}
               </div>
             </div>
 

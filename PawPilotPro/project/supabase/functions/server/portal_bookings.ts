@@ -14,6 +14,11 @@ import { bookingReceivedEmail } from "./lib/email_templates/booking_received.ts"
 import { bookingConfirmedEmail } from "./lib/email_templates/booking_confirmed.ts";
 import { bookingDeclinedEmail } from "./lib/email_templates/booking_declined.ts";
 import { storedPetPhoto } from "./lib/pet_photos.ts";
+import {
+  checkIsoWindowWithinHours,
+  operatingHoursFromOrg,
+  orgTimezone,
+} from "./lib/operating_hours.ts";
 import { isNonBillablePet } from "./lib/billing_exempt.ts";
 import { nightlyRateFor, recordOvernightEvent } from "./lib/overnights_shared.ts";
 import { getPlanById } from "./lib/membership_catalog.ts";
@@ -266,6 +271,18 @@ bookings.post("/portal/bookings", async (c) => {
       }
     }
 
+    // Day-service lines must honour operating hours (mirrors the single path).
+    const bundleOrg = await kv.get("settings:org");
+    const bundleHours = operatingHoursFromOrg(bundleOrg);
+    if (bundleHours) {
+      const tz = orgTimezone(bundleOrg);
+      for (const line of data.bundle) {
+        if (line.service !== "daycare" && line.service !== "grooming") continue;
+        const hoursCheck = checkIsoWindowWithinHours(line, bundleHours, tz);
+        if (!hoursCheck.ok) return c.json({ error: hoursCheck.error }, 400);
+      }
+    }
+
     // Same-day conflict check across the bundle. A bundle whose lines all
     // sit on the same day is fine — the bundle IS the request. But if one
     // of the bundle lines collides with a SEPARATE existing booking for
@@ -396,6 +413,18 @@ bookings.post("/portal/bookings", async (c) => {
   }
   if (new Date(data.startAt).getTime() < Date.now()) {
     return c.json({ error: "startAt must be in the future" }, 400);
+  }
+
+  // Day services must honour the organisation's operating hours (Settings →
+  // Organisation), interpreted in the org's timezone. Overnights and
+  // transport are excluded — they span nights / have their own pickup logic.
+  if (data.service === "daycare" || data.service === "grooming") {
+    const org = await kv.get("settings:org");
+    const hours = operatingHoursFromOrg(org);
+    if (hours) {
+      const hoursCheck = checkIsoWindowWithinHours(data, hours, orgTimezone(org));
+      if (!hoursCheck.ok) return c.json({ error: hoursCheck.error }, 400);
+    }
   }
 
   // Same-day conflict check — see findSameDayConflict above.

@@ -10,6 +10,7 @@ import { internalError } from './_shared/log.ts';
 import { flagCheckInIssues } from './lib/flag_gate.ts';
 import { isNonBillablePet } from './lib/billing_exempt.ts';
 import { petPhotoPathFromStored, signPetPhotoUrl, withSignedPetPhotos } from './lib/pet_photos.ts';
+import { checkTimeWithinHours, operatingHoursFromOrg } from './lib/operating_hours.ts';
 
 const app = new Hono();
 
@@ -183,6 +184,16 @@ app.post('/appointments', async (c) => {
     
     const serviceDefaults = SERVICE_DEFAULTS[body.service_type] || SERVICE_DEFAULTS.custom;
 
+    // Appointment times must honour the organisation's operating hours
+    // (Settings → Organisation). Skipped when no parseable hours are set.
+    const orgHours = operatingHoursFromOrg(await kv.get('settings:org'));
+    if (orgHours) {
+      const hoursCheck = checkTimeWithinHours(body.appointment_time, orgHours, 'appointment time');
+      if (!hoursCheck.ok) {
+        return c.json({ error: hoursCheck.error }, 400);
+      }
+    }
+
     // House dogs (pet.non_billable) get zero-priced appointments — the slot
     // and record exist as normal, no charge can derive from them.
     const groomPet = body.household_id && body.pet_id
@@ -251,6 +262,17 @@ app.patch('/appointments/:id', async (c) => {
       return c.json({ error: 'Appointment not found' }, 404);
     }
     
+    // Rescheduling honours operating hours too (same rule as creation).
+    if ('appointment_time' in body) {
+      const orgHours = operatingHoursFromOrg(await kv.get('settings:org'));
+      if (orgHours) {
+        const hoursCheck = checkTimeWithinHours(body.appointment_time, orgHours, 'appointment time');
+        if (!hoursCheck.ok) {
+          return c.json({ error: hoursCheck.error }, 400);
+        }
+      }
+    }
+
     const updated = {
       ...existing,
       ...body,

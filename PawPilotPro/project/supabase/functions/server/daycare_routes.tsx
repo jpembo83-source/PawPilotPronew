@@ -26,6 +26,7 @@ import {
   countBehaviourMedicalAlerts,
   groupFlagsByHousehold,
 } from './lib/dashboard_alerts.ts';
+import { checkWindowWithinHours, operatingHoursFromOrg } from './lib/operating_hours.ts';
 
 const app = new Hono();
 
@@ -964,6 +965,21 @@ export async function createBookingCore(
   // Validation
   if (!household_id || !pet_id || !location_id || !service_id || !booking_date) {
     return { ok: false, status: 400, error: 'Missing required fields' };
+  }
+
+  // Booking times must honour the organisation's operating hours
+  // (Settings → Organisation → Default Operating Hours). Applies to every
+  // creation path through this core — staff dialog, multi-day ranges, and
+  // standing-schedule generation. Skipped when no parseable hours are set.
+  const orgHours = operatingHoursFromOrg(await kv.get('settings:org'));
+  if (orgHours) {
+    const hoursCheck = checkWindowWithinHours(
+      { start: input.planned_start_time, end: input.planned_end_time },
+      orgHours,
+    );
+    if (!hoursCheck.ok) {
+      return { ok: false, status: 400, error: hoursCheck.error };
+    }
   }
 
   // Validate and fetch pet from customer database
