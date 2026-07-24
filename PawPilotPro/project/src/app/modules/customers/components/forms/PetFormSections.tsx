@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '../../../../components/ui/select';
 import type { Pet, PetSex } from '../../types';
+import { BreedCombobox } from './BreedCombobox';
 
 export interface PetFormData {
   name: string;
@@ -136,11 +137,10 @@ export function PetEssentialFields({ formData, onChange }: PetSectionProps) {
 
         <div className="space-y-2">
           <Label htmlFor="breed">Breed</Label>
-          <Input
+          <BreedCombobox
             id="breed"
             value={formData.breed}
-            onChange={(e) => onChange('breed', e.target.value)}
-            placeholder="e.g., Labrador Retriever"
+            onChange={(value) => onChange('breed', value)}
           />
         </div>
       </div>
