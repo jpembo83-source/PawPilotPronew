@@ -21,6 +21,8 @@ import { Transportation } from './modules/transport/Transportation';
 import { UserManagement } from './modules/settings/pages/UserManagement';
 import { ServicesPricingPage } from './modules/services-pricing/pages/ServicesPricingPage';
 import { ThemeManager } from './components/ThemeManager';
+import { AccountBootstrap } from './components/account/AccountBootstrap';
+import { MyAccountDialog } from './components/account/MyAccountDialog';
 import { Toaster } from 'sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { Overnights } from './modules/overnights/pages/Overnights';
@@ -87,6 +89,10 @@ export default function App() {
         <AuthProvider>
           <ViewAsProvider>
             <ThemeManager />
+            {/* My Account: loads own profile/prefs on login and hosts the
+                dialog the sidebar/mobile profile blocks open. */}
+            <AccountBootstrap />
+            <MyAccountDialog />
             <Routes>
               {/* Redirect /app/* to remove the /app prefix */}
               <Route path="/app/*" element={<AppPrefixRedirect />} />

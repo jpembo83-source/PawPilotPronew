@@ -8,6 +8,8 @@ import * as kv from './kv_store.tsx';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { requireAuth, AuthenticatedUser } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
+import { TENANT_ASSETS_BUCKET } from './lib/location_header.ts';
+import { AVATAR_SIGNED_URL_TTL_SECONDS } from './lib/my_account.ts';
 
 const app = new Hono();
 
@@ -29,6 +31,40 @@ app.use('*', requireAuth);
 
 function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// --- Staff avatars (uploaded via account_routes.ts, My Account) ---
+// PRIVATE tenant-assets bucket: records store the object path
+// (`avatar_path` on user:{tenant}:profile:*), reads mint short-lived
+// signed URLs — same pattern as lib/pet_photos.ts / location headers.
+const getStorageAdmin = () =>
+  createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  );
+
+async function signStaffAvatarUrl(path: unknown): Promise<string | null> {
+  if (typeof path !== 'string' || !path.trim()) return null;
+  const { data } = await getStorageAdmin().storage
+    .from(TENANT_ASSETS_BUCKET)
+    .createSignedUrl(path.trim(), AVATAR_SIGNED_URL_TTL_SECONDS);
+  return data?.signedUrl ?? null;
+}
+
+/** Batch signer for the directory list — one storage round-trip. */
+async function signStaffAvatarUrls(paths: unknown[]): Promise<Map<string, string>> {
+  const unique = [...new Set(
+    paths.filter((p): p is string => typeof p === 'string' && p.trim() !== ''),
+  )];
+  const out = new Map<string, string>();
+  if (unique.length === 0) return out;
+  const { data } = await getStorageAdmin().storage
+    .from(TENANT_ASSETS_BUCKET)
+    .createSignedUrls(unique, AVATAR_SIGNED_URL_TTL_SECONDS);
+  for (const row of data ?? []) {
+    if (row.path && row.signedUrl) out.set(row.path, row.signedUrl);
+  }
+  return out;
 }
 
 // Staff-type roles (exclude platform_admin and customer roles)
@@ -137,6 +173,9 @@ app.get('/', async (c) => {
       staff = staff.filter((s: any) => s.isActive === isActiveFilter);
     }
     
+    // Avatar photos (My Account) — one batch of signed URLs for the list.
+    const avatarUrls = await signStaffAvatarUrls(staff.map((s: any) => s.avatar_path));
+
     // Calculate compliance stats for each staff member
     const enriched = await Promise.all(staff.map(async (member: any) => {
       // Get assigned policies
@@ -179,6 +218,7 @@ app.get('/', async (c) => {
         last_name: member.name?.split(' ').slice(1).join(' ') || '',
         email: member.email,
         phone: member.phone || '',
+        avatar_url: member.avatar_path ? avatarUrls.get(member.avatar_path) ?? null : null,
         role_key: member.role,
         location_ids: member.locationIds || [],
         status: member.isActive ? 'active' : 'inactive',
@@ -865,6 +905,7 @@ app.get('/:id', async (c) => {
       last_name: profile.name?.split(' ').slice(1).join(' ') || '',
       email: profile.email,
       phone: profile.phone || '',
+      avatar_url: await signStaffAvatarUrl(profile.avatar_path),
       role_key: profile.role,
       location_ids: profile.locationIds || [],
       status: profile.isActive ? 'active' : 'inactive',

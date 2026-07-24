@@ -11,6 +11,7 @@ import {
 import { MagnifyingGlass } from '@phosphor-icons/react';
 // Default logo imported as defaultLogo above
 import { useAuth } from '../../context/AuthContext';
+import { useAccountStore } from '../../stores/accountStore';
 import { useDashboardStore } from '../../modules/dashboard/store';
 import { useSettingsStore } from '../../modules/settings/store';
 import { useBetaFeatures } from '../../hooks/useBetaFeatures';
@@ -39,6 +40,8 @@ interface SidebarProps {
 
 export function Sidebar({ onOpenSearch }: SidebarProps) {
   const { user, logout } = useAuth();
+  const openAccount = useAccountStore((s) => s.openAccount);
+  const avatarUrl = useAccountStore((s) => s.avatarUrl);
   const location = useLocation();
   const { selectedLocationId, setLocation, sidebarCollapsed, toggleSidebar } = useDashboardStore();
   const { locations, globalEnabledModules, organisation } = useSettingsStore();
@@ -285,37 +288,55 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         </div>
       </nav>
 
-      {/* User / Sign Out Section */}
+      {/* My Account — the whole profile block opens the account hub; the
+          small sign-out button stays as a quick logout affordance. */}
       <div className={classNames(
         "border-t border-[#E2DED8] transition-all duration-300",
         isCollapsed ? "p-2" : "px-2 py-2"
       )}>
         {!isCollapsed ? (
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[#F5F3F0] transition-colors cursor-default">
-            <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
-              {user?.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="overflow-hidden flex-1">
-              <p className="text-[13px] font-medium truncate text-[#1C1916] leading-tight">{user?.name}</p>
-              <p className="text-[11px] text-tertiary-foreground capitalize leading-tight">{user?.role?.replace('_', ' ')}</p>
-            </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={openAccount}
+              aria-label="Open My Account"
+              title="My Account"
+              className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-[#F5F3F0] transition-colors flex-1 min-w-0 text-left"
+            >
+              <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0 overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  user?.name.charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="overflow-hidden flex-1">
+                <p className="text-[13px] font-medium truncate text-[#1C1916] leading-tight">{user?.name}</p>
+                <p className="text-[11px] text-tertiary-foreground capitalize leading-tight">{user?.role?.replace('_', ' ')}</p>
+              </div>
+            </button>
             <button
               onClick={logout}
               title="Sign Out"
               aria-label="Sign out"
-              className="text-[#A09893] hover:text-[#C03030] transition-colors rounded p-1 hover:bg-[#FEF2F2] ml-auto"
+              className="text-[#A09893] hover:text-[#C03030] transition-colors rounded p-1 hover:bg-[#FEF2F2] flex-shrink-0"
             >
               <SignOut className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
             </button>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
-            <div
-              className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold"
-              title={user?.name}
+            <button
+              onClick={openAccount}
+              title={`My Account — ${user?.name ?? ''}`}
+              aria-label="Open My Account"
+              className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold overflow-hidden"
             >
-              {user?.name.charAt(0).toUpperCase()}
-            </div>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                user?.name.charAt(0).toUpperCase()
+              )}
+            </button>
             <button
               onClick={logout}
               title="Sign Out"

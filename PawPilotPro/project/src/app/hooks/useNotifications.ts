@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getAuthHeaders } from '../../utils/supabase/authHeaders';
 import { projectId } from '../../../utils/supabase/info';
+import { useAccountStore } from '../stores/accountStore';
+import { isWithinQuietHours } from '../lib/account';
 
 const FN_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-fc003b23/notifications`;
 
@@ -31,6 +33,11 @@ export function useNotifications() {
   const [items, setItems] = useState<StaffNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  // Quiet hours (My Account → Notifications) mute the BADGE in the user's
+  // local time — the server can't know the timezone. Items stay visible.
+  const quietHours = useAccountStore((s) => s.prefs.notifications.quietHours);
+  const now = new Date();
+  const isQuiet = isWithinQuietHours(quietHours, now.getHours() * 60 + now.getMinutes());
 
   const load = useCallback(async () => {
     try {
@@ -70,5 +77,5 @@ export function useNotifications() {
     };
   }, [load]);
 
-  return { items, unreadCount, isLoading, reload: load, markRead };
+  return { items, unreadCount: isQuiet ? 0 : unreadCount, isLoading, reload: load, markRead };
 }

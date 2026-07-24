@@ -11,6 +11,12 @@ import { Input } from '../../../components/ui/input';
 import { MagnifyingGlass, UserPlus, Warning, CheckCircle, CircleNotch, UsersThree } from '@phosphor-icons/react';
 import type { StaffMember } from '../types';
 
+// avatar_url is minted server-side (signed URL from the private
+// tenant-assets bucket) by the staff directory route.
+interface StaffProfileWithAvatar {
+  avatar_url?: string | null;
+}
+
 export function TeamDirectoryTab() {
   const navigate = useNavigate();
   const { staff, staffFilters, isLoading, fetchStaff, setStaffFilters } = useStaffStore();
@@ -115,11 +121,20 @@ export function TeamDirectoryTab() {
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4 flex-1">
-                    {/* Avatar */}
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-blue-700 font-semibold">
-                        {member.first_name?.[0]}{member.last_name?.[0]}
-                      </span>
+                    {/* Avatar — profile photo (My Account) or initials */}
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden">
+                      {typeof (member as StaffProfileWithAvatar).avatar_url === 'string' &&
+                      (member as StaffProfileWithAvatar).avatar_url ? (
+                        <img
+                          src={(member as StaffProfileWithAvatar).avatar_url as string}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-blue-700 font-semibold">
+                          {member.first_name?.[0]}{member.last_name?.[0]}
+                        </span>
+                      )}
                     </div>
                     
                     {/* Details */}

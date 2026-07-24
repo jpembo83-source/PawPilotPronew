@@ -67,3 +67,47 @@ export async function prepareImageForUpload(file: File): Promise<File> {
     bitmap.close();
   }
 }
+
+// Profile avatars render as small circles, so the crop is a centred square
+// (the face-safe default) downscaled to AVATAR_SIZE. Unlike gallery photos,
+// a failed re-encode REJECTS instead of passing the original through — the
+// avatar slot should only ever hold a small square JPEG.
+export const AVATAR_SIZE = 512;
+
+export async function prepareAvatarForUpload(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file');
+  }
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    try {
+      bitmap = await createImageBitmap(file);
+    } catch {
+      throw new Error('That image could not be read — try a JPEG or PNG');
+    }
+  }
+
+  try {
+    const side = Math.min(bitmap.width, bitmap.height);
+    const sx = Math.round((bitmap.width - side) / 2);
+    const sy = Math.round((bitmap.height - side) / 2);
+    const size = Math.min(AVATAR_SIZE, side);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('That image could not be processed');
+    ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, size, size);
+
+    const blob = await canvasToJpeg(canvas);
+    if (!blob || blob.size === 0) throw new Error('That image could not be processed');
+
+    const jpegName = file.name.replace(/\.[a-z0-9]+$/i, '') + '.jpg';
+    return new File([blob], jpegName, { type: 'image/jpeg' });
+  } finally {
+    bitmap.close();
+  }
+}

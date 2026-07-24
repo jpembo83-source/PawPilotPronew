@@ -15,6 +15,11 @@ import { Hono } from 'npm:hono';
 import * as kv from './kv_store.tsx';
 import { requireAuth } from './_shared/auth.ts';
 import { internalError } from './_shared/log.ts';
+import {
+  filterStaffNotifications,
+  normalizeStaffNotificationPrefs,
+  userPrefsKey,
+} from './lib/my_account.ts';
 
 const app = new Hono();
 app.use('*', requireAuth);
@@ -57,13 +62,21 @@ app.get('/', async (c) => {
     const user = c.get('user');
     const tenantId = user.tenantId;
 
-    const [bookings, vaxQueue, incidents, threads, seen] = await Promise.all([
+    const [bookings, vaxQueue, incidents, threads, seen, prefsRec] = await Promise.all([
       kv.getByPrefix(`portal_booking:${tenantId}:`),
       kv.getByPrefix(`vax_review_queue:${tenantId}:`),
       kv.getByPrefix('incident:main:'),
       kv.getByPrefix('message_thread:'),
       kv.get(seenKey(tenantId, user.id)),
+      kv.get(userPrefsKey(tenantId, user.id)),
     ]);
+
+    // Staff-side notification prefs (My Account → Notifications). Mirrors
+    // how lib/notify.ts respects portal notificationPrefs before emailing:
+    // this feed consults the user's own prefs before surfacing alert types.
+    const prefs = normalizeStaffNotificationPrefs(
+      (prefsRec as Rec | undefined)?.notifications,
+    );
 
     const items: StaffNotification[] = [];
 
@@ -132,10 +145,14 @@ app.get('/', async (c) => {
       });
     }
 
-    items.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-    const capped = items.slice(0, MAX_ITEMS);
+    const enabled = filterStaffNotifications(items, prefs);
+    enabled.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    const capped = enabled.slice(0, MAX_ITEMS);
 
     const lastSeenAt = isRecord(seen) ? str(seen.last_seen_at) : null;
+    // Quiet hours are NOT applied here: the window is defined in the user's
+    // local time, which only the client knows. The bell mutes its badge
+    // client-side (useNotifications + lib/account.ts isWithinQuietHours).
     const unreadCount = lastSeenAt
       ? capped.filter((i) => i.created_at > lastSeenAt).length
       : capped.length;
@@ -144,7 +161,7 @@ app.get('/', async (c) => {
       items: capped,
       unread_count: unreadCount,
       last_seen_at: lastSeenAt,
-      total: items.length,
+      total: enabled.length,
     });
   } catch (e) {
     return internalError(c, 'notifications.list', e);

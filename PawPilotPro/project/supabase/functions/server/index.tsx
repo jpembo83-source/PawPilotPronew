@@ -36,6 +36,7 @@ import portalRoutes from "./portal_routes.tsx";
 import portalInvites from "./portal_invites.ts";
 import portalBookings from "./portal_bookings.ts";
 import notificationsRoutes from "./notifications_routes.ts";
+import accountRoutes from "./account_routes.ts";
 import { requireAuth, requirePermission, logAudit, UserContext } from "./settings_rbac.ts";
 import { internalError } from "./_shared/log.ts";
 
@@ -530,6 +531,9 @@ app.route("/make-server-fc003b23/data-compliance", dataComplianceRoutes);
 app.route("/make-server-fc003b23/integrations", integrationsSettingsRoutes);
 app.route("/make-server-fc003b23/system", systemRoutes);
 app.route("/make-server-fc003b23/notifications", notificationsRoutes);
+// My Account — self-service hub; every route operates on the signed-in
+// user's OWN account only (see account_routes.ts).
+app.route("/make-server-fc003b23/account", accountRoutes);
 app.route("/make-server-fc003b23/view-as", viewAsRoutes);
 app.route("/make-server-fc003b23/billing", billingRoutes);
 // Customer membership assignments (/customer-packages) — path shape is fixed
